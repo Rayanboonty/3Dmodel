@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Imane Chakal Photography — Equestrian Specialist, Casablanca</title>
+  <meta name="description"
+    content="Imane Chakal Photography captures the raw power and priceless grace of the equestrian world through the lens of natural light. Based in Casablanca." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Inter:wght@200;300;400;500;600&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- 3D Model Viewer -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+</head>
+
+<body>
+
+  <!-- ══════════ CUSTOM CURSOR ══════════ -->
+  <div id="cursor" aria-hidden="true">
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+  </div>
+
+  <!-- ══════════ PRELOADER ══════════ -->
+  <div id="preloader">
+    <div class="pre-content">
+      <img src="imgs/new_logo.png" alt="IC" class="pre-logo-img" />
+      <div class="pre-ic">IC</div>
+      <div class="pre-subtitle">IMANE CHAKAL PHOTOGRAPHY</div>
+      <div class="pre-bar-wrap">
+        <div class="pre-bar" id="preBar"></div>
+      </div>
+      <div class="pre-pct" id="prePct">0%</div>
+    </div>
+  </div>
+
+  <!-- ══════════ SITE ══════════ -->
+  <div id="site" class="hidden">
+
+    <!-- ── TOP NAV ── -->
+    <nav id="topNav">
+      <div class="nav-logo magnetic" data-href="#hero">
+        <span class="nav-ic" style="color:var(--accent)">IC</span>
+      </div>
+
+      <ul class="nav-links">
+        <li><a href="#hero" class="nav-link">Home</a></li>
+        <li><a href="#about" class="nav-link">About</a></li>
+        <li><a href="#specs" class="nav-link">Gear</a></li>
+        <li><a href="#reviews" class="nav-link">Journal</a></li>
+        <li><a href="#booking" class="nav-link">Contact</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener"
+          class="nav-ig-btn magnetic" id="navIgBtn" aria-label="Instagram">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="2" width="20" height="20" rx="6" />
+            <circle cx="12" cy="12" r="4.5" />
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+          </svg>
+          <span>Follow</span>
+        </a>
+        <button id="settingsBtn" class="nav-settings-btn magnetic" aria-label="Open settings">
+          <span class="settings-icon">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ══════════════════════════════════
+         SETTINGS PANEL
+    ══════════════════════════════════ -->
+    <aside id="settingsPanel" aria-label="Settings">
+      <div class="sp-backdrop" id="spBackdrop"></div>
+      <div class="sp-drawer">
+        <div class="sp-header">
+          <span class="sp-title">Preferences</span>
+          <button class="sp-close" id="spClose" aria-label="Close settings">✕</button>
+        </div>
+
+        <!-- Theme -->
+        <div class="sp-section">
+          <div class="sp-section-label">APPEARANCE</div>
+          <div class="sp-row">
+            <span>Dark Mode</span>
+            <label class="toggle" id="darkToggle">
+              <input type="checkbox" id="darkCheck" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <div class="sp-row">
+            <span>Grain Overlay</span>
+            <label class="toggle">
+              <input type="checkbox" id="grainCheck" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <div class="sp-row">
+            <span>Smooth Scroll</span>
+            <label class="toggle">
+              <input type="checkbox" id="smoothCheck" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Accent Color -->
+        <div class="sp-section">
+          <div class="sp-section-label">ACCENT COLOR</div>
+          <div class="sp-color-row">
+            <button class="sp-color active" data-color="#C4A882" data-rgb="196,168,130" style="background:#C4A882"
+              aria-label="Warm gold (default)"></button>
+            <button class="sp-color" data-color="#D4B896" data-rgb="212,184,150" style="background:#D4B896"
+              aria-label="Parchment"></button>
+            <button class="sp-color" data-color="#8B6F47" data-rgb="139,111,71" style="background:#8B6F47"
+              aria-label="Saddle brown"></button>
+            <button class="sp-color" data-color="#A89070" data-rgb="168,144,112" style="background:#A89070"
+              aria-label="Hazel"></button>
+            <button class="sp-color" data-color="#E8D5B7" data-rgb="232,213,183" style="background:#E8D5B7"
+              aria-label="Cream"></button>
+            <button class="sp-color" data-color="#6B8F71" data-rgb="107,143,113" style="background:#6B8F71"
+              aria-label="Sage"></button>
+          </div>
+        </div>
+
+        <!-- Instagram -->
+        <div class="sp-section">
+          <div class="sp-section-label">CONNECT</div>
+          <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener" class="sp-ig-card"
+            id="spIgCard">
+            <div class="sp-ig-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <rect x="2" y="2" width="20" height="20" rx="6" />
+                <circle cx="12" cy="12" r="4.5" />
+                <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+              </svg>
+            </div>
+            <div class="sp-ig-info">
+              <span class="sp-ig-handle">@imanechakal_photography</span>
+              <span class="sp-ig-sub">Open Instagram Profile →</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Upload Photos -->
+        <div class="sp-section">
+          <div class="sp-section-label">UPLOAD YOUR PHOTOS</div>
+          <p class="sp-upload-hint">Share your equestrian moments for potential feature</p>
+          <div class="sp-upload-zone" id="spUploadZone">
+            <input type="file" accept="image/*" multiple id="spFileInput" class="sp-file-input" />
+            <div class="sp-upload-inner">
+              <div class="sp-upload-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </div>
+              <span class="sp-upload-label">Drop photos here</span>
+              <span class="sp-upload-sub">or click to browse — JPG, PNG, WEBP</span>
+            </div>
+          </div>
+          <div class="sp-upload-grid" id="spUploadGrid"></div>
+        </div>
+
+        <!-- More Settings -->
+        <div class="sp-section">
+          <div class="sp-section-label">ANIMATION SPEED</div>
+          <div class="sp-slider-row">
+            <label for="scrollSpeedSlider">Scroll Resistance</label>
+            <input type="range" id="scrollSpeedSlider" min="1" max="10" value="5" class="sp-slider" />
+          </div>
+          <div class="sp-slider-row" style="margin-top:1rem">
+            <label for="parallaxSlider">Parallax Intensity</label>
+            <input type="range" id="parallaxSlider" min="1" max="10" value="6" class="sp-slider" />
+          </div>
+          <div class="sp-slider-row" style="margin-top:1rem">
+            <label for="animSpeedSlider">Animation Speed</label>
+            <input type="range" id="animSpeedSlider" min="1" max="10" value="5" class="sp-slider" />
+          </div>
+        </div>
+
+        <!-- Cursor & Display -->
+        <div class="sp-section">
+          <div class="sp-section-label">DISPLAY</div>
+          <div class="sp-row">
+            <span>Custom Cursor</span>
+            <label class="toggle">
+              <input type="checkbox" id="cursorCheck" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <div class="sp-row">
+            <span>Blur Effects</span>
+            <label class="toggle">
+              <input type="checkbox" id="blurCheck" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <div class="sp-row">
+            <span>Float Cards</span>
+            <label class="toggle">
+              <input type="checkbox" id="floatCheck" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <div class="sp-row">
+            <span>Canvas Zoom</span>
+            <label class="toggle">
+              <input type="checkbox" id="zoomCheck" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="sp-footer">
+          <span>© 2026 Imane Chakal Photography</span>
+          <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener">Casablanca, MA</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ══════════════════════════════════
+         HERO
+    ══════════════════════════════════ -->
+    <section id="hero">
+      <canvas id="scrollCanvas"></canvas>
+      <div class="grain" id="grainEl"></div>
+
+      <!-- Gradient masks -->
+      <div class="hero-mask-left"></div>
+      <div class="hero-mask-right"></div>
+      <div class="hero-mask-bottom"></div>
+
+      <!-- 3D tilt layer -->
+      <div class="hero-tilt-layer" id="heroTiltLayer">
+
+        <!-- 3D HORSE ANIMATION -->
+        <div class="hero-horse-container" id="horseModelWrap">
+          <model-viewer src="https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/models/gltf/Horse.glb" autoplay
+            camera-controls auto-rotate rotation-per-second="0deg" shadow-intensity="1.5" shadow-softness="1"
+            exposure="1.0" environment-image="neutral" camera-orbit="-25deg 90deg 100%" class="hero-horse-model"
+            disable-zoom>
+          </model-viewer>
+        </div>
+
+        <!-- LEFT -->
+        <div class="hero-left" id="heroLeft">
+          <div class="hero-eyebrow" data-depth="0.3">
+            <span class="eyebrow-line"></span>
+            NATURAL LIGHT SPECIALIST
+          </div>
+
+          <h1 class="hero-title" data-depth="0.6">
+            <span class="title-imane">IMANE</span>
+            <span class="title-chakal">
+              CHAKAL
+              <span class="title-photo">PHOTOGRAPHY</span>
+            </span>
+          </h1>
+
+          <p class="hero-desc" data-depth="0.4" id="heroDesc">
+            Capturing wild freedom and timeless grace — equestrian photography in the natural light of Casablanca &
+            beyond.
+          </p>
+
+          <div class="hero-ctas" data-depth="0.3">
+            <a href="#specs" class="btn btn-glass magnetic" id="btnPortfolio">
+              <span>VIEW PORTFOLIO</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </a>
+            <a href="#booking" class="btn btn-solid magnetic" id="btnBook">
+              <span>BOOK SESSION</span>
+            </a>
+          </div>
+
+          <div class="hero-location" data-depth="0.2">
+            <div class="location-dot"></div>
+            <span>Casablanca, Morocco</span>
+          </div>
+        </div>
+
+        <!-- FLOATING STAT CARDS -->
+        <div class="float-card float-card-1 glass-card" data-depth="0.8" id="floatCard1">
+          <div class="fc-num">340+</div>
+          <div class="fc-lbl">Sessions</div>
+        </div>
+        <div class="float-card float-card-2 glass-card" data-depth="1.0" id="floatCard2">
+          <div class="fc-num">8 YRS</div>
+          <div class="fc-lbl">Experience</div>
+        </div>
+
+      </div><!-- /tilt-layer -->
+
+      <!-- RIGHT NAV STRIP -->
+      <div class="hero-right" id="heroRight">
+        <div class="gallery-index" id="galleryIndex">01</div>
+
+        <div class="gallery-nav">
+          <button class="gnav-btn" id="gnavPrev" aria-label="Previous">
+            <span class="gnav-label">PREV</span>
+            <span class="gnav-arrow">↑</span>
+          </button>
+
+          <div class="gnav-track" id="gnavTrack">
+            <div class="gnav-item active" data-idx="0">Show<br>Jumping</div>
+            <div class="gnav-item" data-idx="1">Tbourida</div>
+            <div class="gnav-item" data-idx="2">Portraits</div>
+          </div>
+
+          <button class="gnav-btn" id="gnavNext" aria-label="Next">
+            <span class="gnav-arrow">↓</span>
+            <span class="gnav-label">NEXT</span>
+          </button>
+        </div>
+
+        <div class="hero-socials">
+          <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener"
+            class="social-icon magnetic" id="socialInsta" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <rect x="2" y="2" width="20" height="20" rx="6" />
+              <circle cx="12" cy="12" r="4.5" />
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+          </a>
+          <a href="https://www.linkedin.com/in/imane-chakal-38861a4b/" class="social-icon magnetic" id="socialLinked"
+            aria-label="LinkedIn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" />
+              <path d="M8 11v5M8 8v.01M12 16v-5M12 13a2 2 0 014 0v3" />
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Scroll hint -->
+      <div class="scroll-hint" id="scrollHint">
+        <span>SCROLL TO EXPLORE</span>
+        <div class="scroll-line">
+          <div class="scroll-line-inner"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scroll spacer drives canvas animation -->
+    <div id="scrollSpacer"></div>
+
+    <!-- ══════════════════════════════════
+         ABOUT
+    ══════════════════════════════════ -->
+    <section id="about" class="parallax-section">
+      <div class="about-inner">
+        <div class="about-left reveal-up">
+          <div class="section-tag">THE VISION</div>
+          <h2 class="section-headline">
+            Light is the<br><em>true brush.</em>
+          </h2>
+          <p class="section-body">
+            Every session is a collaboration between horse, rider, and the golden-hour sun breaking through the stables
+            of Casablanca. Imane Chakal's methodology is built on patience — waiting for the exact millisecond when
+            power and grace align in a single frame.
+          </p>
+          <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener"
+            class="btn btn-glass mt-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <rect x="2" y="2" width="20" height="20" rx="6" />
+              <circle cx="12" cy="12" r="4.5" />
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+            <span>See work on Instagram</span>
+          </a>
+        </div>
+
+        <div class="about-right">
+          <div class="stat-grid reveal-stagger">
+            <div class="stat-card glass-card">
+              <div class="stat-num counter" data-target="8">0</div>
+              <div class="stat-suffix">+</div>
+              <div class="stat-lbl">Years of equestrian immersion</div>
+            </div>
+            <div class="stat-card glass-card">
+              <div class="stat-num counter" data-target="340">0</div>
+              <div class="stat-suffix">+</div>
+              <div class="stat-lbl">Sessions completed</div>
+            </div>
+            <div class="stat-card glass-card">
+              <div class="stat-num counter" data-target="12">0</div>
+              <div class="stat-suffix"> </div>
+              <div class="stat-lbl">Competitions documented</div>
+            </div>
+            <div class="stat-card glass-card">
+              <div class="stat-num counter" data-target="3">0</div>
+              <div class="stat-suffix"> </div>
+              <div class="stat-lbl">Countries published in</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full bleed image strip -->
+      <div class="about-image-strip parallax-img-wrap">
+        <div class="strip-img-wrap">
+          <img src="imgs/photo_1_2026-04-15_13-29-21.jpg" alt="Show Jumping" class="strip-img parallax-img"
+            data-speed="0.3" />
+        </div>
+        <div class="strip-img-wrap">
+          <img src="imgs/photo_3_2026-04-15_13-29-21.jpg" alt="Tbourida" class="strip-img parallax-img"
+            data-speed="0.5" />
+        </div>
+        <div class="strip-img-wrap">
+          <img src="imgs/Coupe du trône 🇲🇦🏆.jpg" alt="Portraits" class="strip-img parallax-img" data-speed="0.4" />
+        </div>
+        <div class="strip-overlay"></div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════
+         INSTAGRAM CTA FLOATING BANNER
+    ══════════════════════════════════ -->
+    <div class="ig-floating-banner reveal-up" id="igBanner">
+      <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener"
+        class="ig-banner-inner">
+        <div class="ig-banner-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="2" width="20" height="20" rx="6" />
+            <circle cx="12" cy="12" r="4.5" />
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
+        <div class="ig-banner-text">
+          <span class="ig-handle">@imanechakal_photography</span>
+          <span class="ig-sub">Follow on Instagram for daily equestrian moments →</span>
+        </div>
+        <div class="ig-banner-arrow">→</div>
+      </a>
+    </div>
+
+    <!-- ══════════════════════════════════
+         TECH SPECS (Nutrition-Label cards)
+    ══════════════════════════════════ -->
+    <section id="specs" class="parallax-section">
+      <div class="section-header reveal-up">
+        <div class="section-tag">THE CRAFT</div>
+        <h2 class="section-headline">Technical<br>Excellence</h2>
+        <p class="section-body" style="max-width:400px;margin:0 auto">Every element of the kit chosen for one purpose —
+          capturing truth. Drag to inspect.</p>
+      </div>
+
+      <!-- 3D CAMERA SHOWCASE -->
+      <div class="model-showcase reveal-up">
+        <model-viewer id="scroll-camera" src="https://cdn.jsdelivr.net/gh/Rayanboonty/3Dmodel@main/ryayane.glb"
+          camera-controls interaction-prompt="none" disable-zoom shadow-intensity="2" exposure="1.2"
+          environment-image="neutral" camera-orbit="0deg 75deg 105%" class="interactive-camera">
+        </model-viewer>
+      </div>
+
+      <div class="model-showcase reveal-up">
+        <model-viewer src="https://cdn.jsdelivr.net/gh/Rayanboonty/3Dmodel@main/ryayane.glb" camera-controls auto-rotate
+          rotation-per-second="30deg" interaction-prompt="hover" disable-zoom shadow-intensity="2" shadow-softness="0.5"
+          exposure="1.3" environment-image="neutral" class="interactive-camera">
+        </model-viewer>
+      </div>
+
+      <div class="specs-grid">
+        <div class="spec-card glass-card reveal-scale" id="specCard1">
+          <div class="spec-ribbon">PRIMARY</div>
+          <div class="spec-label-row">
+            <span class="spec-label">BODY</span>
+            <span class="spec-badge">★ MAIN</span>
+          </div>
+          <div class="spec-divider-thick"></div>
+          <div class="spec-name">Nikon Z6</div>
+          <div class="spec-rows">
+            <div class="spec-row"><span>Resolution</span><span>24.5 MP</span></div>
+            <div class="spec-row"><span>ISO Range</span><span>100 – 51,200</span></div>
+            <div class="spec-row"><span>Burst Speed</span><span>12 fps</span></div>
+            <div class="spec-row"><span>AF Points</span><span>273 Phase</span></div>
+            <div class="spec-row"><span>Sensor</span><span>Full Frame BSI</span></div>
+          </div>
+        </div>
+
+        <div class="spec-card glass-card reveal-scale" id="specCard2">
+          <div class="spec-ribbon">MEDIUM FORMAT</div>
+          <div class="spec-label-row">
+            <span class="spec-label">BODY</span>
+            <span class="spec-badge">★ STUDIO</span>
+          </div>
+          <div class="spec-divider-thick"></div>
+          <div class="spec-name">Phase One XT</div>
+          <div class="spec-rows">
+            <div class="spec-row"><span>Resolution</span><span>151 MP</span></div>
+            <div class="spec-row"><span>ISO Range</span><span>50 – 12,800</span></div>
+            <div class="spec-row"><span>Dynamic Range</span><span>15 Stops</span></div>
+            <div class="spec-row"><span>Color Depth</span><span>16-bit RAW</span></div>
+            <div class="spec-row"><span>Sensor</span><span>53.4 × 40mm</span></div>
+          </div>
+        </div>
+
+        <div class="spec-card glass-card reveal-scale" id="specCard3">
+          <div class="spec-ribbon">GLASS</div>
+          <div class="spec-label-row">
+            <span class="spec-label">PRIME LENSES</span>
+            <span class="spec-badge">★ GLASS</span>
+          </div>
+          <div class="spec-divider-thick"></div>
+          <div class="lens-list">
+            <div class="lens-item">
+              <span class="lens-mm">85mm</span>
+              <span class="lens-desc">f/1.4 Portrait Prime — Bokeh master</span>
+            </div>
+            <div class="lens-item">
+              <span class="lens-mm">400mm</span>
+              <span class="lens-desc">f/2.8 Telephoto — Arena long shots</span>
+            </div>
+            <div class="lens-item">
+              <span class="lens-mm">50mm</span>
+              <span class="lens-desc">f/1.2 Standard — Stable life</span>
+            </div>
+            <div class="lens-item">
+              <span class="lens-mm">200mm</span>
+              <span class="lens-desc">f/2.0 Action freeze telephoto</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec-card glass-card reveal-scale light-card" id="specCard4">
+          <div class="spec-ribbon">SIGNATURE</div>
+          <div class="spec-label-row">
+            <span class="spec-label">LIGHT PHILOSOPHY</span>
+            <span class="spec-badge">★ MAGIC</span>
+          </div>
+          <div class="spec-divider-thick"></div>
+          <div class="spec-name">Natural Light Only</div>
+          <div class="spec-rows">
+            <div class="spec-row"><span>Golden Hour</span><span>06:00 – 08:30</span></div>
+            <div class="spec-row"><span>Blue Hour</span><span>17:30 – 19:00</span></div>
+            <div class="spec-row"><span>Flash</span><span>Never</span></div>
+            <div class="spec-row"><span>Reflectors</span><span>Portable 5-in-1</span></div>
+            <div class="spec-row"><span>Editing</span><span>Capture One Pro</span></div>
+          </div>
+          <blockquote class="spec-quote">"The best light cannot be manufactured."</blockquote>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════
+         REVIEWS
+    ══════════════════════════════════ -->
+    <section id="reviews" class="parallax-section">
+      <div class="section-header reveal-up" style="text-align:center">
+        <div class="section-tag">CLIENT VOICE</div>
+        <h2 class="section-headline">Trusted by<br>Elite Stables</h2>
+      </div>
+
+      <div class="reviews-viewport">
+        <div class="reviews-track" id="reviewsTrack">
+          <div class="review-card" id="rc1">
+            <div class="review-stars">★★★★★</div>
+            <blockquote class="review-quote">"Imane has an extraordinary gift for reading the rhythm of a horse. The
+              images she delivered from our Grand Prix season belong in a gallery, not just an album."</blockquote>
+            <div class="review-author">
+              <div class="review-avatar">YE</div>
+              <div>
+                <div class="review-name">Yasmine El Fassi</div>
+                <div class="review-role">Owner · Écurie El Fassi, Casablanca</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="review-card" id="rc2">
+            <div class="review-stars">★★★★★</div>
+            <blockquote class="review-quote">"We commissioned Imane for our Tbourida national championship
+              documentation. Her work captured not just the spectacle, but the soul. Every shot could run on a
+              magazine
+              cover."</blockquote>
+            <div class="review-author">
+              <div class="review-avatar">KB</div>
+              <div>
+                <div class="review-name">Karim Bensouda</div>
+                <div class="review-role">Director · Royal Moroccan Equestrian Federation</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="review-card" id="rc3">
+            <div class="review-stars">★★★★★</div>
+            <blockquote class="review-quote">"Working with Imane was a masterclass in patience and precision. She
+              waited
+              three hours for the perfect light on our mare's portrait session. The result was extraordinary."
+            </blockquote>
+            <div class="review-author">
+              <div class="review-avatar">SM</div>
+              <div>
+                <div class="review-name">Sofia Marchand</div>
+                <div class="review-role">Amateur Rider · Show Jumping Circuit</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="review-card" id="rc4">
+            <div class="review-stars">★★★★★</div>
+            <blockquote class="review-quote">"None of the photographers we tried understood horses the way Imane does.
+              She anticipates the leap before it happens. Absolutely irreplaceable."</blockquote>
+            <div class="review-author">
+              <div class="review-avatar">AT</div>
+              <div>
+                <div class="review-name">Ahmed Tazi</div>
+                <div class="review-role">Head Trainer · Atlas Stables, Marrakech</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reviews-controls">
+        <button class="rc-arrow" id="rcPrev" aria-label="Previous">←</button>
+        <div class="rc-dots" id="rcDots">
+          <div class="rc-dot active" data-r="0"></div>
+          <div class="rc-dot" data-r="1"></div>
+          <div class="rc-dot" data-r="2"></div>
+          <div class="rc-dot" data-r="3"></div>
+        </div>
+        <button class="rc-arrow" id="rcNext" aria-label="Next">→</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════
+         BOOKING CTA
+    ══════════════════════════════════ -->
+    <section id="booking" class="parallax-section">
+      <div class="booking-parallax-bg">
+        <img src="imgs/texture.png" alt="" class="bp-img parallax-img" data-speed="0.35" />
+        <div class="bp-overlay"></div>
+      </div>
+
+      <div class="booking-inner">
+        <div class="booking-left reveal-up">
+          <div class="section-tag">BEGIN YOUR STORY</div>
+          <h2 class="booking-headline">
+            Freeze the<br><em>Moment.</em>
+          </h2>
+          <p class="booking-sub">One session. A lifetime of frames that move you.</p>
+          <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener"
+            class="booking-ig-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <rect x="2" y="2" width="20" height="20" rx="6" />
+              <circle cx="12" cy="12" r="4.5" />
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+            DM on Instagram
+          </a>
+        </div>
+
+        <div class="booking-right reveal-up" style="transition-delay:0.15s">
+          <form class="booking-form" id="bookingForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="fName">FULL NAME</label>
+                <input type="text" id="fName" name="name" placeholder="Your name" required />
+              </div>
+              <div class="form-group">
+                <label for="fEmail">EMAIL</label>
+                <input type="email" id="fEmail" name="email" placeholder="your@email.com" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="fCat">SESSION TYPE</label>
+                <select id="fCat" name="category">
+                  <option value="">Select…</option>
+                  <option>Show Jumping</option>
+                  <option>Tbourida</option>
+                  <option>Equestrian Portrait</option>
+                  <option>Stable Life</option>
+                  <option>Competition Coverage</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="fDate">DATE</label>
+                <input type="date" id="fDate" name="date" />
+              </div>
+            </div>
+            <div class="form-group full">
+              <label for="fMsg">YOUR VISION</label>
+              <textarea id="fMsg" name="message" rows="4"
+                placeholder="Tell me about your horse, your stable, and what you'd like to capture…"></textarea>
+            </div>
+            <button type="submit" class="btn btn-solid btn-full magnetic" id="submitBtn">
+              SEND REQUEST →
+            </button>
+          </form>
+
+          <div class="form-success hidden" id="formSuccess">
+            <div class="success-icon">✓</div>
+            <p>Message received. Imane will respond within 24 hours.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ FOOTER ══════════ -->
+    <footer id="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <div class="footer-ic">IC</div>
+          <p>Natural Light Equestrian Photography</p>
+          <p class="footer-city">Casablanca, Morocco · 2026</p>
+        </div>
+        <div class="footer-cols">
+          <div class="footer-col">
+            <div class="footer-col-title">NAVIGATE</div>
+            <a href="#hero">Home</a>
+            <a href="#about">About</a>
+            <a href="#specs">Gear</a>
+            <a href="#reviews">Journal</a>
+            <a href="#booking">Contact</a>
+          </div>
+          <div class="footer-col">
+            <div class="footer-col-title">CONNECT</div>
+            <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener">Instagram</a>
+            <a href="#booking">Book a Session</a>
+            <a href="#" onclick="document.getElementById('settingsBtn').click();return false">Preferences</a>
+          </div>
+        </div>
+        <div class="footer-ig-big">
+          <a href="https://www.instagram.com/imanechakal_photography/" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round">
+              <rect x="2" y="2" width="20" height="20" rx="6" />
+              <circle cx="12" cy="12" r="4.5" />
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-copy">© 2026 Imane Chakal Photography. All images and content are the property of Imane
+        Chakal.
+      </div>
+    </footer>
+
+  </div><!-- /site -->
+
+  <script src="main.js"></script>
+</body>
+
+</html>
