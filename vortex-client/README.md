@@ -96,17 +96,23 @@ On Unix the file is only readable by your user.
 
 ## Tested
 
-These versions were installed and launched for real on Linux under Xvfb, and each one
-reached game start-up:
+These versions were installed from Mojang's servers and launched for real on a headless
+Linux box (Xvfb with software OpenGL, no GPU or sound card). Each run used an offline
+account and was stopped after 2 minutes:
 
-| Version | Notes |
+| Version | Result |
 |---|---|
-| 26.3 | Downloads Java 25. The game starts, but Xvfb's software GLX can't create the window for the new renderer. This is a limit of the headless test setup |
-| 1.21.4 + Fabric | Java 21 and Fabric Loader 0.20.1. Reaches resource loading |
-| 1.16.5 | LWJGL 3 with extracted natives |
-| 1.12.2, 1.8.9, 1.7.10 | LWJGL 2 with Log4Shell-patched XML logging. 1.7.10 reached the title screen when launched from the GUI |
-| 1.6.4 | "virtual" legacy assets |
-| b1.7.3, a1.0.4, rd-132211 | launchwrapper and pre-1.6 resources |
+| 1.7.10 | Launched from the **GUI's PLAY button** and reached the title screen. STOP worked |
+| 1.8.9, 1.12.2 | Reached the title screen (LWJGL 2, Java 8, XML log parsing) |
+| 1.16.5 | Loaded textures (LWJGL 3 with extracted natives) |
+| 1.21.4 + Fabric | Java 21 and Fabric Loader 0.20.1. Loaded textures |
+| 1.6.4 | Ran with "virtual" legacy assets |
+| b1.7.3, a1.0.4 | Ran through launchwrapper with the pre-1.6 `resources/` folder |
+| rd-132211 | Ran at about 80 fps |
+| 26.3, 26.4-snapshot-6 | Java 25 was downloaded and the game started, but it stopped at window creation. 26.x uses a new SDL3 + Vulkan/OpenGL renderer that needs a real GPU, and the test box has none. **Not yet confirmed to reach the title screen**, so please check this on Windows |
+
+The only errors in these runs came from the test box itself: no audio device, no
+`/dev/input`, and offline accounts being rejected by Realms.
 
 Run the unit tests with `cargo test --workspace`.
 
