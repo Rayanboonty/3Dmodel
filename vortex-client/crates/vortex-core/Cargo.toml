@@ -1,0 +1,25 @@
+[package]
+name = "vortex-core"
+description = "Install and launch any Minecraft: Java Edition version"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "json", "form", "http2", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+futures = "0.3"
+sha1 = "0.10"
+md-5 = "0.10"
+hex = "0.4"
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+regex = "1"
+dirs = "6"
+
+[dev-dependencies]
+tempfile = "3"
