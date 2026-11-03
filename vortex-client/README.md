@@ -1,132 +1,144 @@
 # Vortex Client
 
-A Minecraft: Java Edition launcher written in Rust. It runs **every version Mojang has
-ever published**: releases, snapshots, betas and alphas, from `rd-132211` (2009) up to
-the newest snapshot. It also supports the **Fabric** mod loader. Windows is the main
-target, and Linux and macOS work too.
+A Minecraft: Java Edition launcher written in Rust, with a pixel-art
+**"Blockworks × Dawn"** interface. It installs and runs **every version Mojang has
+published** (releases, snapshots, betas and alphas, from `rd-132211` in 2009 to the
+latest snapshot) plus **Fabric** and **Forge**. Windows is the main target, and Linux and
+macOS work too.
 
-> The UI in `crates/vortex-app` is a **test UI**. It's plain and functional so the engine
-> can be exercised. All of the logic lives in `vortex-core`, so the UI can be replaced
-> without touching anything else.
+## The app
 
-## What it does
+- **Living pixel sky.** A pixel sunrise is the default. You can also follow your clock
+  (dawn → day → dusk → night) or lock any phase. It has a sun and moon on an arc,
+  drifting clouds, three parallax hill layers with pine trees, birds, cherry petals,
+  fireflies and shooting stars.
+- **Chunky pixel UI.** Notched pixel borders, 3D buttons that press down, an XP-bar
+  progress meter, pixel switches and sliders, and staggered page transitions. Panels
+  change colour with the sky.
+- **Feedback.** Synthesised 8-bit click and launch sounds (no audio files), pixel
+  particle bursts on buttons, block confetti on success, toasts and a dirt-block boot
+  screen that wipes away into the sunrise.
+- **Pages.**
 
-| Feature | Details |
+  | Page | What it does |
+  |---|---|
+  | Home | Hero with an instance switcher and a big Play button, recent instances, Mojang's patch notes, tips |
+  | Instances | Search, sort, play, edit, open folder, delete |
+  | New | Three-step wizard: pick any of 900+ versions, pick Vanilla, Fabric or Forge (and a build), then name and memory |
+  | Mods | Installed mods with enable/disable switches and delete. Drag `.jar` files onto the window to install them |
+  | Accounts | Offline accounts and Microsoft sign-in, each with a generated pixel avatar |
+  | Settings | Memory, Java, JVM arguments, Azure client ID, parallel downloads, sky, sounds, animations |
+
+- **Game log drawer** (`Ctrl+L`): live, colour-coded, filterable and searchable.
+- **Keyboard:** `Ctrl+Enter` plays, `Alt+1`…`6` switch pages, `Esc` closes things.
+
+## Engine features (`vortex-core`)
+
+| | |
 |---|---|
-| All versions | Reads Mojang's live version manifest (900+ versions) and handles every version JSON format: legacy `minecraftArguments`, modern rule-based `arguments`, and `inheritsFrom` profiles |
-| Automatic Java | Downloads the exact Java runtime Mojang ships for each version (Java 8 for old versions, 17/21/25 for newer ones), so you don't need to install Java |
-| Assets | Supports modern hashed assets, 1.6–1.7 "virtual" assets and pre-1.6 `resources/` assets |
-| Natives | Supports LWJGL 2 extracted natives and LWJGL 3 classpath natives, including Windows ARM64 |
-| Fabric | Choose a loader version, or use the latest stable one |
-| Accounts | Microsoft sign-in (device code) with token refresh, plus offline accounts for singleplayer/LAN testing |
-| Instances | Each instance has its own game folder (saves, mods, resource packs), memory setting and an optional server to join on start |
-| Downloads | Parallel downloads, SHA-1 checks, retries and atomic writes. Files that are already present are skipped |
-| Safety | Log4Shell-patched log configs are used for every version that needs them. Paths from manifests and zip files are checked so nothing can be written outside its folder |
-| Windows | `Vortex.exe` is a GUI app with no console window and a static C runtime. The game is started with `javaw.exe` and no console |
+| All versions | Mojang's live manifest, legacy and modern argument formats, `inheritsFrom` profiles |
+| Fabric | Any loader build, from meta.fabricmc.net |
+| Forge | Runs Forge's official installers. Legacy installers (1.6–1.12) have their version info and universal jar unpacked. Modern installers (1.13+) run the installer's own patch steps (binary patching, mappings, jar splitting) with the right Java |
+| Java | Downloads the exact Mojang runtime each version needs (8, 17, 21, 25), so you don't need to install Java |
+| Assets and natives | Modern, "virtual" and pre-1.6 assets; LWJGL 2 and 3 natives |
+| Accounts | Microsoft device-code login with token refresh, plus offline accounts |
+| Safety | SHA-1-verified parallel downloads, Log4Shell-patched log configs, and checks so files from manifests or zips can't be written outside their folder |
 
 ## Layout
 
 ```
 vortex-client/
-├── crates/vortex-core   # the engine (library): manifest, install, java, auth, launch …
-├── crates/vortex-app    # test GUI (egui)  → Vortex.exe
-└── crates/vortex-cli    # command line     → vortex-cli.exe
+├── crates/vortex-core   # the engine (library)
+├── crates/vortex-app    # desktop app (Tauri 2): src/main.rs + ui/ (HTML/CSS/JS, no build step)
+└── crates/vortex-cli    # command line tool
 ```
 
 Data is stored in `%APPDATA%\VortexClient` on Windows, `~/.local/share/VortexClient` on
 Linux and `~/Library/Application Support/VortexClient` on macOS. Set `VORTEX_HOME` to use a
 different folder.
 
-## Building on Windows
+## Building
 
-1. Install Rust from <https://rustup.rs> (use the default MSVC toolchain).
-2. From this folder:
+### On Windows (recommended)
 
-   ```powershell
-   cargo build --release
-   ```
+1. Install Rust from <https://rustup.rs> with the default MSVC toolchain.
+2. Run `cargo build --release` in this folder.
+3. Run `target\release\vortex.exe`. It's a single file: with MSVC, WebView2's loader is
+   linked in statically.
 
-3. Run `target\release\vortex.exe` for the GUI or `target\release\vortex-cli.exe` for the CLI.
-
-Every push also builds `Vortex.exe` on GitHub Actions (`.github/workflows/vortex-client.yml`).
-Download it from the run's **Artifacts** section as `Vortex-windows-x64`.
+Windows 10 and 11 already include the WebView2 runtime that the app uses.
 
 ### Cross-compiling from Linux
 
 ```bash
 sudo apt install gcc-mingw-w64-x86-64
 rustup target add x86_64-pc-windows-gnu
-cargo build --release --target x86_64-pc-windows-gnu
-# → target/x86_64-pc-windows-gnu/release/vortex.exe
+cargo build --release --target x86_64-pc-windows-gnu -p vortex-app -p vortex-cli
 ```
 
-## Using the CLI
+The MinGW build needs `WebView2Loader.dll` beside `vortex.exe`. Cargo copies it into the
+same output folder, so ship both files together.
+
+### Linux
 
 ```bash
-vortex-cli versions --kind all          # every version Mojang has
-vortex-cli offline Steve                # add an offline account
-vortex-cli create "PvP" 1.8.9           # make an instance
-vortex-cli launch "PvP"                 # install everything and play
-vortex-cli launch 1.21.4 --fabric       # one-liner: auto-creates the instance
-vortex-cli launch b1.7.3 --dry-run      # print the java command instead of running it
-vortex-cli launch "PvP" --server mc.example.net   # join a server on start
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev
+cargo run --release -p vortex-app
 ```
 
-Run `vortex-cli --help` to see every command.
+### Previewing the UI in a browser
+
+The UI falls back to a demo backend outside the app, so you can preview the design with
+`python3 -m http.server -d crates/vortex-app/ui` and open <http://localhost:8000>.
+
+## CLI
+
+```bash
+vortex-cli versions --kind all
+vortex-cli forge-versions 1.20.1
+vortex-cli offline Steve
+vortex-cli launch 1.20.1 --forge          # creates the instance, installs Forge, plays
+vortex-cli launch 1.21.4 --fabric
+vortex-cli launch "PvP" --server mc.example.net
+vortex-cli launch b1.7.3 --dry-run        # print the java command instead of running it
+```
 
 ## Microsoft sign-in setup
 
-Microsoft sign-in needs an **Azure application (client) ID**, and Mojang has to approve it
-for the Minecraft API. This launcher doesn't include one.
+Microsoft sign-in needs an **Azure application (client) ID** that Mojang has approved for
+the Minecraft API. This launcher doesn't include one.
 
 1. Go to the [Azure portal](https://portal.azure.com) → *App registrations* → *New registration*.
    Choose **Personal Microsoft accounts only**.
-2. Under *Authentication*, turn on **Allow public client flows** (needed for the device-code flow).
-3. Ask Mojang to approve the app for the Minecraft API with the form linked from
-   <https://aka.ms/mce-reviewappid>. Until they approve it, the Minecraft login step returns
-   `403`, and Vortex tells you so.
-4. Paste the client ID in **Settings → Microsoft client ID**, or set
-   `VORTEX_MS_CLIENT_ID`.
+2. Under *Authentication*, turn on **Allow public client flows**.
+3. Ask Mojang to approve the app for the Minecraft API at <https://aka.ms/mce-reviewappid>.
+4. Paste the client ID in **Settings → Microsoft sign-in**, or set `VORTEX_MS_CLIENT_ID`.
 
 Offline accounts work without any of this. They're for singleplayer and LAN, and online-mode
 servers reject them.
 
-Tokens are stored in `accounts.json` in the data folder, which is what most launchers do.
-On Unix the file is only readable by your user.
-
 ## Tested
 
-These versions were installed from Mojang's servers and launched for real on a headless
-Linux box (Xvfb with software OpenGL, no GPU or sound card). Each run used an offline
-account and was stopped after 2 minutes:
+Everything below was installed from the real Mojang, Fabric and Forge servers and launched
+on a headless Linux box with software OpenGL, no GPU and no sound card.
 
-| Version | Result |
+| Test | Result |
 |---|---|
-| 1.7.10 | Launched from the **GUI's PLAY button** and reached the title screen. STOP worked |
-| 1.8.9, 1.12.2 | Reached the title screen (LWJGL 2, Java 8, XML log parsing) |
-| 1.16.5 | Loaded textures (LWJGL 3 with extracted natives) |
-| 1.21.4 + Fabric | Java 21 and Fabric Loader 0.20.1. Loaded textures |
-| 1.6.4 | Ran with "virtual" legacy assets |
-| b1.7.3, a1.0.4 | Ran through launchwrapper with the pre-1.6 `resources/` folder |
-| rd-132211 | Ran at about 80 fps |
-| 26.3, 26.4-snapshot-6 | Java 25 was downloaded and the game started, but it stopped at window creation. 26.x uses a new SDL3 + Vulkan/OpenGL renderer that needs a real GPU, and the test box has none. **Not yet confirmed to reach the title screen**, so please check this on Windows |
-
-The only errors in these runs came from the test box itself: no audio device, no
-`/dev/input`, and offline accounts being rejected by Realms.
+| **Desktop app, end to end** | PLAY → progress bar → Fabric 1.21.4 reached Minecraft's welcome screen. STOP closed it, and the log drawer streamed the game's output |
+| Forge 1.20.1 (47.4.28) | The installer's 6 patch steps ran, then Forge mod loading and textures |
+| Forge 1.12.2 and 1.8.9 | Loaded textures (legacy installers) |
+| Fabric 1.21.4 | Loaded textures |
+| 1.7.10 (earlier version of the UI) | Title screen |
+| 1.8.9, 1.12.2 | Title screen |
+| 1.16.5, 1.6.4, b1.7.3, a1.0.4, rd-132211 | Ran without crashing |
+| 26.3 and 26.4 snapshots | Java 25 was downloaded and the game started, but stopped at window creation. 26.x needs a real GPU, so **check this on your PC** |
+| Windows build | Cross-compiled; **not yet run on real Windows** |
 
 Run the unit tests with `cargo test --workspace`.
 
-## For the real UI later
+## Credits
 
-The test GUI only calls into `vortex_core::Launcher`:
-
-```rust
-let launcher = Launcher::new(Paths::from_default())?;
-let manifest = launcher.manifest(false).await?;            // every version
-let instance = launcher.instances().create(Instance::new("PvP", "1.8.9", Loader::Vanilla))?;
-let session  = launcher.session_for(&mut account, &settings).await?;
-let cmd      = launcher.prepare_launch(&instance, &session, &settings, &progress).await?;
-let mut game = vortex_core::launch::spawn(&cmd)?;           // game.logs = parsed log lines
-```
-
-Any front-end can sit on top of this, whether it's egui, Tauri, Slint or something else.
+The UI fonts are [Silkscreen](https://github.com/googlefonts/silkscreen) and
+[Outfit](https://github.com/Outfitio/Outfit-Fonts), both under the SIL Open Font License 1.1.
+The licence texts are in `crates/vortex-app/ui/fonts/`. Vortex isn't affiliated with Mojang
+or Microsoft.

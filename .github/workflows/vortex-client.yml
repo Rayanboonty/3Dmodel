@@ -44,12 +44,14 @@ jobs:
           & $cli launch 1.8.9 --offline Tester --dry-run
           & $cli launch b1.7.3 --offline Tester --dry-run
           & $cli launch 1.21.4 --fabric --offline Tester --dry-run
+          & $cli launch 1.20.1 --forge --offline Tester --dry-run
 
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item target\release\vortex.exe dist\Vortex.exe
+          Copy-Item crates\vortex-app\ui\fonts\OFL-*.txt dist\
           Copy-Item target\release\vortex-cli.exe dist\vortex-cli.exe
           Copy-Item README.md dist\README.md
 
@@ -69,5 +71,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: vortex-client
+      - name: Install Tauri system libraries
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
       - run: cargo test --workspace
       - run: cargo clippy --workspace --all-targets -- -D warnings
