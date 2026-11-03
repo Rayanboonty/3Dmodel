@@ -3,78 +3,67 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Vortex</title>
+  <title>Vortex Client</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
-<body class="phase-dawn booting">
-  <canvas id="sky" aria-hidden="true"></canvas>
+<body class="phase-dawn">
+  <canvas id="world" aria-hidden="true"></canvas>
+  <div id="player-layer"></div>
 
   <div id="boot" class="boot" role="status" aria-live="polite">
     <div class="boot-inner">
-      <div class="boot-logo"><span class="boot-v">V</span>ORTEX</div>
-      <div class="boot-splash" id="boot-splash">Waking up the sun…</div>
-      <div class="xp boot-bar"><div class="xp-fill" id="boot-fill"></div></div>
-      <div class="boot-hint" id="boot-hint">Loading</div>
+      <div class="boot-word"><span>V</span>ORTEX</div>
+      <div class="boot-sub">CLIENT</div>
+      <div class="bar"><i></i></div>
+      <div class="boot-hint" id="boot-hint">Starting</div>
     </div>
   </div>
 
   <div class="app" id="app">
-    <aside class="rail" aria-label="Main navigation">
+    <header class="topbar">
       <div class="brand">
-        <span class="brand-icon" data-icon="logo"></span>
-        <span class="brand-text">VORTEX</span>
-        <span class="splash" id="splash"></span>
+        <span class="brand-mark" data-icon="logo" data-size="30"></span>
+        <div class="brand-word"><b>VORTEX</b><span>CLIENT</span></div>
       </div>
-      <nav class="nav" id="nav">
-        <span class="nav-marker" id="nav-marker" aria-hidden="true"></span>
-        <button class="nav-btn" data-route="home"><span data-icon="home"></span><span>Home</span></button>
-        <button class="nav-btn" data-route="instances"><span data-icon="grid"></span><span>Instances</span></button>
-        <button class="nav-btn" data-route="new"><span data-icon="plus"></span><span>New</span></button>
-        <button class="nav-btn" data-route="mods"><span data-icon="puzzle"></span><span>Mods</span></button>
-        <button class="nav-btn" data-route="accounts"><span data-icon="user"></span><span>Accounts</span></button>
-        <button class="nav-btn" data-route="settings"><span data-icon="gear"></span><span>Settings</span></button>
+      <nav class="glass nav tabs hl" id="nav" aria-label="Main">
+        <span class="drop" aria-hidden="true"></span>
+        <button class="tab" data-route="home"><span data-icon="home" data-size="14"></span><span class="tab-label">Home</span></button>
+        <button class="tab" data-route="instances"><span data-icon="grid" data-size="14"></span><span class="tab-label">Instances</span></button>
+        <button class="tab" data-route="mods"><span data-icon="puzzle" data-size="14"></span><span class="tab-label">Mods</span></button>
+        <button class="tab" data-route="accounts"><span data-icon="user" data-size="14"></span><span class="tab-label">Accounts</span></button>
+        <button class="tab" data-route="settings"><span data-icon="gear" data-size="14"></span><span class="tab-label">Settings</span></button>
       </nav>
-      <div class="rail-foot">
-        <button class="sky-chip" id="sky-chip" title="Sky — change in Settings"><span data-icon="sun" id="sky-icon"></span><span id="sky-label">Dawn</span></button>
-        <div class="rail-version" id="rail-version">v0.2.0</div>
+      <div class="top-right">
+        <button class="glass top-chip time-chip lq hl" id="time-chip" aria-label="Time of day"><span data-icon="sun" data-size="16" id="time-icon"></span><span class="time" id="time-text">06:00</span><span class="phase" id="phase-text">Dawn</span></button>
+        <button class="glass top-chip lq hl" id="log-toggle" aria-label="Game log (Ctrl+L)"><span data-icon="log" data-size="16"></span><span class="log-badge" id="log-badge" hidden></span></button>
+        <button class="glass top-chip lq hl" id="account-chip"><canvas class="avatar" width="8" height="8" id="account-avatar"></canvas><span id="account-name">No account</span></button>
       </div>
-    </aside>
-
-    <main class="stage">
-      <header class="topbar">
-        <div class="crumb">
-          <h1 id="page-title">Home</h1>
-          <span id="page-sub" class="page-sub"></span>
-        </div>
-        <div class="topbar-right">
-          <button class="pill" id="log-toggle" title="Game log (Ctrl+L)"><span data-icon="log"></span><span>Log</span><span class="pill-dot" id="log-dot" hidden></span></button>
-          <button class="account-chip" id="account-chip"><canvas class="avatar" width="8" height="8" id="account-avatar"></canvas><span id="account-name">No account</span><span data-icon="chev"></span></button>
-        </div>
-      </header>
-      <section id="page" class="page" aria-live="polite"></section>
-    </main>
+    </header>
+    <main class="page" id="page"></main>
   </div>
 
-  <section class="console" id="console" aria-label="Game log">
-    <div class="console-head">
-      <strong>Game log</strong>
-      <select id="console-instance" aria-label="Instance"></select>
-      <div class="seg" id="console-filter" role="group" aria-label="Filter">
-        <button class="seg-btn on" data-level="all">All</button>
-        <button class="seg-btn" data-level="warn">Warnings</button>
-        <button class="seg-btn" data-level="error">Errors</button>
+  <section class="glass log-dock" id="log" aria-label="Game log">
+    <div class="log-head">
+      <span class="title">Game log</span>
+      <select id="log-instance" aria-label="Instance"></select>
+      <div class="tabs sm" id="log-filter" role="group" aria-label="Filter">
+        <span class="drop" aria-hidden="true"></span>
+        <button class="tab on" data-level="all">All</button>
+        <button class="tab" data-level="warn">Warnings</button>
+        <button class="tab" data-level="error">Errors</button>
       </div>
-      <input id="console-search" type="search" placeholder="Search log" aria-label="Search log">
       <span class="grow"></span>
-      <button class="btn btn-sm" id="console-copy">Copy</button>
-      <button class="btn btn-sm" id="console-clear">Clear</button>
-      <button class="btn btn-sm btn-ghost" id="console-close" aria-label="Close log"><span data-icon="x"></span></button>
+      <input id="log-search" type="search" placeholder="Search" aria-label="Search log">
+      <button class="btn btn-sm btn-icon btn-ghost lq" id="log-copy" aria-label="Copy log"><span data-icon="copy" data-size="14"></span></button>
+      <button class="btn btn-sm btn-icon btn-ghost lq" id="log-clear" aria-label="Clear log"><span data-icon="trash" data-size="14"></span></button>
+      <button class="btn btn-sm btn-icon btn-ghost lq" id="log-close" aria-label="Close log"><span data-icon="x" data-size="14"></span></button>
     </div>
-    <div class="console-body" id="console-body"></div>
+    <div class="log-body" id="log-body"></div>
   </section>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <div class="modal-root" id="modal-root"></div>
+  <div id="popover-root"></div>
   <canvas id="fx" aria-hidden="true"></canvas>
 
   <script type="module" src="js/app.js"></script>

@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Vortex",
+        "title": "Vortex Client",
         "width": 1240,
         "height": 780,
         "minWidth": 940,

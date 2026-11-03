@@ -395,6 +395,7 @@ async fn save_settings(state: State<'_, AppState>, settings: Settings) -> CmdRes
     s.max_memory_mb = s.max_memory_mb.clamp(512, 65536);
     s.min_memory_mb = s.min_memory_mb.clamp(256, s.max_memory_mb);
     s.download_concurrency = s.download_concurrency.clamp(1, 64);
+    s.day_length_min = s.day_length_min.clamp(1, 120);
     s.save(&state.launcher.paths().settings_file()).map_err(fail)?;
     *state.settings.lock().await = s.clone();
     Ok(s)
@@ -602,6 +603,134 @@ fn emit_lines(app: &AppHandle, instance: &str, lines: Vec<LogLineView>) {
     let _ = app.emit("game-log", LogEvent { instance: instance.to_string(), lines });
 }
 
+// ------------------------------------------------------------------ skins --
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SkinView {
+    /// `data:image/png;base64,…`, or `None` when no skin could be found.
+    data_url: Option<String>,
+    slim: bool,
+    /// `account`, `default` or `none`.
+    source: &'static str,
+}
+
+#[derive(serde::Deserialize)]
+struct SessionProfile {
+    #[serde(default)]
+    properties: Vec<SessionProperty>,
+}
+
+#[derive(serde::Deserialize)]
+struct SessionProperty {
+    name: String,
+    value: String,
+}
+
+fn png_data_url(bytes: &[u8]) -> String {
+    use base64::Engine;
+    format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
+/// The selected Microsoft account's skin from Mojang's session server.
+async fn account_skin(http: &vortex_core::reqwest::Client, uuid: &str) -> anyhow::Result<(Vec<u8>, bool)> {
+    use base64::Engine;
+    let url = format!("https://sessionserver.mojang.com/session/minecraft/profile/{uuid}");
+    let profile: SessionProfile = http.get(url).send().await?.error_for_status()?.json().await?;
+    let textures = profile
+        .properties
+        .iter()
+        .find(|p| p.name == "textures")
+        .ok_or_else(|| anyhow::anyhow!("profile has no textures"))?;
+    let decoded = base64::engine::general_purpose::STANDARD.decode(&textures.value)?;
+    let v: serde_json::Value = serde_json::from_slice(&decoded)?;
+    let skin = &v["textures"]["SKIN"];
+    let url = skin["url"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("no skin set"))?
+        .replacen("http://", "https://", 1);
+    let slim = skin["metadata"]["model"].as_str() == Some("slim");
+    let bytes = http.get(url).send().await?.error_for_status()?.bytes().await?;
+    Ok((bytes.to_vec(), slim))
+}
+
+/// The default skin from a Minecraft client jar the player already installed.
+fn default_skin_from_jars(paths: &Paths) -> Option<Vec<u8>> {
+    use std::io::Read;
+    const NAMES: [&str; 2] = [
+        "assets/minecraft/textures/entity/player/wide/steve.png",
+        "assets/minecraft/textures/entity/steve.png",
+    ];
+    let mut jars: Vec<std::path::PathBuf> = std::fs::read_dir(paths.versions())
+        .ok()?
+        .flatten()
+        .filter_map(|e| {
+            let id = e.file_name().into_string().ok()?;
+            let jar = paths.version_jar(&id);
+            jar.is_file().then_some(jar)
+        })
+        .collect();
+    jars.sort();
+    jars.reverse();
+    for jar in jars {
+        let Ok(file) = std::fs::File::open(&jar) else { continue };
+        let Ok(mut zip) = vortex_core::zip::ZipArchive::new(file) else { continue };
+        for name in NAMES {
+            if let Ok(mut entry) = zip.by_name(name) {
+                let mut buf = Vec::new();
+                if entry.read_to_end(&mut buf).is_ok() && buf.starts_with(b"\x89PNG") {
+                    return Some(buf);
+                }
+            }
+        }
+    }
+    None
+}
+
+#[tauri::command]
+async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
+    let account = state.accounts.lock().await.selected().cloned();
+    let skins = state.launcher.paths().cache().join("skins");
+    let _ = std::fs::create_dir_all(&skins);
+
+    if let Some(acc) = account.filter(|a| a.is_microsoft()) {
+        let file = skins.join(format!("{}.png", acc.uuid));
+        let slim_file = skins.join(format!("{}.slim", acc.uuid));
+        match account_skin(state.launcher.http(), &acc.uuid).await {
+            Ok((bytes, slim)) => {
+                let _ = std::fs::write(&file, &bytes);
+                if slim {
+                    let _ = std::fs::write(&slim_file, b"1");
+                } else {
+                    let _ = std::fs::remove_file(&slim_file);
+                }
+                return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim, source: "account" });
+            }
+            Err(_) => {
+                if let Ok(bytes) = std::fs::read(&file) {
+                    return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: slim_file.is_file(), source: "account" });
+                }
+            }
+        }
+    }
+
+    let cached = skins.join("default.png");
+    if let Ok(bytes) = std::fs::read(&cached) {
+        return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default" });
+    }
+    let paths = state.launcher.paths().clone();
+    let found = tauri::async_runtime::spawn_blocking(move || default_skin_from_jars(&paths))
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(match found {
+        Some(bytes) => {
+            let _ = std::fs::write(&cached, &bytes);
+            SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default" }
+        }
+        None => SkinView { data_url: None, slim: false, source: "none" },
+    })
+}
+
 // ------------------------------------------------------------------- main --
 
 fn load_accounts(path: &Path) -> AccountStore {
@@ -648,6 +777,7 @@ fn main() {
             toggle_mod,
             delete_mod,
             import_mods,
+            player_skin,
             open_path,
             open_url,
         ])

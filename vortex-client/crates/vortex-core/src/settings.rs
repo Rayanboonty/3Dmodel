@@ -18,9 +18,12 @@ pub struct Settings {
     pub download_concurrency: usize,
     pub show_snapshots: bool,
     pub show_old_versions: bool,
-    /// UI: sky theme — `dawn` (default), `day`, `dusk`, `night`, or `auto`
-    /// to follow the local time.
+    /// UI: time of day — `cycle` (a running day/night cycle, default),
+    /// `clock` (follows the computer's clock), or a fixed `dawn`, `day`,
+    /// `dusk` or `night`.
     pub sky: String,
+    /// UI: real minutes per in-game day in `cycle` mode.
+    pub day_length_min: u32,
     /// UI: click and launch sounds.
     pub ui_sounds: bool,
     /// UI: background and transition animations.
@@ -38,7 +41,8 @@ impl Default for Settings {
             download_concurrency: 32,
             show_snapshots: false,
             show_old_versions: false,
-            sky: "dawn".to_string(),
+            sky: "cycle".to_string(),
+            day_length_min: 10,
             ui_sounds: true,
             animations: true,
         }

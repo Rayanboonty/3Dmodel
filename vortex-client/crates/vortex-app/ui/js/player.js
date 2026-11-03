@@ -1,0 +1,439 @@
+// A 3D Minecraft-style player built from CSS 3D cuboids textured with the
+// player's skin, plus a small behaviour engine that lets it live in the world:
+// it watches the cursor and the bees, wanders, mines the block in front of it,
+// warms its hands at the campfire at night, carries a torch and waves.
+
+const DEG = Math.PI / 180;
+
+/** Vortex's own default outfit (used when no skin is available). */
+export function defaultSkin() {
+  const c = document.createElement("canvas");
+  c.width = 64; c.height = 64;
+  const g = c.getContext("2d");
+  const f = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  const skin = "#c99468", skinD = "#b07e55", hair = "#2e2018", jacket = "#2b7f86", jacketD = "#22656b", trim = "#f2a93b", pants = "#2a3152", pantsD = "#222842", boot = "#3b2b20";
+  // Head.
+  f(skin, 0, 8, 32, 8); f(skinD, 0, 15, 32, 1);
+  f(hair, 8, 0, 8, 8); f(hair, 0, 8, 32, 2); f(hair, 0, 10, 8, 3); f(hair, 24, 10, 8, 4); f(hair, 16, 10, 8, 3);
+  f(hair, 8, 10, 1, 1); f(hair, 15, 10, 1, 1);
+  f("#ffffff", 9, 12, 2, 1); f("#ffffff", 13, 12, 2, 1);
+  f("#3b6fd1", 10, 12, 1, 1); f("#3b6fd1", 13, 12, 1, 1);
+  f(skinD, 11, 13, 2, 1); f("#7a4a34", 11, 14, 2, 1);
+  // Body.
+  f(jacket, 16, 16, 24, 16); f(jacketD, 16, 16, 24, 1);
+  f(trim, 23, 20, 2, 12); f(jacketD, 20, 30, 8, 2);
+  f(trim, 21, 21, 1, 1); f(trim, 26, 21, 1, 1);
+  // Right arm + left arm.
+  for (const [u, v] of [[40, 16], [32, 48]]) {
+    f(jacket, u, v, 16, 9); f(jacketD, u, v + 4, 16, 1); f(trim, u, v + 8, 16, 1);
+    f(skin, u, v + 9, 16, 7); f(skinD, u, v + 15, 16, 1);
+  }
+  // Legs.
+  for (const [u, v] of [[0, 16], [16, 48]]) {
+    f(pants, u, v, 16, 16); f(pantsD, u, v + 4, 16, 1); f(boot, u, v + 13, 16, 3);
+  }
+  return c.toDataURL("image/png");
+}
+
+/** Normalise any skin to the 64×64 layout (legacy 64×32 skins mirror the right limbs). */
+function normalise(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      if (img.height === 64) return resolve(url);
+      const c = document.createElement("canvas");
+      c.width = 64; c.height = 64;
+      const g = c.getContext("2d");
+      g.imageSmoothingEnabled = false;
+      g.drawImage(img, 0, 0);
+      const copy = (sx, sy, w, h, dx, dy) => {
+        g.save();
+        g.translate(dx + w, dy);
+        g.scale(-1, 1);
+        g.drawImage(img, sx, sy, w, h, 0, 0, w, h);
+        g.restore();
+      };
+      // Leg 0,16 → 16,48 and arm 40,16 → 32,48, each face mirrored.
+      for (const [su, sv, du, dv] of [[0, 16, 16, 48], [40, 16, 32, 48]]) {
+        copy(su + 4, sv, 4, 4, du + 4, dv); copy(su + 8, sv, 4, 4, du + 8, dv);
+        copy(su, sv + 4, 4, 12, du + 8, dv + 4); copy(su + 4, sv + 4, 4, 12, du + 4, dv + 4);
+        copy(su + 8, sv + 4, 4, 12, du, dv + 4); copy(su + 12, sv + 4, 4, 12, du + 12, dv + 4);
+      }
+      resolve(c.toDataURL("image/png"));
+    };
+    img.onerror = () => resolve(defaultSkin());
+    img.src = url;
+  });
+}
+
+function parts(slim) {
+  const aw = slim ? 3 : 4;
+  return {
+    body: { size: [8, 12, 4], uv: [16, 16], ov: [16, 32], pivot: [0, -24, 0], offset: [0, 6, 0], inf: 0.25 },
+    head: { size: [8, 8, 8], uv: [0, 0], ov: [32, 0], pivot: [0, -24, 0], offset: [0, -4, 0], inf: 0.5 },
+    rarm: { size: [aw, 12, 4], uv: [40, 16], ov: [40, 32], pivot: [-(4 + aw / 2), -22, 0], offset: [0, 4, 0], inf: 0.25 },
+    larm: { size: [aw, 12, 4], uv: [32, 48], ov: [48, 48], pivot: [4 + aw / 2, -22, 0], offset: [0, 4, 0], inf: 0.25 },
+    rleg: { size: [4, 12, 4], uv: [0, 16], ov: [0, 32], pivot: [-2, -12, 0], offset: [0, 6, 0], inf: 0.25 },
+    lleg: { size: [4, 12, 4], uv: [16, 48], ov: [0, 48], pivot: [2, -12, 0], offset: [0, 6, 0], inf: 0.25 },
+  };
+}
+
+function cuboid([w, h, d], [U, V], inf, u, overlay) {
+  const box = document.createElement("div");
+  box.className = `pl-cube${overlay ? " pl-overlay" : ""}`;
+  const W = (w + inf * 2) * u, Hh = (h + inf * 2) * u, D = (d + inf * 2) * u;
+  const faces = [
+    ["front", W, Hh, U + d, V + d, w, h, `translateZ(${D / 2}px)`],
+    ["back", W, Hh, U + 2 * d + w, V + d, w, h, `rotateY(180deg) translateZ(${D / 2}px)`],
+    ["right", D, Hh, U, V + d, d, h, `rotateY(-90deg) translateZ(${W / 2}px)`],
+    ["left", D, Hh, U + d + w, V + d, d, h, `rotateY(90deg) translateZ(${W / 2}px)`],
+    ["top", W, D, U + d, V, w, d, `rotateX(90deg) translateZ(${Hh / 2}px)`],
+    ["bottom", W, D, U + d + w, V, w, d, `rotateX(-90deg) translateZ(${Hh / 2}px)`],
+  ];
+  for (const [name, fw, fh, tu, tv, tw, th, tf] of faces) {
+    const el = document.createElement("div");
+    el.className = `pl-face pl-${name}`;
+    const sx = fw / tw, sy = fh / th;
+    el.style.cssText = `width:${fw}px;height:${fh}px;left:${-fw / 2}px;top:${-fh / 2}px;transform:${tf};background-size:${64 * sx}px ${64 * sy}px;background-position:${-tu * sx}px ${-tv * sy}px;`;
+    box.appendChild(el);
+  }
+  return box;
+}
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const approach = (cur, target, rate, dt) => cur + (target - cur) * Math.min(1, rate * dt);
+
+export class Player {
+  /**
+   * @param host element to live in
+   * @param world the World (null for a standalone preview)
+   */
+  constructor(host, world, { preview = false, unit = null } = {}) {
+    this.host = host;
+    this.world = world;
+    this.preview = preview;
+    this.fixedUnit = unit;
+    this.slim = false;
+    this.skinUrl = null;
+    this.stage = document.createElement("div");
+    this.stage.className = `pl-stage${preview ? " pl-preview" : ""}`;
+    this.stage.innerHTML = `<div class="pl-shadow"></div><div class="pl-tag"></div><div class="pl-torch" hidden><i></i></div>`;
+    this.root = document.createElement("div");
+    this.root.className = "pl-root";
+    this.root.setAttribute("role", "img");
+    this.root.setAttribute("aria-label", "Your player");
+    this.stage.appendChild(this.root);
+    host.appendChild(this.stage);
+    this.tag = this.stage.querySelector(".pl-tag");
+    this.torchEl = this.stage.querySelector(".pl-torch");
+    this.shadow = this.stage.querySelector(".pl-shadow");
+
+    // Pose and behaviour state.
+    this.x = 0;
+    this.y = 0;
+    this.vy = 0;
+    this.facing = 16;
+    this.yaw = 0; this.pitch = 0;
+    this.pose = { rArmX: 0, rArmZ: 0, lArmX: 0, lArmZ: 0, rLegX: 0, lLegX: 0 };
+    this.walkPhase = 0;
+    this.action = { type: "idle", t: 0, dur: 2.5 };
+    this.activity = "idle";
+    this.mouse = { x: 0, y: 0, at: 0 };
+    this.dragYaw = null;
+    window.addEventListener("pointermove", (e) => { this.mouse = { x: e.clientX, y: e.clientY, at: performance.now() }; });
+    this.root.addEventListener("click", () => this.jump(true));
+    if (preview) this.bindDrag();
+    this.unit = 0;
+    this.build();
+    this.setSkin(null);
+    this.last = performance.now();
+    requestAnimationFrame((t) => this.loop(t));
+  }
+
+  bindDrag() {
+    let startX = 0, startFacing = 0;
+    this.root.addEventListener("pointerdown", (e) => {
+      startX = e.clientX; startFacing = this.facing; this.dragYaw = true;
+      this.root.setPointerCapture(e.pointerId);
+    });
+    this.root.addEventListener("pointermove", (e) => {
+      if (this.dragYaw) this.facing = startFacing + (e.clientX - startX) * 0.6;
+    });
+    this.root.addEventListener("pointerup", () => (this.dragYaw = null));
+  }
+
+  currentUnit() {
+    if (this.fixedUnit) return this.fixedUnit;
+    const s = this.world ? this.world.scale : 3;
+    return Math.max(3, Math.round(s * 2));
+  }
+
+  build() {
+    const u = this.currentUnit();
+    this.unit = u;
+    this.root.innerHTML = "";
+    this.parts = {};
+    for (const [name, p] of Object.entries(parts(this.slim))) {
+      const pivot = document.createElement("div");
+      pivot.className = `pl-part pl-part-${name}`;
+      const inner = document.createElement("div");
+      inner.className = "pl-inner";
+      inner.style.transform = `translate3d(${p.offset[0] * u}px,${p.offset[1] * u}px,${p.offset[2] * u}px)`;
+      inner.appendChild(cuboid(p.size, p.uv, 0, u, false));
+      inner.appendChild(cuboid(p.size, p.ov, p.inf, u, true));
+      pivot.appendChild(inner);
+      this.root.appendChild(pivot);
+      this.parts[name] = { el: pivot, p };
+    }
+    this.tag.style.setProperty("--u", `${u}px`);
+    this.applySkin();
+  }
+
+  async setSkin(url, slim = false) {
+    const src = await normalise(url || defaultSkin());
+    const rebuild = slim !== this.slim;
+    this.slim = slim;
+    this.skinUrl = src;
+    if (rebuild) this.build();
+    else this.applySkin();
+  }
+
+  applySkin() {
+    if (!this.skinUrl) return;
+    this.root.style.setProperty("--skin", `url("${this.skinUrl}")`);
+  }
+
+  setName(name) {
+    this.tag.textContent = name || "";
+    this.tag.hidden = !name;
+  }
+
+  /** idle | preparing | running */
+  setActivity(a) {
+    if (a === this.activity) return;
+    const prev = this.activity;
+    this.activity = a;
+    if (a === "running" && prev !== "running") this.start("celebrate", 2.6);
+    else if (a === "preparing") this.start("mine", 999);
+    else if (a === "idle" && this.action.type === "mine") this.start("home", 6);
+  }
+
+  wave(seconds = 2) {
+    if (["mine", "jump"].includes(this.action.type)) return;
+    this.start("wave", seconds);
+  }
+
+  jump(fromClick = false) {
+    if (this.y < -0.5) return;
+    this.vy = -22;
+    if (fromClick && this.onPoke) this.onPoke(this.headScreen());
+  }
+
+  start(type, dur) {
+    this.action = { type, t: 0, dur, hits: 0 };
+  }
+
+  headScreen() {
+    const r = this.root.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top };
+  }
+
+  // ---------------------------------------------------------- behaviour --
+
+  chooseNext() {
+    if (this.activity === "preparing") return this.start("mine", 999);
+    const night = this.world && this.world.darkness() > 0.55;
+    const roll = Math.random();
+    if (night && roll < 0.45) return this.start("campfire", 7 + Math.random() * 5);
+    if (roll < 0.3) return this.start("walk", 8);
+    if (roll < 0.5) return this.start("look", 3.5);
+    if (roll < 0.66) return this.start("punch", 12);
+    if (roll < 0.72) return this.start("wave", 1.8);
+    return this.start("idle", 2.5 + Math.random() * 3);
+  }
+
+  /** Move toward a screen-x offset; returns true when there. */
+  walkTo(target, dt, u) {
+    const dx = target - this.x;
+    if (Math.abs(dx) < u * 0.6) return true;
+    const speed = u * 7;
+    this.x += Math.sign(dx) * Math.min(Math.abs(dx), speed * dt);
+    this.facingTarget = dx > 0 ? 90 : -90;
+    this.walkPhase += dt * 9;
+    return false;
+  }
+
+  update(dt) {
+    const u = this.unit;
+    const a = this.action;
+    a.t += dt;
+    const P = this.pose;
+    let armSwing = 0, legSwing = 0;
+    this.facingTarget = this.preview ? this.facing : 16;
+    let rArmX = 0, rArmZ = 0, lArmX = 0, lArmZ = 0;
+    let lookOverride = null;
+    let walking = false;
+    const world = this.world;
+    const block = world ? world.scale * 6 : u * 3;
+
+    if (this.preview) {
+      if (!this.dragYaw) this.facing += dt * 18;
+    } else {
+      switch (a.type) {
+        case "walk": {
+          if (a.target == null) {
+            const lo = world.spot("punch") + block * 1.6, hi = world.spot("fire") - block * 1.6;
+            a.target = lo + Math.random() * (hi - lo);
+          }
+          walking = !this.walkTo(a.target, dt, u);
+          if (!walking) this.start("idle", 2 + Math.random() * 2);
+          break;
+        }
+        case "home":
+          walking = !this.walkTo(0, dt, u);
+          if (!walking) this.start("idle", 2);
+          break;
+        case "punch":
+        case "mine": {
+          const spot = world.spot("punch") + block * 1.3;
+          if (!this.walkTo(spot, dt, u)) { walking = true; break; }
+          this.facingTarget = -70;
+          const cycle = (a.t % 0.42) / 0.42;
+          rArmX = 70 + Math.sin(cycle * Math.PI * 2) * 40;
+          lookOverride = { yaw: -10, pitch: -22 };
+          if (cycle < (a.lastCycle ?? 1)) {
+            const broke = world.hitBlock();
+            a.hits++;
+            if (broke && a.type === "punch") this.start("home", 6);
+          }
+          a.lastCycle = cycle;
+          if (a.type === "punch" && a.hits > 8) this.start("home", 6);
+          break;
+        }
+        case "campfire": {
+          const spot = world.spot("fire") - block * 1.6;
+          if (!this.walkTo(spot, dt, u)) { walking = true; break; }
+          this.facingTarget = 80;
+          rArmX = 55 + Math.sin(a.t * 1.5) * 3;
+          lArmX = 55 + Math.sin(a.t * 1.5 + 1) * 3;
+          lookOverride = { yaw: 0, pitch: -14 };
+          if (a.t > a.dur) this.start("home", 6);
+          break;
+        }
+        case "wave":
+          rArmZ = 150 + Math.sin(a.t * 12) * 18;
+          if (a.t > a.dur) this.start("idle", 2);
+          break;
+        case "celebrate":
+          rArmZ = 150 + Math.sin(a.t * 12) * 18;
+          lArmZ = -150 - Math.sin(a.t * 12) * 18;
+          if (a.t > 0.2 && a.t < 0.3) this.jump();
+          if (a.t > 1.4 && a.t < 1.5) this.jump();
+          if (a.t > a.dur) this.start("home", 6);
+          break;
+        case "look": {
+          const crit = world.critters();
+          if (crit.length) {
+            const head = this.headScreen();
+            const c = crit.reduce((best, k) => (Math.hypot(k.x - head.x, k.y - head.y) < Math.hypot(best.x - head.x, best.y - head.y) ? k : best));
+            lookOverride = { yaw: clamp((c.x - head.x) / 4, -55, 55), pitch: clamp((head.y - c.y) / 4, -25, 35) };
+          } else lookOverride = { yaw: Math.sin(a.t * 1.3) * 40, pitch: 12 };
+          if (a.t > a.dur) this.start("idle", 2);
+          break;
+        }
+        default:
+          if (a.t > a.dur) this.chooseNext();
+      }
+    }
+
+    // At night the free right hand holds up a torch.
+    this.holdingTorch = !this.preview && world && world.darkness() > 0.5 && !["mine", "punch", "campfire", "wave", "celebrate"].includes(a.type);
+    if (this.holdingTorch && !walking && !rArmX) rArmX = 32;
+
+    // Walk cycle / idle breathing.
+    if (walking) {
+      legSwing = Math.sin(this.walkPhase) * 32;
+      armSwing = Math.sin(this.walkPhase) * 26;
+    }
+    const breath = Math.sin(performance.now() / 900);
+    P.rLegX = approach(P.rLegX, legSwing, 12, dt);
+    P.lLegX = approach(P.lLegX, -legSwing, 12, dt);
+    P.rArmX = approach(P.rArmX, rArmX || -armSwing, 14, dt);
+    P.lArmX = approach(P.lArmX, lArmX || armSwing, 14, dt);
+    P.rArmZ = approach(P.rArmZ, rArmZ || 3 + breath * 2, 10, dt);
+    P.lArmZ = approach(P.lArmZ, lArmZ || -3 - breath * 2, 10, dt);
+
+    // Facing turns smoothly.
+    if (!this.preview) this.facing = approach(this.facing, this.facingTarget, 6, dt);
+
+    // Head: cursor first, else action, else gentle idle.
+    const head = this.headScreen();
+    let ty = Math.sin(performance.now() / 2300) * 12, tp = Math.sin(performance.now() / 3100) * 4;
+    const recentMouse = performance.now() - this.mouse.at < 2500;
+    if (lookOverride) { ty = lookOverride.yaw; tp = lookOverride.pitch; }
+    else if (recentMouse) {
+      ty = clamp((this.mouse.x - head.x) / 5, -60, 60) - (this.facing - 16) * 0.5;
+      tp = clamp((head.y - this.mouse.y) / 6, -30, 35);
+    }
+    this.yaw = approach(this.yaw, clamp(ty, -60, 60), 8, dt);
+    this.pitch = approach(this.pitch, tp, 8, dt);
+
+    // Gravity for jumps.
+    if (this.y < 0 || this.vy < 0) {
+      this.vy += 90 * dt;
+      this.y += this.vy * dt * u;
+      if (this.y > 0) { this.y = 0; this.vy = 0; }
+    }
+
+    this.walking = walking;
+  }
+
+  // -------------------------------------------------------------- render --
+
+  render() {
+    const u = this.unit;
+    const P = this.pose;
+    const set = (name, rx = 0, ry = 0, rz = 0) => {
+      const { el, p } = this.parts[name];
+      el.style.transform = `translate3d(${p.pivot[0] * u}px,${p.pivot[1] * u}px,${p.pivot[2] * u}px) rotateY(${ry}deg) rotateX(${rx}deg) rotateZ(${rz}deg)`;
+    };
+    const bob = this.walking ? Math.abs(Math.sin(this.walkPhase)) * -0.6 * u : Math.sin(performance.now() / 900) * 0.15 * u;
+    set("body");
+    set("head", this.pitch, this.yaw, 0);
+    set("rarm", P.rArmX, 0, P.rArmZ);
+    set("larm", P.lArmX, 0, P.lArmZ);
+    set("rleg", P.rLegX);
+    set("lleg", P.lLegX);
+    this.root.style.transform = `translate3d(${this.x}px,${this.y + bob}px,0) rotateX(-7deg) rotateY(${this.facing}deg)`;
+
+    if (!this.preview && this.world) {
+      const a = this.world.anchor();
+      this.stage.style.left = `${a.x}px`;
+      this.stage.style.top = `${a.y}px`;
+      const lift = Math.min(1, -this.y / (6 * u));
+      this.shadow.style.transform = `translateX(${this.x}px) scale(${1 - lift * 0.4})`;
+      this.tag.style.transform = `translate(calc(-50% + ${this.x}px), ${this.y + bob}px)`;
+      // Torch at night, in the right hand (the viewer's left when facing us).
+      const showTorch = !!this.holdingTorch;
+      this.torchEl.hidden = !showTorch;
+      if (showTorch) {
+        const face = Math.cos(this.facing * DEG);
+        const hx = this.x - 6 * u * face;
+        const hy = -11 * u + this.y + bob;
+        this.torchEl.style.transform = `translate(${hx}px, ${hy}px)`;
+        this.world.setTorch(a.x + hx, a.y + hy - 6 * u, true);
+      } else this.world.setTorch(0, 0, false);
+    }
+  }
+
+  loop(now) {
+    const dt = Math.min(0.05, (now - this.last) / 1000);
+    this.last = now;
+    if (!document.hidden && this.stage.isConnected) {
+      if (this.currentUnit() !== this.unit) this.build();
+      this.update(dt);
+      this.render();
+    }
+    if (this.stage.isConnected) requestAnimationFrame((t) => this.loop(t));
+  }
+}

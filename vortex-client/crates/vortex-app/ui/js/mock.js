@@ -10,7 +10,7 @@ const state = {
   settings: {
     min_memory_mb: 512, max_memory_mb: 4096, java_path: null, extra_jvm_args: [],
     microsoft_client_id: null, download_concurrency: 32, show_snapshots: false,
-    show_old_versions: false, sky: "dawn", ui_sounds: true, animations: true,
+    show_old_versions: false, sky: "cycle", day_length_min: 10, ui_sounds: true, animations: true,
   },
   accounts: [{ uuid: "5627dd98e6be3c21b8a8e92344183641", username: "Steve", kind: "offline", selected: true }],
   instances: [
@@ -178,6 +178,8 @@ export const mock = {
       case "delete_mod":
         state.mods[args.name] = (state.mods[args.name] || []).filter((x) => x.file !== args.file);
         return state.mods[args.name];
+      case "player_skin":
+        return { dataUrl: null, slim: false, source: "none" };
       case "import_mods":
         return state.mods[args.name] || [];
       case "open_path":

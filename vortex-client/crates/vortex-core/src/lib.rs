@@ -45,6 +45,9 @@ pub mod version;
 mod launcher;
 
 pub use launcher::Launcher;
+// Re-exported so front-ends use the same versions as the core.
+pub use reqwest;
+pub use zip;
 
 /// Value of `${launcher_name}` / `-Dminecraft.launcher.brand`.
 pub const LAUNCHER_NAME: &str = "vortex";
