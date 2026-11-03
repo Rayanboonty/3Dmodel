@@ -21,7 +21,7 @@ use vortex_core::manifest::VersionType;
 use vortex_core::paths::Paths;
 use vortex_core::progress::{Progress, ProgressFn};
 use vortex_core::settings::Settings;
-use vortex_core::{auth, fabric, launch, Launcher};
+use vortex_core::{auth, fabric, forge, launch, Launcher};
 
 #[derive(Parser)]
 #[command(name = "vortex-cli", version, about = "Vortex Client — install and launch any Minecraft version")]
@@ -54,12 +54,18 @@ enum Cmd {
     },
     /// List Fabric loader versions for a Minecraft version.
     FabricVersions { minecraft: String },
+    /// List Forge builds for a Minecraft version.
+    ForgeVersions { minecraft: String },
     /// Download a version (and its Java runtime) without launching.
     Install {
         version: String,
         /// Install with the Fabric loader (latest stable unless --loader).
         #[arg(long)]
         fabric: bool,
+        /// Install with Forge (recommended build unless --loader).
+        #[arg(long)]
+        forge: bool,
+        /// Loader version (Fabric loader or Forge build).
         #[arg(long)]
         loader: Option<String>,
     },
@@ -71,6 +77,8 @@ enum Cmd {
         version: String,
         #[arg(long)]
         fabric: bool,
+        #[arg(long)]
+        forge: bool,
         #[arg(long)]
         loader: Option<String>,
         #[arg(long)]
@@ -86,6 +94,8 @@ enum Cmd {
         target: String,
         #[arg(long)]
         fabric: bool,
+        #[arg(long)]
+        forge: bool,
         /// Play as this offline username instead of the selected account.
         #[arg(long)]
         offline: Option<String>,
@@ -147,8 +157,10 @@ fn progress_printer() -> ProgressFn {
     })
 }
 
-fn loader_from(fabric: bool, loader: Option<String>) -> Loader {
-    if fabric || loader.is_some() {
+fn loader_from(fabric: bool, forge: bool, loader: Option<String>) -> Loader {
+    if forge {
+        Loader::Forge { version: loader }
+    } else if fabric || loader.is_some() {
         Loader::Fabric { version: loader }
     } else {
         Loader::Vanilla
@@ -195,10 +207,21 @@ async fn main() -> Result<()> {
                 println!("{}{}", l.version, if l.stable { "" } else { "  (beta)" });
             }
         }
-        Cmd::Install { version, fabric, loader } => {
-            let mut instance = Instance::new(&version, &version, loader_from(fabric, loader));
+        Cmd::ForgeVersions { minecraft } => {
+            let versions = forge::versions(&launcher, &minecraft).await?;
+            if versions.is_empty() {
+                bail!("Forge has no builds for {minecraft}");
+            }
+            for f in versions.iter().take(20) {
+                let tag = if f.recommended { "  (recommended)" } else if f.latest { "  (latest)" } else { "" };
+                println!("{}{tag}", f.display);
+            }
+            eprintln!("{} build(s) for {minecraft}", versions.len());
+        }
+        Cmd::Install { version, fabric, forge, loader } => {
+            let mut instance = Instance::new(&version, &version, loader_from(fabric, forge, loader));
             instance.dir = paths.instances().join("_unused");
-            let id = launcher.version_id_for(&instance).await?;
+            let id = launcher.version_id_for(&instance, &progress).await?;
             let installed = launcher.install_version(&id, &progress).await?;
             let java = launcher.java_for(&installed, settings.java_path.as_deref(), &progress).await?;
             println!("installed {id}");
@@ -215,12 +238,12 @@ async fn main() -> Result<()> {
                 println!("{:<24} {:<14} {:<16} {}", i.name, i.minecraft_version, i.loader.label(), i.dir.display());
             }
         }
-        Cmd::Create { name, version, fabric, loader, memory, server } => {
+        Cmd::Create { name, version, fabric, forge, loader, memory, server } => {
             let manifest = launcher.manifest(false).await?;
             if manifest.find(&version).is_none() && !paths.version_json(&version).is_file() {
                 bail!("unknown Minecraft version '{version}' (see `vortex-cli versions --kind all`)");
             }
-            let mut inst = Instance::new(&name, &version, loader_from(fabric, loader));
+            let mut inst = Instance::new(&name, &version, loader_from(fabric, forge, loader));
             inst.memory_mb = memory;
             inst.join_server = server;
             let inst = launcher.instances().create(inst)?;
@@ -232,7 +255,7 @@ async fn main() -> Result<()> {
             store.delete(&inst)?;
             println!("deleted '{}'", inst.name);
         }
-        Cmd::Launch { target, fabric, offline, account, memory, server, dry_run } => {
+        Cmd::Launch { target, fabric, forge, offline, account, memory, server, dry_run } => {
             let store = launcher.instances();
             let mut instance = match store.find(&target)? {
                 Some(i) => i,
@@ -241,8 +264,12 @@ async fn main() -> Result<()> {
                     if manifest.find(&target).is_none() && !paths.version_json(&target).is_file() {
                         bail!("'{target}' is neither an instance nor a known version");
                     }
-                    let loader = loader_from(fabric, None);
-                    let name = if fabric { format!("{target} (Fabric)") } else { target.clone() };
+                    let loader = loader_from(fabric, forge, None);
+                    let name = match loader {
+                        Loader::Fabric { .. } => format!("{target} (Fabric)"),
+                        Loader::Forge { .. } => format!("{target} (Forge)"),
+                        Loader::Vanilla => target.clone(),
+                    };
                     match store.find(&name)? {
                         Some(i) => i,
                         None => store.create(Instance::new(&name, &target, loader))?,

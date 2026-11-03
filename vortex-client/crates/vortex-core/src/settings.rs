@@ -18,6 +18,13 @@ pub struct Settings {
     pub download_concurrency: usize,
     pub show_snapshots: bool,
     pub show_old_versions: bool,
+    /// UI: sky theme — `dawn` (default), `day`, `dusk`, `night`, or `auto`
+    /// to follow the local time.
+    pub sky: String,
+    /// UI: click and launch sounds.
+    pub ui_sounds: bool,
+    /// UI: background and transition animations.
+    pub animations: bool,
 }
 
 impl Default for Settings {
@@ -31,6 +38,9 @@ impl Default for Settings {
             download_concurrency: 32,
             show_snapshots: false,
             show_old_versions: false,
+            sky: "dawn".to_string(),
+            ui_sounds: true,
+            animations: true,
         }
     }
 }

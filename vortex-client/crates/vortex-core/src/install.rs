@@ -46,7 +46,9 @@ fn library_path(paths: &Paths, artifact: &ResolvedArtifact) -> Result<PathBuf> {
     Ok(paths.libraries().join(rel))
 }
 
-fn task_for(paths: &Paths, artifact: &ResolvedArtifact, tasks: &mut Vec<DownloadTask>) -> Result<PathBuf> {
+/// Queue a download for a library artifact (or check it exists locally)
+/// and return where it lives.
+pub(crate) fn task_for(paths: &Paths, artifact: &ResolvedArtifact, tasks: &mut Vec<DownloadTask>) -> Result<PathBuf> {
     let path = library_path(paths, artifact)?;
     match &artifact.url {
         Some(url) => tasks.push(

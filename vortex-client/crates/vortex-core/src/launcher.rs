@@ -10,6 +10,7 @@ use crate::assets;
 use crate::auth;
 use crate::download::{sha1_file, write_atomic, Downloader};
 use crate::fabric;
+use crate::forge;
 use crate::install::{self, InstalledVersion};
 use crate::instance::{Instance, InstanceStore, Loader};
 use crate::java;
@@ -173,8 +174,8 @@ impl Launcher {
         install::install(&self.downloader, &self.paths, version, progress).await
     }
 
-    /// Version id to launch for an instance (installs the Fabric profile).
-    pub async fn version_id_for(&self, instance: &Instance) -> Result<String> {
+    /// Version id to launch for an instance (installs the loader if needed).
+    pub async fn version_id_for(&self, instance: &Instance, progress: &ProgressFn) -> Result<String> {
         match &instance.loader {
             Loader::Vanilla => Ok(instance.minecraft_version.clone()),
             Loader::Fabric { version } => {
@@ -185,6 +186,9 @@ impl Launcher {
                     version.as_deref(),
                 )
                 .await
+            }
+            Loader::Forge { version } => {
+                forge::install(self, &instance.minecraft_version, version.as_deref(), progress).await
             }
         }
     }
@@ -245,7 +249,7 @@ impl Launcher {
         settings: &Settings,
         progress: &ProgressFn,
     ) -> Result<LaunchCommand> {
-        let id = self.version_id_for(instance).await?;
+        let id = self.version_id_for(instance, progress).await?;
         let installed = self.install_version(&id, progress).await?;
         let java_override = instance.java_path.as_deref().or(settings.java_path.as_deref());
         let java = self.java_for(&installed, java_override, progress).await?;

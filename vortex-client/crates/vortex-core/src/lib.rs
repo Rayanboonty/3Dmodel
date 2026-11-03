@@ -2,7 +2,7 @@
 //!
 //! Everything the Vortex Client needs to install and launch **any** Minecraft:
 //! Java Edition version published by Mojang — from `rd-132211` (2009) through
-//! the latest snapshot — plus the Fabric mod loader.
+//! the latest snapshot — plus the Fabric and Forge mod loaders.
 //!
 //! This crate is deliberately UI-agnostic: the test GUI (`vortex-app`) and the
 //! command line tool (`vortex-cli`) are thin layers on top of [`Launcher`].
@@ -24,13 +24,17 @@ pub mod assets;
 pub mod auth;
 pub mod download;
 pub mod fabric;
+pub mod forge;
 pub mod install;
 pub mod instance;
 pub mod java;
 pub mod launch;
+pub mod loaders;
 pub mod logs;
 pub mod manifest;
 pub mod maven;
+pub mod mods;
+pub mod news;
 pub mod os;
 pub mod paths;
 pub mod progress;

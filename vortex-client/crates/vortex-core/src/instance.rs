@@ -15,6 +15,11 @@ pub enum Loader {
         #[serde(default)]
         version: Option<String>,
     },
+    Forge {
+        /// Forge build (e.g. `47.4.28`); `None` = recommended at install time.
+        #[serde(default)]
+        version: Option<String>,
+    },
 }
 
 impl Loader {
@@ -23,6 +28,8 @@ impl Loader {
             Loader::Vanilla => "Vanilla".into(),
             Loader::Fabric { version: Some(v) } => format!("Fabric {v}"),
             Loader::Fabric { version: None } => "Fabric".into(),
+            Loader::Forge { version: Some(v) } => format!("Forge {v}"),
+            Loader::Forge { version: None } => "Forge".into(),
         }
     }
 }

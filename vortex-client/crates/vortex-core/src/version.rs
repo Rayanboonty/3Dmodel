@@ -114,6 +114,9 @@ pub struct VersionDownloads {
     pub client: Option<Download>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub server: Option<Download>,
+    /// ProGuard mappings for the client (Forge's installer needs them).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_mappings: Option<Download>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +180,9 @@ pub struct Library {
     pub sha1: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
+    /// Legacy Forge: `false` marks a server-only library.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clientreq: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -222,7 +228,7 @@ impl Library {
     }
 
     pub fn applies(&self, env: &Environment) -> bool {
-        rules::allowed(&self.rules, env)
+        self.clientreq != Some(false) && rules::allowed(&self.rules, env)
     }
 
     /// Key used to de-duplicate libraries across inherited profiles.
@@ -314,20 +320,16 @@ impl VersionJson {
     /// Merge this (child) profile on top of its `inheritsFrom` parent.
     ///
     /// Child values win; libraries are child-first; argument lists are
-    /// concatenated parent-then-child. The client jar comes from the parent
-    /// unless the child ships its own.
+    /// concatenated parent-then-child. Like the official launcher, a child
+    /// without an explicit `jar` gets its own copy of the parent's client jar
+    /// at `versions/<child>/<child>.jar` (Forge's module system expects the
+    /// jar to be named after the version it launches).
     pub fn merge_onto(self, parent: VersionJson) -> VersionJson {
         let child_has_jar = self
             .downloads
             .as_ref()
             .is_some_and(|d| d.client.is_some());
-        let jar = if child_has_jar {
-            self.jar
-        } else {
-            self.jar
-                .or(parent.jar.clone())
-                .or_else(|| Some(parent.id.clone()))
-        };
+        let jar = self.jar;
 
         let mut libraries = self.libraries;
         libraries.extend(parent.libraries);
@@ -484,7 +486,7 @@ mod tests {
         assert_eq!(merged.id, "fabric-loader-0.16.9-1.21.4");
         assert_eq!(merged.inherits_from, None);
         assert_eq!(merged.main_class.as_deref(), Some("net.fabricmc.loader.impl.launch.knot.KnotClient"));
-        assert_eq!(merged.client_jar_id(), "1.21.4");
+        assert_eq!(merged.client_jar_id(), "fabric-loader-0.16.9-1.21.4");
         assert_eq!(merged.asset_index_id(), "19");
         assert_eq!(merged.java_requirement(), ("java-runtime-delta".to_string(), 21));
         assert_eq!(merged.libraries[0].name, "org.ow2.asm:asm:9.7", "child libraries first");
