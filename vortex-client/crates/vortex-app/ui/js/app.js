@@ -413,7 +413,7 @@ function playButton(inst) {
   if (r.phase === "running") {
     const t = S.started[inst.name] ? clock(Date.now() - S.started[inst.name]) : "";
     return `<button class="play running lq" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Stop the game">
-      <span class="play-label"><span class="run-text">PLAYING</span><span class="stop-text">${icon("stop", 18)} STOP GAME</span></span>
+      <span class="play-label"><span class="run-text"><span class="live-dot" aria-hidden="true"></span>PLAYING</span><span class="stop-text"><span class="stop-glyph" aria-hidden="true"></span>STOP GAME</span></span>
       <span class="play-sub">${esc(inst.name)}${t ? ` · ${t}` : ""}</span></button>`;
   }
   return `<button class="play lq" id="play" data-action="play" data-name="${esc(inst.name)}">

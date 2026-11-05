@@ -1249,3 +1249,13 @@ body.compact-side .sidebar .tab { padding: 14px 4px; }
 
 .boot.out { animation: bootOut 0.6s var(--ease) forwards; }
 .toast { border-radius: var(--r-m); }
+
+/* Running / stop state of the Launch button: one line, icon beside the text. */
+.play.running .run-text, .play.running:hover .stop-text { display: inline-flex; align-items: center; gap: 10px; line-height: 1; }
+.play .stop-text, .play.running:hover .run-text { display: none; }
+.play.running .run-text .live-dot { width: 9px; height: 9px; background: #1f5d0c; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35); }
+.stop-glyph { display: block; flex: 0 0 auto; width: 15px; height: 15px; border-radius: 4px; background: currentColor; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); }
+.play.running { background: linear-gradient(180deg, #b4f28f, var(--live) 50%, #5cb43a); color: #12300a; }
+.play.running:hover { background: linear-gradient(180deg, #ff9a8c, #ff6252 50%, #e2443a); color: #fff; border-color: rgba(255, 200, 190, 0.85); box-shadow: inset 1.5px 1.5px 0.5px -0.5px rgba(255, 255, 255, 0.85), inset 0 -3px 0 rgba(0, 0, 0, 0.14), 0 18px 40px -16px rgba(255, 80, 60, 0.9); }
+.play.running:hover .play-sub { color: rgba(255, 255, 255, 0.85); opacity: 1; }
+.play.running:hover .stop-glyph { box-shadow: none; }
