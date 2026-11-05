@@ -239,7 +239,7 @@ export class Player {
   }
 
   wave(seconds = 2) {
-    if (["mine", "jump"].includes(this.action.type)) return;
+    if (["mine", "jump", "run", "rest", "stretch", "homewave", "lean"].includes(this.action.type)) return;
     this.start("wave", seconds);
   }
 
@@ -260,8 +260,29 @@ export class Player {
 
   // ---------------------------------------------------------- behaviour --
 
+  /**
+   * The opening scene: sprint in from the left edge to the Play button
+   * (`targetX`, relative to home), lean on it out of breath, then stroll
+   * back home and wave.
+   */
+  intro(targetX) {
+    const a = this.world ? this.world.anchor() : { x: 0 };
+    this.x = -a.x - this.unit * 10;
+    this.introTarget = targetX;
+    this.start("run", 99);
+  }
+
   chooseNext() {
-    if (this.activity === "preparing") return this.start("mine", 999);
+    if (this.activity === "preparing") return this.start(this.world?.picture ? "idle" : "mine", 999);
+    if (this.world?.picture) {
+      // Picture backgrounds: no blocks or campfire, so wander, look and wave.
+      const roll = Math.random();
+      if (roll < 0.3) return this.start("walk", 8);
+      if (roll < 0.5) return this.start("look", 3.5);
+      if (roll < 0.62) return this.start("wave", 1.8);
+      if (roll < 0.72 && this.introTarget != null) return this.start("lean", 99);
+      return this.start("idle", 3 + Math.random() * 3);
+    }
     const night = this.world && this.world.darkness() > 0.55;
     const roll = Math.random();
     if (night && roll < 0.45) return this.start("campfire", 7 + Math.random() * 5);
@@ -273,13 +294,14 @@ export class Player {
   }
 
   /** Move toward a screen-x offset; returns true when there. */
-  walkTo(target, dt, u) {
+  walkTo(target, dt, u, speed = 7, cadence = 9) {
     const dx = target - this.x;
     if (Math.abs(dx) < u * 0.6) return true;
-    const speed = u * 7;
-    this.x += Math.sign(dx) * Math.min(Math.abs(dx), speed * dt);
+    // Ease in and out so starts and stops aren't abrupt.
+    const ease = Math.min(1, Math.abs(dx) / (u * 6)) * Math.min(1, 0.35 + (this.action.t || 0) * 1.6);
+    this.x += Math.sign(dx) * Math.min(Math.abs(dx), u * speed * Math.max(0.25, ease) * dt);
     this.facingTarget = dx > 0 ? 90 : -90;
-    this.walkPhase += dt * 9;
+    this.walkPhase += dt * cadence * Math.max(0.5, ease);
     return false;
   }
 
@@ -293,6 +315,9 @@ export class Player {
     let rArmX = 0, rArmZ = 0, lArmX = 0, lArmZ = 0;
     let lookOverride = null;
     let walking = false;
+    let running = false;
+    let lean = 0;
+    this.panting = false;
     const world = this.world;
     const block = world ? world.scale * 6 : u * 3;
 
@@ -300,7 +325,42 @@ export class Player {
       if (!this.dragYaw) this.facing += dt * 18;
     } else {
       switch (a.type) {
+        case "run": {
+          running = true;
+          walking = !this.walkTo(this.introTarget ?? 0, dt, u, 20, 17);
+          lean = 12;
+          if (!walking) this.start("rest", 3.4);
+          break;
+        }
+        case "lean":
+        case "rest": {
+          // Walk over (if needed), then lean on the button, out of breath.
+          if (a.type === "lean" && !this.walkTo(this.introTarget ?? 0, dt, u)) { walking = true; break; }
+          this.facingTarget = 0;
+          const k = Math.min(1, a.t / 0.4);
+          lean = 13 * k;
+          rArmX = 24 * k;
+          lArmX = 24 * k;
+          rArmZ = 8 * k;
+          lArmZ = -8 * k;
+          lookOverride = { yaw: Math.sin(a.t * 0.9) * 6, pitch: 24 };
+          this.panting = a.type === "rest";
+          if (a.t > (a.type === "rest" ? a.dur : 2.6)) this.start(a.type === "rest" ? "stretch" : "home", 1.2);
+          break;
+        }
+        case "stretch":
+          // Straighten up, arms up, then head home.
+          rArmZ = 160 * Math.sin(Math.min(1, a.t / a.dur) * Math.PI);
+          lArmZ = -160 * Math.sin(Math.min(1, a.t / a.dur) * Math.PI);
+          lookOverride = { yaw: 0, pitch: -10 };
+          if (a.t > a.dur) this.start("homewave", 99);
+          break;
+        case "homewave":
+          walking = !this.walkTo(0, dt, u, 6, 8);
+          if (!walking) this.start("wave", 1.8);
+          break;
         case "walk": {
+          if (a.target == null && world?.picture) a.target = (Math.random() - 0.5) * u * 22;
           if (a.target == null) {
             const lo = world.spot("punch") + block * 1.6, hi = world.spot("fire") - block * 1.6;
             a.target = lo + Math.random() * (hi - lo);
@@ -370,11 +430,12 @@ export class Player {
     this.holdingTorch = !this.preview && world && world.darkness() > 0.5 && !["mine", "punch", "campfire", "wave", "celebrate"].includes(a.type);
     if (this.holdingTorch && !walking && !rArmX) rArmX = 32;
 
-    // Walk cycle / idle breathing.
+    // Walk or run cycle / idle breathing.
     if (walking) {
-      legSwing = Math.sin(this.walkPhase) * 32;
-      armSwing = Math.sin(this.walkPhase) * 26;
+      legSwing = Math.sin(this.walkPhase) * (running ? 58 : 32);
+      armSwing = Math.sin(this.walkPhase) * (running ? 62 : 26);
     }
+    this.lean = approach(this.lean || 0, lean, 8, dt);
     const breath = Math.sin(performance.now() / 900);
     P.rLegX = approach(P.rLegX, legSwing, 12, dt);
     P.lLegX = approach(P.lLegX, -legSwing, 12, dt);
@@ -395,8 +456,9 @@ export class Player {
       ty = clamp((this.mouse.x - head.x) / 5, -60, 60) - (this.facing - 16) * 0.5;
       tp = clamp((head.y - this.mouse.y) / 6, -30, 35);
     }
-    this.yaw = approach(this.yaw, clamp(ty, -60, 60), 8, dt);
-    this.pitch = approach(this.pitch, tp, 8, dt);
+    // The head turns no further than a person's would, and eases there.
+    this.yaw = approach(this.yaw, clamp(ty, -42, 42), 5, dt);
+    this.pitch = approach(this.pitch, clamp(tp, -25, 30), 5, dt);
 
     // Gravity for jumps.
     if (this.y < 0 || this.vy < 0) {
@@ -417,7 +479,10 @@ export class Player {
       const { el, p } = this.parts[name];
       el.style.transform = `translate3d(${p.pivot[0] * u}px,${p.pivot[1] * u}px,${p.pivot[2] * u}px) rotateY(${ry}deg) rotateX(${rx}deg) rotateZ(${rz}deg)`;
     };
-    const bob = this.walking ? Math.abs(Math.sin(this.walkPhase)) * -0.6 * u : Math.sin(performance.now() / 900) * 0.15 * u;
+    const now = performance.now();
+    const bob = this.walking
+      ? Math.abs(Math.sin(this.walkPhase)) * -0.6 * u
+      : this.panting ? Math.abs(Math.sin(now / 160)) * 0.35 * u : Math.sin(now / 900) * 0.15 * u;
     set("body");
     set("head", this.pitch, this.yaw, 0);
     set("rarm", P.rArmX, 0, P.rArmZ);
@@ -428,7 +493,7 @@ export class Player {
       const swing = 6 + (this.walking ? 16 + Math.sin(this.walkPhase * 2) * 4 : Math.sin(performance.now() / 700) * 2) + Math.min(20, Math.max(0, -this.vy * 0.6));
       this.capeEl.style.transform = `translate3d(0px,${-24 * u}px,${-2.6 * u}px) rotateY(180deg) rotateX(${swing}deg)`;
     }
-    this.root.style.transform = `translate3d(${this.x}px,${this.y + bob}px,0) rotateX(-7deg) rotateY(${this.facing}deg)`;
+    this.root.style.transform = `translate3d(${this.x}px,${this.y + bob}px,0) rotateX(${-7 - (this.lean || 0) * Math.cos(this.facing * DEG)}deg) rotateZ(${(this.lean || 0) * Math.sin(this.facing * DEG) * -0.6}deg) rotateY(${this.facing}deg)`;
 
     if (!this.preview && this.world) {
       const a = this.world.anchor();

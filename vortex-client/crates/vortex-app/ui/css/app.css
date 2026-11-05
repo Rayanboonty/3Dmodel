@@ -753,3 +753,105 @@ code.path { display: block; font-size: 12px; word-break: break-all; color: var(-
 
 .brand-logo { height: 40px; width: auto; }
 img.boot-logo { height: 150px; width: auto; display: block; margin: 0 auto 26px; }
+
+/* ================================================= liquid glass, v4 ===== */
+/* Clear, bare glass like Apple's: almost no tint, a bright rim that catches
+   the light (and follows the pointer), and real refraction where the
+   browser supports SVG backdrop filters (Chromium / WebView2). */
+
+body[class] {
+  --glass: rgba(255, 255, 255, calc(0.06 * var(--gk)));
+  --glass-strong: rgba(26, 16, 38, calc(0.48 * var(--gk)));
+  --glass-edge: rgba(255, 255, 255, 0.2);
+  --rim:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 1.5px 1.5px 0.5px -0.5px rgba(255, 255, 255, 0.78),
+    inset -1px -1px 0.5px -0.5px rgba(255, 255, 255, 0.32),
+    inset 0 -16px 24px -20px rgba(255, 255, 255, 0.38);
+  --lift: 0 1px 2px rgba(0, 0, 0, 0.12), 0 16px 38px -14px rgba(12, 4, 26, 0.5);
+}
+
+.glass {
+  border: 0;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, calc(0.16 * var(--gk))) 0%, rgba(255, 255, 255, calc(0.03 * var(--gk))) 42%, rgba(255, 255, 255, calc(0.08 * var(--gk))) 100%);
+  -webkit-backdrop-filter: blur(calc(var(--blur) * 0.4)) saturate(125%);
+  backdrop-filter: blur(calc(var(--blur) * 0.4)) saturate(125%);
+  box-shadow: var(--rim), var(--lift);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
+}
+.glass.strong, .sheet.glass, .modal.glass, .log-dock.glass, .popover.glass, .switcher {
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.06) 100%),
+    var(--glass-strong);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
+  backdrop-filter: blur(var(--blur)) saturate(120%);
+  box-shadow: var(--rim), var(--lift);
+}
+body.refract .glass {
+  backdrop-filter: url(#lg-refract) blur(calc(var(--blur) * 0.32)) saturate(125%);
+}
+body.refract .glass.strong, body.refract .sheet.glass, body.refract .modal.glass, body.refract .log-dock.glass, body.refract .popover.glass {
+  backdrop-filter: url(#lg-refract-soft) blur(var(--blur)) saturate(120%);
+}
+
+/* Pointer light: a bright arc on the rim nearest the cursor, plus a faint
+   glow inside. Fades in on hover, out when the pointer leaves. */
+.hl::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  padding: 1.5px;
+  background: radial-gradient(200px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.22) 38%, transparent 68%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0; transition: opacity 0.45s var(--ease);
+}
+.hl::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.1), transparent 65%);
+  opacity: 0; transition: opacity 0.45s var(--ease);
+}
+.hl:hover::before, .hl:hover::after { opacity: 1; }
+
+/* Buttons and chips are small pieces of the same glass. */
+.btn:not(.btn-accent):not(.btn-danger) {
+  border: 0;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06));
+  box-shadow: var(--rim), 0 6px 16px -10px rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+  transition: background 0.25s, box-shadow 0.25s, transform 0.35s var(--spring);
+}
+.btn:not(.btn-accent):not(.btn-danger):hover {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+  transform: translateY(-1px);
+}
+.btn.btn-ghost:not(:hover) { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.btn-accent, .play { box-shadow: inset 1.5px 1.5px 0.5px -0.5px rgba(255, 255, 255, 0.9), inset 0 -3px 0 rgba(0, 0, 0, 0.14), 0 18px 40px -16px rgba(var(--accent-rgb), 0.9); }
+
+/* The tab droplet: a little lens of clear glass. */
+.drop {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.1));
+  box-shadow: inset 1.5px 1.5px 0.5px -0.5px rgba(255, 255, 255, 0.95), inset -1px -1px 0.5px -0.5px rgba(255, 255, 255, 0.4), 0 6px 18px -6px rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(1px) saturate(130%) brightness(1.08);
+  backdrop-filter: blur(1px) saturate(130%) brightness(1.08);
+}
+body.refract .drop { backdrop-filter: url(#lg-lens) saturate(130%) brightness(1.08); }
+
+/* Ripple on press: clearer and softer. */
+.lq-ripple { background: radial-gradient(circle, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 70%); }
+
+/* Centred home for picture backgrounds: Play sits in the middle, the
+   player stands beside it. */
+body.picture .play-cluster, body.picture .switcher { left: 50%; }
+body.picture .play-cluster { top: calc(var(--ay) - 74px); }
+body.picture .switcher { top: calc(var(--ay) - 74px); }
+@media (max-width: 1180px) { body.picture .side { display: none; } }
+.square.glass { border-radius: 22px; }
+/* Panels with lists get a touch of smoke so text reads on bright skies. */
+.side.glass, .nav.glass, .top-chip.glass, .square.glass {
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 42%, rgba(255, 255, 255, 0.06) 100%),
+    rgba(20, 12, 30, calc(0.22 * var(--gk)));
+}
+.side.glass { background-color: rgba(20, 12, 30, calc(0.3 * var(--gk))); }

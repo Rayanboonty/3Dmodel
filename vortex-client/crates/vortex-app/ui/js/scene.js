@@ -69,6 +69,7 @@ function cyclePalette(hour) {
 
 /** The scenes you can pick, in order. */
 export const SCENES = [
+  { id: "sunset", name: "Sunset Lake" },
   { id: "valley", name: "Valley" },
   { id: "vista", name: "Vortex Valley" },
   { id: "meadow", name: "Sunrise Meadow" },
@@ -84,8 +85,15 @@ export const SCENES = [
 ];
 
 const DEFS = {
+  sunset: {
+    image: "sunset", sunAt: [0.49, 0.45], glowCol: [255, 170, 80], dust: [255, 200, 120], phase: "dusk",
+    ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
+    far: "none", hills: null, mid: { ridge: null, trees: [], density: 0 },
+    fore: { tree: null }, water: "lake", fire: "campfire", flora: [],
+    particles: "petals", leaf: [250, 190, 214], critters: {}, clouds: 0, sun: false,
+  },
   valley: {
-    image: true,
+    image: "valley", sunAt: [0.3, 0.12], glowCol: [255, 245, 220], dust: [255, 255, 235], phase: "day",
     ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
     far: "none", hills: null, mid: { ridge: null, trees: [], density: 0 },
     fore: { tree: null }, water: "lake", fire: "campfire", flora: [],
@@ -403,6 +411,7 @@ export class World {
     this.resize();
     window.addEventListener("resize", () => this.resize());
     window.addEventListener("mousemove", (e) => {
+      this.mouseY = e.clientY / window.innerHeight;
       this.parallaxTarget = (e.clientX / window.innerWidth - 0.5) * 2;
     });
     requestAnimationFrame((t) => this.loop(t));
@@ -461,7 +470,10 @@ export class World {
     return ((total % 24) + 24) % 24;
   }
 
-  phase() { return this.def.time ? this.def.time.phase : phaseOf(this.hour()); }
+  phase() {
+    if (this.def.image) return this.def.phase;
+    return this.def.time ? this.def.time.phase : phaseOf(this.hour());
+  }
 
   palette() {
     const d = this.def;
@@ -496,8 +508,12 @@ export class World {
 
   /** Where the player's feet go, in screen pixels. */
   anchor() {
+    if (this.def.image) return { x: this.w / 2 - Math.min(250, this.w * 0.17), y: Math.round(this.h * 0.8), scale: this.scale };
     return { x: this.playerX, y: this.groundY, scale: this.scale };
   }
+
+  /** True for picture backgrounds (no block world to interact with). */
+  get picture() { return !!this.def.image; }
 
   /** Screen-x of named spots, relative to the player's home. */
   spot(name) {
@@ -607,6 +623,7 @@ export class World {
     this.buildStars();
     this.buildCritters();
     this.soft = null;
+    this.motes = null;
     this.tinted = null;
   }
 
@@ -1192,18 +1209,7 @@ export class World {
   draw(now, dt) {
     const ctx = this.ctx;
     if (this.def.image) {
-      const img = VALLEY;
-      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-      ctx.fillStyle = "#6fa8d8";
-      ctx.fillRect(0, 0, this.w, this.h);
-      if (img.complete && img.naturalWidth) {
-        this.parallax += (this.parallaxTarget - this.parallax) * Math.min(1, dt * 3);
-        const s = Math.max(this.w / img.naturalWidth, this.h / img.naturalHeight) * 1.04;
-        const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, (this.w - dw) / 2 - this.parallax * this.w * 0.01, (this.h - dh) / 2, dw, dh);
-      }
+      this.drawPicture(now, dt);
       return;
     }
     const { w, h, BS } = this;
@@ -1423,6 +1429,98 @@ export class World {
       }
     }
     return light;
+  }
+
+  /**
+   * A picture background with depth: it drifts against the mouse, the sun
+   * breathes with a soft bloom, light motes float past and birds cross.
+   */
+  drawPicture(now, dt) {
+    const ctx = this.ctx;
+    const { w, h } = this;
+    const D = this.def;
+    const t = now / 1000;
+    const img = PICTURES[D.image];
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#3a2050";
+    ctx.fillRect(0, 0, w, h);
+    if (!img || !img.complete || !img.naturalWidth) return;
+    if (this.rise < 1) this.rise = Math.min(1, this.rise + dt / 2.2);
+    const rise = 1 - Math.pow(1 - this.rise, 3);
+    this.parallax += (this.parallaxTarget - this.parallax) * Math.min(1, dt * 2.5);
+    this.tilt = (this.tilt || 0) + (((this.mouseY ?? 0.5) - 0.5) - (this.tilt || 0)) * Math.min(1, dt * 2.5);
+    const zoom = 1.08 + (1 - rise) * 0.06;
+    const sc = Math.max(w / img.naturalWidth, h / img.naturalHeight) * zoom;
+    const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+    const ox = (w - dw) / 2 - this.parallax * w * 0.018, oy = (h - dh) / 2 - this.tilt * h * 0.02;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, ox, oy, dw, dh);
+    const sx = ox + dw * D.sunAt[0], sy = oy + dh * D.sunAt[1];
+    // Breathing sun bloom.
+    ctx.globalCompositeOperation = "screen";
+    const pulse = 0.85 + Math.sin(t * 0.8) * 0.08;
+    const r1 = Math.max(w, h) * 0.55;
+    const g1 = ctx.createRadialGradient(sx, sy, 0, sx, sy, r1);
+    g1.addColorStop(0, rgb(D.glowCol, 0.32 * pulse));
+    g1.addColorStop(0.25, rgb(D.glowCol, 0.1 * pulse));
+    g1.addColorStop(1, rgb(D.glowCol, 0));
+    ctx.fillStyle = g1;
+    ctx.fillRect(0, 0, w, h);
+    // Slow god rays.
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(t * 0.012);
+    for (let i = 0; i < 14; i++) {
+      ctx.rotate((Math.PI * 2) / 14);
+      const len = h * (0.9 + 0.2 * Math.sin(t * 0.4 + i * 1.3));
+      const grd = ctx.createLinearGradient(0, 0, len, 0);
+      grd.addColorStop(0, rgb(D.glowCol, 0.06));
+      grd.addColorStop(1, rgb(D.glowCol, 0));
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(len, -len * 0.04);
+      ctx.lineTo(len, len * 0.04);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalCompositeOperation = "source-over";
+    // Floating light motes at three depths.
+    if (!this.motes) {
+      const r = rng(77);
+      this.motes = Array.from({ length: 46 }, () => ({ x: r() * w, y: r() * h, z: 0.4 + r() * 1.4, ph: r() * 6.28, sp: 6 + r() * 14 }));
+    }
+    ctx.globalCompositeOperation = "lighter";
+    for (const m of this.motes) {
+      if (dt > 0 && this.life !== false) {
+        m.x += (m.sp * 0.6 * m.z) * dt;
+        m.y -= m.sp * 0.25 * dt;
+        if (m.x > w + 20) m.x = -20;
+        if (m.y < -20) m.y = h + 20;
+      }
+      const a = (0.35 + 0.35 * Math.sin(t * 1.5 + m.ph)) * Math.min(1, m.z);
+      const px = m.x - this.parallax * 14 * m.z, py = m.y + Math.sin(t + m.ph) * 6;
+      this.glow(px, py, 3 + m.z * 5, D.dust, a * 0.5);
+      ctx.fillStyle = rgb(D.dust, a);
+      ctx.fillRect(px - m.z, py - m.z, m.z * 2, m.z * 2);
+    }
+    ctx.globalCompositeOperation = "source-over";
+    if (this.life !== false && dt > 0) this.moveBirds(dt);
+    const pal = { top: [60, 30, 70] };
+    for (const b of this.birds) this.drawBird(b, t, pal);
+    // Depth: vignette, darker at the bottom so the interface sits on it.
+    const vg = ctx.createRadialGradient(w / 2, h * 0.42, h * 0.3, w / 2, h * 0.5, Math.max(w, h) * 0.78);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(10,4,20,0.42)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, w, h);
+    const bottom = ctx.createLinearGradient(0, h * 0.62, 0, h);
+    bottom.addColorStop(0, "rgba(8,4,18,0)");
+    bottom.addColorStop(1, "rgba(8,4,18,0.38)");
+    ctx.fillStyle = bottom;
+    ctx.fillRect(0, h * 0.62, w, h * 0.38);
   }
 
   /** Puffy, soft-shaded clouds (Vortex Valley). */
@@ -2127,8 +2225,11 @@ export class World {
   }
 }
 
-const VALLEY = new Image();
-VALLEY.src = new URL("../img/valley.webp", import.meta.url).href;
+const PICTURES = {};
+for (const [id, file] of [["sunset", "sunset.jpg"], ["valley", "valley.webp"]]) {
+  PICTURES[id] = new Image();
+  PICTURES[id].src = new URL(`../img/${file}`, import.meta.url).href;
+}
 
 // Textures are shared by every world (live, thumbnails, exports).
 let shared = null;

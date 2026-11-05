@@ -130,11 +130,15 @@ function placeAnchor() {
   const a = world.anchor();
   document.documentElement.style.setProperty("--ax", `${a.x}px`);
   document.documentElement.style.setProperty("--ay", `${a.y}px`);
+  document.body.classList.toggle("picture", world.picture);
+  // Where the Play button is, relative to the player's home spot.
+  player.introTarget = world.picture ? window.innerWidth / 2 - a.x : null;
 }
 window.addEventListener("resize", () => requestAnimationFrame(placeAnchor));
 
 function applyLook(s = S.settings || {}) {
-  world.setScene(s.background || "valley");
+  world.setScene(s.background || "sunset");
+  placeAnchor();
   world.setMode(s.sky || "cycle");
   world.setDayLength(s.day_length_min || 10);
   world.setAnimate(s.animations !== false);
@@ -1327,7 +1331,7 @@ async function exportMenuArt(inst) {
   const s = S.settings || {};
   if (!inst || inst.loader !== "fabric" || inst.minecraftVersion !== "1.21.4" || s.vortex_mods === false || s.vortex_menu === false) return;
   try {
-    const bg = sceneStill(s.background || "valley", 1600, 900, world.fixedTime ? undefined : world.hour());
+    const bg = sceneStill(s.background || "sunset", 1600, 900, world.fixedTime ? undefined : world.hour());
     const logo = await logoCanvas();
     await call("save_menu_art", { background: bg.toDataURL("image/png"), logo: logo.toDataURL("image/png") });
   } catch (e) {
@@ -1830,6 +1834,8 @@ function updateAccount() {
 
 function bindChrome() {
   hydrateIcons(document);
+  // Real refraction needs SVG backdrop filters (Chromium, so WebView2 on Windows).
+  if (/Chrome|Edg\//.test(navigator.userAgent)) document.body.classList.add("refract");
   bindLiquid();
   $$("#nav .tab").forEach((b) => b.addEventListener("click", () => go(b.dataset.route)));
   $("#account-chip").addEventListener("click", () => go("accounts"));
@@ -1886,7 +1892,7 @@ async function boot() {
     const b = await call("bootstrap");
     S.appVersion = b.appVersion;
     S.dataDir = b.dataDir;
-    S.settings = { sky: "cycle", day_length_min: 10, background: "valley", vortex_menu: true, ...b.settings };
+    S.settings = { sky: "cycle", day_length_min: 10, background: "sunset", vortex_menu: true, ...b.settings };
     S.accounts = b.accounts;
     S.instances = b.instances;
     if (!S.instances.some((i) => i.name === S.selected)) S.selected = S.instances[0]?.name || null;
@@ -1921,7 +1927,9 @@ async function boot() {
     bootEl.classList.add("out");
     setTimeout(() => bootEl.remove(), 950);
   } else bootEl.remove();
-  setTimeout(() => player.wave(1.8), 1200);
+  placeAnchor();
+  if (world.picture && anims()) setTimeout(() => player.intro(window.innerWidth / 2 - world.anchor().x), 500);
+  else setTimeout(() => player.wave(1.8), 1200);
 }
 
 boot();

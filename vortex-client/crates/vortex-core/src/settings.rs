@@ -92,7 +92,7 @@ impl Default for Settings {
             accent: "amber".to_string(),
             glass: 60,
             logo_style: 0,
-            background: "valley".to_string(),
+            background: "sunset".to_string(),
             vortex_menu: true,
             show_player: true,
             world_life: true,
