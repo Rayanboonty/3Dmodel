@@ -1,0 +1,66 @@
+<!-- Vortex Client launcher shell (portrait): the Golden Meadow wallpaper
+     behind everything, a frosted account bar, then the page. -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/vortex_ground">
+
+    <ImageView
+        android:id="@+id/vortex_wallpaper"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop"
+        android:src="@drawable/vortex_wallpaper"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/vortex_scrim"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/vortex_scrim"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.kdt.mcgui.mcAccountSpinner
+        android:id="@+id/account_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/_52sdp"
+        android:dropDownWidth="@dimen/_250sdp"
+        android:dropDownVerticalOffset="@dimen/_52sdp"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
+        android:id="@+id/setting_button"
+        android:layout_width="@dimen/_52sdp"
+        android:layout_height="@dimen/_52sdp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/app_name"
+        android:paddingVertical="@dimen/_8sdp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_menu_settings"
+        android:stateListAnimator="@animator/vortex_press"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/container_fragment"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@+id/progress_layout"
+        app:layout_constraintTop_toBottomOf="@+id/account_spinner" />
+
+    <com.kdt.mcgui.ProgressLayout
+        android:id="@+id/progress_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

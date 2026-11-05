@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vortex Client home (portrait): logo, a 2-column grid of frosted tiles,
+     and a bottom sheet with the instance picker and the Launch button. -->
+<androidx.constraintlayout.widget.ConstraintLayout
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:id="@+id/fragment_menu_main"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:background="@android:color/transparent">
+
+	<ImageView
+		android:id="@+id/vortex_logo"
+		android:layout_width="wrap_content"
+		android:layout_height="64dp"
+		android:layout_marginTop="18dp"
+		android:adjustViewBounds="true"
+		android:contentDescription="@string/app_name"
+		android:src="@drawable/vortex_logo"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent" />
+
+	<TextView
+		android:id="@+id/vortex_title"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="6dp"
+		android:fontFamily="@font/vortex_outfit_black"
+		android:letterSpacing="0.18"
+		android:text="VORTEX CLIENT"
+		android:textColor="@color/vortex_ink"
+		android:textSize="15sp"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@id/vortex_logo" />
+
+	<ScrollView
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_marginTop="14dp"
+		android:clipToPadding="false"
+		android:paddingHorizontal="14dp"
+		android:paddingBottom="12dp"
+		app:layout_constraintBottom_toTopOf="@id/vortex_sheet"
+		app:layout_constraintTop_toBottomOf="@id/vortex_title">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<androidx.constraintlayout.widget.Guideline
+				android:id="@+id/center_guideline"
+				android:layout_width="0dp"
+				android:layout_height="0dp"
+				android:orientation="vertical"
+				app:layout_constraintGuide_percent="0.5" />
+
+			<com.kdt.mcgui.LauncherMenuButton
+				android:id="@+id/news_button"
+				android:layout_width="0dp"
+				android:layout_height="68dp"
+				android:layout_marginEnd="5dp"
+				android:background="@drawable/vortex_tile"
+				android:drawableStart="@drawable/ic_menu_news"
+				android:fontFamily="@font/vortex_outfit_semibold"
+				android:stateListAnimator="@animator/vortex_press"
+				android:text="@string/mcl_tab_wiki"
+				android:textAllCaps="false"
+				android:textColor="@color/vortex_ink"
+				app:layout_constraintEnd_toStartOf="@id/center_guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent" />
+
+			<com.kdt.mcgui.LauncherMenuButton
+				android:id="@+id/discord_button"
+				android:layout_width="0dp"
+				android:layout_height="68dp"
+				android:layout_marginStart="5dp"
+				android:background="@drawable/vortex_tile"
+				android:drawableStart="@drawable/ic_discord"
+				android:fontFamily="@font/vortex_outfit_semibold"
+				android:stateListAnimator="@animator/vortex_press"
+				android:text="@string/mcl_button_discord"
+				android:textAllCaps="false"
+				android:textColor="@color/vortex_ink"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@id/center_guideline"
+				app:layout_constraintTop_toTopOf="parent" />
+
+			<com.kdt.mcgui.LauncherMenuButton
+				android:id="@+id/custom_control_button"
+				android:layout_width="0dp"
+				android:layout_height="68dp"
+				android:layout_marginTop="10dp"
+				android:layout_marginEnd="5dp"
+				android:background="@drawable/vortex_tile"
+				android:drawableStart="@drawable/ic_menu_custom_controls"
+				android:fontFamily="@font/vortex_outfit_semibold"
+				android:stateListAnimator="@animator/vortex_press"
+				android:text="@string/mcl_option_customcontrol"
+				android:textAllCaps="false"
+				android:textColor="@color/vortex_ink"
+				app:layout_constraintEnd_toStartOf="@id/center_guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@id/news_button" />
+
+			<com.kdt.mcgui.LauncherMenuButton
+				android:id="@+id/install_jar_button"
+				android:layout_width="0dp"
+				android:layout_height="68dp"
+				android:layout_marginStart="5dp"
+				android:layout_marginTop="10dp"
+				android:background="@drawable/vortex_tile"
+				android:drawableStart="@drawable/ic_menu_install_jar"
+				android:fontFamily="@font/vortex_outfit_semibold"
+				android:stateListAnimator="@animator/vortex_press"
+				android:text="@string/main_install_jar_file"
+				android:textAllCaps="false"
+				android:textColor="@color/vortex_ink"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@id/center_guideline"
+				app:layout_constraintTop_toBottomOf="@id/discord_button" />
+
+			<com.kdt.mcgui.LauncherMenuButton
+				android:id="@+id/share_logs_button"
+				android:layout_width="0dp"
+				android:layout_height="68dp"
+				android:layout_marginTop="10dp"
+				android:layout_marginEnd="5dp"
+				android:background="@drawable/vortex_tile"
+				android:drawableStart="@android:drawable/ic_menu_share"
+				android:fontFamily="@font/vortex_outfit_semibold"
+				android:stateListAnimator="@animator/vortex_press"
+				android:text="@string/main_share_logs"
+				android:textAllCaps="false"
+				android:textColor="@color/vortex_ink"
+				app:layout_constraintEnd_toStartOf="@id/center_guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@id/custom_control_button" />
+
+			<com.kdt.mcgui.LauncherMenuButton
+				android:id="@+id/open_files_button"
+				android:layout_width="0dp"
+				android:layout_height="68dp"
+				android:layout_marginStart="5dp"
+				android:layout_marginTop="10dp"
+				android:background="@drawable/vortex_tile"
+				android:drawableStart="@drawable/ic_folder"
+				android:fontFamily="@font/vortex_outfit_semibold"
+				android:stateListAnimator="@animator/vortex_press"
+				android:text="@string/mcl_button_open_directory"
+				android:textAllCaps="false"
+				android:textColor="@color/vortex_ink"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@id/center_guideline"
+				app:layout_constraintTop_toBottomOf="@id/install_jar_button" />
+		</androidx.constraintlayout.widget.ConstraintLayout>
+	</ScrollView>
+
+	<!-- The frosted bottom sheet behind the picker and Launch. -->
+	<View
+		android:id="@+id/vortex_sheet"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_marginTop="-14dp"
+		android:background="@drawable/vortex_sheet"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintTop_toTopOf="@id/mc_version_spinner" />
+
+	<com.kdt.mcgui.mcVersionSpinner
+		android:id="@+id/mc_version_spinner"
+		android:layout_width="0dp"
+		android:layout_height="@dimen/_52sdp"
+		android:layout_marginStart="10dp"
+		android:background="@android:color/transparent"
+		android:drawableEnd="@drawable/spinner_arrow"
+		app:drawableEndPadding="@dimen/_1sdp"
+		app:drawableEndSize="@dimen/padding_heavy"
+		app:drawableStartIntegerScaling="true"
+		app:drawableStartSize="@dimen/_36sdp"
+		app:layout_constraintBottom_toTopOf="@id/play_button"
+		app:layout_constraintEnd_toStartOf="@+id/edit_profile_button"
+		app:layout_constraintStart_toStartOf="parent" />
+
+	<ImageButton
+		android:id="@+id/edit_profile_button"
+		android:layout_width="@dimen/_52sdp"
+		android:layout_height="@dimen/_52sdp"
+		android:layout_marginEnd="6dp"
+		android:background="?android:attr/selectableItemBackgroundBorderless"
+		android:contentDescription="@string/app_name"
+		android:src="@drawable/ic_edit_profile"
+		android:stateListAnimator="@animator/vortex_press"
+		app:layout_constraintBottom_toBottomOf="@+id/mc_version_spinner"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintTop_toTopOf="@+id/mc_version_spinner" />
+
+	<com.kdt.mcgui.MineButton
+		android:id="@+id/play_button"
+		android:layout_width="match_parent"
+		android:layout_height="64dp"
+		android:layout_marginHorizontal="16dp"
+		android:layout_marginBottom="16dp"
+		android:stateListAnimator="@animator/vortex_press"
+		android:text="@string/main_play"
+		android:textAllCaps="true"
+		app:layout_constraintBottom_toBottomOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
