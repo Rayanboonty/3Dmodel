@@ -1580,7 +1580,10 @@ body.glass-smoke { --g-fill: rgba(16, 11, 22, 0.66); --g-panel: rgba(14, 10, 20,
   backdrop-filter: blur(calc(var(--g-blur) * 1.3)) saturate(var(--g-sat));
   box-shadow: var(--rim), var(--lift);
 }
-.hl::before, .hl::after, .lq-glow, .lq-sheen { display: none !important; }
+.hl::before, .hl::after { display: none !important; }
+/* The liquid motion stays: the press glow and the light sweep on opening. */
+.lq-glow { background: radial-gradient(closest-side, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0)); }
+.drop.lifted { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 10px 24px -10px rgba(0, 0, 0, 0.5); }
 .drop, .drop.lifted, body.theme-light .drop {
   background: rgba(255, 255, 255, 0.12);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
