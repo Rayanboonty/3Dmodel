@@ -175,7 +175,11 @@ function tintGlass() {
       let sum = 0, n = 0;
       for (let i = 0; i < data.length; i += 64) { sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255; n++; }
       const L = sum / Math.max(1, n);
-      el.style.setProperty("--tint", `rgba(16, 10, 24, ${Math.min(0.5, Math.max(0.1, 0.12 + (L - 0.35) * 0.7)).toFixed(2)})`);
+      const light = document.body.classList.contains("theme-light");
+      // Dark smoke over bright sky in dark mode; milky white in light mode.
+      el.style.setProperty("--tint", light
+        ? `rgba(255, 255, 255, ${Math.min(0.82, Math.max(0.5, 0.78 - L * 0.3)).toFixed(2)})`
+        : `rgba(16, 10, 24, ${Math.min(0.5, Math.max(0.1, 0.12 + (L - 0.35) * 0.7)).toFixed(2)})`);
     } catch { /* not readable */ }
   }
 }
@@ -197,7 +201,7 @@ function placeAnchor() {
 const UI_DEFAULTS = {
   glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
   home_news: true, home_quick: true, home_recent: true, side_labels: true, intro: true,
-  auto_update: true, servers: null,
+  auto_update: true, servers: null, widgets: null, theme: "dark",
 };
 
 /** Popular servers shown until you add your own. */
@@ -215,6 +219,12 @@ function applyLook(s = S.settings || {}) {
   world.setDim(Math.min(0.6, (s.wall_dim ?? 12) / 100));
   placeAnchor();
   const b = document.body.classList;
+  const light = s.theme === "light" || (s.theme === "system" && matchMedia("(prefers-color-scheme: light)").matches);
+  b.toggle("theme-light", light);
+  document.documentElement.style.colorScheme = light ? "light" : "dark";
+  setTimeout(tintGlass, 30);
+  const tt = $("#theme-toggle");
+  if (tt) { tt.innerHTML = icon(light ? "moon" : "sun", 16); tt.setAttribute("aria-label", light ? "Switch to dark mode" : "Switch to light mode"); }
   for (const k of ["clear", "frosted", "smoke"]) b.toggle(`glass-${k}`, s.glass_style === k);
   for (const k of ["round", "soft", "sharp"]) b.toggle(`radius-${k}`, s.radius === k);
   b.toggle("compact-side", s.side_labels === false);
@@ -569,10 +579,136 @@ function addServerModal() {
   });
 }
 
+// ---------------------------------------------------------------- widgets --
+// Home is built from widgets in two places: the side column and the row
+// under the wallpaper. Which ones show, where and in what order is yours.
+
+const WIDGETS = {
+  account: { name: "Account", desc: "Who's playing, with Switch", zones: ["side"] },
+  servers: { name: "Servers", desc: "Players online, ping and Join", zones: ["side"] },
+  instances: { name: "Instances", desc: "Your library, most recent first", zones: ["side"] },
+  current: { name: "Selected instance", desc: "Version, loader, mods, memory", zones: ["side", "row"] },
+  wardrobe: { name: "Wardrobe", desc: "Your skin and cape", zones: ["side", "row"] },
+  news: { name: "Latest news", desc: "Mojang's patch notes", zones: ["row"] },
+  quick: { name: "Quick actions", desc: "Mods, Skins, New, Folder", zones: ["row", "side"] },
+};
+const DEFAULT_LAYOUT = { side: ["account", "servers"], row: ["news", "quick"] };
+
+/** The Home layout, from settings (older settings map onto it). */
+function homeLayout(u = { ...UI_DEFAULTS, ...(S.settings || {}) }) {
+  const w = u.widgets;
+  if (w && Array.isArray(w.side) && Array.isArray(w.row)) {
+    const ok = (z) => w[z].filter((id, i, a) => WIDGETS[id] && WIDGETS[id].zones.includes(z) && a.indexOf(id) === i);
+    return { side: ok("side"), row: ok("row").filter((id) => !w.side.includes(id)) };
+  }
+  return {
+    side: [...DEFAULT_LAYOUT.side],
+    row: DEFAULT_LAYOUT.row.filter((id) => (id === "news" ? u.home_news !== false : id === "quick" ? u.home_quick !== false : true)),
+  };
+}
+
+function widgetHtml(id, zone, inst, acc) {
+  if (id === "account") return `<div class="acct glass hl w-account">
+      <canvas width="8" height="8" data-head="1"></canvas>
+      <div class="meta"><strong>${esc(acc?.username || "No account")}</strong><span>${acc ? (acc.kind === "microsoft" ? "Microsoft account" : "Offline account") : "Add one to play"}</span></div>
+      <button class="btn btn-sm" data-action="route" data-route="accounts">${acc ? "Switch" : "Add"}</button></div>`;
+  if (id === "servers") return `<div class="lib glass hl w-grow">
+      <div class="side-head"><h2>Servers</h2><button class="btn btn-sm" data-action="add-server" aria-label="Add a server">${icon("plus", 12)} Add</button></div>
+      <div class="side-body servers" id="servers-body">${serversBody()}</div></div>`;
+  if (id === "instances") return `<div class="lib glass hl w-grow">
+      <div class="side-head"><h2>Instances</h2><button class="btn btn-sm" data-action="route" data-route="new">${icon("plus", 12)} New</button></div>
+      <div class="side-body" id="side-body">${(S.side = "instances", sideBody())}</div></div>`;
+  if (id === "current") {
+    const body = inst ? `<div class="cur-top">${coverThumb(inst)}<div class="meta"><strong>${esc(inst.name)}</strong><span>${esc(inst.minecraftVersion)}${updateName(inst.minecraftVersion) ? ` · ${esc(updateName(inst.minecraftVersion))}` : ""}</span></div></div>
+        <dl class="cur-facts"><div><dt>Loader</dt><dd>${esc(inst.loaderLabel)}</dd></div><div><dt>Mods</dt><dd>${inst.loader === "vanilla" ? "None" : esc(String(inst.modCount ?? 0))}</dd></div><div><dt>Memory</dt><dd>${gb(inst.memoryMb || S.settings?.max_memory_mb || 4096)}</dd></div><div><dt>Played</dt><dd>${esc(ago(inst.lastPlayed).replace(/^Played /, ""))}</dd></div></dl>
+        <div class="row"><button class="btn btn-sm" data-action="route" data-route="mods">${icon("puzzle", 12)} Mods</button><button class="btn btn-sm" data-action="folder" data-name="${esc(inst.name)}">${icon("folder", 12)} Folder</button></div>`
+      : `<p class="muted small">No instance yet.</p>`;
+    return zone === "row"
+      ? `<div class="hblock w-current"><div class="block-head"><h2>Selected instance</h2></div><div class="glass hl wcard">${body}</div></div>`
+      : `<div class="glass hl wcard w-current"><div class="side-head flat"><h2>Selected instance</h2></div>${body}</div>`;
+  }
+  if (id === "wardrobe") {
+    const cape = S.skin?.cape && S.skin.cape !== "none" ? CAPE_NAMES[S.skin.cape] || S.skin.cape : "No cape";
+    const body = `<div class="ward"><canvas width="8" height="8" data-head="1"></canvas><div class="meta"><strong>${esc(S.skin?.source === "chosen" ? "Your skin" : "Default skin")}</strong><span>${esc(cape)} · ${S.skin?.slim ? "Slim" : "Classic"}</span></div><button class="btn btn-sm" data-action="route" data-route="skins">Change</button></div>`;
+    return zone === "row"
+      ? `<div class="hblock w-wardrobe"><div class="block-head"><h2>Wardrobe</h2></div><div class="glass hl wcard">${body}</div></div>`
+      : `<div class="glass hl wcard w-wardrobe"><div class="side-head flat"><h2>Wardrobe</h2></div>${body}</div>`;
+  }
+  if (id === "news") return `<div class="hblock news-block"><div class="block-head"><h2>Latest news</h2><span class="muted small">From Mojang</span></div><div class="news-cards" id="news-cards">${newsCards()}</div></div>`;
+  if (id === "quick") {
+    const grid = `<div class="quick glass hl">
+        <button class="qa" data-action="route" data-route="mods"><span class="qa-ico">${icon("puzzle", 16)}</span><span>Mods</span></button>
+        <button class="qa" data-action="route" data-route="skins"><span class="qa-ico">${icon("shirt", 16)}</span><span>Skins</span></button>
+        <button class="qa" data-action="route" data-route="new"><span class="qa-ico">${icon("plus", 16)}</span><span>New</span></button>
+        <button class="qa" data-action="folder" data-name="${esc(inst?.name || "")}" ${inst ? "" : "disabled"}><span class="qa-ico">${icon("folder", 16)}</span><span>Folder</span></button></div>`;
+    return zone === "row" ? `<div class="hblock quick-block"><div class="block-head"><h2>Quick actions</h2></div>${grid}</div>` : `<div class="quick-side">${grid}</div>`;
+  }
+  return "";
+}
+
+/** Columns for the row: news stretches, everything else is a fixed width. */
+const rowColumns = (ids) => ids.map((id) => (id === "news" ? "minmax(0, 1fr)" : "236px")).join(" ") || "minmax(0, 1fr)";
+
+async function saveLayout(layout) {
+  const next = { ...S.settings, widgets: layout };
+  if (S.draft) S.draft.widgets = layout;
+  await saveSettings(next);
+  if (S.route === "home") render();
+}
+
+function customizeModal() {
+  const draw = () => {
+    const L = homeLayout();
+    const used = new Set([...L.side, ...L.row]);
+    const zoneList = (zone) => L[zone].map((id, i) => `<li class="wz-item">
+        <span class="wz-name"><strong>${esc(WIDGETS[id].name)}</strong><span>${esc(WIDGETS[id].desc)}</span></span>
+        <span class="wz-actions">
+          ${WIDGETS[id].zones.length > 1 ? `<button class="btn btn-sm btn-icon" data-wz="move" data-id="${id}" aria-label="Move ${esc(WIDGETS[id].name)} to the ${zone === "side" ? "row" : "side column"}" title="Move to the ${zone === "side" ? "row" : "side"}">⇄</button>` : ""}
+          <button class="btn btn-sm btn-icon" data-wz="up" data-id="${id}" data-zone="${zone}" aria-label="Move ${esc(WIDGETS[id].name)} up" ${i === 0 ? "disabled" : ""}>↑</button>
+          <button class="btn btn-sm btn-icon" data-wz="down" data-id="${id}" data-zone="${zone}" aria-label="Move ${esc(WIDGETS[id].name)} down" ${i === L[zone].length - 1 ? "disabled" : ""}>↓</button>
+          <button class="btn btn-sm btn-icon" data-wz="remove" data-id="${id}" aria-label="Remove ${esc(WIDGETS[id].name)}">${icon("x", 11)}</button>
+        </span></li>`).join("") || `<li class="wz-empty">Empty. Add a widget below.</li>`;
+    const spare = Object.keys(WIDGETS).filter((id) => !used.has(id));
+    return `<h3>Customize Home</h3><p class="muted small">Pick the widgets you want, where they go and in what order. Changes apply right away.</p>
+      <div class="wz-zones">
+        <section><h4>Side column</h4><ul class="wz-list">${zoneList("side")}</ul></section>
+        <section><h4>Under the wallpaper</h4><ul class="wz-list">${zoneList("row")}</ul></section>
+      </div>
+      ${spare.length ? `<section><h4>Add a widget</h4><div class="wz-add">${spare.map((id) => `<div class="wz-spare"><span class="wz-name"><strong>${esc(WIDGETS[id].name)}</strong><span>${esc(WIDGETS[id].desc)}</span></span>
+        ${WIDGETS[id].zones.map((z) => `<button class="btn btn-sm" data-wz="add" data-id="${id}" data-zone="${z}">${icon("plus", 11)} ${z === "side" ? "Side" : "Row"}</button>`).join("")}</div>`).join("")}</div></section>` : ""}
+      <div class="modal-actions"><button class="btn btn-ghost" data-wz="reset">Reset to default</button><span class="grow"></span><button class="btn btn-accent" data-wz="done">Done</button></div>`;
+  };
+  modal(`<div class="wz" id="wz">${draw()}</div>`, (root) => {
+    const box = $("#wz", root);
+    hydrateIcons(box);
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-wz]");
+      if (!b || b.disabled) return;
+      const op = b.dataset.wz, id = b.dataset.id;
+      if (op === "done") { closeModal(); return; }
+      const L = homeLayout();
+      const zoneOf = (x) => (L.side.includes(x) ? "side" : L.row.includes(x) ? "row" : null);
+      if (op === "reset") Object.assign(L, JSON.parse(JSON.stringify(DEFAULT_LAYOUT)));
+      if (op === "remove") { const z = zoneOf(id); L[z] = L[z].filter((x) => x !== id); }
+      if (op === "add") L[b.dataset.zone].push(id);
+      if (op === "move") { const z = zoneOf(id), o = z === "side" ? "row" : "side"; L[z] = L[z].filter((x) => x !== id); L[o].push(id); }
+      if (op === "up" || op === "down") {
+        const z = b.dataset.zone, i = L[z].indexOf(id), j = op === "up" ? i - 1 : i + 1;
+        if (j >= 0 && j < L[z].length) [L[z][i], L[z][j]] = [L[z][j], L[z][i]];
+      }
+      sound.pop();
+      await saveLayout(L);
+      box.innerHTML = draw();
+      hydrateIcons(box);
+    });
+  });
+}
+
 function renderHome() {
   const inst = selectedInstance();
   const acc = selectedAccount();
   const u = { ...UI_DEFAULTS, ...(S.settings || {}) };
+  const L = homeLayout(u);
   S.side = "servers";
   S.switcher = false;
   const recent = [...S.instances].filter((i) => !inst || i.name !== inst.name).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).slice(0, 3);
@@ -582,46 +718,30 @@ function renderHome() {
   const chips = u.home_recent ? recent.map((i) => `<button class="recent-chip glass glassy hl" data-action="play" data-name="${esc(i.name)}" title="Play ${esc(i.name)}">
       ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(chipSub(i))}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("") : "";
   const fast = inst && S.fast[inst.name];
-  const row = u.home_news || u.home_quick;
+  const side = L.side.map((id) => widgetHtml(id, "side", inst, acc)).join("");
+  const row = L.row.map((id) => widgetHtml(id, "row", inst, acc)).join("");
   return {
-    html: `<div class="home ${row ? "" : "no-row"} ${u.home_news ? "" : "no-news"} ${u.home_quick ? "" : "no-quick"}">
+    html: `<div class="home ${L.row.length ? "" : "no-row"} ${L.side.length ? "" : "no-side"}">
       <section class="hero" id="hero" aria-label="Play">
         <div class="hero-fx" aria-hidden="true"></div>
         <div class="hero-top">
           ${inst ? `<span class="hero-chip glass glassy">${coverThumb(inst, "xs")}<span>${esc(inst.minecraftVersion)}${updateName(inst.minecraftVersion) ? ` · ${esc(updateName(inst.minecraftVersion))}` : ""}</span></span>` : ""}
           ${fast ? `<span class="hero-chip glass glassy fast" title="Files are ready: the game starts without checking or downloading anything">${icon("bolt", 12)}<span>Instant launch</span></span>` : ""}
+          <span class="grow"></span>
+          <button class="hero-chip glass glassy hero-edit" data-action="customize-home" aria-label="Customize Home widgets">${icon("edit", 12)}<span>Customize</span></button>
         </div>
         <div class="play-zone">
           ${cluster}
           ${chips ? `<div class="recent">${chips}</div>` : ""}
         </div>
       </section>
-      ${row ? `<section class="home-row">
-        ${u.home_news ? `<div class="hblock news-block"><div class="block-head"><h2>Latest news</h2><span class="muted small">From Mojang</span></div><div class="news-cards" id="news-cards">${newsCards()}</div></div>` : ""}
-        ${u.home_quick ? `<div class="hblock quick-block"><div class="block-head"><h2>Quick actions</h2></div>
-          <div class="quick glass hl">
-            <button class="qa" data-action="route" data-route="mods"><span class="qa-ico">${icon("puzzle", 16)}</span><span>Mods</span></button>
-            <button class="qa" data-action="route" data-route="skins"><span class="qa-ico">${icon("shirt", 16)}</span><span>Skins</span></button>
-            <button class="qa" data-action="route" data-route="new"><span class="qa-ico">${icon("plus", 16)}</span><span>New</span></button>
-            <button class="qa" data-action="folder" data-name="${esc(inst?.name || "")}" ${inst ? "" : "disabled"}><span class="qa-ico">${icon("folder", 16)}</span><span>Folder</span></button>
-          </div></div>` : ""}
-      </section>` : ""}
-      <aside class="home-side">
-        <div class="acct glass hl">
-          <canvas width="8" height="8" data-head="1"></canvas>
-          <div class="meta"><strong>${esc(acc?.username || "No account")}</strong><span>${acc ? (acc.kind === "microsoft" ? "Microsoft account" : "Offline account") : "Add one to play"}</span></div>
-          <button class="btn btn-sm" data-action="route" data-route="accounts">${acc ? "Switch" : "Add"}</button>
-        </div>
-        <div class="lib glass hl">
-          <div class="side-head"><h2>Servers</h2><button class="btn btn-sm" data-action="add-server" aria-label="Add a server">${icon("plus", 12)} Add</button></div>
-          <div class="side-body servers" id="servers-body">${serversBody()}</div>
-        </div>
-      </aside>
+      ${L.row.length ? `<section class="home-row" style="grid-template-columns:${rowColumns(L.row)}">${row}</section>` : ""}
+      ${L.side.length ? `<aside class="home-side">${side}</aside>` : ""}
     </div>`,
     mount() {
       requestAnimationFrame(placeHero);
       setTimeout(placeHero, 700);
-      refreshServers();
+      if (L.side.includes("servers")) refreshServers();
     },
   };
 }
@@ -799,12 +919,13 @@ function renderWizard() {
       if (search) search.addEventListener("input", () => {
         w.search = search.value;
         const pos = search.selectionStart;
-        render();
+        updateWizard();
         const again = $("#wiz-search");
         again.focus();
         again.setSelectionRange(pos, pos);
       });
-      $(".vrow.on", root)?.scrollIntoView({ block: "center" });
+      // Bring the selected version into view only the first time.
+      if (!w.scrolled && $(".vrow.on", root)) { $(".vrow.on", root).scrollIntoView({ block: "center" }); w.scrolled = true; }
       $("#wiz-lv", root)?.addEventListener("change", (e) => (w.loaderVersion = e.target.value || null));
       $("#wiz-name", root)?.addEventListener("input", (e) => { w.name = e.target.value; w.nameTouched = true; });
       const mem = $("#wiz-mem", root);
@@ -817,6 +938,26 @@ function renderWizard() {
   };
 }
 
+/** Update the wizard in place: no page rebuild, no replayed animation,
+ *  and the version list keeps its scroll position. */
+function updateWizard(animate = false) {
+  const page = $("#page");
+  const wiz = $(".wiz", page);
+  if (S.route !== "new" || !wiz) { render(); return; }
+  const scroll = $(".vlist", page)?.scrollTop;
+  const { html, mount } = renderWizard();
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  wiz.innerHTML = tpl.content.querySelector(".wiz").innerHTML;
+  const steps = $(".steps", page), nextSteps = tpl.content.querySelector(".steps");
+  if (steps && nextSteps) steps.innerHTML = nextSteps.innerHTML;
+  hydrateIcons(page);
+  mount?.(page);
+  const list = $(".vlist", page);
+  if (list && scroll != null && !animate) list.scrollTop = scroll;
+  if (animate && anims()) wiz.animate([{ opacity: 0, translate: "0px 10px", filter: "blur(6px)" }, { opacity: 1, translate: "0px 0px", filter: "blur(0px)" }], { duration: 380, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+}
+
 function loadLoaderVersions(w) {
   for (const kind of ["fabric", "forge"]) {
     if (w.loaderVersions[kind] !== undefined) continue;
@@ -824,7 +965,7 @@ function loadLoaderVersions(w) {
     call("loader_versions", { loader: kind, game: forVersion })
       .then((list) => { if (w.version === forVersion) w.loaderVersions[kind] = list; })
       .catch(() => { if (w.version === forVersion) w.loaderVersions[kind] = "error"; })
-      .finally(() => { if (S.route === "new" && w.step === 2) render(); });
+      .finally(() => { if (S.route === "new" && w.step === 2) updateWizard(); });
   }
 }
 
@@ -1316,13 +1457,13 @@ function settingsBody(d) {
         ${segRow(u, "radius", "Corners", [["round", "Round"], ["soft", "Soft"], ["sharp", "Sharp"]])}
         ${segRow(u, "motion", "Liquid motion", [["bouncy", "Bouncy"], ["smooth", "Smooth"]], "How presses, menus and tabs spring")}
       </div>
-      <div class="card-pad"><h3>Accent</h3>
-        <div class="setting stack"><div><strong>Colour</strong><span>Buttons, highlights and the in-game mod menu</span></div>
+      <div class="card-pad"><h3>Theme and colour</h3>
+        ${segRow(u, "theme", "Mode", [["dark", "Dark"], ["light", "Light"], ["system", "System"]], "System follows Windows")}
+        <div class="setting stack"><div><strong>Accent</strong><span>Buttons, highlights and the in-game mod menu</span></div>
           <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${d.accent === k ? "on" : ""}" style="--c:${c}" data-action="set-choice" data-key="accent" data-value="${k}" aria-label="${k}" title="${k[0].toUpperCase() + k.slice(1)}"></button>`).join("")}</div></div>
       </div>
       <div class="card-pad"><h3>Home</h3>
-        ${swRow(u, "home_news", "Latest news", "Patch notes under the wallpaper")}
-        ${swRow(u, "home_quick", "Quick actions", "Mods, Skins, New and Folder shortcuts")}
+        <div class="setting"><div><strong>Widgets</strong><span>Choose, order and place the panels around the wallpaper</span></div><button class="btn btn-sm" data-action="customize-home">${icon("edit", 12)} Customize</button></div>
         ${swRow(u, "home_recent", "Recent instances", "Under the Launch button")}
         ${swRow(u, "side_labels", "Sidebar labels", "Off for a slim icon sidebar")}
         ${swRow(d, "show_player", "3D player", "Your skin, standing at the Launch button")}
@@ -1833,6 +1974,7 @@ const actions = {
     play(inst.name, el.dataset.address);
   },
   "add-server"() { addServerModal(); },
+  "customize-home"() { customizeModal(); },
   "check-update"() { checkForUpdate(true); },
   "wall-pick"() { $("#wall-file")?.click(); },
   async "wall-reset"() {
@@ -1914,17 +2056,17 @@ const actions = {
     });
   },
   "inst-sort"(el) { S.instSort = el.dataset.sort; render(); },
-  "wiz-kind"(el) { const w = S.wizard; w.kinds[el.dataset.kind] = !w.kinds[el.dataset.kind]; render(); },
+  "wiz-kind"(el) { const w = S.wizard; w.kinds[el.dataset.kind] = !w.kinds[el.dataset.kind]; updateWizard(); },
   "wiz-pick"(el) {
     const w = S.wizard;
     if (w.version !== el.dataset.id) { w.version = el.dataset.id; w.loaderVersions = {}; w.loaderVersion = null; }
     const kind = S.versions?.versions.find((v) => v.id === w.version)?.kind;
     if (kind && !w.kinds[kind]) w.kinds[kind] = true;
-    render();
+    updateWizard();
   },
-  "wiz-next"() { const w = S.wizard; if (w.step === 1) loadLoaderVersions(w); w.step = Math.min(3, w.step + 1); render(); },
-  "wiz-back"() { S.wizard.step = Math.max(1, S.wizard.step - 1); render(); },
-  "wiz-loader"(el) { const w = S.wizard; w.loader = el.dataset.kind; w.loaderVersion = null; render(); },
+  "wiz-next"() { const w = S.wizard; if (w.step === 1) loadLoaderVersions(w); w.step = Math.min(3, w.step + 1); w.scrolled = false; updateWizard(true); },
+  "wiz-back"() { S.wizard.step = Math.max(1, S.wizard.step - 1); S.wizard.scrolled = false; updateWizard(true); },
+  "wiz-loader"(el) { const w = S.wizard; w.loader = el.dataset.kind; w.loaderVersion = null; updateWizard(); },
   async "wiz-create"(el) {
     const w = S.wizard;
     const name = (w.name || autoName(w)).trim();
@@ -2315,6 +2457,14 @@ function bindChrome() {
   $("#account-chip").addEventListener("click", () => go("accounts"));
   $("#time-chip").addEventListener("click", openTimePopover);
   $("#log-toggle").addEventListener("click", toggleLog);
+  $("#theme-toggle")?.addEventListener("click", async () => {
+    const cur = document.body.classList.contains("theme-light") ? "light" : "dark";
+    const next = { ...S.settings, theme: cur === "light" ? "dark" : "light" };
+    if (S.draft) S.draft.theme = next.theme;
+    sound.toggle(next.theme === "light");
+    try { await saveSettings(next); } catch { S.settings = next; applyLook(); }
+  });
+  matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => applyLook());
   $("#log-close").addEventListener("click", toggleLog);
   $("#log-clear").addEventListener("click", () => { S.logs[S.log.instance] = []; renderLog(); });
   $("#log-copy").addEventListener("click", () => {
@@ -2389,7 +2539,7 @@ async function boot() {
     })
     .catch(() => {});
   call("list_versions", { refresh: false })
-    .then((v) => { S.versions = v; if (S.wizard && !S.wizard.version) S.wizard.version = v.latestRelease; if (S.route === "new") render(); })
+    .then((v) => { S.versions = v; if (S.wizard && !S.wizard.version) S.wizard.version = v.latestRelease; if (S.route === "new") updateWizard(); })
     .catch((e) => toast("Working offline", `The version list couldn't load: ${errText(e)}`, "warn", 6000));
   call("news")
     .then((n) => { S.news = n; refreshNews(); })

@@ -22,7 +22,7 @@ const state = {
     microsoft_client_id: null, download_concurrency: 32, show_snapshots: false,
     show_old_versions: false, sky: "cycle", day_length_min: 10, ui_sounds: true, animations: true,
     game_width: null, game_height: null, fullscreen: false, after_launch: "keep", vortex_mods: true, open_log_on_launch: false,
-    accent: "amber", glass: 60, logo_style: 0, background: "golden", vortex_menu: true, show_player: true, world_life: true, clock_12h: false,
+    accent: "amber", glass: 60, logo_style: 0, background: "golden", theme: "dark", vortex_menu: true, show_player: true, world_life: true, clock_12h: false,
     mods_allow_unstable: false, mods_with_dependencies: true, fast_launch: true, tuned_jvm: true,
   },
   skins: [],
@@ -31,7 +31,7 @@ const state = {
   installed: { "Fabric Optimized": { mod: ["AANobbMI", "gvQqBUqZ"] } },
   accounts: [{ uuid: "5627dd98e6be3c21b8a8e92344183641", username: "Steve", kind: "offline", selected: true }],
   instances: [
-    { name: "PvP Practice", minecraftVersion: "1.8.9", loader: "vanilla", loaderVersion: null, loaderLabel: "Vanilla", memoryMb: 2048, joinServer: "[YOUR SERVER]", jvmArgs: "", lastPlayed: now - 3600, gameDir: "", running: false, modCount: 0 },
+    { name: "Classic", minecraftVersion: "1.8.9", loader: "vanilla", loaderVersion: null, loaderLabel: "Vanilla", memoryMb: 2048, joinServer: null, jvmArgs: "", lastPlayed: now - 3600, gameDir: "", running: false, modCount: 0 },
     { name: "Fabric Optimized", minecraftVersion: "1.21.4", loader: "fabric", loaderVersion: null, loaderLabel: "Fabric", memoryMb: null, joinServer: null, jvmArgs: "", lastPlayed: now - 86400, gameDir: "", running: false, modCount: 3 },
     { name: "Forge Adventure", minecraftVersion: "1.20.1", loader: "forge", loaderVersion: "47.4.28", loaderLabel: "Forge 47.4.28", memoryMb: 6144, joinServer: null, jvmArgs: "", lastPlayed: now - 3 * 86400, gameDir: "", running: false, modCount: 2 },
     { name: "Survival", minecraftVersion: "26.3", loader: "vanilla", loaderVersion: null, loaderLabel: "Vanilla", memoryMb: null, joinServer: null, jvmArgs: "", lastPlayed: null, gameDir: "", running: false, modCount: 0 },

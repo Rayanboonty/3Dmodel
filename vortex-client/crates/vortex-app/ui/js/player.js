@@ -166,7 +166,7 @@ export class Player {
   currentUnit() {
     if (this.fixedUnit) return this.fixedUnit;
     const s = this.world ? this.world.scale : 3;
-    return Math.max(3, Math.round(s * 2));
+    return Math.max(4, Math.round(s * 2.4));
   }
 
   build() {
@@ -566,7 +566,14 @@ export class Player {
       this.stage.style.top = `${a.y}px`;
       const lift = Math.min(1, -this.y / (6 * u));
       this.shadow.style.transform = `translateX(${this.x}px) scale(${1 - lift * 0.4})`;
-      this.tag.style.transform = `translate(calc(-50% + ${this.x}px), ${this.y + bob}px)`;
+      // The name sits behind him and drifts a little against the pointer,
+      // so it reads as a layer further back.
+      const head = this.root.getBoundingClientRect();
+      const px = clamp((this.mouse.x - (head.left + head.width / 2)) / 40, -8, 8);
+      const py = clamp((this.mouse.y - head.top) / 60, -4, 4);
+      this.tagX = approach(this.tagX || 0, -px, 4, 1 / 60);
+      this.tagY = approach(this.tagY || 0, -py, 4, 1 / 60);
+      this.tag.style.transform = `translate(calc(-50% + ${(this.x * 0.92 + this.tagX).toFixed(1)}px), ${(this.y * 0.5 + this.tagY).toFixed(1)}px)`;
       // Torch at night, in the right hand (the viewer's left when facing us).
       const showTorch = !!this.holdingTorch;
       this.torchEl.hidden = !showTorch;
