@@ -1543,3 +1543,9 @@ body.theme-light .brand-name { color: var(--ink); }
 .news-cards { grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); grid-template-rows: minmax(0, 1fr); grid-auto-rows: 0; overflow: hidden; row-gap: 0; }
 body.theme-light .news-card strong, body.theme-light .news-card .cap strong { color: #fff; }
 .tabs .tab { text-transform: capitalize; }
+
+/* The player's name in 3D blocks behind him (replaces the flat name). */
+#player-layer .pl-tag { display: none; }
+.pl-blockname { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; pointer-events: none; }
+.pl-blockname .bn-rot, .pl-blockname .bn-box { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+.pl-blockname .bn-face { position: absolute; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; backface-visibility: hidden; }

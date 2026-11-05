@@ -3,6 +3,8 @@
 // it watches the cursor and the bees, wanders, mines the block in front of it,
 // warms its hands at the campfire at night, carries a torch and waves.
 
+import { BlockName } from "./nameblocks.js";
+
 const DEG = Math.PI / 180;
 
 /** Vortex's own default outfit (used when no skin is available). */
@@ -127,6 +129,8 @@ export class Player {
     this.tag = this.stage.querySelector(".pl-tag");
     this.torchEl = this.stage.querySelector(".pl-torch");
     this.shadow = this.stage.querySelector(".pl-shadow");
+    // On the launcher his name stands behind him in blocks.
+    this.blockName = preview ? null : new BlockName(this.stage);
 
     // Pose and behaviour state.
     this.x = 0;
@@ -227,6 +231,7 @@ export class Player {
   setName(name) {
     this.tag.textContent = name || "";
     this.tag.hidden = !name;
+    this.displayName = name || "";
   }
 
   /** idle | preparing | running */
@@ -574,6 +579,17 @@ export class Player {
       this.tagX = approach(this.tagX || 0, -px, 4, 1 / 60);
       this.tagY = approach(this.tagY || 0, -py, 4, 1 / 60);
       this.tag.style.transform = `translate(calc(-50% + ${(this.x * 0.92 + this.tagX).toFixed(1)}px), ${(this.y * 0.5 + this.tagY).toFixed(1)}px)`;
+      if (this.blockName) {
+        if (!this.accentAt || now - this.accentAt > 1000) {
+          this.accentAt = now;
+          this.accentHex = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ffb547";
+        }
+        const cols = Math.max(1, (this.displayName || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 16).length * 6 - 1);
+        const cell = Math.round(Math.min(u * 2.4, (u * 84) / cols) * 10) / 10;
+        this.blockName.set(this.displayName, cell, this.accentHex);
+        const h = 7 * cell;
+        this.blockName.update(now, this.x * 0.9 + this.tagX * 1.5, -(u * 15 + h / 2) + this.y * 0.4 + this.tagY, px / 8);
+      }
       // Torch at night, in the right hand (the viewer's left when facing us).
       const showTorch = !!this.holdingTorch;
       this.torchEl.hidden = !showTorch;
