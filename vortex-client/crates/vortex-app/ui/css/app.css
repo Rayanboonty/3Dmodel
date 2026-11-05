@@ -1549,3 +1549,6 @@ body.theme-light .news-card strong, body.theme-light .news-card .cap strong { co
 .pl-blockname { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; pointer-events: none; }
 .pl-blockname .bn-rot, .pl-blockname .bn-box { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
 .pl-blockname .bn-face { position: absolute; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; backface-visibility: hidden; }
+
+/* Launch sits in the middle of the wallpaper, a little below centre. */
+.play-zone { top: calc(60% - 36px); bottom: auto; }

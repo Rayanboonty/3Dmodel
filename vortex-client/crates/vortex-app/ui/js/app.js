@@ -589,10 +589,9 @@ const WIDGETS = {
   instances: { name: "Instances", desc: "Your library, most recent first", zones: ["side"] },
   current: { name: "Selected instance", desc: "Version, loader, mods, memory", zones: ["side", "row"] },
   wardrobe: { name: "Wardrobe", desc: "Your skin and cape", zones: ["side", "row"] },
-  news: { name: "Latest news", desc: "Mojang's patch notes", zones: ["row"] },
   quick: { name: "Quick actions", desc: "Mods, Skins, New, Folder", zones: ["row", "side"] },
 };
-const DEFAULT_LAYOUT = { side: ["account", "servers"], row: ["news", "quick"] };
+const DEFAULT_LAYOUT = { side: ["account", "servers", "quick"], row: [] };
 
 /** The Home layout, from settings (older settings map onto it). */
 function homeLayout(u = { ...UI_DEFAULTS, ...(S.settings || {}) }) {
@@ -602,8 +601,8 @@ function homeLayout(u = { ...UI_DEFAULTS, ...(S.settings || {}) }) {
     return { side: ok("side"), row: ok("row").filter((id) => !w.side.includes(id)) };
   }
   return {
-    side: [...DEFAULT_LAYOUT.side],
-    row: DEFAULT_LAYOUT.row.filter((id) => (id === "news" ? u.home_news !== false : id === "quick" ? u.home_quick !== false : true)),
+    side: DEFAULT_LAYOUT.side.filter((id) => id !== "quick" || u.home_quick !== false),
+    row: [...DEFAULT_LAYOUT.row],
   };
 }
 
@@ -647,7 +646,7 @@ function widgetHtml(id, zone, inst, acc) {
 }
 
 /** Columns for the row: news stretches, everything else is a fixed width. */
-const rowColumns = (ids) => ids.map((id) => (id === "news" ? "minmax(0, 1fr)" : "236px")).join(" ") || "minmax(0, 1fr)";
+const rowColumns = (ids) => ids.map(() => "minmax(0, 1fr)").join(" ") || "minmax(0, 1fr)";
 
 async function saveLayout(layout) {
   const next = { ...S.settings, widgets: layout };

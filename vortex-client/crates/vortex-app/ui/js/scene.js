@@ -1481,8 +1481,9 @@ export class World {
     if (!img || !img.complete || !img.naturalWidth) return;
     if (this.rise < 1) this.rise = Math.min(1, this.rise + dt / 2.2);
     const rise = 1 - Math.pow(1 - this.rise, 3);
-    this.parallax += (this.parallaxTarget - this.parallax) * Math.min(1, dt * 2.5);
-    this.tilt = (this.tilt || 0) + (((this.mouseY ?? 0.5) - 0.5) - (this.tilt || 0)) * Math.min(1, dt * 2.5);
+    // The wallpaper stays still: it doesn't follow the mouse.
+    this.parallax = 0;
+    this.tilt = 0;
     const zoom = 1.08 + (1 - rise) * 0.06;
     const sc = Math.max(w / img.naturalWidth, h / img.naturalHeight) * zoom;
     const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
