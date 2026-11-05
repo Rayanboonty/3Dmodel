@@ -146,7 +146,13 @@ export class BlockName {
   }
 
   /** Turn slowly back and forth, leaning a little toward the pointer. */
-  update(now, x, y, pointer = 0) {
+  update(now, x, y, pointer = 0, still = false) {
+    if (still) {
+      // A fixed three-quarter angle: the block sides and tops show, nothing moves.
+      this.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
+      this.rot.style.transform = "rotateX(-16deg) rotateY(-14deg)";
+      return;
+    }
     const target = Math.sin(now / 2600) * 24 + pointer * 10;
     this.yaw += (target - this.yaw) * 0.08;
     const bob = Math.sin(now / 1800) * this.cell * 0.35;
