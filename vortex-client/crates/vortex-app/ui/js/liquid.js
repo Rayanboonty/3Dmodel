@@ -107,24 +107,11 @@ function onDown(e) {
   if (!enabledFn()) return;
   const r = el.getBoundingClientRect();
   const big = Math.max(r.width, r.height);
-  // Small controls swell more than big cards.
-  const grow = 1 + Math.min(0.075, 7 / big);
-  const glow = glowAt(el, e.clientX, e.clientY);
-  const x0 = e.clientX, y0 = e.clientY;
+  // A simple press: the control dips in a little and springs back.
+  const grow = 1 - Math.min(0.04, 5 / big);
+  const glow = null;
   aim(el, grow, grow, 0, 0);
-  const move = (m) => {
-    const dx = m.clientX - x0, dy = m.clientY - y0;
-    const lim = Math.min(9, big * 0.08);
-    const tx = Math.max(-lim, Math.min(lim, dx * 0.16));
-    const ty = Math.max(-lim, Math.min(lim, dy * 0.16));
-    // Stretch toward the drag like a drop of liquid.
-    const sx = grow + Math.min(0.05, Math.abs(dx) / 900) - Math.min(0.025, Math.abs(dy) / 1600);
-    const sy = grow + Math.min(0.05, Math.abs(dy) / 900) - Math.min(0.025, Math.abs(dx) / 1600);
-    aim(el, sx, sy, tx, ty);
-    const rr = el.getBoundingClientRect();
-    glow.style.left = `${m.clientX - rr.left}px`;
-    glow.style.top = `${m.clientY - rr.top}px`;
-  };
+  const move = () => {};
   const up = () => {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);

@@ -27,12 +27,10 @@ and macOS work too.
 - **Your logo.** The Vortex wordmark is blocky 3D lettering in Minecraft-title style, in
   ten designs (Diamond & Gold, Dawn Amber, Netherite Ember, Emerald Line, Amethyst Arch,
   Grass Block, Obsidian Portal, Redstone, Oxidised Copper, Frost).
-- **Liquid glass.** Frosted panels with a light-catching edge and a highlight that
-  follows the pointer (no refraction). Controls swell, glow and lean toward your pointer
-  when pressed, then settle on a spring. Tab droplets stretch as they slide and lift into
-  a lens you can drag between tabs. Menus and dialogs grow out of the button that opened
-  them and shrink back into it. Dialogs, menus and the game log close with a swipe down.
-  Pages grow out of their sidebar tab.
+- **Frosted panels.** Tinted panels with a strong blur over the wallpaper and a hairline
+  border. Presses dip in and spring back, tab highlights slide (and can be dragged)
+  between tabs, menus and dialogs grow out of the button that opened them, and dialogs,
+  menus and the game log close with a swipe down. Dark and light modes.
 - **Customise it** in Settings → Appearance: your own wallpaper (or the Golden Meadow
   default), corner blur, edge shade, glass style (clear, frosted, smoke), blur, corner
   roundness, bouncy or smooth motion, accent colour, and which parts of Home to show.

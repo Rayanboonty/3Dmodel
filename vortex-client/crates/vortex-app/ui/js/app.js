@@ -1454,7 +1454,7 @@ function settingsBody(d) {
         ${segRow(u, "glass_style", "Style", [["clear", "Clear"], ["frosted", "Frosted"], ["smoke", "Smoke"]], "How much of the wallpaper shows through")}
         ${rangeRow("s-glass", "Blur", d.glass, 0, 100, 5, glassLabel(d.glass))}
         ${segRow(u, "radius", "Corners", [["round", "Round"], ["soft", "Soft"], ["sharp", "Sharp"]])}
-        ${segRow(u, "motion", "Liquid motion", [["bouncy", "Bouncy"], ["smooth", "Smooth"]], "How presses, menus and tabs spring")}
+        ${segRow(u, "motion", "Motion", [["bouncy", "Bouncy"], ["smooth", "Smooth"]], "How presses, menus and tabs spring")}
       </div>
       <div class="card-pad"><h3>Theme and colour</h3>
         ${segRow(u, "theme", "Mode", [["dark", "Dark"], ["light", "Light"], ["system", "System"]], "System follows Windows")}
@@ -1542,7 +1542,7 @@ function settingsBody(d) {
   }
   return `<div class="settings-grid">
     <div class="card-pad"><h3>Motion and sound</h3>
-      ${swRow(d, "animations", "Animations", "The moving world, glass motion and particles")}
+      ${swRow(d, "animations", "Animations", "The moving world, panel motion and particles")}
       ${swRow(d, "world_life", "World life", "Drifting light, birds and dust in the wallpaper")}
       ${swRow(d, "ui_sounds", "Sounds", "Clicks, launch sounds and alerts")}
     </div>
