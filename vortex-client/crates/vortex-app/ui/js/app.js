@@ -155,7 +155,6 @@ function applyLook(s = S.settings || {}) {
   const style = Math.min(STYLES.length - 1, Math.max(0, s.logo_style || 0));
   if (S.brandStyle !== style) {
     S.brandStyle = style;
-    mountLogo($("#brand-logo"), renderBrand(style, 3.1));
   }
   tick();
 }
@@ -1307,13 +1306,29 @@ function select(name) {
   player.setActivity(runOf(name).phase);
 }
 
+/** The VC logo as a canvas (for the in-game menu). */
+function logoCanvas() {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      resolve(c);
+    };
+    img.onerror = reject;
+    img.src = "img/logo.png";
+  });
+}
+
 /** Give the game the launcher's background and logo for the Vortex main menu. */
 async function exportMenuArt(inst) {
   const s = S.settings || {};
   if (!inst || inst.loader !== "fabric" || inst.minecraftVersion !== "1.21.4" || s.vortex_mods === false || s.vortex_menu === false) return;
   try {
     const bg = sceneStill(s.background || "valley", 1600, 900, world.fixedTime ? undefined : world.hour());
-    const logo = renderStyle(s.logo_style || 0, 9, { dpr: 1 });
+    const logo = await logoCanvas();
     await call("save_menu_art", { background: bg.toDataURL("image/png"), logo: logo.toDataURL("image/png") });
   } catch (e) {
     console.warn("menu art", e);
@@ -1815,7 +1830,6 @@ function updateAccount() {
 
 function bindChrome() {
   hydrateIcons(document);
-  mountLogo($("#boot-logo"), renderStyle(0, 7));
   bindLiquid();
   $$("#nav .tab").forEach((b) => b.addEventListener("click", () => go(b.dataset.route)));
   $("#account-chip").addEventListener("click", () => go("accounts"));

@@ -750,3 +750,6 @@ code.path { display: block; font-size: 12px; word-break: break-all; color: var(-
 .hit-meta { flex-wrap: nowrap; overflow: hidden; }
 .hit-meta .tag { white-space: nowrap; }
 .logo-art { height: 92px; }
+
+.brand-logo { height: 40px; width: auto; }
+img.boot-logo { height: 150px; width: auto; display: block; margin: 0 auto 26px; }
