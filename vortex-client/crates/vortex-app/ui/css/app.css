@@ -1545,7 +1545,6 @@ body.theme-light .news-card strong, body.theme-light .news-card .cap strong { co
 .tabs .tab { text-transform: capitalize; }
 
 /* The player's name in 3D blocks behind him (replaces the flat name). */
-#player-layer .pl-tag { display: none; }
 .pl-blockname { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; pointer-events: none; }
 .pl-blockname .bn-rot, .pl-blockname .bn-box { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
 .pl-blockname .bn-face { position: absolute; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; backface-visibility: hidden; }
@@ -1608,3 +1607,18 @@ body.theme-light .btn:not(.btn-accent):not(.btn-danger):hover { background: #fff
 body.theme-light .seg button.on { background: #fff; box-shadow: 0 1px 3px rgba(34, 27, 41, 0.15); }
 
 .pl-blockname { filter: drop-shadow(0 3px 0 rgba(60, 30, 0, 0.35)) drop-shadow(0 6px 12px rgba(20, 8, 30, 0.35)); }
+
+/* Player name: plain text, centred, standing just behind his head, with a
+   little extruded depth. */
+#player-layer .pl-tag {
+  display: block;
+  bottom: calc(var(--u, 6px) * 31);
+  padding: 0; background: none; -webkit-background-clip: border-box; background-clip: border-box;
+  font-family: var(--body); font-weight: 800; text-transform: none;
+  font-size: calc(var(--u, 6px) * 4.4); line-height: 1; letter-spacing: 0.04em;
+  color: #fff8ec; opacity: 1; filter: none;
+  text-shadow:
+    0 1px 0 #e9d3b0, 0 2px 0 #d9bb8c, 0 3px 0 #c49c66, 0 4px 0 #a97f4b,
+    0 5px 10px rgba(30, 14, 4, 0.45), 0 0 18px rgba(255, 190, 110, 0.35);
+}
+.pl-blockname { display: none; }

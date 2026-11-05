@@ -108,7 +108,6 @@ const world = new World(document.getElementById("world"));
 const player = new Player(document.getElementById("player-layer"), world);
 player.onPoke = (p) => {
   sound.pop();
-  fx.burst(p.x, p.y, ["#ff5a7a", "#ff9ab3", "#ffffff"], 14);
 };
 
 const PHASE_ICON = { dawn: "sun", day: "sun", dusk: "sunset", night: "moon" };
@@ -345,7 +344,6 @@ function bindLiquid() {
     const el = e.target.closest(".lq, .btn, .tab, .play, .square, .row-item, .card, .loader, .vrow, .switch, .top-chip, .recent-chip, .news-card");
     if (!el || el.disabled) return;
     sound.click();
-    if (anims() && el.matches(".play, .btn-accent")) fx.burst(e.clientX, e.clientY, ["#ffd27a", "#ffb547", "#ffffff"], 12);
   });
   document.addEventListener("pointermove", (e) => {
     const el = e.target.closest(".hl");
@@ -390,6 +388,11 @@ function go(route, opts = {}) {
 
 function render(opts = {}) {
   const page = $("#page");
+  // Same page, new data: update in place so tabs slide and nothing flashes.
+  if (!opts.enter && !opts.full) {
+    if (S.route === "mods" && $(".mods-pane", page)) return updateMods();
+    if (S.route === "new" && $(".wiz", page)) return updateWizard();
+  }
   if (S.preview && S.route !== "accounts") S.preview = null;
   const { html, mount } = ROUTES[S.route]();
   page.innerHTML = html;
@@ -942,7 +945,7 @@ function renderWizard() {
 function updateWizard(animate = false) {
   const page = $("#page");
   const wiz = $(".wiz", page);
-  if (S.route !== "new" || !wiz) { render(); return; }
+  if (S.route !== "new" || !wiz) { render({ full: true }); return; }
   const scroll = $(".vlist", page)?.scrollTop;
   const { html, mount } = renderWizard();
   const tpl = document.createElement("template");
@@ -955,6 +958,41 @@ function updateWizard(animate = false) {
   const list = $(".vlist", page);
   if (list && scroll != null && !animate) list.scrollTop = scroll;
   if (animate && anims()) wiz.animate([{ opacity: 0, translate: "0px 10px", filter: "blur(6px)" }, { opacity: 1, translate: "0px 0px", filter: "blur(0px)" }], { duration: 380, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+}
+
+/** Update the Mods page in place: header, tab states (the droplet slides)
+ *  and the list, without rebuilding the page. */
+function updateMods() {
+  const page = $("#page");
+  const pane = $(".mods-pane", page);
+  if (!pane) { render({ full: true }); return; }
+  const { html, mount } = renderMods();
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  const next = tpl.content;
+  const nextPane = next.querySelector(".mods-pane");
+  if (!nextPane) { render({ full: true }); return; }
+  const head = $(".sheet-head", page), nextHead = next.querySelector(".sheet-head");
+  if (head && nextHead && head.innerHTML !== nextHead.innerHTML) head.innerHTML = nextHead.innerHTML;
+  for (const id of ["#mods-tabs", "#kind-tabs"]) {
+    const cur = $(id, page), nx = next.querySelector(id);
+    if (!cur || !nx) continue;
+    const a = [...cur.querySelectorAll(":scope > .tab")], b = [...nx.querySelectorAll(":scope > .tab")];
+    a.forEach((t, i) => {
+      if (!b[i]) return;
+      t.classList.toggle("on", b[i].classList.contains("on"));
+      if (t.innerHTML !== b[i].innerHTML) t.innerHTML = b[i].innerHTML;
+    });
+    liquidTabs(cur);
+  }
+  const scroll = $(".sheet-body", page)?.scrollTop;
+  const kindChanged = pane.dataset.view !== `${S.modsTab}|${S.mods.kind}|${S.mods.instance}`;
+  pane.innerHTML = nextPane.innerHTML;
+  pane.dataset.view = `${S.modsTab}|${S.mods.kind}|${S.mods.instance}`;
+  hydrateIcons(page);
+  mount?.(page);
+  if (!kindChanged && scroll != null) $(".sheet-body", page).scrollTop = scroll;
+  if (kindChanged && anims()) pane.animate([{ opacity: 0, translate: "0px 8px", filter: "blur(4px)" }, { opacity: 1, translate: "0px 0px", filter: "blur(0px)" }], { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
 }
 
 function loadLoaderVersions(w) {
@@ -1078,7 +1116,7 @@ function renderMods() {
           ${KINDS.map(([k, l]) => `<button class="tab ${kind === k ? "on" : ""}" data-action="mods-kind" data-kind="${k}">${l}</button>`).join("")}
         </div>
       </div>
-      <div class="mods-pane">${S.modsTab === "browse" ? browseBody(inst) : installedBody(inst)}</div>`),
+      <div class="mods-pane" data-view="${esc(`${S.modsTab}|${S.mods.kind}|${S.mods.instance}`)}">${S.modsTab === "browse" ? browseBody(inst) : installedBody(inst)}</div>`),
     mount(root) {
       $("#mods-inst", root).addEventListener("change", (e) => {
         S.mods.instance = e.target.value;
@@ -2082,7 +2120,6 @@ const actions = {
       select(inst.name);
       S.wizard = null;
       sound.success();
-      fx.confetti();
       toast("Instance created", `${inst.name} is ready. Press Play to install and launch it.`, "success");
       go("home");
       setTimeout(() => player.wave(2), 600);
@@ -2226,7 +2263,6 @@ const actions = {
     try {
       S.accounts = await call("add_offline_account", { username: name });
       sound.success();
-      fx.confetti(50);
       toast("Account added", `You're playing as ${name}.`, "success");
       updateAccount();
       await loadSkin();
@@ -2244,7 +2280,6 @@ const actions = {
       S.accounts = await call("microsoft_login");
       closeModal();
       sound.success();
-      fx.confetti(60);
       toast("Signed in", `Welcome, ${selectedAccount()?.username}.`, "success");
       updateAccount();
       await loadSkin();
@@ -2366,7 +2401,6 @@ function bindEvents() {
       S.runs[name] = { phase: "running" };
       S.started[name] = Date.now();
       sound.launch();
-      fx.confetti(60);
       toast("Minecraft is running", `${name} started. Have fun.`, "success");
     } else {
       const failed = ev.state === "failed" || (ev.code != null && ev.code !== 0);
@@ -2558,7 +2592,7 @@ async function boot() {
   } else bootEl.remove();
   placeHero();
   const u = { ...UI_DEFAULTS, ...S.settings };
-  if (world.picture && anims() && u.intro !== false) setTimeout(() => { placeHero(); player.intro(); }, 420);
+  if (world.picture && anims() && u.intro !== false) { placeHero(); player.intro(0.45); }
   else if (world.picture) player.chooseNext();
   else setTimeout(() => player.wave(1.8), 1200);
 }

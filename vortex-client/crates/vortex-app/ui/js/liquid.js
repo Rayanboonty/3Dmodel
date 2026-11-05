@@ -107,12 +107,15 @@ function onDown(e) {
   if (!enabledFn()) return;
   const r = el.getBoundingClientRect();
   const big = Math.max(r.width, r.height);
-  // Small controls swell more than big cards.
-  const grow = 1 + Math.min(0.075, 7 / big);
+  // Small controls swell more than big cards; the joined Launch button and
+  // its arrow dip in instead, so they never separate.
+  const solid = el.matches(".play, .play-more");
+  const grow = solid ? 0.975 : 1 + Math.min(0.075, 7 / big);
   const glow = glowAt(el, e.clientX, e.clientY);
   const x0 = e.clientX, y0 = e.clientY;
   aim(el, grow, grow, 0, 0);
   const move = (m) => {
+    if (solid) return;
     const dx = m.clientX - x0, dy = m.clientY - y0;
     const lim = Math.min(9, big * 0.08);
     const tx = Math.max(-lim, Math.min(lim, dx * 0.16));
@@ -167,6 +170,13 @@ function tabDown(e, tab) {
   };
   const [a0, b0] = span(tab);
   const len = b0 - a0;
+  // The leading edge moves first and the trailing one follows, whichever
+  // way the droplet is going, so it stretches instead of collapsing.
+  const dr = drop.getBoundingClientRect();
+  const curStart = vertical ? dr.top - gr.top : dr.left - gr.left;
+  const forward = a0 > curStart;
+  drop.style.setProperty(vertical ? "--dt" : "--dl", forward ? "0.08s" : "0s");
+  drop.style.setProperty(vertical ? "--db" : "--dr", forward ? "0s" : "0.08s");
   drop.classList.add("lifted");
   drop.style.opacity = "1";
   place(a0, b0);
@@ -216,30 +226,38 @@ function tabDown(e, tab) {
 
 const EASE_OUT = "cubic-bezier(0.2, 0.9, 0.25, 1)";
 
-/** Grow a panel out of `source` (a button), like an iOS 26 menu. */
+/** Where (inside or outside the panel) a source button's centre sits. */
+function originFor(panel, source) {
+  const p = panel.getBoundingClientRect();
+  const s = source?.isConnected ? source.getBoundingClientRect() : null;
+  if (!s || !s.width || !p.width) return { ox: p.width / 2, oy: p.height, sx: 0.88, sy: 0.82 };
+  return {
+    ox: s.left + s.width / 2 - p.left,
+    oy: s.top + s.height / 2 - p.top,
+    sx: Math.max(0.08, Math.min(1, s.width / p.width)),
+    sy: Math.max(0.08, Math.min(1, s.height / p.height)),
+  };
+}
+
+/** Grow a panel out of `source` (a button): it expands from the button's
+ *  own spot, so it pops out of it rather than sliding across. */
 export function morphIn(panel, source) {
   if (!enabledFn() || !panel) return;
   panel.classList.add("morph");
-  const p = panel.getBoundingClientRect();
-  if (!p.width || !p.height) return;
-  let from = { translate: "0px 14px", scale: "0.86 0.82" };
-  const s = source?.isConnected ? source.getBoundingClientRect() : null;
-  if (s && s.width) {
-    const dx = s.left + s.width / 2 - (p.left + p.width / 2);
-    const dy = s.top + s.height / 2 - (p.top + p.height / 2);
-    from = { translate: `${dx.toFixed(1)}px ${dy.toFixed(1)}px`, scale: `${Math.max(0.05, s.width / p.width).toFixed(3)} ${Math.max(0.05, s.height / p.height).toFixed(3)}` };
-  }
-  const over = bouncy ? ["1.022 0.986", "0.994 1.008"] : ["1.006 0.998", "1 1"];
-  panel.animate(
+  const o = originFor(panel, source);
+  panel.style.transformOrigin = `${o.ox.toFixed(1)}px ${o.oy.toFixed(1)}px`;
+  const over = bouncy ? ["1.02 1.025", "0.995 0.993"] : ["1.005 1.005", "1 1"];
+  const a = panel.animate(
     [
-      { ...from, opacity: 0.35, filter: "blur(8px)" },
-      { offset: 0.5, translate: "0px 0px", scale: over[0], opacity: 1, filter: "blur(0px)" },
-      { offset: 0.76, scale: over[1] },
-      { translate: "0px 0px", scale: "1 1", opacity: 1, filter: "blur(0px)" },
+      { scale: `${o.sx.toFixed(3)} ${o.sy.toFixed(3)}`, opacity: 0, filter: "blur(10px)" },
+      { offset: 0.18, opacity: 1 },
+      { offset: 0.55, scale: over[0], filter: "blur(0px)" },
+      { offset: 0.8, scale: over[1] },
+      { scale: "1 1", opacity: 1, filter: "blur(0px)" },
     ],
-    { duration: bouncy ? 640 : 460, easing: EASE_OUT },
+    { duration: bouncy ? 560 : 420, easing: EASE_OUT },
   );
-  // A sweep of light across the glass as it settles.
+  a.finished.then(() => { panel.style.transformOrigin = ""; }, () => {});
   const sheen = document.createElement("span");
   sheen.className = "lq-sheen";
   panel.appendChild(sheen);
@@ -247,8 +265,8 @@ export function morphIn(panel, source) {
   // The content arrives just after the glass.
   for (const [i, child] of [...panel.children].entries()) {
     if (child.classList.contains("drop") || child.classList.contains("grabber") || child.classList.contains("lq-sheen")) continue;
-    child.animate([{ opacity: 0, translate: "0px 6px", filter: "blur(4px)" }, { opacity: 1, translate: "0px 0px", filter: "blur(0px)" }], {
-      duration: 360, delay: 110 + Math.min(i, 8) * 22, easing: EASE_OUT, fill: "backwards",
+    child.animate([{ opacity: 0, translate: "0px 6px" }, { opacity: 1, translate: "0px 0px" }], {
+      duration: 320, delay: 120 + Math.min(i, 8) * 22, easing: EASE_OUT, fill: "backwards",
     });
   }
 }
@@ -256,18 +274,11 @@ export function morphIn(panel, source) {
 /** Shrink a panel back into `source` (or away), then resolve. */
 export function morphOut(panel, source) {
   if (!panel || !enabledFn()) return Promise.resolve();
-  const p = panel.getBoundingClientRect();
-  let to = { translate: "0px 18px", scale: "0.9 0.86" };
-  const s = source?.isConnected ? source.getBoundingClientRect() : null;
-  if (s && s.width && p.width) {
-    const dx = s.left + s.width / 2 - (p.left + p.width / 2);
-    const dy = s.top + s.height / 2 - (p.top + p.height / 2);
-    to = { translate: `${dx.toFixed(1)}px ${dy.toFixed(1)}px`, scale: `${Math.max(0.05, s.width / p.width).toFixed(3)} ${Math.max(0.05, s.height / p.height).toFixed(3)}` };
-  }
-  const cur = getComputedStyle(panel);
+  const o = originFor(panel, source);
+  panel.style.transformOrigin = `${o.ox.toFixed(1)}px ${o.oy.toFixed(1)}px`;
   const a = panel.animate(
-    [{ translate: cur.translate === "none" ? "0px 0px" : cur.translate, scale: cur.scale === "none" ? "1 1" : cur.scale, opacity: 1, filter: "blur(0px)" }, { ...to, opacity: 0, filter: "blur(6px)" }],
-    { duration: 300, easing: "cubic-bezier(0.4, 0, 0.7, 0.2)", fill: "forwards" },
+    [{ scale: "1 1", opacity: 1, filter: "blur(0px)" }, { scale: `${o.sx.toFixed(3)} ${o.sy.toFixed(3)}`, opacity: 0, filter: "blur(8px)" }],
+    { duration: 260, easing: "cubic-bezier(0.4, 0, 0.7, 0.2)", fill: "forwards" },
   );
   return a.finished.catch(() => {});
 }

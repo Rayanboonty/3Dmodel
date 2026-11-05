@@ -3,8 +3,6 @@
 // it watches the cursor and the bees, wanders, mines the block in front of it,
 // warms its hands at the campfire at night, carries a torch and waves.
 
-import { BlockName } from "./nameblocks.js";
-
 const DEG = Math.PI / 180;
 
 /** Vortex's own default outfit (used when no skin is available). */
@@ -129,8 +127,7 @@ export class Player {
     this.tag = this.stage.querySelector(".pl-tag");
     this.torchEl = this.stage.querySelector(".pl-torch");
     this.shadow = this.stage.querySelector(".pl-shadow");
-    // On the launcher his name stands behind him in blocks.
-    this.blockName = preview ? null : new BlockName(this.stage);
+
 
     // Pose and behaviour state.
     this.x = 0;
@@ -277,13 +274,15 @@ export class Player {
    * lean on it out of breath, straighten up, step to the middle of the
    * button and hold a pose there.
    */
-  intro() {
+  intro(delay = 0) {
     const a = this.world ? this.world.anchor() : { x: 0 };
     const v = this.world?.viewport;
     this.x = (v ? v.x : 0) - a.x - this.unit * 12;
+    this.vx = 0;
     this.introTarget = -this.unit * 9;
     this.introDone = false;
     this.start("run", 99);
+    this.action.delay = delay;
   }
 
   chooseNext() {
@@ -306,14 +305,16 @@ export class Player {
    * Returns true when there. The legs follow the distance covered (see
    * update), so the feet never skate.
    */
-  walkTo(target, dt, u, speed = 22) {
+  walkTo(target, dt, u, speed = 22, sideStep = false) {
     const dx = target - this.x;
     const dist = Math.abs(dx);
+    this.sideStep = sideStep;
     if (dist < u * 0.4 && Math.abs(this.vx) < u * 1.5) { this.vx = 0; this.x = target; return true; }
     const dir = Math.sign(dx) || 1;
-    this.facingTarget = dir > 0 ? 90 : -90;
+    // Short moves are a side-step, still facing us; longer ones turn to walk.
+    this.facingTarget = sideStep ? 12 + dir * 22 : dir > 0 ? 90 : -90;
     // Don't set off until he's mostly turned the right way.
-    const aligned = Math.abs(this.facing - this.facingTarget) < 55;
+    const aligned = sideStep || Math.abs(this.facing - this.facingTarget) < 55;
     const maxV = u * speed;
     const accel = maxV * 3.4;
     const decel = maxV * 2.4;
@@ -351,6 +352,7 @@ export class Player {
       switch (a.type) {
         case "run": {
           running = true;
+          if (a.t < (a.delay || 0)) break; // waiting off-stage
           walking = !this.walkTo(this.introTarget ?? 0, dt, u, 62);
           if (!walking) this.start("rest", 2.8);
           break;
@@ -382,7 +384,7 @@ export class Player {
           break;
         case "settle":
           // A few unhurried steps to the middle of the button, then the pose.
-          walking = !this.walkTo(0, dt, u, 16);
+          walking = !this.walkTo(0, dt, u, 12, true);
           if (!walking) { this.introDone = true; this.start("pose", 1e9); }
           break;
         case "pose": {
@@ -491,8 +493,10 @@ export class Player {
     this.gait = approach(this.gait, clamp(speed / 14, 0, 1), 9, dt);
     this.runK = approach(this.runK, runK, 6, dt);
     const g = this.gait;
-    legSwing = Math.sin(this.walkPhase) * (30 + 28 * this.runK) * g;
-    armSwing = Math.sin(this.walkPhase) * (26 + 40 * this.runK) * g;
+    const stepK = this.sideStep ? 0.45 : 1;
+    legSwing = Math.sin(this.walkPhase) * (30 + 28 * this.runK) * g * stepK;
+    armSwing = Math.sin(this.walkPhase) * (26 + 40 * this.runK) * g * stepK;
+    if (!walking) this.sideStep = false;
     // Lean into speed and into acceleration, back when braking.
     const acc = (this.vx - this.prevVx) / Math.max(dt, 1e-3) / u * Math.sign(this.vx || 1);
     this.prevVx = this.vx;
@@ -571,27 +575,8 @@ export class Player {
       this.stage.style.top = `${a.y}px`;
       const lift = Math.min(1, -this.y / (6 * u));
       this.shadow.style.transform = `translateX(${this.x}px) scale(${1 - lift * 0.4})`;
-      // The name sits behind him and drifts a little against the pointer,
-      // so it reads as a layer further back.
-      const head = this.root.getBoundingClientRect();
-      const px = clamp((this.mouse.x - (head.left + head.width / 2)) / 40, -8, 8);
-      const py = clamp((this.mouse.y - head.top) / 60, -4, 4);
-      this.tagX = approach(this.tagX || 0, -px, 4, 1 / 60);
-      this.tagY = approach(this.tagY || 0, -py, 4, 1 / 60);
-      this.tag.style.transform = `translate(calc(-50% + ${(this.x * 0.92 + this.tagX).toFixed(1)}px), ${(this.y * 0.5 + this.tagY).toFixed(1)}px)`;
-      if (this.blockName) {
-        if (!this.accentAt || now - this.accentAt > 1000) {
-          this.accentAt = now;
-          this.accentHex = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ffb547";
-        }
-        const cols = Math.max(1, (this.displayName || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 16).length * 6 - 1);
-        const cell = Math.round(Math.min(u * 1.4, (u * 40) / cols) * 10) / 10;
-        this.blockName.set(this.displayName, cell, this.accentHex);
-        const h = 7 * cell;
-        // Centred on him, straight on, set behind his head: the head covers the
-        // lower middle of the name, so it reads as standing at his back.
-        this.blockName.update(now, this.x, -(u * 31.5 + h / 2 - h * 0.35) + this.y + bob, 0, true);
-      }
+      // The name stands still, centred on him and set behind his head.
+      this.tag.style.transform = `translate(calc(-50% + ${this.x.toFixed(1)}px), ${(this.y + bob).toFixed(1)}px)`;
       // Torch at night, in the right hand (the viewer's left when facing us).
       const showTorch = !!this.holdingTorch;
       this.torchEl.hidden = !showTorch;
