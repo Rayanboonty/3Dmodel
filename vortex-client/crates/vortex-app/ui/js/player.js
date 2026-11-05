@@ -136,6 +136,7 @@ export class Player {
     this.yaw = 0; this.pitch = 0;
     this.pose = { rArmX: 0, rArmZ: 0, lArmX: 0, lArmZ: 0, rLegX: 0, lLegX: 0 };
     this.walkPhase = 0;
+    this.vx = 0; this.prevVx = 0; this.gait = 0; this.runK = 0; this.stance = 0;
     this.action = { type: "idle", t: 0, dur: 2.5 };
     this.activity = "idle";
     this.mouse = { x: 0, y: 0, at: 0 };
@@ -293,15 +294,31 @@ export class Player {
     return this.start("idle", 2.5 + Math.random() * 3);
   }
 
-  /** Move toward a screen-x offset; returns true when there. */
-  walkTo(target, dt, u, speed = 7, cadence = 9) {
+  /**
+   * Move toward a screen-x offset like a person would: turn first, speed up,
+   * cruise, then slow down so he arrives without sliding. `speed` is the
+   * cruising speed in skin pixels per second (walk ~22, sprint ~60).
+   * Returns true when there. The legs follow the distance covered (see
+   * update), so the feet never skate.
+   */
+  walkTo(target, dt, u, speed = 22) {
     const dx = target - this.x;
-    if (Math.abs(dx) < u * 0.6) return true;
-    // Ease in and out so starts and stops aren't abrupt.
-    const ease = Math.min(1, Math.abs(dx) / (u * 6)) * Math.min(1, 0.35 + (this.action.t || 0) * 1.6);
-    this.x += Math.sign(dx) * Math.min(Math.abs(dx), u * speed * Math.max(0.25, ease) * dt);
-    this.facingTarget = dx > 0 ? 90 : -90;
-    this.walkPhase += dt * cadence * Math.max(0.5, ease);
+    const dist = Math.abs(dx);
+    if (dist < u * 0.4 && Math.abs(this.vx) < u * 1.5) { this.vx = 0; this.x = target; return true; }
+    const dir = Math.sign(dx) || 1;
+    this.facingTarget = dir > 0 ? 90 : -90;
+    // Don't set off until he's mostly turned the right way.
+    const aligned = Math.abs(this.facing - this.facingTarget) < 55;
+    const maxV = u * speed;
+    const accel = maxV * 3.4;
+    const decel = maxV * 2.4;
+    const vDes = aligned ? Math.min(maxV, Math.sqrt(2 * decel * Math.max(0, dist - u * 0.15))) : 0;
+    const v = this.vx * dir;
+    const nv = v < vDes ? Math.min(vDes, v + accel * dt) : Math.max(vDes, v - decel * dt);
+    this.vx = nv * dir;
+    const nx = this.x + this.vx * dt;
+    if (Math.sign(target - nx) !== dir) { this.x = target; this.vx = 0; return true; }
+    this.x = nx;
     return false;
   }
 
@@ -319,6 +336,7 @@ export class Player {
     let lean = 0;
     this.panting = false;
     this.posing = false;
+    if (a.type !== "pose") this.stance = approach(this.stance || 0, 0, 6, dt);
     const world = this.world;
     const block = world ? world.scale * 6 : u * 3;
 
@@ -328,8 +346,7 @@ export class Player {
       switch (a.type) {
         case "run": {
           running = true;
-          walking = !this.walkTo(this.introTarget ?? 0, dt, u, 58, 26);
-          lean = 12;
+          walking = !this.walkTo(this.introTarget ?? 0, dt, u, 62);
           if (!walking) this.start("rest", 2.8);
           break;
         }
@@ -360,18 +377,19 @@ export class Player {
           break;
         case "settle":
           // A few unhurried steps to the middle of the button, then the pose.
-          walking = !this.walkTo(0, dt, u, 7, 9);
+          walking = !this.walkTo(0, dt, u, 16);
           if (!walking) { this.introDone = true; this.start("pose", 1e9); }
           break;
         case "pose": {
-          // The hero pose: square to the viewer, a little turned, right hand
-          // on the hip, left arm loose, chin up. Only breathing moves.
-          this.facingTarget = 14;
+          // A relaxed stance: a little turned, feet apart, arms loose and a
+          // touch away from the body, chin up. Only breathing moves.
+          this.facingTarget = 12;
           const k = Math.min(1, a.t / 0.9);
           const e = k * k * (3 - 2 * k);
-          rArmZ = 34 * e; rArmX = -16 * e;
-          lArmZ = -7 * e; lArmX = 6 * e;
-          lookOverride = { yaw: -6 * e, pitch: 6 * e };
+          rArmZ = 6 * e; rArmX = -5 * e;
+          lArmZ = -5 * e; lArmX = 4 * e;
+          this.stance = 3.2 * e;
+          lookOverride = { yaw: -5 * e, pitch: 4 * e };
           this.posing = true;
           break;
         }
@@ -384,7 +402,7 @@ export class Player {
           break;
         }
         case "homewave":
-          walking = !this.walkTo(0, dt, u, 6, 8);
+          walking = !this.walkTo(0, dt, u, 20);
           if (!walking) this.start("wave", 1.8);
           break;
         case "walk": {
@@ -458,17 +476,33 @@ export class Player {
     this.holdingTorch = !this.preview && world && world.darkness() > 0.5 && !["mine", "punch", "campfire", "wave", "celebrate"].includes(a.type);
     if (this.holdingTorch && !walking && !rArmX) rArmX = 32;
 
-    // Walk or run cycle / idle breathing.
-    if (walking) {
-      legSwing = Math.sin(this.walkPhase) * (running ? 58 : 32);
-      armSwing = Math.sin(this.walkPhase) * (running ? 62 : 26);
-    }
-    this.lean = approach(this.lean || 0, lean, 8, dt);
+    // Gait from real speed: the stride advances with the distance covered,
+    // amplitude grows with speed, and a walk blends into a sprint.
+    if (!walking) this.vx = approach(this.vx, 0, 12, dt);
+    const speed = Math.abs(this.vx) / u;
+    const runK = clamp((speed - 26) / 26, 0, 1);
+    const stride = 11 + 9 * runK; // skin pixels per step
+    this.walkPhase += (speed * dt / stride) * Math.PI;
+    this.gait = approach(this.gait, clamp(speed / 14, 0, 1), 9, dt);
+    this.runK = approach(this.runK, runK, 6, dt);
+    const g = this.gait;
+    legSwing = Math.sin(this.walkPhase) * (30 + 28 * this.runK) * g;
+    armSwing = Math.sin(this.walkPhase) * (26 + 40 * this.runK) * g;
+    // Lean into speed and into acceleration, back when braking.
+    const acc = (this.vx - this.prevVx) / Math.max(dt, 1e-3) / u * Math.sign(this.vx || 1);
+    this.prevVx = this.vx;
+    lean = lean || clamp(speed * 0.16 + acc * 0.02, -6, 16);
+    this.lean = approach(this.lean || 0, lean, 7, dt);
     const breath = Math.sin(performance.now() / (this.posing ? 1300 : 900));
-    P.rLegX = approach(P.rLegX, legSwing, 12, dt);
-    P.lLegX = approach(P.lLegX, -legSwing, 12, dt);
-    P.rArmX = approach(P.rArmX, rArmX || -armSwing, 14, dt);
-    P.lArmX = approach(P.lArmX, lArmX || armSwing, 14, dt);
+    // Idle: a slow weight shift from one foot to the other.
+    const shift = g < 0.05 ? Math.sin(performance.now() / 3400) : 0;
+    P.rLegX = approach(P.rLegX, legSwing + shift * 2, 16, dt);
+    P.lLegX = approach(P.lLegX, -legSwing - shift * 2, 16, dt);
+    P.legZ = approach(P.legZ || 0, (this.stance || 0) * (1 - g) + 1.2 * this.runK * g, 6, dt);
+    this.roll = approach(this.roll || 0, shift * 1.1 + Math.sin(this.walkPhase) * 1.6 * g, 8, dt);
+    this.twist = Math.sin(this.walkPhase) * (5 + 4 * this.runK) * g;
+    P.rArmX = approach(P.rArmX, rArmX || -armSwing, 16, dt);
+    P.lArmX = approach(P.lArmX, lArmX || armSwing, 16, dt);
     P.rArmZ = approach(P.rArmZ, rArmZ || 3 + breath * 2, 10, dt);
     P.lArmZ = approach(P.lArmZ, lArmZ || -3 - breath * 2, 10, dt);
 
@@ -495,7 +529,7 @@ export class Player {
       if (this.y > 0) { this.y = 0; this.vy = 0; }
     }
 
-    this.walking = walking;
+    this.walking = this.gait > 0.05;
   }
 
   // -------------------------------------------------------------- render --
@@ -508,20 +542,23 @@ export class Player {
       el.style.transform = `translate3d(${p.pivot[0] * u}px,${p.pivot[1] * u}px,${p.pivot[2] * u}px) rotateY(${ry}deg) rotateX(${rx}deg) rotateZ(${rz}deg)`;
     };
     const now = performance.now();
-    const bob = this.walking
-      ? Math.abs(Math.sin(this.walkPhase)) * -0.6 * u
-      : this.panting ? Math.abs(Math.sin(now / 160)) * 0.35 * u : Math.sin(now / 900) * 0.15 * u;
+    // Highest when the legs pass each other, lowest at full stride: twice a cycle.
+    const g = this.gait || 0;
+    const stepBob = -(0.5 + 0.5 * Math.cos(2 * this.walkPhase)) * (0.45 + 0.35 * (this.runK || 0)) * u * g;
+    const idleBob = this.panting ? Math.abs(Math.sin(now / 160)) * 0.35 * u : Math.sin(now / 1100) * 0.12 * u;
+    const bob = stepBob + idleBob * (1 - g);
     set("body");
-    set("head", this.pitch, this.yaw, 0);
+    // The head stays steady while the shoulders twist.
+    set("head", this.pitch, this.yaw - (this.twist || 0) * 0.8, 0);
     set("rarm", P.rArmX, 0, P.rArmZ);
     set("larm", P.lArmX, 0, P.lArmZ);
-    set("rleg", P.rLegX);
-    set("lleg", P.lLegX);
+    set("rleg", P.rLegX, 0, P.legZ || 0);
+    set("lleg", P.lLegX, 0, -(P.legZ || 0));
     if (this.capeEl && this.capeUrl) {
-      const swing = 6 + (this.walking ? 16 + Math.sin(this.walkPhase * 2) * 4 : Math.sin(performance.now() / 700) * 2) + Math.min(20, Math.max(0, -this.vy * 0.6));
+      const swing = 6 + (this.gait || 0) * (14 + 12 * (this.runK || 0) + Math.sin(this.walkPhase * 2) * 4) + Math.sin(performance.now() / 700) * 2 * (1 - (this.gait || 0)) + Math.min(20, Math.max(0, -this.vy * 0.6));
       this.capeEl.style.transform = `translate3d(0px,${-24 * u}px,${-2.6 * u}px) rotateY(180deg) rotateX(${swing}deg)`;
     }
-    this.root.style.transform = `translate3d(${this.x}px,${this.y + bob}px,0) rotateX(${-7 - (this.lean || 0) * Math.cos(this.facing * DEG)}deg) rotateZ(${(this.lean || 0) * Math.sin(this.facing * DEG) * -0.6}deg) rotateY(${this.facing}deg)`;
+    this.root.style.transform = `translate3d(${this.x}px,${this.y + bob}px,0) rotateX(${-7 - (this.lean || 0) * Math.cos(this.facing * DEG)}deg) rotateZ(${(this.lean || 0) * Math.sin(this.facing * DEG) * -0.6 + (this.roll || 0)}deg) rotateY(${this.facing + (this.twist || 0)}deg)`;
 
     if (!this.preview && this.world) {
       const a = this.world.anchor();
