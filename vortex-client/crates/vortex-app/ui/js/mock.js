@@ -125,7 +125,7 @@ export const mock = {
     await wait(60 + Math.random() * 120);
     switch (cmd) {
       case "bootstrap":
-        return { appVersion: "0.2.0", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
+        return { appVersion: "0.3.0", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
       case "list_versions":
         return versionList();
       case "loader_versions": {
@@ -166,6 +166,24 @@ export const mock = {
         simulateLaunch(args.name);
         return null;
       }
+      case "server_status": {
+        const known = { "mc.hypixel.net": [41237, 200000, 28], "minemen.club": [2384, 10000, 61], "play.cubecraft.net": [6120, 30000, 44], "play.wynncraft.com": [1873, 5000, 72], "play.mccisland.net": [3410, 20000, 39] };
+        await wait(300 + Math.random() * 700);
+        const k = known[args.address];
+        if (!k) throw new Error(`${args.address} didn't answer`);
+        return { address: args.address, online: k[0], max: k[1], motd: "A Minecraft server", version: "1.8-1.21", icon: null, pingMs: k[2] };
+      }
+      case "check_update":
+        return location.search.includes("update")
+          ? { available: true, current: "0.3.0", version: "0.3.1", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.3.1/Vortex-windows-x64.zip",
+              notes: "## What's new\n- Faster instance switching\n- New Servers panel on Home\n- Smoother pop-up animations\n- Fixed the Stop Game button" }
+          : { available: false, current: "0.3.0", version: "0.3.0" };
+      case "install_update":
+        for (let i = 0; i <= 20; i++) { emit("update-progress", { stage: "download", done: i * 535000, total: 10_700_000 }); await wait(90); }
+        emit("update-progress", { stage: "install", done: 1, total: 1 });
+        await wait(500);
+        emit("update-progress", { stage: "restart", done: 1, total: 1 });
+        return null;
       case "warm_up":
         return 0;
       case "verify_instance":

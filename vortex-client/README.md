@@ -47,7 +47,7 @@ and macOS work too.
 
   | Page | What it does |
   |---|---|
-  | Home | The wallpaper card with the Launch button, the instance menu and recent instances; latest news and quick actions underneath; your account and instances on the side |
+  | Home | The wallpaper card with a split Launch button (the arrow opens the instance menu) and recent instances; latest news and quick actions underneath; your account and a Servers list on the side with live player counts, ping and one-click Join |
   | Instances | Cards with each version's cover art and update name; play, edit, open folder, delete |
   | New | Three-step wizard: any of 900+ versions (with update names and a cover preview), Vanilla, Fabric or Forge, then name and memory |
   | Mods | **Browse** Modrinth for mods, resource packs and shaders that fit the instance and install them (with required mods) in one click, or open a project to pick a version. **Installed** lists what's there with on/off switches |
@@ -199,3 +199,23 @@ The UI fonts are [Silkscreen](https://github.com/googlefonts/silkscreen) and
 [Outfit](https://github.com/Outfitio/Outfit-Fonts), both under the SIL Open Font License 1.1.
 The licence texts are in `crates/vortex-app/ui/fonts/`. Vortex isn't affiliated with Mojang
 or Microsoft.
+
+## Updates
+
+The launcher checks GitHub Releases each time it opens (Settings → Account & data →
+Updates can turn that off, or check now). When there's a newer version it shows a pop-up
+with the release notes; **Update and restart** downloads the zip, swaps the files next to
+`Vortex.exe` (the old ones are kept as `*.old` until the next start), and opens the new
+version. Instances, accounts and settings are untouched.
+
+To publish an update:
+
+1. Bump `version` in `vortex-client/Cargo.toml` and `vortex-client/crates/vortex-app/tauri.conf.json`.
+2. Commit and push, then tag the commit: `git tag vortex-v0.3.1 && git push origin vortex-v0.3.1`.
+3. The **Vortex Client release** workflow builds Windows x64 and attaches
+   `Vortex-windows-x64.zip` to a GitHub release named after the tag. Edit the release text
+   to change the notes players see.
+
+Releases are read from `Rayanboonty/3Dmodel` (set `VORTEX_UPDATE_REPO=owner/name` to use
+another public repository). Only tags that start with `vortex-v` count.
+

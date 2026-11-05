@@ -25,7 +25,7 @@ export function pressedSource() {
   return lastPress && lastPress.isConnected && performance.now() - lastPressAt < 1500 ? lastPress : null;
 }
 
-const PRESSABLE = ".btn, .play, .square, .recent-chip, .top-chip, .news-card, .row-item, .swatch, .seg > button, .scene-tile, .cape, .card, .hit, .chip-btn, .wall-pick, .loader, .vrow, .qa, .hero-chip";
+const PRESSABLE = ".btn, .play, .square, .recent-chip, .top-chip, .news-card, .row-item, .swatch, .seg > button, .scene-tile, .cape, .card, .hit, .chip-btn, .wall-pick, .loader, .vrow, .qa, .hero-chip, .play-more, .srv";
 
 // ------------------------------------------------------------ the spring --
 
@@ -239,9 +239,14 @@ export function morphIn(panel, source) {
     ],
     { duration: bouncy ? 640 : 460, easing: EASE_OUT },
   );
+  // A sweep of light across the glass as it settles.
+  const sheen = document.createElement("span");
+  sheen.className = "lq-sheen";
+  panel.appendChild(sheen);
+  setTimeout(() => sheen.remove(), 1300);
   // The content arrives just after the glass.
   for (const [i, child] of [...panel.children].entries()) {
-    if (child.classList.contains("drop") || child.classList.contains("grabber")) continue;
+    if (child.classList.contains("drop") || child.classList.contains("grabber") || child.classList.contains("lq-sheen")) continue;
     child.animate([{ opacity: 0, translate: "0px 6px", filter: "blur(4px)" }, { opacity: 1, translate: "0px 0px", filter: "blur(0px)" }], {
       duration: 360, delay: 110 + Math.min(i, 8) * 22, easing: EASE_OUT, fill: "backwards",
     });

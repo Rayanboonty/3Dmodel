@@ -197,7 +197,17 @@ function placeAnchor() {
 const UI_DEFAULTS = {
   glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
   home_news: true, home_quick: true, home_recent: true, side_labels: true, intro: true,
+  auto_update: true, servers: null,
 };
+
+/** Popular servers shown until you add your own. */
+const FEATURED_SERVERS = [
+  { name: "Hypixel", address: "mc.hypixel.net" },
+  { name: "Minemen Club", address: "minemen.club" },
+  { name: "CubeCraft", address: "play.cubecraft.net" },
+  { name: "Wynncraft", address: "play.wynncraft.com" },
+  { name: "MCC Island", address: "play.mccisland.net" },
+];
 
 function applyLook(s = S.settings || {}) {
   s = { ...UI_DEFAULTS, ...s };
@@ -458,7 +468,7 @@ function toggleSwitcher(source) {
   hydrateIcons(panel);
   // Fit inside the wallpaper card, above the Launch button.
   panel.style.maxHeight = `${Math.max(200, zone.offsetTop - 12 - 16)}px`;
-  $$(".square[data-action='toggle-switcher']").forEach((b) => b.setAttribute("aria-expanded", "true"));
+  $$("[data-action='toggle-switcher']").forEach((b) => b.setAttribute("aria-expanded", "true"));
   morphIn(panel, source);
   swipeToDismiss(panel, () => closeSwitcher(true), { grip: ".grabber, .menu-head" });
 }
@@ -466,12 +476,12 @@ function toggleSwitcher(source) {
 function closeSwitcher(instant = false, then) {
   S.switcher = false;
   const panel = $("#switcher");
-  $$(".square[data-action='toggle-switcher']").forEach((b) => b.setAttribute("aria-expanded", "false"));
+  $$("[data-action='toggle-switcher']").forEach((b) => b.setAttribute("aria-expanded", "false"));
   if (!panel) { then?.(); return; }
   panel.id = "";
   const done = () => { panel.remove(); then?.(); };
   if (instant || !anims()) done();
-  else morphOut(panel, $(".square[data-action='toggle-switcher']")).then(done);
+  else morphOut(panel, $("[data-action='toggle-switcher']")).then(done);
 }
 
 const newsVersion = (n) => n.version || (String(n.title || "").match(/(\d+(?:\.\d+)+(?:[-\s]?(?:snapshot|pre|rc)[-\s]?\d+)?|\d\dw\d\d[a-z])/i)?.[1] || "").replace(/\s+/g, "-").toLowerCase();
@@ -488,19 +498,89 @@ function newsCards() {
   }).join("");
 }
 
+/** "Fabric 1.21.4", minus whatever the instance name already says. */
+function chipSub(i) {
+  const loader = i.loaderLabel.split(" ")[0];
+  const n = i.name.toLowerCase();
+  const parts = [];
+  if (!n.includes(loader.toLowerCase())) parts.push(loader);
+  if (!n.includes(i.minecraftVersion.toLowerCase())) parts.push(i.minecraftVersion);
+  return parts.join(" ") || updateName(i.minecraftVersion) || i.loaderLabel;
+}
+
+// ---------------------------------------------------------------- servers --
+
+const serverList = () => {
+  const own = (S.settings || {}).servers;
+  return Array.isArray(own) && own.length ? own : FEATURED_SERVERS;
+};
+S.serverStatus = {};
+
+function serverRow(sv) {
+  const st = S.serverStatus[sv.address];
+  const letter = esc((sv.name || sv.address).trim()[0]?.toUpperCase() || "?");
+  const icon_ = st?.icon ? `<img class="srv-icon" src="${esc(st.icon)}" alt="">` : `<span class="srv-icon blank">${letter}</span>`;
+  const status = !st ? `<span class="srv-count muted"><span class="spin"></span></span>`
+    : st.error ? `<span class="srv-count off">Offline</span>`
+    : `<span class="srv-count"><i class="dot"></i>${fmtCount(st.online)}</span>`;
+  return `<div class="srv" title="${esc(st?.motd || sv.address)}">
+    ${icon_}
+    <span class="meta"><strong>${esc(sv.name || sv.address)}</strong><span>${esc(sv.address)}${st && !st.error && st.pingMs ? ` · ${st.pingMs} ms` : ""}</span></span>
+    ${status}
+    <button class="btn btn-sm srv-join" data-action="join-server" data-address="${esc(sv.address)}" aria-label="Join ${esc(sv.name || sv.address)}">Join</button>
+  </div>`;
+}
+
+function serversBody() {
+  return serverList().map(serverRow).join("");
+}
+
+/** Ask each server for its status (cached for a minute). */
+function refreshServers(force = false) {
+  for (const sv of serverList()) {
+    const st = S.serverStatus[sv.address];
+    if (!force && st && Date.now() - st.at < 60000) continue;
+    call("server_status", { address: sv.address })
+      .then((r) => { S.serverStatus[sv.address] = { ...r, at: Date.now() }; })
+      .catch((e) => { S.serverStatus[sv.address] = { error: errText(e), at: Date.now() }; })
+      .finally(() => {
+        const body = $("#servers-body");
+        if (body) { body.innerHTML = serversBody(); hydrateIcons(body); }
+      });
+  }
+}
+
+function addServerModal() {
+  modal(`<h3>Add a server</h3><p>It shows on Home with its players online, and Join starts your selected instance straight into it.</p>
+    <div class="field"><label class="label" for="sv-name">Name</label><input class="input" id="sv-name" placeholder="My SMP"></div>
+    <div class="field"><label class="label" for="sv-addr">Address</label><input class="input" id="sv-addr" placeholder="play.example.net"></div>
+    <div class="modal-actions"><button class="btn" id="sv-cancel">Cancel</button><button class="btn btn-accent" id="sv-save">${icon("plus", 12)} Add</button></div>`, (root) => {
+    $("#sv-cancel", root).onclick = () => closeModal();
+    $("#sv-save", root).onclick = async () => {
+      const address = $("#sv-addr", root).value.trim();
+      if (!/^[\w.-]+(:\d{1,5})?$/.test(address)) { toast("Check the address", "Like play.example.net or play.example.net:25570", "warn"); return; }
+      const name = $("#sv-name", root).value.trim() || address;
+      const own = Array.isArray(S.settings.servers) && S.settings.servers.length ? S.settings.servers : [];
+      await saveSettings({ ...S.settings, servers: [{ name, address }, ...own.filter((x) => x.address !== address)].slice(0, 12) });
+      closeModal();
+      sound.success();
+      if (S.route === "home") render();
+    };
+  });
+}
+
 function renderHome() {
   const inst = selectedInstance();
   const acc = selectedAccount();
   const u = { ...UI_DEFAULTS, ...(S.settings || {}) };
-  S.side = "instances";
+  S.side = "servers";
   S.switcher = false;
   const recent = [...S.instances].filter((i) => !inst || i.name !== inst.name).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).slice(0, 3);
   const cluster = inst
-    ? `<div class="play-cluster">${playButton(inst)}
-        <button class="square glass glassy hl" data-action="toggle-switcher" aria-label="Choose instance" aria-haspopup="menu" aria-expanded="false">${icon("grid", 20)}</button></div>`
+    ? `<div class="play-cluster split">${playButton(inst)}<button class="play-more" data-action="toggle-switcher" aria-label="Choose instance" aria-haspopup="menu" aria-expanded="false"><span class="chev">${icon("chev", 12)}</span></button></div>`
     : `<div class="play-cluster"><button class="play" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
   const chips = u.home_recent ? recent.map((i) => `<button class="recent-chip glass glassy hl" data-action="play" data-name="${esc(i.name)}" title="Play ${esc(i.name)}">
-      ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.loaderLabel.split(" ")[0])} ${esc(i.minecraftVersion)}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("") : "";
+      ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(chipSub(i))}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("") : "";
   const fast = inst && S.fast[inst.name];
   const row = u.home_news || u.home_quick;
   return {
@@ -533,14 +613,15 @@ function renderHome() {
           <button class="btn btn-sm" data-action="route" data-route="accounts">${acc ? "Switch" : "Add"}</button>
         </div>
         <div class="lib glass hl">
-          <div class="side-head"><h2>Instances</h2><button class="btn btn-sm" data-action="route" data-route="new">${icon("plus", 12)} New</button></div>
-          <div class="side-body" id="side-body">${sideBody()}</div>
+          <div class="side-head"><h2>Servers</h2><button class="btn btn-sm" data-action="add-server" aria-label="Add a server">${icon("plus", 12)} Add</button></div>
+          <div class="side-body servers" id="servers-body">${serversBody()}</div>
         </div>
       </aside>
     </div>`,
     mount() {
       requestAnimationFrame(placeHero);
       setTimeout(placeHero, 700);
+      refreshServers();
     },
   };
 }
@@ -1313,6 +1394,10 @@ function settingsBody(d) {
         <div class="row wrap"><button class="btn btn-sm lq" data-action="folder-data">${icon("folder", 12)} Data</button><button class="btn btn-sm lq" data-action="folder-skins">${icon("folder", 12)} Skins</button><button class="btn btn-sm lq" data-action="folder-runtimes">${icon("folder", 12)} Java runtimes</button></div>
         <span class="muted small">Vortex Client ${esc(S.appVersion)}${isTauri ? "" : ", preview mode"}</span>
       </div>
+      <div class="card-pad"><h3>Updates</h3>
+        <div class="setting"><div><strong>Vortex Client ${esc(S.appVersion)}</strong><span>New versions install in a few seconds and keep your instances and settings</span></div><button class="btn btn-sm" data-action="check-update">Check now</button></div>
+        ${swRow({ ...UI_DEFAULTS, ...d }, "auto_update", "Check automatically", "Looks for a new version each time the launcher opens")}
+      </div>
     </div>`;
   }
   return `<div class="settings-grid">
@@ -1525,7 +1610,8 @@ function modal(html, onMount) {
   swipeToDismiss(box, () => closeModal(true), { grip: ".grabber" });
   onMount?.(root);
   if (isNew) morphIn(box, source);
-  setTimeout(() => root.querySelector("input, .btn")?.focus({ preventScroll: true }), 60);
+  // Focus the first field; buttons stay unfocused so no ring shows on open.
+  setTimeout(() => root.querySelector("input")?.focus({ preventScroll: true }), 60);
 }
 
 /** Close the dialog: it shrinks back into the button that opened it. */
@@ -1612,6 +1698,62 @@ function warmSelected() {
     .catch(() => { delete S.fast[inst.name]; });
 }
 
+// ---------------------------------------------------------------- updates --
+
+let updateOffered = false;
+
+/** Look for a newer launcher; offer it in a pop-up. */
+async function checkForUpdate(manual = false) {
+  try {
+    const u = await call("check_update");
+    if (!u.available) {
+      if (manual) toast("You're up to date", `Vortex Client ${u.current} is the latest version.`, "success");
+      return;
+    }
+    if (updateOffered && !manual) return;
+    updateOffered = true;
+    showUpdate(u);
+  } catch (e) {
+    if (manual) toast("Couldn't check for updates", errText(e), "warn");
+  }
+}
+
+function showUpdate(u) {
+  const notes = (u.notes || "").split("\n").filter((l) => !/^\s*#/.test(l)).map((l) => l.replace(/^[*\-\s]+/, "").trim()).filter(Boolean).slice(0, 6);
+  const mb = u.size ? `${(u.size / 1048576).toFixed(1)} MB` : "";
+  modal(`<div class="upd">
+      <div class="upd-head"><img class="upd-logo" src="img/logo.png" alt=""><div><span class="upd-kicker">Update available</span><h3>Vortex Client ${esc(u.version)}</h3><p class="muted small">You have ${esc(u.current)}${u.published ? ` · released ${esc(u.published)}` : ""}${mb ? ` · ${mb}` : ""}</p></div></div>
+      ${notes.length ? `<ul class="upd-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
+      <div class="upd-progress" id="upd-progress" hidden><div class="upd-bar"><i id="upd-fill"></i></div><span id="upd-text">Starting download</span></div>
+      <div class="modal-actions" id="upd-actions"><button class="btn" id="upd-later">Later</button><button class="btn btn-accent" id="upd-now">${icon("download", 12)} Update and restart</button></div>
+    </div>`, (root) => {
+    $("#upd-later", root).onclick = () => closeModal();
+    $("#upd-now", root).onclick = async () => {
+      if (Object.values(S.runs).some((r) => r.phase !== "idle")) { toast("Close the game first", "The launcher restarts to finish updating.", "warn"); return; }
+      $("#upd-actions", root).hidden = true;
+      $("#upd-progress", root).hidden = false;
+      try {
+        await call("install_update", { url: u.url, version: u.version });
+      } catch (e) {
+        $("#upd-actions", root).hidden = false;
+        $("#upd-text", root).textContent = `Update failed: ${errText(e)}`;
+        sound.error();
+      }
+    };
+  });
+}
+
+on("update-progress", (p) => {
+  const fill = $("#upd-fill"), text = $("#upd-text");
+  if (!fill || !text) return;
+  if (p.stage === "download") {
+    const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+    fill.style.width = `${pct}%`;
+    text.textContent = p.total ? `Downloading ${pct}% · ${(p.done / 1048576).toFixed(1)} of ${(p.total / 1048576).toFixed(1)} MB` : "Downloading";
+  } else if (p.stage === "install") { fill.style.width = "100%"; text.textContent = "Installing"; }
+  else if (p.stage === "restart") { text.textContent = "Restarting into the new version"; }
+});
+
 /** Swap the news cards in place (no page re-render). */
 function refreshNews() {
   const box = $("#news-cards");
@@ -1654,7 +1796,7 @@ async function exportMenuArt(inst) {
   }
 }
 
-async function play(name) {
+async function play(name, server = null) {
   if (runOf(name).phase !== "idle") return;
   if (!selectedAccount()) {
     sound.error();
@@ -1672,7 +1814,7 @@ async function play(name) {
   updateRunUI(name);
   try {
     await exportMenuArt(S.instances.find((i) => i.name === name));
-    await call("launch_instance", { name });
+    await call("launch_instance", { name, server });
   } catch (e) {
     S.runs[name] = { phase: "idle" };
     updateRunUI(name);
@@ -1683,6 +1825,15 @@ async function play(name) {
 
 const actions = {
   route(el) { go(el.dataset.route); },
+  "join-server"(el, e) {
+    e.stopPropagation();
+    const inst = selectedInstance();
+    if (!inst) { toast("Create an instance first", "Pick a version to play on the server with.", "warn"); go("new"); return; }
+    toast(`Joining ${el.dataset.address}`, `With ${inst.name}. Servers decide which versions they let in.`, "info", 3500);
+    play(inst.name, el.dataset.address);
+  },
+  "add-server"() { addServerModal(); },
+  "check-update"() { checkForUpdate(true); },
   "wall-pick"() { $("#wall-file")?.click(); },
   async "wall-reset"() {
     S.draft.wall_custom = false;
@@ -2244,6 +2395,7 @@ async function boot() {
     .then((n) => { S.news = n; refreshNews(); })
     .catch(() => { S.news = []; refreshNews(); });
   warmSelected();
+  if ({ ...UI_DEFAULTS, ...S.settings }.auto_update !== false) setTimeout(() => checkForUpdate(false), 2500);
 
   tick();
   $("#side-version").textContent = `v${S.appVersion}`;
