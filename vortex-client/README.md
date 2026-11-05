@@ -27,20 +27,33 @@ and macOS work too.
 - **Your logo.** The Vortex wordmark is blocky 3D lettering in Minecraft-title style, in
   ten designs (Diamond & Gold, Dawn Amber, Netherite Ember, Emerald Line, Amethyst Arch,
   Grass Block, Obsidian Portal, Redstone, Oxidised Copper, Frost).
-- **Liquid glass.** Frosted, blurred panels with a highlight that follows the pointer.
-  Buttons squish and ripple when pressed. Tab indicators are droplets that stretch as
-  they slide. Accent colour and glass strength are in Settings.
+- **Liquid glass.** Frosted panels with a light-catching edge and a highlight that
+  follows the pointer (no refraction). Controls swell, glow and lean toward your pointer
+  when pressed, then settle on a spring. Tab droplets stretch as they slide and lift into
+  a lens you can drag between tabs. Menus and dialogs grow out of the button that opened
+  them and shrink back into it. Dialogs, menus and the game log close with a swipe down.
+  Pages grow out of their sidebar tab.
+- **Customise it** in Settings → Appearance: your own wallpaper (or the Golden Meadow
+  default), corner blur, edge shade, glass style (clear, frosted, smoke), blur, corner
+  roundness, bouncy or smooth motion, accent colour, and which parts of Home to show.
+- **Fast launch.** After a launch has checked everything once, the next one reuses that
+  plan: no version manifest, loader lookup or file hashing. Preparing a launch drops from
+  seconds to milliseconds. The selected instance's game files are pre-loaded into the
+  disk cache while you're in the launcher. On Java 17 and newer it adds a tuned G1
+  garbage collector, and on Java 19 and newer class-data sharing: the JDK's own archive
+  is written once, and the game's archive builds on it. A full check runs every few days
+  and after a failed start, or on demand in Settings → Game.
 - **Pages.**
 
   | Page | What it does |
   |---|---|
-  | Home | Play button and instance switcher, with a side panel of your instances (with cover art) and Mojang's patch notes |
+  | Home | The wallpaper card with the Launch button, the instance menu and recent instances; latest news and quick actions underneath; your account and instances on the side |
   | Instances | Cards with each version's cover art and update name; play, edit, open folder, delete |
   | New | Three-step wizard: any of 900+ versions (with update names and a cover preview), Vanilla, Fabric or Forge, then name and memory |
   | Mods | **Browse** Modrinth for mods, resource packs and shaders that fit the instance and install them (with required mods) in one click, or open a project to pick a version. **Installed** lists what's there with on/off switches |
   | Skins | Upload skins, copy any player's skin by name, switch classic/slim, and pick a Vortex cape, on a 3D preview. Microsoft accounts get the skin uploaded to Mojang |
   | Accounts | Offline accounts and Microsoft sign-in |
-  | Settings | General, Appearance (background, logo, accent, glass), Game (memory, window size, fullscreen, Java), In-game (Vortex mods and menu, launcher behaviour on start) and Account & data |
+  | Settings | General, Appearance (wallpaper, glass, corners, motion, accent, Home layout), Game (memory, window size, fullscreen, Java, launch speed), In-game (Vortex mods and menu, launcher behaviour on start) and Account & data |
 
 - **Covers.** Versions from 1.13 on use the artwork from Mojang's patch notes; older ones
   get a generated cover with the version in blocky letters.
@@ -55,13 +68,14 @@ starts. Its source is in `mod/`; a built copy ships in `crates/vortex-app/resour
   **Edit HUD** lets you drag elements; they snap to edges and centre lines.
 - **HUD:** keystrokes (with CPS), CPS, FPS, ping, coordinates (facing, biome), direction
   compass, armor status, potion effects, saturation, memory, server address, day counter,
-  clock, speedometer.
+  clock, speedometer, session timer, resource pack display. Boss bars and the scoreboard
+  can be hidden.
 - **PvP:** toggle sprint and sneak, target HUD (health and distance), item counter (arrows,
-  pearls, golden apples, totems), reach display, combo counter, custom crosshair, no hurt
-  cam, low fire.
+  pearls, golden apples, totems), reach display, combo counter, custom crosshair, hit
+  particles (crit and sharpness sparks on every hit), no hurt cam, low fire.
 - **Camera and world:** zoom on **C** (scroll to adjust), freelook on **Left Alt**,
-  fullbright, time changer and clear weather (both only change your screen), chat
-  timestamps.
+  fullbright, your own nametag in third person, block outline colour (including rainbow),
+  time changer and clear weather (both only change your screen), chat timestamps.
 - **The Vortex look:** Minecraft's title screen becomes the Vortex main menu with your
   launcher background and logo, and buttons in every menu use the Vortex glass style.
   Offline accounts see their chosen skin and cape in-game (only you see them).

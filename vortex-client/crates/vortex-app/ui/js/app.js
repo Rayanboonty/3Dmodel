@@ -1325,10 +1325,11 @@ function settingsBody(d) {
 }
 
 const INGAME_FEATURES = [
-  ["HUD", "Keystrokes, CPS, FPS, ping, coordinates, direction, armor, potions, saturation, memory, server, day counter, clock, speed"],
-  ["PvP", "Toggle sprint and sneak, target HUD, item counter, reach and combo display, custom crosshair, no hurt cam, low fire"],
-  ["Camera", "Zoom with scroll, freelook, fullbright"],
-  ["World", "Time changer and clear weather (only on your screen)"],
+  ["HUD", "Keystrokes, CPS, FPS, ping, coordinates, direction, armor, potions, saturation, memory, server, day counter, clock, speed, session timer, pack display"],
+  ["PvP", "Toggle sprint and sneak, target HUD, item counter, reach and combo display, custom crosshair, hit particles, no hurt cam, low fire"],
+  ["Camera", "Zoom with scroll, freelook, fullbright, your own nametag in third person"],
+  ["World", "Block outline colour, time changer and clear weather (only on your screen)"],
+  ["Screen", "Hide boss bars, hide the scoreboard"],
   ["Chat", "Timestamps"],
   ["Look", "Vortex main menu and buttons, your skin and cape on offline accounts"],
 ];

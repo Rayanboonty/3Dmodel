@@ -166,6 +166,34 @@ pub fn warm(plan: &LaunchPlan) -> u64 {
     total
 }
 
+/// Make sure a Java runtime has its base class-data-sharing archive (the
+/// JDK's own classes, pre-parsed). Mojang's runtimes ship without one; the
+/// JDK can write it in well under a second, once. Returns true when the
+/// archive is there.
+pub fn ensure_base_cds(java: &Path, java_major: u32) -> bool {
+    if java_major < 17 {
+        return false;
+    }
+    // <home>/bin/java(.exe) -> <home>
+    let Some(home) = java.parent().and_then(|b| b.parent()) else { return false };
+    let dirs = [home.join("lib").join("server"), home.join("bin").join("server")];
+    let Some(server) = dirs.iter().find(|d| d.join("libjvm.so").is_file() || d.join("jvm.dll").is_file() || d.join("libjvm.dylib").is_file()) else {
+        return false;
+    };
+    let archive = server.join("classes.jsa");
+    if archive.is_file() {
+        return true;
+    }
+    let mut cmd = std::process::Command::new(java);
+    cmd.arg("-Xshare:dump").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    cmd.status().map(|s| s.success()).unwrap_or(false) && archive.is_file()
+}
+
 /// JVM flags that make start-up and play smoother, for Java 17 and newer.
 /// Skipped when the user already chose a garbage collector.
 pub fn tuned_jvm_args(java_major: u32, user_args: &[String], cds_archive: Option<&Path>) -> Vec<String> {

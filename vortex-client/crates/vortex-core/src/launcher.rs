@@ -287,7 +287,12 @@ impl Launcher {
         if settings.tuned_jvm {
             let (_, major) = installed.version.java_requirement();
             let cds = self.paths.cache().join("cds").join(format!("{}-{}.jsa", installed.id.replace(['/', '\\', ':'], "_"), crate::LAUNCHER_VERSION));
-            let tuned = fastlaunch::tuned_jvm_args(major, &extra_jvm_args, settings.fast_launch.then_some(cds.as_path()));
+            // The game's own archive needs the JDK's base one under it.
+            let base = settings.fast_launch && {
+                let j = java.clone();
+                tokio::task::spawn_blocking(move || fastlaunch::ensure_base_cds(&j, major)).await.unwrap_or(false)
+            };
+            let tuned = fastlaunch::tuned_jvm_args(major, &extra_jvm_args, base.then_some(cds.as_path()));
             extra_jvm_args.splice(0..0, tuned);
         }
         let opts = LaunchOptions {
@@ -309,7 +314,15 @@ impl Launcher {
     pub async fn warm_up(&self, instance: &Instance, settings: &Settings) -> u64 {
         let key = fastlaunch::key(instance, settings);
         let path = fastlaunch::plan_path(&self.paths, instance);
-        tokio::task::spawn_blocking(move || LaunchPlan::load(&path, &key).map(|p| fastlaunch::warm(&p)).unwrap_or(0))
+        tokio::task::spawn_blocking(move || {
+            LaunchPlan::load(&path, &key)
+                .map(|p| {
+                    let (_, major) = p.installed().version.java_requirement();
+                    fastlaunch::ensure_base_cds(p.java(), major);
+                    fastlaunch::warm(&p)
+                })
+                .unwrap_or(0)
+        })
             .await
             .unwrap_or(0)
     }

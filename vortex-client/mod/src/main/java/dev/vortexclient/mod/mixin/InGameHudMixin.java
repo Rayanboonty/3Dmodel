@@ -17,4 +17,10 @@ public class InGameHudMixin {
     private void vortex$crosshair(DrawContext context, RenderTickCounter tick, CallbackInfo ci) {
         if (Crosshair.draw(context)) ci.cancel();
     }
+
+    /** Hide Scoreboard. */
+    @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V", at = @At("HEAD"), cancellable = true)
+    private void vortex$hideScoreboard(DrawContext context, RenderTickCounter tick, CallbackInfo ci) {
+        if (dev.vortexclient.mod.VortexMods.on("scoreboard")) ci.cancel();
+    }
 }

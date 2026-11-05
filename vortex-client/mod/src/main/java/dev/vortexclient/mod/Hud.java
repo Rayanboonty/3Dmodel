@@ -42,7 +42,7 @@ public final class Hud {
 
     private static final Map<String, Element> ELEMENTS = new LinkedHashMap<>();
     /** Elements that stack down the left edge by default, in order. */
-    private static final List<String> LEFT = List.of("fps", "cps", "ping", "memory", "server", "speed", "reach", "combo", "clock", "day", "saturation", "coords", "sprint");
+    private static final List<String> LEFT = List.of("fps", "cps", "ping", "memory", "server", "speed", "reach", "combo", "clock", "day", "saturation", "session", "pack", "coords", "sprint");
     /** Elements that stack down the right edge by default, in order. */
     private static final List<String> RIGHT = List.of("keystrokes", "potions");
 
@@ -175,6 +175,20 @@ public final class Hud {
         ELEMENTS.put("saturation", lines(m -> {
             float s = mc.player != null ? mc.player.getHungerManager().getSaturationLevel() : 5.0f;
             return List.<String[]>of(new String[] {"Saturation ", String.format(Locale.ROOT, "%.1f", s)});
+        }));
+        ELEMENTS.put("session", lines(m -> {
+            long s = Math.max(0, (System.currentTimeMillis() - VortexMods.sessionStart) / 1000);
+            String t = s >= 3600 ? String.format(Locale.ROOT, "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60) : String.format(Locale.ROOT, "%d:%02d", s / 60, s % 60);
+            return List.<String[]>of(new String[] {"Session ", t});
+        }));
+        ELEMENTS.put("pack", lines(m -> {
+            String name = "Default";
+            for (var p : mc.getResourcePackManager().getEnabledProfiles()) {
+                String id = p.getId();
+                if (id.equals("vanilla") || id.startsWith("fabric")) continue;
+                name = p.getDisplayName().getString();
+            }
+            return List.<String[]>of(new String[] {"Pack ", name});
         }));
         ELEMENTS.put("direction", new Direction());
         ELEMENTS.put("target", new Target());

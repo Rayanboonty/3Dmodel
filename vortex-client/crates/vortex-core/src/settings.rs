@@ -153,3 +153,20 @@ impl Settings {
             .filter(|s| !s.is_empty())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_ui_preferences() {
+        let s: Settings = serde_json::from_str(r#"{"accent":"diamond","glass_style":"smoke","wall_blur":24,"home_news":false}"#).unwrap();
+        assert_eq!(s.accent, "diamond");
+        assert!(s.fast_launch, "new settings default to fast launch");
+        assert_eq!(s.ui.get("glass_style").and_then(|v| v.as_str()), Some("smoke"));
+        let back: serde_json::Value = serde_json::to_value(&s).unwrap();
+        assert_eq!(back["wall_blur"], 24);
+        assert_eq!(back["home_news"], false);
+        assert_eq!(back["accent"], "diamond");
+    }
+}

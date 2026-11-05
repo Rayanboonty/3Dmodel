@@ -143,7 +143,26 @@ public final class Module {
                     Category.UTILITY, Items.DAYLIGHT_DETECTOR, false, false, List.of(
                             Option.choice("time", "Time", "Day", "Sunrise", "Day", "Sunset", "Night"))),
             new Module("weather", "Clear Weather", "Hides rain, snow and thunder. Only your screen changes.",
-                    Category.UTILITY, Items.WATER_BUCKET, false, false, List.of()));
+                    Category.UTILITY, Items.WATER_BUCKET, false, false, List.of()),
+            new Module("blockoutline", "Block Outline", "Your own colour for the box around the block you look at.",
+                    Category.UTILITY, Items.TINTED_GLASS, false, false, List.of(
+                            Option.choice("color", "Colour", "Accent", "Accent", "White", "Black", "Red", "Aqua", "Green", "Rainbow"),
+                            Option.slider("opacity", "Opacity", 0.8, 0.2, 1.0, 0.05))),
+            new Module("particles", "Hit Particles", "Crit and sharpness sparks on every hit, so you see each one land.",
+                    Category.PVP, Items.NETHER_STAR, false, false, List.of(
+                            Option.bool("crits", "Always crits", true),
+                            Option.bool("sharp", "Always sharpness", true),
+                            Option.slider("amount", "Amount", 1, 1, 5, 1))),
+            new Module("nametag", "Own Nametag", "See your own name above your head in third person.",
+                    Category.UTILITY, Items.NAME_TAG, false, false, List.of()),
+            new Module("bossbar", "Hide Boss Bars", "Removes boss health bars from the top of the screen.",
+                    Category.HUD, Items.DRAGON_HEAD, false, false, List.of()),
+            new Module("scoreboard", "Hide Scoreboard", "Removes the scoreboard from the side of the screen.",
+                    Category.HUD, Items.ITEM_FRAME, false, false, List.of()),
+            new Module("session", "Session Timer", "How long you've been playing since you joined.",
+                    Category.HUD, Items.CAKE, true, false, List.of()),
+            new Module("pack", "Pack Display", "The resource pack you're using.",
+                    Category.HUD, Items.PAINTING, true, false, List.of()));
 
     public static Module get(String id) {
         for (Module m : ALL) if (m.id.equals(id)) return m;

@@ -52,6 +52,11 @@ public class VortexMods implements ClientModInitializer {
                     Text.literal("Vortex Client"), Text.literal("Press Right Shift for the mod menu"));
         }));
 
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> sessionStart = System.currentTimeMillis());
+        net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+            if (world.isClient) hitParticles(entity);
+            return net.minecraft.util.ActionResult.PASS;
+        });
         HudRenderCallback.EVENT.register((ctx, tick) -> Hud.render(ctx));
         ClientTickEvents.END_CLIENT_TICK.register(VortexMods::tick);
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> applyToggles());
@@ -103,6 +108,42 @@ public class VortexMods implements ClientModInitializer {
     private static Perspective savedPerspective;
     public static KeyBinding freelookKey;
     private static boolean hintShown;
+
+    /** When the player joined the current world or server. */
+    public static long sessionStart = System.currentTimeMillis();
+
+    public static boolean on(String id) {
+        return config.enabled(Module.get(id));
+    }
+
+    /** Block Outline colour (ARGB), or the game's own. */
+    public static int outlineColor(int vanilla) {
+        Module m = Module.get("blockoutline");
+        if (!config.enabled(m)) return vanilla;
+        int rgb = switch (config.str(m, "color")) {
+            case "White" -> 0xFFFFFF;
+            case "Black" -> 0x000000;
+            case "Red" -> 0xFF4040;
+            case "Aqua" -> 0x40E0FF;
+            case "Green" -> 0x55FF55;
+            case "Rainbow" -> java.awt.Color.HSBtoRGB((System.currentTimeMillis() % 4000L) / 4000f, 0.75f, 1f) & 0xFFFFFF;
+            default -> accent() & 0xFFFFFF;
+        };
+        int a = Math.round((float) config.num(m, "opacity") * 255f);
+        return (Math.max(0, Math.min(255, a)) << 24) | rgb;
+    }
+
+    /** Hit Particles: extra crit and sharpness sparks on the entity you hit. */
+    private static void hitParticles(net.minecraft.entity.Entity target) {
+        Module m = Module.get("particles");
+        if (!config.enabled(m)) return;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int n = (int) Math.round(config.num(m, "amount"));
+        for (int i = 0; i < n; i++) {
+            if (config.bool(m, "crits")) mc.particleManager.addEmitter(target, net.minecraft.particle.ParticleTypes.CRIT);
+            if (config.bool(m, "sharp")) mc.particleManager.addEmitter(target, net.minecraft.particle.ParticleTypes.ENCHANTED_HIT);
+        }
+    }
 
     public static boolean clearWeather() {
         return config.enabled(Module.get("weather"));
