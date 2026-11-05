@@ -10,6 +10,7 @@ use crate::assets;
 use crate::auth;
 use crate::download::{sha1_file, write_atomic, Downloader};
 use crate::fabric;
+use crate::fastlaunch::{self, LaunchPlan};
 use crate::forge;
 use crate::install::{self, InstalledVersion};
 use crate::instance::{Instance, InstanceStore, Loader};
@@ -242,6 +243,10 @@ impl Launcher {
     }
 
     /// Install (if needed) and build the launch command for an instance.
+    ///
+    /// With fast launch on, a launch plan saved by the last successful
+    /// prepare is reused when it still matches, so nothing is fetched or
+    /// hashed and the game starts straight away.
     pub async fn prepare_launch(
         &self,
         instance: &Instance,
@@ -249,23 +254,42 @@ impl Launcher {
         settings: &Settings,
         progress: &ProgressFn,
     ) -> Result<LaunchCommand> {
-        let id = self.version_id_for(instance, progress).await?;
-        let installed = self.install_version(&id, progress).await?;
-        let java_override = instance.java_path.as_deref().or(settings.java_path.as_deref());
-        let java = self.java_for(&installed, java_override, progress).await?;
-
+        let key = fastlaunch::key(instance, settings);
+        let plan_path = fastlaunch::plan_path(&self.paths, instance);
+        let cached = if settings.fast_launch { LaunchPlan::load(&plan_path, &key) } else { None };
         let game_dir = instance.game_dir();
         std::fs::create_dir_all(&game_dir)?;
-        if installed.assets.map_to_resources {
-            report(progress, "Copying legacy resources", 0, 0);
-            let paths = self.paths.clone();
-            let index = installed.assets.clone();
-            let dest = game_dir.join("resources");
-            tokio::task::spawn_blocking(move || assets::copy_by_name(&paths, &index, &dest)).await??;
-        }
+
+        let (installed, java) = match cached {
+            Some(plan) => {
+                report(progress, "Fast launch", 1, 1);
+                (plan.installed(), plan.java().to_path_buf())
+            }
+            None => {
+                let id = self.version_id_for(instance, progress).await?;
+                let installed = self.install_version(&id, progress).await?;
+                let java_override = instance.java_path.as_deref().or(settings.java_path.as_deref());
+                let java = self.java_for(&installed, java_override, progress).await?;
+                if installed.assets.map_to_resources {
+                    report(progress, "Copying legacy resources", 0, 0);
+                    let paths = self.paths.clone();
+                    let index = installed.assets.clone();
+                    let dest = game_dir.join("resources");
+                    tokio::task::spawn_blocking(move || assets::copy_by_name(&paths, &index, &dest)).await??;
+                }
+                LaunchPlan::new(&installed, &java, key).save(&plan_path);
+                (installed, java)
+            }
+        };
 
         let mut extra_jvm_args = settings.extra_jvm_args.clone();
         extra_jvm_args.extend(instance.jvm_args.iter().cloned());
+        if settings.tuned_jvm {
+            let (_, major) = installed.version.java_requirement();
+            let cds = self.paths.cache().join("cds").join(format!("{}-{}.jsa", installed.id.replace(['/', '\\', ':'], "_"), crate::LAUNCHER_VERSION));
+            let tuned = fastlaunch::tuned_jvm_args(major, &extra_jvm_args, settings.fast_launch.then_some(cds.as_path()));
+            extra_jvm_args.splice(0..0, tuned);
+        }
         let opts = LaunchOptions {
             java,
             game_dir,
@@ -278,5 +302,20 @@ impl Launcher {
         };
         report(progress, "Ready", 1, 1);
         launch::build_command(&installed, &self.paths, session, &opts)
+    }
+
+    /// Read the files an instance's last launch used, so the next start
+    /// loads them from memory. Returns the bytes read (0 if no plan yet).
+    pub async fn warm_up(&self, instance: &Instance, settings: &Settings) -> u64 {
+        let key = fastlaunch::key(instance, settings);
+        let path = fastlaunch::plan_path(&self.paths, instance);
+        tokio::task::spawn_blocking(move || LaunchPlan::load(&path, &key).map(|p| fastlaunch::warm(&p)).unwrap_or(0))
+            .await
+            .unwrap_or(0)
+    }
+
+    /// Make the next launch of an instance check and repair every file.
+    pub fn forget_launch_plan(&self, instance: &Instance) {
+        fastlaunch::forget(&self.paths, instance);
     }
 }

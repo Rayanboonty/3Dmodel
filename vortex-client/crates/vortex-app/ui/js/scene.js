@@ -89,6 +89,9 @@ export const ALL_SCENES = [
 ];
 
 const DEFS = {
+  custom: {
+    image: "custom", sunAt: null, glowCol: [255, 230, 200], dust: [255, 240, 220], phase: "day",
+  },
   golden: {
     image: "golden", sunAt: [0.445, 0.33], glowCol: [255, 196, 120], dust: [255, 226, 150], phase: "dusk",
     ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
@@ -463,6 +466,8 @@ export class World {
 
   /** Critters and particles on or off (the "World life" setting). */
   setLife(on) { this.life = on !== false; }
+  /** Extra darkening at the wallpaper edges, 0 to 0.6. */
+  setDim(v) { this.dim = v; }
 
   /** True when the scene has its own fixed light (cave, Nether, End). */
   get fixedTime() { return !!this.def.time; }
@@ -533,7 +538,10 @@ export class World {
   centerX() { return (this.ox || 0) + this.w / 2; }
 
   anchor() {
-    if (this.def.image) return { x: (this.ox || 0) + this.w / 2 - Math.min(250, this.w * 0.24), y: (this.oy || 0) + this.h - 84, scale: this.scale };
+    if (this.def.image) {
+      if (this.feet) return { x: this.feet.x, y: this.feet.y, scale: this.scale };
+      return { x: (this.ox || 0) + this.w / 2, y: (this.oy || 0) + this.h - 140, scale: this.scale };
+    }
     return { x: this.playerX, y: this.groundY, scale: this.scale };
   }
 
@@ -1482,7 +1490,11 @@ export class World {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, ox, oy, dw, dh);
-    const sx = ox + dw * D.sunAt[0], sy = oy + dh * D.sunAt[1];
+    if (D.sunAt) this.drawSun(ctx, ox + dw * D.sunAt[0], oy + dh * D.sunAt[1], w, h, t, D);
+    this.drawPictureLife(ctx, w, h, t, dt, D);
+  }
+
+  drawSun(ctx, sx, sy, w, h, t, D) {
     // Breathing sun bloom.
     ctx.globalCompositeOperation = "screen";
     const pulse = 0.85 + Math.sin(t * 0.8) * 0.08;
@@ -1512,6 +1524,9 @@ export class World {
     }
     ctx.restore();
     ctx.globalCompositeOperation = "source-over";
+  }
+
+  drawPictureLife(ctx, w, h, t, dt, D) {
     // Floating light motes at three depths.
     if (!this.motes) {
       const r = rng(77);
@@ -1538,7 +1553,7 @@ export class World {
     // Depth: vignette, darker at the bottom so the interface sits on it.
     const vg = ctx.createRadialGradient(w / 2, h * 0.42, h * 0.3, w / 2, h * 0.5, Math.max(w, h) * 0.78);
     vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, "rgba(10,4,20,0.42)");
+    vg.addColorStop(1, `rgba(10,4,20,${(0.3 + (this.dim ?? 0.12)).toFixed(2)})`);
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, w, h);
     const bottom = ctx.createLinearGradient(0, h * 0.62, 0, h);
@@ -2251,6 +2266,12 @@ export class World {
 }
 
 const PICTURES = {};
+
+/** Use your own image as the wallpaper (an Image), or null for none. */
+export function setCustomPicture(img) {
+  if (img) PICTURES.custom = img;
+  else delete PICTURES.custom;
+}
 for (const [id, file] of [["golden", "meadow-sunset.jpg"], ["sunset", "sunset.jpg"], ["valley", "valley.webp"]]) {
   PICTURES[id] = new Image();
   PICTURES[id].src = new URL(`../img/${file}`, import.meta.url).href;

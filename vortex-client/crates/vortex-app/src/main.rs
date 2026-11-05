@@ -325,7 +325,14 @@ async fn launch_instance(app: AppHandle, state: State<'_, AppState>, name: Strin
     let settings = state.settings.lock().await.clone();
     let launcher = state.launcher.clone();
     tauri::async_runtime::spawn(async move {
-        let result = run_game(&app, launcher, instance, account, settings, kill_rx).await;
+        let started = std::time::Instant::now();
+        let plain = instance.clone();
+        let result = run_game(&app, launcher.clone(), instance, account, settings, kill_rx).await;
+        // A start-up failure: check every file on the next launch.
+        let quick_crash = matches!(&result, Ok(Some(c)) if *c != 0) && started.elapsed() < Duration::from_secs(25);
+        if result.is_err() || quick_crash {
+            launcher.forget_launch_plan(&plain);
+        }
         let st = app.state::<AppState>();
         st.running.lock().await.remove(&name);
         let ev = match result {
@@ -342,6 +349,25 @@ async fn stop_instance(state: State<'_, AppState>, name: String) -> CmdResult<()
     if let Some(kill) = state.running.lock().await.remove(&name) {
         let _ = kill.send(());
     }
+    Ok(())
+}
+
+/// Pre-load the files an instance's game starts from (fast launch).
+#[tauri::command]
+async fn warm_up(state: State<'_, AppState>, name: String) -> CmdResult<u64> {
+    let inst = find_instance(&state, &name)?;
+    let settings = state.settings.lock().await.clone();
+    if !settings.fast_launch {
+        return Ok(0);
+    }
+    Ok(state.launcher.warm_up(&inst, &settings).await)
+}
+
+/// Check and repair every file on the next launch of an instance.
+#[tauri::command]
+async fn verify_instance(state: State<'_, AppState>, name: String) -> CmdResult<()> {
+    let inst = find_instance(&state, &name)?;
+    state.launcher.forget_launch_plan(&inst);
     Ok(())
 }
 
@@ -1127,6 +1153,8 @@ fn main() {
             delete_instance,
             launch_instance,
             stop_instance,
+            warm_up,
+            verify_instance,
             add_offline_account,
             remove_account,
             select_account,

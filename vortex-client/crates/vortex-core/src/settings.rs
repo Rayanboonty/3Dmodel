@@ -66,6 +66,17 @@ pub struct Settings {
     pub mods_allow_unstable: bool,
     /// Mods: also install the mods a mod requires.
     pub mods_with_dependencies: bool,
+
+    /// Reuse the last launch's resolved files so the game starts at once
+    /// (a full check still runs every few days and after a failed start).
+    pub fast_launch: bool,
+    /// Add tuned garbage-collector and class-sharing flags on Java 17+.
+    pub tuned_jvm: bool,
+
+    /// Interface preferences the launcher UI keeps (layout, wallpaper,
+    /// glass style…); stored as-is.
+    #[serde(flatten)]
+    pub ui: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Default for Settings {
@@ -99,6 +110,9 @@ impl Default for Settings {
             clock_12h: false,
             mods_allow_unstable: false,
             mods_with_dependencies: true,
+            fast_launch: true,
+            tuned_jvm: true,
+            ui: serde_json::Map::new(),
         }
     }
 }

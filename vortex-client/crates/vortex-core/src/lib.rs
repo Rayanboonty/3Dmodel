@@ -24,6 +24,7 @@ pub mod assets;
 pub mod auth;
 pub mod download;
 pub mod fabric;
+pub mod fastlaunch;
 pub mod forge;
 pub mod install;
 pub mod instance;

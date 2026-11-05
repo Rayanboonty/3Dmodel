@@ -233,13 +233,19 @@ export class Player {
     if (a === this.activity) return;
     const prev = this.activity;
     this.activity = a;
+    if (this.world?.picture) {
+      // Still on the wallpaper: a small cheer when the game opens, then back to the pose.
+      if (a === "running" && prev !== "running" && this.action.type === "pose") this.start("cheer", 1.6);
+      return;
+    }
     if (a === "running" && prev !== "running") this.start("celebrate", 2.6);
     else if (a === "preparing") this.start("mine", 999);
     else if (a === "idle" && this.action.type === "mine") this.start("home", 6);
   }
 
   wave(seconds = 2) {
-    if (["mine", "jump", "run", "rest", "stretch", "homewave", "lean"].includes(this.action.type)) return;
+    if (this.world?.picture) return; // On the wallpaper he holds his pose.
+    if (["mine", "jump", "run", "rest", "stretch", "homewave", "lean", "pose"].includes(this.action.type)) return;
     this.start("wave", seconds);
   }
 
@@ -261,28 +267,22 @@ export class Player {
   // ---------------------------------------------------------- behaviour --
 
   /**
-   * The opening scene: sprint in from the left edge to the Play button
-   * (`targetX`, relative to home), lean on it out of breath, then stroll
-   * back home and wave.
+   * The opening scene: sprint in from the left edge to the Launch button,
+   * lean on it out of breath, straighten up, step to the middle of the
+   * button and hold a pose there.
    */
-  intro(targetX) {
+  intro() {
     const a = this.world ? this.world.anchor() : { x: 0 };
-    this.x = -a.x - this.unit * 10;
-    this.introTarget = targetX;
+    const v = this.world?.viewport;
+    this.x = (v ? v.x : 0) - a.x - this.unit * 12;
+    this.introTarget = -this.unit * 9;
+    this.introDone = false;
     this.start("run", 99);
   }
 
   chooseNext() {
     if (this.activity === "preparing") return this.start(this.world?.picture ? "idle" : "mine", 999);
-    if (this.world?.picture) {
-      // Picture backgrounds: no blocks or campfire, so wander, look and wave.
-      const roll = Math.random();
-      if (roll < 0.3) return this.start("walk", 8);
-      if (roll < 0.5) return this.start("look", 3.5);
-      if (roll < 0.62) return this.start("wave", 1.8);
-      if (roll < 0.72 && this.introTarget != null) return this.start("lean", 99);
-      return this.start("idle", 3 + Math.random() * 3);
-    }
+    if (this.world?.picture) return this.start(this.introDone === false ? "idle" : "pose", 1e9);
     const night = this.world && this.world.darkness() > 0.55;
     const roll = Math.random();
     if (night && roll < 0.45) return this.start("campfire", 7 + Math.random() * 5);
@@ -318,6 +318,7 @@ export class Player {
     let running = false;
     let lean = 0;
     this.panting = false;
+    this.posing = false;
     const world = this.world;
     const block = world ? world.scale * 6 : u * 3;
 
@@ -327,9 +328,9 @@ export class Player {
       switch (a.type) {
         case "run": {
           running = true;
-          walking = !this.walkTo(this.introTarget ?? 0, dt, u, 20, 17);
+          walking = !this.walkTo(this.introTarget ?? 0, dt, u, 58, 26);
           lean = 12;
-          if (!walking) this.start("rest", 3.4);
+          if (!walking) this.start("rest", 2.8);
           break;
         }
         case "lean":
@@ -337,15 +338,17 @@ export class Player {
           // Walk over (if needed), then lean on the button, out of breath.
           if (a.type === "lean" && !this.walkTo(this.introTarget ?? 0, dt, u)) { walking = true; break; }
           this.facingTarget = 0;
-          const k = Math.min(1, a.t / 0.4);
-          lean = 13 * k;
-          rArmX = 24 * k;
-          lArmX = 24 * k;
-          rArmZ = 8 * k;
-          lArmZ = -8 * k;
-          lookOverride = { yaw: Math.sin(a.t * 0.9) * 6, pitch: 24 };
+          // Bent over the button, both hands flat on its top edge.
+          const k0 = Math.min(1, a.t / 0.35);
+          const k = k0 * k0 * (3 - 2 * k0);
+          lean = 17 * k;
+          rArmX = 32 * k;
+          lArmX = 32 * k;
+          rArmZ = 20 * k;
+          lArmZ = -20 * k;
+          lookOverride = { yaw: Math.sin(a.t * 0.9) * 6, pitch: 30 };
           this.panting = a.type === "rest";
-          if (a.t > (a.type === "rest" ? a.dur : 2.6)) this.start(a.type === "rest" ? "stretch" : "home", 1.2);
+          if (a.t > (a.type === "rest" ? a.dur : 2.6)) this.start(a.type === "rest" ? "stretch" : "home", 1.1);
           break;
         }
         case "stretch":
@@ -353,8 +356,33 @@ export class Player {
           rArmZ = 160 * Math.sin(Math.min(1, a.t / a.dur) * Math.PI);
           lArmZ = -160 * Math.sin(Math.min(1, a.t / a.dur) * Math.PI);
           lookOverride = { yaw: 0, pitch: -10 };
-          if (a.t > a.dur) this.start("homewave", 99);
+          if (a.t > a.dur) this.start(world?.picture ? "settle" : "homewave", 99);
           break;
+        case "settle":
+          // A few unhurried steps to the middle of the button, then the pose.
+          walking = !this.walkTo(0, dt, u, 7, 9);
+          if (!walking) { this.introDone = true; this.start("pose", 1e9); }
+          break;
+        case "pose": {
+          // The hero pose: square to the viewer, a little turned, right hand
+          // on the hip, left arm loose, chin up. Only breathing moves.
+          this.facingTarget = 14;
+          const k = Math.min(1, a.t / 0.9);
+          const e = k * k * (3 - 2 * k);
+          rArmZ = 34 * e; rArmX = -16 * e;
+          lArmZ = -7 * e; lArmX = 6 * e;
+          lookOverride = { yaw: -6 * e, pitch: 6 * e };
+          this.posing = true;
+          break;
+        }
+        case "cheer": {
+          const s = Math.sin(Math.min(1, a.t / a.dur) * Math.PI);
+          rArmZ = 150 * s; lArmZ = -150 * s;
+          lookOverride = { yaw: 0, pitch: -6 };
+          if (a.t > 0.15 && a.t < 0.22) this.jump();
+          if (a.t > a.dur) this.start("pose", 1e9), (this.action.t = 1);
+          break;
+        }
         case "homewave":
           walking = !this.walkTo(0, dt, u, 6, 8);
           if (!walking) this.start("wave", 1.8);
@@ -436,7 +464,7 @@ export class Player {
       armSwing = Math.sin(this.walkPhase) * (running ? 62 : 26);
     }
     this.lean = approach(this.lean || 0, lean, 8, dt);
-    const breath = Math.sin(performance.now() / 900);
+    const breath = Math.sin(performance.now() / (this.posing ? 1300 : 900));
     P.rLegX = approach(P.rLegX, legSwing, 12, dt);
     P.lLegX = approach(P.lLegX, -legSwing, 12, dt);
     P.rArmX = approach(P.rArmX, rArmX || -armSwing, 14, dt);
@@ -450,7 +478,7 @@ export class Player {
     // Head: cursor first, else action, else gentle idle.
     const head = this.headScreen();
     let ty = Math.sin(performance.now() / 2300) * 12, tp = Math.sin(performance.now() / 3100) * 4;
-    const recentMouse = performance.now() - this.mouse.at < 2500;
+    const recentMouse = !this.posing && performance.now() - this.mouse.at < 2500;
     if (lookOverride) { ty = lookOverride.yaw; tp = lookOverride.pitch; }
     else if (recentMouse) {
       ty = clamp((this.mouse.x - head.x) / 5, -60, 60) - (this.facing - 16) * 0.5;

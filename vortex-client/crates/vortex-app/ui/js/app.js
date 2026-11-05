@@ -1,7 +1,8 @@
 // Vortex Client UI: routing, pages, liquid-glass interactions, live game state.
 import { call, on, onFileDrop, isTauri } from "./api.js";
 import { icon, hydrateIcons, drawAvatar } from "./icons.js";
-import { World, SCENES, sceneThumb, sceneStill } from "./scene.js";
+import { World, SCENES, sceneThumb, sceneStill, setCustomPicture } from "./scene.js";
+import { initLiquid, setMotion, morphIn, morphOut, pressedSource, swipeToDismiss } from "./liquid.js";
 import { Player, defaultSkin } from "./player.js";
 import { sound } from "./sound.js";
 import { fx, toast } from "./fx.js";
@@ -43,6 +44,9 @@ const S = {
   browse: { query: "", sort: "relevance", hits: [], total: 0, offset: 0, loading: false, key: "", installed: {}, busy: {} },
   skins: null,
   settingsTab: store.get("vortex.settingsTab") || "general",
+  fast: {},
+  customWall: null,
+  customWallUrl: null,
 };
 
 const ROUTES = {
@@ -126,133 +130,87 @@ function tick() {
 }
 setInterval(tick, 1000);
 
+/** Where an element sits on screen, ignoring any transforms (animations). */
+function layoutRect(el) {
+  let x = 0, y = 0, n = el;
+  while (n && n !== document.body) {
+    x += n.offsetLeft;
+    y += n.offsetTop;
+    if (getComputedStyle(n).position === "fixed") break;
+    n = n.offsetParent;
+  }
+  return { left: x, top: y, width: el.offsetWidth, height: el.offsetHeight, right: x + el.offsetWidth, bottom: y + el.offsetHeight };
+}
+
 /** Fit the world (wallpaper + Steve) into the Home wallpaper card. */
 function placeHero() {
   const hero = $("#hero");
   const on = !!hero && S.route === "home";
   document.body.classList.toggle("hero-on", on);
   if (!on) return;
-  const r = hero.getBoundingClientRect();
+  const r = layoutRect(hero);
   world.setViewport(Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height));
+  const rad = parseFloat(getComputedStyle(hero).borderTopLeftRadius) || 22;
   const layer = $("#player-layer");
-  layer.style.clipPath = `inset(${r.top}px ${window.innerWidth - r.right}px ${window.innerHeight - r.bottom}px ${r.left}px round 22px)`;
+  layer.style.clipPath = `inset(${r.top}px ${window.innerWidth - r.right}px ${window.innerHeight - r.bottom}px ${r.left}px round ${rad}px)`;
+  $("#world").style.borderRadius = `${rad}px`;
   placeAnchor();
-  applyLenses(document);
+  tintGlass();
 }
 window.addEventListener("resize", () => requestAnimationFrame(placeHero));
 
-// ------------------------------------------------------------ lens glass --
-// Natural refraction: each glass element gets a displacement map for its
-// own size, bending the backdrop only near the rounded edges (like the rim
-// of a lens) and leaving the middle clear. Chromium only (WebView2).
-
-function lensMap(w, h, r) {
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const g = c.getContext("2d");
-  const img = g.createImageData(w, h);
-  const bevel = Math.max(6, Math.min(22, Math.min(w, h) * 0.32));
-  const hx = w / 2, hy = h / 2;
-  r = Math.min(r, hx, hy);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const px = x + 0.5 - hx, py = y + 0.5 - hy;
-      const qx = Math.abs(px) - (hx - r), qy = Math.abs(py) - (hy - r);
-      const out = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
-      const d = r - (out + Math.min(Math.max(qx, qy), 0)); // distance in from the edge
-      let nx = 0, ny = 0;
-      if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy) || 1; nx = (qx / l) * Math.sign(px); ny = (qy / l) * Math.sign(py); }
-      else if (qx > qy) nx = Math.sign(px);
-      else ny = Math.sign(py);
-      let m = 0;
-      if (d < bevel) { const t = 1 - Math.max(0, d) / bevel; m = t * t * (3 - 2 * t); }
-      const i = (y * w + x) * 4;
-      img.data[i] = 128 - nx * m * 127;
-      img.data[i + 1] = 128 - ny * m * 127;
-      img.data[i + 2] = 128;
-      img.data[i + 3] = 255;
-    }
-  }
-  g.putImageData(img, 0, 0);
-  return c.toDataURL();
-}
-
-function lensDefs() {
-  let svg = document.getElementById("lens-defs");
-  if (!svg) {
-    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.id = "lens-defs";
-    svg.setAttribute("width", "0");
-    svg.setAttribute("height", "0");
-    svg.setAttribute("aria-hidden", "true");
-    svg.style.position = "absolute";
-    document.body.appendChild(svg);
-  }
-  return svg;
-}
-
-function lensFilter(w, h, r) {
-  const id = `lens-${w}-${h}-${Math.round(r)}`;
-  if (document.getElementById(id)) return id;
-  const NS = "http://www.w3.org/2000/svg";
-  const f = document.createElementNS(NS, "filter");
-  f.id = id;
-  for (const [k, v] of Object.entries({ x: 0, y: 0, width: w, height: h, filterUnits: "userSpaceOnUse", primitiveUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" })) f.setAttribute(k, v);
-  const im = document.createElementNS(NS, "feImage");
-  for (const [k, v] of Object.entries({ x: 0, y: 0, width: w, height: h, result: "map", preserveAspectRatio: "none" })) im.setAttribute(k, v);
-  im.setAttribute("href", lensMap(w, h, r));
-  const dm = document.createElementNS(NS, "feDisplacementMap");
-  for (const [k, v] of Object.entries({ in: "SourceGraphic", in2: "map", scale: Math.round(Math.min(48, Math.min(w, h) * 0.7)), xChannelSelector: "R", yChannelSelector: "G" })) dm.setAttribute(k, v);
-  f.append(im, dm);
-  lensDefs().appendChild(f);
-  return id;
-}
-
-/** Tint each lens to suit what's behind it: darker over bright sky. */
-function lensTint(el) {
+/** Glass over the wallpaper reads its brightness and darkens to suit. */
+function tintGlass() {
   const c = $("#world");
-  const r = el.getBoundingClientRect();
-  if (!c || !document.body.classList.contains("hero-on") || !world.viewport) return;
   const v = world.viewport;
-  if (r.left < v.x || r.right > v.x + v.w || r.top < v.y || r.bottom > v.y + v.h) return;
-  try {
-    const k = world.dpr;
-    const data = c.getContext("2d").getImageData(Math.round((r.left - v.x) * k), Math.round((r.top - v.y) * k), Math.max(1, Math.round(r.width * k)), Math.max(1, Math.round(r.height * k))).data;
-    let sum = 0, n = 0;
-    for (let i = 0; i < data.length; i += 64) { sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255; n++; }
-    const L = sum / Math.max(1, n);
-    el.style.setProperty("--lens-tint", L > 0.5 ? `rgba(14, 8, 24, ${(0.16 + (L - 0.5) * 0.7).toFixed(2)})` : `rgba(255, 255, 255, ${(0.04 + (0.5 - L) * 0.1).toFixed(3)})`);
-  } catch { /* canvas not readable */ }
+  if (!c || !v || !document.body.classList.contains("hero-on")) return;
+  let ctx;
+  try { ctx = c.getContext("2d"); } catch { return; }
+  for (const el of $$(".hero .glassy")) {
+    const r = el.getBoundingClientRect();
+    if (!r.width || r.left < v.x || r.right > v.x + v.w || r.top < v.y || r.bottom > v.y + v.h) continue;
+    try {
+      const k = world.dpr;
+      const data = ctx.getImageData(Math.round((r.left - v.x) * k), Math.round((r.top - v.y) * k), Math.max(1, Math.round(r.width * k)), Math.max(1, Math.round(r.height * k))).data;
+      let sum = 0, n = 0;
+      for (let i = 0; i < data.length; i += 64) { sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255; n++; }
+      const L = sum / Math.max(1, n);
+      el.style.setProperty("--tint", `rgba(16, 10, 24, ${Math.min(0.5, Math.max(0.1, 0.12 + (L - 0.35) * 0.7)).toFixed(2)})`);
+    } catch { /* not readable */ }
+  }
 }
+setInterval(() => { if (S.route === "home") tintGlass(); }, 1600);
 
-function applyLenses(root) {
-  const refract = document.body.classList.contains("refract");
-  $$(".lens", root).forEach((el) => {
-    const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
-    if (!w || !h) return;
-    if (refract) {
-      const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 12;
-      el.style.backdropFilter = `url(#${lensFilter(w, h, rad)}) blur(1.5px) saturate(150%) brightness(1.04)`;
-    }
-    lensTint(el);
-  });
-}
-setInterval(() => { if (S.route === "home") $$(".lens").forEach(lensTint); }, 1500);
-
+/** Steve's spot: the middle of the Launch button, standing just behind it. */
 function placeAnchor() {
+  const play = S.route === "home" ? $("#play") : null;
+  if (play && world.picture) {
+    const r = layoutRect(play);
+    world.feet = { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + Math.min(26, r.height * 0.36)) };
+  } else world.feet = null;
   const a = world.anchor();
   document.documentElement.style.setProperty("--ax", `${a.x}px`);
   document.documentElement.style.setProperty("--ay", `${a.y}px`);
   document.body.classList.toggle("picture", world.picture);
-  // Where the Play button is, relative to the player's home spot.
-  player.introTarget = world.picture ? world.centerX() - a.x : null;
 }
-window.addEventListener("resize", () => requestAnimationFrame(placeAnchor));
+
+const UI_DEFAULTS = {
+  glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
+  home_news: true, home_quick: true, home_recent: true, side_labels: true, intro: true,
+};
 
 function applyLook(s = S.settings || {}) {
-  world.setScene("golden");
+  s = { ...UI_DEFAULTS, ...s };
+  world.setScene(s.wall_custom && S.customWall ? "custom" : "golden");
+  world.setDim(Math.min(0.6, (s.wall_dim ?? 12) / 100));
   placeAnchor();
+  const b = document.body.classList;
+  for (const k of ["clear", "frosted", "smoke"]) b.toggle(`glass-${k}`, s.glass_style === k);
+  for (const k of ["round", "soft", "sharp"]) b.toggle(`radius-${k}`, s.radius === k);
+  b.toggle("compact-side", s.side_labels === false);
+  setMotion(s.motion);
+  document.documentElement.style.setProperty("--wall-blur", `${Math.max(0, Math.min(40, s.wall_blur ?? 16))}px`);
+  $(".backdrop")?.style.setProperty("background-image", s.wall_custom && S.customWallUrl ? `url("${S.customWallUrl}")` : "");
   world.setMode(s.sky || "cycle");
   world.setDayLength(s.day_length_min || 10);
   world.setAnimate(s.animations !== false);
@@ -319,14 +277,23 @@ function liquidTabs(group, instant = false) {
   if (!drop || !on) { if (drop) drop.style.opacity = "0"; return; }
   drop.style.opacity = "1";
   if (group.classList.contains("vertical")) {
-    drop.style.top = `${on.offsetTop}px`;
-    drop.style.height = `${on.offsetHeight}px`;
-    if (!instant && anims() && drop.dataset.top !== String(on.offsetTop)) {
+    // The leading edge moves first and the trailing edge follows, so the
+    // droplet stretches toward the new tab and then settles.
+    const top = on.offsetTop;
+    const bottom = group.clientHeight - (on.offsetTop + on.offsetHeight);
+    const prev = Number(drop.dataset.top ?? top);
+    const down = top > prev;
+    drop.style.setProperty("--dt", down ? "0.09s" : "0s");
+    drop.style.setProperty("--db", down ? "0s" : "0.09s");
+    if (instant || drop.dataset.top === undefined) drop.classList.add("still");
+    drop.style.top = `${top}px`;
+    drop.style.bottom = `${bottom}px`;
+    if (drop.classList.contains("still")) { void drop.offsetWidth; drop.classList.remove("still"); }
+    else if (prev !== top && anims()) {
       drop.classList.add("moving");
-      setTimeout(() => drop.classList.remove("moving"), 260);
+      setTimeout(() => drop.classList.remove("moving"), 300);
     }
-    if (instant) { drop.classList.add("still"); void drop.offsetWidth; drop.classList.remove("still"); }
-    drop.dataset.top = on.offsetTop;
+    drop.dataset.top = top;
     return;
   }
   const left = on.offsetLeft;
@@ -353,27 +320,12 @@ function liquidTabs(group, instant = false) {
 }
 
 function bindLiquid() {
+  initLiquid({ enabled: anims, snap: (g) => liquidTabs(g) });
   document.addEventListener("pointerdown", (e) => {
-    const el = e.target.closest(".lq, .btn, .tab, .play, .square, .row-item, .card, .loader, .vrow, .switch, .top-chip");
+    const el = e.target.closest(".lq, .btn, .tab, .play, .square, .row-item, .card, .loader, .vrow, .switch, .top-chip, .recent-chip, .news-card");
     if (!el || el.disabled) return;
     sound.click();
-    if (!anims()) return;
-    if (el.classList.contains("lq") || el.matches(".btn, .play, .square, .top-chip")) {
-      const r = el.getBoundingClientRect();
-      const ripple = document.createElement("span");
-      ripple.className = "lq-ripple";
-      ripple.style.left = `${e.clientX - r.left}px`;
-      ripple.style.top = `${e.clientY - r.top}px`;
-      if (getComputedStyle(el).position === "static") el.style.position = "relative";
-      el.style.overflow = "hidden";
-      el.appendChild(ripple);
-      setTimeout(() => ripple.remove(), 700);
-      el.classList.remove("squish");
-      void el.offsetWidth;
-      el.classList.add("squish");
-      setTimeout(() => el.classList.remove("squish"), 560);
-    }
-    if (el.matches(".play, .btn-accent")) fx.burst(e.clientX, e.clientY, ["#ffd27a", "#ffb547", "#ffffff"], 14);
+    if (anims() && el.matches(".play, .btn-accent")) fx.burst(e.clientX, e.clientY, ["#ffd27a", "#ffb547", "#ffffff"], 12);
   });
   document.addEventListener("pointermove", (e) => {
     const el = e.target.closest(".hl");
@@ -399,9 +351,16 @@ function go(route, opts = {}) {
   if (route !== "home") document.body.classList.remove("hero-on");
   if (!same && !opts.silent) sound.nav();
   const page = $("#page");
+  // New pages grow out of the sidebar tab that opened them.
+  const tabEl = $(`#nav .tab[data-route="${navRoute}"]`);
+  if (tabEl) {
+    const pr = page.getBoundingClientRect(), tr = tabEl.getBoundingClientRect();
+    page.style.setProperty("--ox", `${Math.round(tr.left + tr.width / 2 - pr.left)}px`);
+    page.style.setProperty("--oy", `${Math.round(tr.top + tr.height / 2 - pr.top)}px`);
+  }
   const swap = () => {
     page.classList.remove("leave");
-    render();
+    render({ enter: !same });
   };
   if (!same && anims() && page.children.length) {
     page.classList.add("leave");
@@ -409,15 +368,17 @@ function go(route, opts = {}) {
   } else swap();
 }
 
-function render() {
+function render(opts = {}) {
   const page = $("#page");
   if (S.preview && S.route !== "accounts") S.preview = null;
   const { html, mount } = ROUTES[S.route]();
   page.innerHTML = html;
   [...page.children].forEach((el, i) => el.style.setProperty("--i", i));
-  page.classList.remove("enter");
-  void page.offsetWidth;
-  if (anims()) page.classList.add("enter");
+  if (opts.enter) {
+    page.classList.remove("enter");
+    void page.offsetWidth;
+    if (anims()) page.classList.add("enter");
+  }
   hydrateIcons(page);
   $$("canvas[data-avatar]", page).forEach((c) => drawAvatar(c, c.dataset.avatar));
   $$("canvas[data-head]", page).forEach((c) => drawHead(c, S.skin?.dataUrl || defaultSkin()));
@@ -479,62 +440,107 @@ function sideBody() {
   }).join("")}</div>`;
 }
 
+function switcherHtml(inst) {
+  return `<div class="switcher glass" id="switcher" role="menu"><span class="grabber" aria-hidden="true"></span>
+    <div class="menu-head"><span>Instances</span><span class="muted">${S.instances.length}</span></div>
+    ${[...S.instances].sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).map((i) => `<button class="row-item ${i.name === inst.name ? "on" : ""}" data-action="select" data-name="${esc(i.name)}" role="menuitem">${coverThumb(i)}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.minecraftVersion)} · ${esc(i.loaderLabel)}</span></span>${i.name === inst.name ? `<span class="tick">${icon("check", 12)}</span>` : ""}</button>`).join("")}
+    <button class="row-item" data-action="route" data-route="new" role="menuitem"><span class="cover-thumb add">${icon("plus", 16)}</span><span class="meta"><strong>New instance</strong><span>Any version, Vanilla, Fabric or Forge</span></span></button></div>`;
+}
+
+function toggleSwitcher(source) {
+  if ($("#switcher")) return closeSwitcher();
+  const inst = selectedInstance();
+  const zone = $(".play-zone");
+  if (!inst || !zone) return;
+  S.switcher = true;
+  zone.insertAdjacentHTML("afterbegin", switcherHtml(inst));
+  const panel = $("#switcher");
+  hydrateIcons(panel);
+  // Fit inside the wallpaper card, above the Launch button.
+  panel.style.maxHeight = `${Math.max(200, zone.offsetTop - 12 - 16)}px`;
+  $$(".square[data-action='toggle-switcher']").forEach((b) => b.setAttribute("aria-expanded", "true"));
+  morphIn(panel, source);
+  swipeToDismiss(panel, () => closeSwitcher(true), { grip: ".grabber, .menu-head" });
+}
+
+function closeSwitcher(instant = false, then) {
+  S.switcher = false;
+  const panel = $("#switcher");
+  $$(".square[data-action='toggle-switcher']").forEach((b) => b.setAttribute("aria-expanded", "false"));
+  if (!panel) { then?.(); return; }
+  panel.id = "";
+  const done = () => { panel.remove(); then?.(); };
+  if (instant || !anims()) done();
+  else morphOut(panel, $(".square[data-action='toggle-switcher']")).then(done);
+}
+
+const newsVersion = (n) => n.version || (String(n.title || "").match(/(\d+(?:\.\d+)+(?:[-\s]?(?:snapshot|pre|rc)[-\s]?\d+)?|\d\dw\d\d[a-z])/i)?.[1] || "").replace(/\s+/g, "-").toLowerCase();
+
+function newsCards() {
+  const news = (S.news || []).slice(0, 3);
+  if (!news.length) return `<div class="news-empty glass">${icon("sun", 18)}<span>${S.news ? "Patch notes are unavailable offline." : "Loading patch notes from Mojang."}</span></div>`;
+  return news.map((n, i) => {
+    const img = n.image_url || cover(newsVersion(n) || "latest");
+    return `<button class="news-card" data-action="news" data-idx="${i}">
+      <span class="news-art" style="background-image:url('${esc(img)}')"></span>
+      <span class="news-tag ${n.kind === "snapshot" ? "snap" : ""}">${n.kind === "snapshot" ? "Snapshot" : "Release"}</span>
+      <span class="cap"><strong>${esc(n.title)}</strong><span>${esc(n.date)}</span></span></button>`;
+  }).join("");
+}
+
 function renderHome() {
   const inst = selectedInstance();
   const acc = selectedAccount();
+  const u = { ...UI_DEFAULTS, ...(S.settings || {}) };
   S.side = "instances";
+  S.switcher = false;
   const recent = [...S.instances].filter((i) => !inst || i.name !== inst.name).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).slice(0, 3);
   const cluster = inst
     ? `<div class="play-cluster">${playButton(inst)}
-        <button class="square lens hl lq" data-action="toggle-switcher" aria-label="Choose instance" aria-expanded="${S.switcher}">${icon("grid", 20)}</button></div>`
-    : `<div class="play-cluster"><button class="play lq" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
-  const switcher = S.switcher && inst
-    ? `<div class="switcher glass">${[...S.instances].sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).map((i) => `<button class="row-item ${i.name === inst.name ? "on" : ""}" data-action="select" data-name="${esc(i.name)}">${coverThumb(i)}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.minecraftVersion)} · ${esc(updateName(i.minecraftVersion))}</span></span></button>`).join("")}
-        <button class="row-item" data-action="route" data-route="new"><span class="cover-thumb add">${icon("plus", 16)}</span><span class="meta"><strong>New instance</strong><span>Any version, Vanilla, Fabric or Forge</span></span></button></div>`
-    : "";
-  const chips = recent.map((i) => `<button class="recent-chip lens hl lq" data-action="play" data-name="${esc(i.name)}" title="Play ${esc(i.name)}">
-      ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.loaderLabel.split(" ")[0])} ${esc(i.minecraftVersion)}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("");
-  const news = (S.news || []).slice(0, 3);
-  const newsCards = news.length
-    ? news.map((n, i) => `<button class="news-card" data-action="news" data-idx="${i}" style="${n.image_url ? `background-image:url('${esc(n.image_url)}')` : ""}"><span class="cap"><strong>${esc(n.title)}</strong><span>${esc(n.kind === "snapshot" ? "Snapshot" : "Release")} · ${esc(n.date)}</span></span></button>`).join("")
-    : `<div class="side-note">${S.news ? "Patch notes are unavailable offline." : "Loading patch notes from Mojang."}</div>`;
+        <button class="square glass glassy hl" data-action="toggle-switcher" aria-label="Choose instance" aria-haspopup="menu" aria-expanded="false">${icon("grid", 20)}</button></div>`
+    : `<div class="play-cluster"><button class="play" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
+  const chips = u.home_recent ? recent.map((i) => `<button class="recent-chip glass glassy hl" data-action="play" data-name="${esc(i.name)}" title="Play ${esc(i.name)}">
+      ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.loaderLabel.split(" ")[0])} ${esc(i.minecraftVersion)}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("") : "";
+  const fast = inst && S.fast[inst.name];
+  const row = u.home_news || u.home_quick;
   return {
-    html: `<div class="home">
+    html: `<div class="home ${row ? "" : "no-row"} ${u.home_news ? "" : "no-news"} ${u.home_quick ? "" : "no-quick"}">
       <section class="hero" id="hero" aria-label="Play">
         <div class="hero-fx" aria-hidden="true"></div>
+        <div class="hero-top">
+          ${inst ? `<span class="hero-chip glass glassy">${coverThumb(inst, "xs")}<span>${esc(inst.minecraftVersion)}${updateName(inst.minecraftVersion) ? ` · ${esc(updateName(inst.minecraftVersion))}` : ""}</span></span>` : ""}
+          ${fast ? `<span class="hero-chip glass glassy fast" title="Files are ready: the game starts without checking or downloading anything">${icon("bolt", 12)}<span>Instant launch</span></span>` : ""}
+        </div>
         <div class="play-zone">
-          ${switcher}
           ${cluster}
           ${chips ? `<div class="recent">${chips}</div>` : ""}
         </div>
       </section>
-      <section class="home-row">
-        <div class="news-block"><div class="block-head"><h2>Latest news</h2></div><div class="news-cards">${newsCards}</div></div>
-        <div class="quick glass hl"><div class="block-head"><h2>Quick actions</h2></div>
-          <div class="quick-grid">
-            <button class="btn lq" data-action="route" data-route="mods">${icon("puzzle", 14)} Mods</button>
-            <button class="btn lq" data-action="route" data-route="skins">${icon("shirt", 14)} Skins</button>
-            <button class="btn lq" data-action="route" data-route="new">${icon("plus", 14)} New</button>
-            <button class="btn lq" data-action="folder" data-name="${esc(inst?.name || "")}" ${inst ? "" : "disabled"}>${icon("folder", 14)} Folder</button>
-          </div>
-        </div>
-      </section>
+      ${row ? `<section class="home-row">
+        ${u.home_news ? `<div class="hblock news-block"><div class="block-head"><h2>Latest news</h2><span class="muted small">From Mojang</span></div><div class="news-cards" id="news-cards">${newsCards()}</div></div>` : ""}
+        ${u.home_quick ? `<div class="hblock quick-block"><div class="block-head"><h2>Quick actions</h2></div>
+          <div class="quick glass hl">
+            <button class="qa" data-action="route" data-route="mods"><span class="qa-ico">${icon("puzzle", 16)}</span><span>Mods</span></button>
+            <button class="qa" data-action="route" data-route="skins"><span class="qa-ico">${icon("shirt", 16)}</span><span>Skins</span></button>
+            <button class="qa" data-action="route" data-route="new"><span class="qa-ico">${icon("plus", 16)}</span><span>New</span></button>
+            <button class="qa" data-action="folder" data-name="${esc(inst?.name || "")}" ${inst ? "" : "disabled"}><span class="qa-ico">${icon("folder", 16)}</span><span>Folder</span></button>
+          </div></div>` : ""}
+      </section>` : ""}
       <aside class="home-side">
         <div class="acct glass hl">
           <canvas width="8" height="8" data-head="1"></canvas>
           <div class="meta"><strong>${esc(acc?.username || "No account")}</strong><span>${acc ? (acc.kind === "microsoft" ? "Microsoft account" : "Offline account") : "Add one to play"}</span></div>
-          <button class="btn btn-sm lq" data-action="route" data-route="accounts">${acc ? "Switch" : "Add"}</button>
+          <button class="btn btn-sm" data-action="route" data-route="accounts">${acc ? "Switch" : "Add"}</button>
         </div>
         <div class="lib glass hl">
-          <div class="side-head"><h2>Instances</h2><button class="btn btn-sm lq" data-action="route" data-route="new">${icon("plus", 12)} New</button></div>
+          <div class="side-head"><h2>Instances</h2><button class="btn btn-sm" data-action="route" data-route="new">${icon("plus", 12)} New</button></div>
           <div class="side-body" id="side-body">${sideBody()}</div>
         </div>
       </aside>
     </div>`,
-    mount(root) {
+    mount() {
       requestAnimationFrame(placeHero);
-      const play = $("#play", root);
-      if (play) play.addEventListener("pointerenter", () => player.wave(1.4));
+      setTimeout(placeHero, 700);
     },
   };
 }
@@ -556,7 +562,6 @@ function updateRunUI(name) {
           btn.querySelector(".play-sub").textContent = `${r.total ? `${pct}% · ` : ""}Click to cancel`;
         } else {
           btn.outerHTML = playButton(inst);
-          $("#play")?.addEventListener("pointerenter", () => player.wave(1.4));
         }
       }
     }
@@ -1207,13 +1212,40 @@ const rangeRow = (id, label, value, lo, hi, step, text) => `<div class="field"><
 function settingsBody(d) {
   const tab = S.settingsTab;
   if (tab === "appearance") {
+    const u = { ...UI_DEFAULTS, ...d };
+    const wall = u.wall_custom && S.customWallUrl ? S.customWallUrl : "img/meadow-sunset.jpg";
     return `<div class="settings-grid">
-      <div class="card-pad"><h3>Colour and glass</h3>
-        <div class="setting stack"><div><strong>Accent</strong><span>Buttons, highlights and the in-game mod menu</span></div>
+      <div class="card-pad"><h3>Wallpaper</h3>
+        <div class="wall-row">
+          <span class="wall-preview" style="background-image:url('${esc(wall)}')"><span class="wall-corners" style="--wb:${u.wall_blur}px"></span></span>
+          <div class="wall-actions">
+            <strong>${u.wall_custom && S.customWallUrl ? "Your image" : "Golden Meadow"}</strong>
+            <span class="muted small">${u.wall_custom && S.customWallUrl ? "Shown on Home and on the in-game menu" : "The default Vortex wallpaper"}</span>
+            <div class="row wrap"><button class="btn btn-sm" data-action="wall-pick">${icon("image", 12)} Choose image</button>${u.wall_custom ? `<button class="btn btn-sm btn-ghost" data-action="wall-reset">Use default</button>` : ""}</div>
+            <input type="file" id="wall-file" accept="image/png,image/jpeg,image/webp" hidden>
+          </div>
+        </div>
+        ${rangeRow("s-wblur", "Corner blur", u.wall_blur, 0, 40, 1, `${u.wall_blur} px`)}
+        ${rangeRow("s-wdim", "Edge shade", u.wall_dim, 0, 60, 1, `${u.wall_dim}%`)}
+        ${swRow(d, "world_life", "Moving light", "Drifting light, birds and sun glow")}
+      </div>
+      <div class="card-pad"><h3>Glass</h3>
+        ${segRow(u, "glass_style", "Style", [["clear", "Clear"], ["frosted", "Frosted"], ["smoke", "Smoke"]], "How much of the wallpaper shows through")}
+        ${rangeRow("s-glass", "Blur", d.glass, 0, 100, 5, glassLabel(d.glass))}
+        ${segRow(u, "radius", "Corners", [["round", "Round"], ["soft", "Soft"], ["sharp", "Sharp"]])}
+        ${segRow(u, "motion", "Liquid motion", [["bouncy", "Bouncy"], ["smooth", "Smooth"]], "How presses, menus and tabs spring")}
+      </div>
+      <div class="card-pad"><h3>Accent</h3>
+        <div class="setting stack"><div><strong>Colour</strong><span>Buttons, highlights and the in-game mod menu</span></div>
           <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${d.accent === k ? "on" : ""}" style="--c:${c}" data-action="set-choice" data-key="accent" data-value="${k}" aria-label="${k}" title="${k[0].toUpperCase() + k.slice(1)}"></button>`).join("")}</div></div>
-        ${rangeRow("s-glass", "Glass", d.glass, 0, 100, 5, glassLabel(d.glass))}
-        ${swRow(d, "show_player", "3D player on Home", "Your skin, living in the world")}
-        ${swRow(d, "clock_12h", "12-hour clock", "")}
+      </div>
+      <div class="card-pad"><h3>Home</h3>
+        ${swRow(u, "home_news", "Latest news", "Patch notes under the wallpaper")}
+        ${swRow(u, "home_quick", "Quick actions", "Mods, Skins, New and Folder shortcuts")}
+        ${swRow(u, "home_recent", "Recent instances", "Under the Launch button")}
+        ${swRow(u, "side_labels", "Sidebar labels", "Off for a slim icon sidebar")}
+        ${swRow(d, "show_player", "3D player", "Your skin, standing at the Launch button")}
+        ${swRow(u, "intro", "Entrance", "He runs in and catches his breath when the launcher opens")}
       </div>
     </div>`;
   }
@@ -1235,6 +1267,11 @@ function settingsBody(d) {
         <div class="field"><label class="label" for="s-java">Java</label><input class="input" id="s-java" placeholder="Automatic (recommended)" value="${esc(d.java_path || "")}"></div>
         <div class="field"><label class="label" for="s-jvm">Extra JVM arguments</label><input class="input" id="s-jvm" placeholder="Optional, for example -XX:+UseG1GC" value="${esc((d.extra_jvm_args || []).join(" "))}"></div>
         <span class="muted small">Vortex downloads the exact Java each version needs.</span>
+      </div>
+      <div class="card-pad"><h3>Launch speed</h3>
+        ${swRow(d, "fast_launch", "Fast launch", "Starts from the files the last launch checked, with no downloads or hashing. A full check still runs every few days")}
+        ${swRow(d, "tuned_jvm", "Tuned Java", "Low-pause garbage collector and class sharing on Java 17+, for a quicker start and smoother play")}
+        <div class="row wrap"><button class="btn btn-sm" data-action="verify-files">${icon("check", 12)} Check files on next launch</button></div>
       </div>
       <div class="card-pad"><h3>Mod downloads</h3>
         ${swRow(d, "mods_with_dependencies", "Install required mods", "Adds the libraries a mod needs, like Fabric API")}
@@ -1326,6 +1363,9 @@ function mountSettings(root, d) {
   range("#s-dl", "download_concurrency", String, 1, 64);
   range("#s-day", "day_length_min", (v) => `${v} min`, 2, 40, (v) => world.setDayLength(v));
   range("#s-glass", "glass", glassLabel, 0, 100, () => applyLook(d));
+  range("#s-wblur", "wall_blur", (v) => `${v} px`, 0, 40, (v) => { applyLook(d); $(".wall-corners", root)?.style.setProperty("--wb", `${v}px`); });
+  range("#s-wdim", "wall_dim", (v) => `${v}%`, 0, 60, () => applyLook(d));
+  $("#wall-file", root)?.addEventListener("change", (e) => { const f = e.target.files?.[0]; if (f) useWallpaper(f); });
   const text = (id, fn) => $(id, root)?.addEventListener("input", (e) => { fn(e.target.value); markDirty(); });
   text("#s-java", (v) => (d.java_path = v.trim() || null));
   text("#s-jvm", (v) => (d.extra_jvm_args = v.split(/\s+/).filter(Boolean)));
@@ -1345,6 +1385,94 @@ function mountSettings(root, d) {
     const url = sceneThumb(el.dataset.scene, 176, 99);
     el.style.backgroundImage = `url('${url}')`;
   });
+}
+
+function refreshSettingsPane() {
+  const pane = $(".settings-pane");
+  if (!pane) return;
+  pane.innerHTML = settingsBody(S.draft);
+  pane.classList.remove("fresh");
+  void pane.offsetWidth;
+  pane.classList.add("fresh");
+  hydrateIcons(pane);
+  $$(".tabs", pane).forEach((g) => liquidTabs(g, true));
+  mountSettings(pane, S.draft);
+}
+
+// ----------------------------------------------------- custom wallpaper --
+// Your own wallpaper lives in the launcher's browser storage (IndexedDB).
+
+const wallStore = {
+  db() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open("vortex", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("files");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async op(mode, fn) {
+    const db = await this.db();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("files", mode);
+      const req = fn(tx.objectStore("files"));
+      tx.oncomplete = () => resolve(req?.result);
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+  get() { return this.op("readonly", (st) => st.get("wallpaper")).catch(() => null); },
+  put(blob) { return this.op("readwrite", (st) => st.put(blob, "wallpaper")); },
+  del() { return this.op("readwrite", (st) => st.delete("wallpaper")).catch(() => {}); },
+};
+
+function setWallImage(blob) {
+  if (S.customWallUrl) URL.revokeObjectURL(S.customWallUrl);
+  S.customWall = null;
+  S.customWallUrl = null;
+  setCustomPicture(null);
+  if (!blob) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      S.customWall = img;
+      S.customWallUrl = url;
+      setCustomPicture(img);
+      resolve(true);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+    img.src = url;
+  });
+}
+
+/** Shrink a picked image to at most 2560 px wide and keep it. */
+async function useWallpaper(file) {
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = URL.createObjectURL(file);
+    });
+    const k = Math.min(1, 2560 / img.naturalWidth);
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k);
+    c.height = Math.round(img.naturalHeight * k);
+    const g = c.getContext("2d");
+    g.imageSmoothingQuality = "high";
+    g.drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(img.src);
+    const blob = await new Promise((resolve) => c.toBlob(resolve, "image/jpeg", 0.92));
+    await wallStore.put(blob);
+    await setWallImage(blob);
+    S.draft.wall_custom = true;
+    applyLook(S.draft);
+    refreshSettingsPane();
+    markDirty();
+    sound.success();
+  } catch (e) {
+    toast("Couldn't use that image", errText(e), "error");
+  }
 }
 
 function markDirty() {
@@ -1384,16 +1512,29 @@ function openTimePopover() {
 
 function modal(html, onMount) {
   const root = $("#modal-root");
-  root.innerHTML = `<div class="scrim"><div class="modal glass hl" role="dialog" aria-modal="true">${html}</div></div>`;
+  const source = pressedSource();
+  root.querySelectorAll(".scrim.closing").forEach((n) => n.remove());
+  const isNew = !root.querySelector(".scrim");
+  root.innerHTML = `<div class="scrim"><div class="modal glass hl" role="dialog" aria-modal="true"><span class="grabber" aria-hidden="true"></span>${html}</div></div>`;
   hydrateIcons(root);
   const scrim = root.firstElementChild;
+  const box = scrim.firstElementChild;
+  box._source = source;
   scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+  swipeToDismiss(box, () => closeModal(true), { grip: ".grabber" });
   onMount?.(root);
-  setTimeout(() => root.querySelector("input, .btn")?.focus(), 60);
+  if (isNew) morphIn(box, source);
+  setTimeout(() => root.querySelector("input, .btn")?.focus({ preventScroll: true }), 60);
 }
 
-function closeModal() {
-  $("#modal-root").innerHTML = "";
+/** Close the dialog: it shrinks back into the button that opened it. */
+function closeModal(instant = false) {
+  const scrim = $("#modal-root .scrim:not(.closing)");
+  if (!scrim) return;
+  scrim.classList.add("closing");
+  const box = scrim.querySelector(".modal");
+  if (instant || !anims()) { scrim.remove(); return; }
+  morphOut(box, box?._source).then(() => scrim.remove());
 }
 
 function confirmModal(title, text, okLabel = "Delete") {
@@ -1452,6 +1593,31 @@ function select(name) {
   S.selected = name;
   store.set("vortex.selected", name);
   player.setActivity(runOf(name).phase);
+  warmSelected();
+}
+
+/** Ask the core to pre-load the selected instance's game files. */
+function warmSelected() {
+  const inst = selectedInstance();
+  if (!inst || S.fast[inst.name] !== undefined) return;
+  S.fast[inst.name] = false;
+  call("warm_up", { name: inst.name })
+    .then((bytes) => {
+      S.fast[inst.name] = bytes > 0;
+      if (bytes > 0 && S.route === "home" && selectedInstance()?.name === inst.name && !$(".hero-chip.fast")) {
+        $(".hero-top")?.insertAdjacentHTML("beforeend", `<span class="hero-chip glass glassy fast pop-in" title="Files are ready: the game starts without checking or downloading anything">${icon("bolt", 12)}<span>Instant launch</span></span>`);
+      }
+    })
+    .catch(() => { delete S.fast[inst.name]; });
+}
+
+/** Swap the news cards in place (no page re-render). */
+function refreshNews() {
+  const box = $("#news-cards");
+  if (!box) return;
+  box.innerHTML = newsCards();
+  hydrateIcons(box);
+  if (anims()) [...box.children].forEach((c, i) => c.animate([{ opacity: 0, translate: "0px 10px", filter: "blur(6px)" }, { opacity: 1, translate: "0px 0px", filter: "blur(0px)" }], { duration: 480, delay: i * 70, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "backwards" }));
 }
 
 /** The VC logo as a canvas (for the in-game menu). */
@@ -1475,9 +1641,13 @@ async function exportMenuArt(inst) {
   const s = S.settings || {};
   if (!inst || inst.loader !== "fabric" || inst.minecraftVersion !== "1.21.4" || s.vortex_mods === false || s.vortex_menu === false) return;
   try {
-    const bg = sceneStill("golden", 1600, 900, world.fixedTime ? undefined : world.hour());
+    const custom = s.wall_custom && S.customWall;
+    const sig = `${custom ? `custom:${S.customWall.naturalWidth}x${S.customWall.naturalHeight}:${S.customWallUrl?.length}` : "golden"}:${s.wall_dim ?? 12}:v2`;
+    if (store.get("vortex.menuArt") === sig) return; // already given to the game
+    const bg = sceneStill(custom ? "custom" : "golden", 1600, 900, world.fixedTime ? undefined : world.hour());
     const logo = await logoCanvas();
     await call("save_menu_art", { background: bg.toDataURL("image/png"), logo: logo.toDataURL("image/png") });
+    store.set("vortex.menuArt", sig);
   } catch (e) {
     console.warn("menu art", e);
   }
@@ -1512,16 +1682,31 @@ async function play(name) {
 
 const actions = {
   route(el) { go(el.dataset.route); },
+  "wall-pick"() { $("#wall-file")?.click(); },
+  async "wall-reset"() {
+    S.draft.wall_custom = false;
+    await wallStore.del();
+    setWallImage(null);
+    applyLook(S.draft);
+    refreshSettingsPane();
+    markDirty();
+  },
+  async "verify-files"() {
+    for (const i of S.instances) await call("verify_instance", { name: i.name }).catch(() => {});
+    S.fast = {};
+    sound.success();
+    toast("Files will be checked", "The next launch of each instance checks and repairs every file.", "success");
+  },
   play(el, e) { e.stopPropagation(); play(el.dataset.name); },
   async stop(el, e) { e.stopPropagation(); await call("stop_instance", { name: el.dataset.name }); },
   "select-home"(el) { select(el.dataset.name); go("home"); },
   select(el) {
     select(el.dataset.name);
-    S.switcher = false;
     sound.pop();
-    render();
+    if ($("#switcher")) closeSwitcher(false, () => render());
+    else render();
   },
-  "toggle-switcher"() { S.switcher = !S.switcher; render(); },
+  "toggle-switcher"(el) { toggleSwitcher(el); },
   side(el) {
     S.side = el.dataset.side;
     store.set("vortex.side", S.side);
@@ -1710,15 +1895,9 @@ const actions = {
     const group = $("#settings-tabs");
     $$(".tab", group).forEach((t) => t.classList.toggle("on", t === el));
     liquidTabs(group);
-    const pane = $(".settings-pane");
-    pane.innerHTML = settingsBody(S.draft);
-    pane.classList.remove("fresh");
-    void pane.offsetWidth;
-    pane.classList.add("fresh");
-    hydrateIcons(pane);
-    $$(".tabs", pane).forEach((g) => liquidTabs(g, true));
-    mountSettings(pane, S.draft);
+    refreshSettingsPane();
   },
+  "settings-noop"() {},
   "set-choice"(el) {
     const key = el.dataset.key;
     const v = el.dataset.num ? Number(el.dataset.value) : el.dataset.value;
@@ -1729,7 +1908,7 @@ const actions = {
       b.classList.toggle("on", on);
       if (b.hasAttribute("aria-pressed")) b.setAttribute("aria-pressed", on);
     });
-    if (["accent", "logo_style", "background"].includes(key)) applyLook(S.draft);
+    applyLook(S.draft);
     markDirty();
   },
   async "acc-use"(el) {
@@ -1801,10 +1980,11 @@ const actions = {
   },
   "set-bool"(el) {
     const key = el.dataset.key;
-    S.draft[key] = !S.draft[key];
+    const cur = key in S.draft ? S.draft[key] : UI_DEFAULTS[key];
+    S.draft[key] = !cur;
     sound.toggle(S.draft[key]);
     el.setAttribute("aria-checked", S.draft[key]);
-    if (["animations", "world_life", "show_player", "clock_12h"].includes(key)) applyLook(S.draft);
+    applyLook(S.draft);
     markDirty();
   },
   "settings-reset"() { S.draft = null; applyLook(); render(); },
@@ -1978,8 +2158,6 @@ function updateAccount() {
 
 function bindChrome() {
   hydrateIcons(document);
-  // Real refraction needs SVG backdrop filters (Chromium, so WebView2 on Windows).
-  if (/Chrome|Edg\//.test(navigator.userAgent)) document.body.classList.add("refract");
   bindLiquid();
   $$("#nav .tab").forEach((b) => b.addEventListener("click", () => go(b.dataset.route)));
   $("#account-chip").addEventListener("click", () => go("accounts"));
@@ -1999,6 +2177,7 @@ function bindChrome() {
     renderLog();
   }));
   $("#log-search").addEventListener("input", (e) => { S.log.search = e.target.value.toLowerCase(); renderLog(); });
+  swipeToDismiss($("#log"), () => { if (S.log.open) toggleLog(); }, { grip: ".log-head .title" });
 
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-action]");
@@ -2010,9 +2189,9 @@ function bindChrome() {
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      if ($("#modal-root").children.length) closeModal();
+      if ($("#modal-root .scrim:not(.closing)")) closeModal();
       else if ($("#popover-root").children.length) closePopover();
-      else if (S.switcher) { S.switcher = false; render(); }
+      else if ($("#switcher")) closeSwitcher();
       else if (S.log.open) toggleLog();
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") { e.preventDefault(); toggleLog(); }
@@ -2036,7 +2215,8 @@ async function boot() {
     const b = await call("bootstrap");
     S.appVersion = b.appVersion;
     S.dataDir = b.dataDir;
-    S.settings = { sky: "cycle", day_length_min: 10, background: "golden", vortex_menu: true, ...b.settings };
+    S.settings = { sky: "cycle", day_length_min: 10, background: "golden", vortex_menu: true, fast_launch: true, tuned_jvm: true, ...b.settings };
+    if (S.settings.wall_custom) await setWallImage(await wallStore.get());
     S.accounts = b.accounts;
     S.instances = b.instances;
     if (!S.instances.some((i) => i.name === S.selected)) S.selected = S.instances[0]?.name || null;
@@ -2047,8 +2227,9 @@ async function boot() {
     hint.textContent = `Couldn't start: ${errText(e)}`;
     return;
   }
-  hint.textContent = "Loading your skin";
-  await loadSkin();
+  // The skin can come from the network: don't hold the window for it.
+  const skin = loadSkin();
+  await Promise.race([skin, new Promise((r) => setTimeout(r, 350))]);
   call("version_art")
     .then((list) => {
       for (const a of list) S.art[a.version] ||= a.image;
@@ -2059,8 +2240,9 @@ async function boot() {
     .then((v) => { S.versions = v; if (S.wizard && !S.wizard.version) S.wizard.version = v.latestRelease; if (S.route === "new") render(); })
     .catch((e) => toast("Working offline", `The version list couldn't load: ${errText(e)}`, "warn", 6000));
   call("news")
-    .then((n) => { S.news = n; if (S.route === "home") render(); })
-    .catch(() => { S.news = []; });
+    .then((n) => { S.news = n; refreshNews(); })
+    .catch(() => { S.news = []; refreshNews(); });
+  warmSelected();
 
   tick();
   $("#side-version").textContent = `v${S.appVersion}`;
@@ -2072,8 +2254,10 @@ async function boot() {
     bootEl.classList.add("out");
     setTimeout(() => bootEl.remove(), 950);
   } else bootEl.remove();
-  placeAnchor();
-  if (world.picture && anims()) setTimeout(() => { placeHero(); player.intro(world.centerX() - world.anchor().x); }, 500);
+  placeHero();
+  const u = { ...UI_DEFAULTS, ...S.settings };
+  if (world.picture && anims() && u.intro !== false) setTimeout(() => { placeHero(); player.intro(); }, 420);
+  else if (world.picture) player.chooseNext();
   else setTimeout(() => player.wave(1.8), 1200);
 }
 

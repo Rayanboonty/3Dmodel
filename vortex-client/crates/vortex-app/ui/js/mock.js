@@ -23,7 +23,7 @@ const state = {
     show_old_versions: false, sky: "cycle", day_length_min: 10, ui_sounds: true, animations: true,
     game_width: null, game_height: null, fullscreen: false, after_launch: "keep", vortex_mods: true, open_log_on_launch: false,
     accent: "amber", glass: 60, logo_style: 0, background: "golden", vortex_menu: true, show_player: true, world_life: true, clock_12h: false,
-    mods_allow_unstable: false, mods_with_dependencies: true,
+    mods_allow_unstable: false, mods_with_dependencies: true, fast_launch: true, tuned_jvm: true,
   },
   skins: [],
   applied: null,
@@ -71,7 +71,10 @@ function view(i) {
 async function simulateLaunch(name) {
   const inst = state.instances.find((i) => i.name === name);
   emit("game-state", { instance: name, state: "preparing" });
-  const stages = [
+  state.fast ||= new Set();
+  const fast = state.fast.has(name);
+  state.fast.add(name);
+  const stages = fast ? [["Fast launch", 1, 1, 350], ["Ready", 1, 1, 150]] : [
     ["Resolving " + inst.minecraftVersion, 0, 0, 500],
     ["Libraries", 31, 31, 900],
     ["Assets", 734, 734, 1600],
@@ -163,6 +166,11 @@ export const mock = {
         simulateLaunch(args.name);
         return null;
       }
+      case "warm_up":
+        return 0;
+      case "verify_instance":
+        state.fast?.delete(args.name);
+        return null;
       case "stop_instance":
         if (state.running.delete(args.name)) {
           setTimeout(() => emit("game-state", { instance: args.name, state: "exited", code: 0 }), 300);
