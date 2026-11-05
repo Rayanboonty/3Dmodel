@@ -1,0 +1,74 @@
+name: Vortex Client release
+
+# Publish a launcher update: bump `version` in vortex-client/Cargo.toml and
+# vortex-client/crates/vortex-app/tauri.conf.json, commit, then push a tag:
+#
+#   git tag vortex-v0.3.0 && git push origin vortex-v0.3.0
+#
+# This builds Windows x64, attaches Vortex-windows-x64.zip to a GitHub
+# release, and every installed launcher offers the update on its next start.
+
+on:
+  push:
+    tags:
+      - "vortex-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (for example vortex-v0.3.0)"
+        required: true
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: vortex-client
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: vortex-client
+
+      - name: Check the tag matches the version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ($tag -ne "vortex-v$version") { throw "Tag $tag doesn't match Cargo.toml version $version" }
+          $conf = Get-Content crates\vortex-app\tauri.conf.json -Raw | ConvertFrom-Json
+          if ($conf.version -ne $version) { throw "tauri.conf.json says $($conf.version), Cargo.toml says $version" }
+
+      - name: Unit tests
+        run: cargo test --workspace
+
+      - name: Build
+        run: cargo build --release -p vortex-app -p vortex-cli
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist\Vortex | Out-Null
+          Copy-Item target\release\vortex.exe dist\Vortex\Vortex.exe
+          Copy-Item target\release\vortex-cli.exe dist\Vortex\vortex-cli.exe
+          Copy-Item crates\vortex-app\resources\vortex-mods.jar dist\Vortex\vortex-mods-1.0.0.jar
+          Copy-Item crates\vortex-app\ui\fonts\OFL-*.txt dist\Vortex\
+          Copy-Item README.md dist\Vortex\README.md
+          $loader = Get-ChildItem -Recurse -Filter WebView2Loader.dll target\release -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($loader) { Copy-Item $loader.FullName dist\Vortex\ }
+          Compress-Archive -Path dist\Vortex -DestinationPath dist\Vortex-windows-x64.zip -Force
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Vortex Client ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: vortex-client/dist/Vortex-windows-x64.zip

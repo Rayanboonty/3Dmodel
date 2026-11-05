@@ -10,6 +10,8 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+
+mod updater;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{oneshot, Mutex};
 use vortex_core::accounts::{Account, AccountKind, AccountStore};
@@ -24,6 +26,7 @@ use vortex_core::paths::Paths;
 use vortex_core::progress::{Progress, ProgressFn};
 use vortex_core::settings::Settings;
 use vortex_core::skins::{self, Skins};
+use vortex_core::servers;
 use vortex_core::{auth, launch, Launcher, LAUNCHER_VERSION};
 
 type CmdResult<T> = Result<T, String>;
@@ -303,8 +306,9 @@ async fn delete_instance(state: State<'_, AppState>, name: String) -> CmdResult<
 }
 
 #[tauri::command]
-async fn launch_instance(app: AppHandle, state: State<'_, AppState>, name: String) -> CmdResult<()> {
+async fn launch_instance(app: AppHandle, state: State<'_, AppState>, name: String, server: Option<String>) -> CmdResult<()> {
     let mut instance = find_instance(&state, &name)?;
+    let join_once = server.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
     let account = state
         .accounts
         .lock()
@@ -322,6 +326,10 @@ async fn launch_instance(app: AppHandle, state: State<'_, AppState>, name: Strin
     }
     instance.last_played = Some(auth::now_secs());
     let _ = instance.save();
+    // A server picked on Home: join it this time only (not saved).
+    if join_once.is_some() {
+        instance.join_server = join_once;
+    }
     let settings = state.settings.lock().await.clone();
     let launcher = state.launcher.clone();
     tauri::async_runtime::spawn(async move {
@@ -368,6 +376,64 @@ async fn warm_up(state: State<'_, AppState>, name: String) -> CmdResult<u64> {
 async fn verify_instance(state: State<'_, AppState>, name: String) -> CmdResult<()> {
     let inst = find_instance(&state, &name)?;
     state.launcher.forget_launch_plan(&inst);
+    Ok(())
+}
+
+/// Players online, message of the day, icon and ping for a server.
+#[tauri::command]
+async fn server_status(address: String) -> CmdResult<servers::ServerStatus> {
+    servers::ping(&address).await.map_err(fail)
+}
+
+/// Is there a newer launcher on GitHub Releases?
+#[tauri::command]
+async fn check_update(state: State<'_, AppState>) -> CmdResult<updater::UpdateInfo> {
+    updater::check(state.launcher.http(), LAUNCHER_VERSION).await.map_err(fail)
+}
+
+#[derive(Clone, Serialize)]
+struct UpdateProgress {
+    stage: &'static str,
+    done: u64,
+    total: u64,
+}
+
+/// Download the new launcher, swap it in, start it and quit.
+#[tauri::command]
+async fn install_update(app: AppHandle, state: State<'_, AppState>, url: String, version: String) -> CmdResult<()> {
+    if !state.running.lock().await.is_empty() {
+        return Err("close the game before updating".into());
+    }
+    if !url.starts_with("https://github.com/") && !url.starts_with("https://objects.githubusercontent.com/") {
+        return Err("updates only come from GitHub".into());
+    }
+    let (dir, exe) = updater::current_exe().map_err(fail)?;
+    let safe: String = version.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '-').collect();
+    let dest = state.launcher.paths().cache().join("update").join(format!("Vortex-{safe}.zip"));
+    let emitter = app.clone();
+    let mut last = Instant::now() - Duration::from_secs(1);
+    updater::download(state.launcher.http(), &url, &dest, |done, total| {
+        if last.elapsed() > Duration::from_millis(80) || done == total {
+            last = Instant::now();
+            let _ = emitter.emit("update-progress", UpdateProgress { stage: "download", done, total });
+        }
+    })
+    .await
+    .map_err(fail)?;
+    let _ = app.emit("update-progress", UpdateProgress { stage: "install", done: 1, total: 1 });
+    let zip = dest.clone();
+    let new_exe = tokio::task::spawn_blocking(move || updater::apply(&zip, &dir, &exe))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(fail)?;
+    let _ = std::fs::remove_file(&dest);
+    let _ = app.emit("update-progress", UpdateProgress { stage: "restart", done: 1, total: 1 });
+    std::process::Command::new(&new_exe).spawn().map_err(|e| format!("couldn't start the new version: {e}"))?;
+    let quit = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        quit.exit(0);
+    });
     Ok(())
 }
 
@@ -1130,6 +1196,9 @@ fn load_accounts(path: &Path) -> AccountStore {
 }
 
 fn main() {
+    if let Ok((dir, _)) = updater::current_exe() {
+        updater::cleanup(&dir);
+    }
     let paths = Paths::from_default();
     let settings = Settings::load(&paths.settings_file()).unwrap_or_default();
     let accounts = load_accounts(&paths.accounts_file());
@@ -1155,6 +1224,9 @@ fn main() {
             stop_instance,
             warm_up,
             verify_instance,
+            server_status,
+            check_update,
+            install_update,
             add_offline_account,
             remove_account,
             select_account,
