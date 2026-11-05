@@ -28,6 +28,44 @@ pub struct Settings {
     pub ui_sounds: bool,
     /// UI: background and transition animations.
     pub animations: bool,
+
+    /// Game window size for instances that don't set their own.
+    pub game_width: Option<u32>,
+    pub game_height: Option<u32>,
+    /// Start the game fullscreen.
+    pub fullscreen: bool,
+    /// What the launcher does once the game is running: `keep`,
+    /// `minimize`, or `hide` (it comes back when the game closes).
+    pub after_launch: String,
+    /// Add the Vortex in-game mods (HUD, PvP tools, your skin and cape) to
+    /// Fabric instances they support.
+    pub vortex_mods: bool,
+    /// Open the game log when a game starts.
+    pub open_log_on_launch: bool,
+
+    /// UI: accent colour name (`amber`, `diamond`, `emerald`, `amethyst`,
+    /// `redstone`, `copper`).
+    pub accent: String,
+    /// UI: frosted glass strength, 0 (clear) to 100 (heavy).
+    pub glass: u32,
+    /// UI: which of the logo designs to show (0-9).
+    pub logo_style: u32,
+    /// UI: background scene (`meadow`, `cherry`, `peaks`, `desert`, `ocean`,
+    /// `jungle`, `village`, `lush`, `nether`, `end`).
+    pub background: String,
+    /// In-game: Vortex main menu and button style (needs Vortex mods).
+    pub vortex_menu: bool,
+    /// UI: show the 3D player on the home screen.
+    pub show_player: bool,
+    /// UI: animals, particles and other moving details in the world.
+    pub world_life: bool,
+    /// UI: 12-hour clock in the top bar.
+    pub clock_12h: bool,
+
+    /// Mods: install beta and alpha versions when they are the newest.
+    pub mods_allow_unstable: bool,
+    /// Mods: also install the mods a mod requires.
+    pub mods_with_dependencies: bool,
 }
 
 impl Default for Settings {
@@ -45,6 +83,22 @@ impl Default for Settings {
             day_length_min: 10,
             ui_sounds: true,
             animations: true,
+            game_width: None,
+            game_height: None,
+            fullscreen: false,
+            after_launch: "keep".to_string(),
+            vortex_mods: true,
+            open_log_on_launch: false,
+            accent: "amber".to_string(),
+            glass: 60,
+            logo_style: 0,
+            background: "meadow".to_string(),
+            vortex_menu: true,
+            show_player: true,
+            world_life: true,
+            clock_12h: false,
+            mods_allow_unstable: false,
+            mods_with_dependencies: true,
         }
     }
 }
@@ -65,6 +119,14 @@ impl Settings {
         }
         std::fs::write(path, serde_json::to_vec_pretty(self)?)?;
         Ok(())
+    }
+
+    /// Default game window size, when both width and height are set.
+    pub fn resolution(&self) -> Option<(u32, u32)> {
+        match (self.game_width, self.game_height) {
+            (Some(w), Some(h)) if w >= 320 && h >= 240 => Some((w, h)),
+            _ => None,
+        }
     }
 
     /// Client id from `VORTEX_MS_CLIENT_ID`, falling back to settings.

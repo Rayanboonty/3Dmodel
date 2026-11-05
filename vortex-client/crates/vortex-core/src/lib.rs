@@ -33,6 +33,7 @@ pub mod loaders;
 pub mod logs;
 pub mod manifest;
 pub mod maven;
+pub mod modrinth;
 pub mod mods;
 pub mod news;
 pub mod os;
@@ -40,6 +41,7 @@ pub mod paths;
 pub mod progress;
 pub mod rules;
 pub mod settings;
+pub mod skins;
 pub mod version;
 
 mod launcher;

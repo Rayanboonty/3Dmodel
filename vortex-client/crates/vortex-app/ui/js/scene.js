@@ -1,22 +1,26 @@
-// The Vortex world: a pixel-art landscape with a full day cycle, drawn at
-// low resolution and scaled up with crisp pixels.
+// The Vortex world: detailed Minecraft-style landscapes drawn at full
+// resolution, in ten scenes. Overworld scenes follow the day cycle; the Lush
+// Cave, the Nether and the End have their own fixed light.
 //
-// Static geometry (terrain blocks, trees, hive) is rendered once per size into
-// an offscreen canvas; sky, light, water, flames, critters and particles are
-// animated every frame on top. Time of day tints the land; at night the
-// campfire, the player's torch and fireflies light it.
+// Blocks use 16×16 textures drawn crisp; sky, light and haze are smooth.
+// Depth comes from layers: far land and hills are drawn at low resolution
+// and scaled up (a soft depth-of-field blur), then hazed toward the horizon.
+// The foreground is crisp, with rim light along the tops of blocks and
+// leaves. Static layers are cached and re-tinted a few times a second;
+// water, lava, fire, plants, critters and particles animate every frame.
 
-export const H = 270; // logical pixel rows
-const B = 6; // block size in logical pixels
+import { makeTextures, hash, rng, mix } from "./textures.js";
+
+export const H = 270; // logical rows; `scale` = screen px per logical row
 
 // ---------------------------------------------------------------- palette --
 
-const NIGHT = { top: "#090a24", mid: "#16174a", hor: "#2c2a68", far: "#2a2a5c", farSnow: "#5a5f96", hill: "#1d1c46", cloud: "#2e2d63", shade: "#232257", tint: [12, 16, 50], tintA: 0.64, stars: 1 };
-const DAWN1 = { top: "#272466", mid: "#a1588f", hor: "#ffb07a", far: "#a876b2", farSnow: "#ffd8e6", hill: "#6f4d8f", cloud: "#ffd3dd", shade: "#e898b6", tint: [255, 120, 120], tintA: 0.2, stars: 0.3 };
-const DAWN2 = { top: "#4a64c0", mid: "#f3a68e", hor: "#ffe3ab", far: "#b597c7", farSnow: "#fff1ec", hill: "#7a66a6", cloud: "#fff3ea", shade: "#f4c4cc", tint: [255, 170, 130], tintA: 0.12, stars: 0 };
-const DAY = { top: "#3b8be2", mid: "#7cc0f5", hor: "#d4f1ff", far: "#90b9dc", farSnow: "#ffffff", hill: "#5f9a8a", cloud: "#ffffff", shade: "#d3e5f7", tint: [255, 255, 255], tintA: 0, stars: 0 };
-const DUSK1 = { top: "#382e7a", mid: "#de5f7e", hor: "#ffa65e", far: "#a65f80", farSnow: "#ffd2c0", hill: "#6a3c6a", cloud: "#ffc3aa", shade: "#d87b8c", tint: [255, 110, 80], tintA: 0.22, stars: 0.1 };
-const DUSK2 = { top: "#141340", mid: "#3c2b6e", hor: "#7d416c", far: "#3e2e60", farSnow: "#7b6c9c", hill: "#28214e", cloud: "#4a3b72", shade: "#3a2d5e", tint: [40, 24, 70], tintA: 0.5, stars: 0.8 };
+const NIGHT = { top: "#060920", mid: "#101849", hor: "#26306a", haze: "#18204e", cloud: "#262c5e", cloudShade: "#141838", tint: [8, 12, 44], tintA: 0.62, rim: [130, 150, 255], rimA: 0.12, glow: [150, 170, 255], glowA: 0.22, stars: 1 };
+const DAWN1 = { top: "#2b2f7a", mid: "#c3749b", hor: "#ffc28c", haze: "#e6a2ac", cloud: "#ffd8d0", cloudShade: "#c88aa6", tint: [255, 128, 108], tintA: 0.16, rim: [255, 196, 120], rimA: 0.7, glow: [255, 186, 132], glowA: 0.85, stars: 0.25 };
+const DAWN2 = { top: "#5b87d8", mid: "#f6b9a0", hor: "#fff1c9", haze: "#f2d9c6", cloud: "#fff7ef", cloudShade: "#e5c3c8", tint: [255, 190, 140], tintA: 0.07, rim: [255, 228, 140], rimA: 0.6, glow: [255, 236, 186], glowA: 0.8, stars: 0 };
+const DAY = { top: "#3d8de4", mid: "#89c7f6", hor: "#e1f4ff", haze: "#bcd9ef", cloud: "#ffffff", cloudShade: "#cbdcf0", tint: [255, 255, 255], tintA: 0, rim: [255, 252, 196], rimA: 0.3, glow: [255, 250, 228], glowA: 0.45, stars: 0 };
+const DUSK1 = { top: "#3a2f82", mid: "#e0688b", hor: "#ffad66", haze: "#e08a8c", cloud: "#ffc7ae", cloudShade: "#b86c88", tint: [255, 118, 88], tintA: 0.2, rim: [255, 168, 88], rimA: 0.75, glow: [255, 156, 98], glowA: 0.9, stars: 0.1 };
+const DUSK2 = { top: "#141340", mid: "#3d2c70", hor: "#86486f", haze: "#4e376a", cloud: "#4b3c74", cloudShade: "#291f48", tint: [38, 24, 70], tintA: 0.48, rim: [210, 120, 170], rimA: 0.2, glow: [255, 136, 140], glowA: 0.28, stars: 0.8 };
 const KEYS = [
   [0, NIGHT], [4.8, NIGHT], [6.0, DAWN1], [7.4, DAWN2], [9.4, DAY], [16.4, DAY],
   [18.1, DUSK1], [19.6, DUSK2], [21.0, NIGHT], [24, NIGHT],
@@ -32,16 +36,22 @@ export function phaseOf(hour) {
 
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const lerp = (a, b, t) => a + (b - a) * t;
-const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const smooth = (t) => t * t * (3 - 2 * t);
 
-function palette(hour) {
+function resolve(p) {
+  const out = {};
+  for (const [k, v] of Object.entries(p)) out[k] = typeof v === "string" ? hex(v) : v;
+  return out;
+}
+
+function cyclePalette(hour) {
   for (let i = 0; i < KEYS.length - 1; i++) {
     const [h0, p0] = KEYS[i];
     const [h1, p1] = KEYS[i + 1];
     if (hour >= h0 && hour <= h1) {
-      const t = h1 === h0 ? 0 : (hour - h0) / (h1 - h0);
-      const s = t * t * (3 - 2 * t);
+      const s = smooth(h1 === h0 ? 0 : (hour - h0) / (h1 - h0));
       const out = {};
       for (const k of Object.keys(p0)) {
         const a = p0[k], b = p1[k];
@@ -52,60 +62,324 @@ function palette(hour) {
       return out;
     }
   }
-  return palette(0);
+  return cyclePalette(0);
 }
 
-function rng(seed) {
-  let s = seed >>> 0;
-  return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+// ----------------------------------------------------------------- scenes --
+
+/** The scenes you can pick, in order. */
+export const SCENES = [
+  { id: "meadow", name: "Sunrise Meadow" },
+  { id: "cherry", name: "Cherry Grove" },
+  { id: "peaks", name: "Snowy Peaks" },
+  { id: "desert", name: "Desert Oasis" },
+  { id: "ocean", name: "Ocean Shore" },
+  { id: "jungle", name: "Jungle" },
+  { id: "village", name: "Village Hills" },
+  { id: "lush", name: "Lush Cave" },
+  { id: "nether", name: "Nether" },
+  { id: "end", name: "The End" },
+];
+
+const DEFS = {
+  meadow: {
+    ground: { top: "grass", sub: "dirt", deep: "stone" },
+    far: "mountains", hills: { top: "#5f9a46", body: "#6f7f52", tree: "oak" },
+    mid: { ridge: "grass", trees: ["oak", "oak", "birch"], density: 0.34 },
+    fore: { tree: "oak", nest: true, frame: "oak" },
+    water: "pond", fire: "campfire",
+    flora: ["poppy", "dandelion", "cornflower", "daisy", "allium", "tufts"],
+    particles: "leaves", leaf: [96, 160, 56], critters: { bees: 4, butterflies: 3, birds: true, fireflies: true },
+    clouds: 9, sun: true,
+  },
+  cherry: {
+    tweak: { color: [255, 170, 205], amount: 0.28 },
+    ground: { top: "grass", sub: "dirt", deep: "stone" },
+    far: "mountains", hills: { top: "#e6a0c0", body: "#8a7f88", tree: "cherry" },
+    mid: { ridge: "grass", trees: ["cherry", "cherry", "cherry"], density: 0.4 },
+    fore: { tree: "cherry", nest: true, frame: "cherry" },
+    water: "pond", fire: "campfire",
+    flora: ["petals", "petals", "tulip", "allium", "tufts"],
+    particles: "petals", leaf: [250, 190, 214], critters: { bees: 5, butterflies: 4, birds: true, fireflies: true },
+    clouds: 8, sun: true,
+  },
+  peaks: {
+    tweak: { color: [180, 210, 255], amount: 0.2 },
+    ground: { top: "snowGrass", sub: "dirt", deep: "stone" },
+    far: "snowpeaks", hills: { top: "#f4f8ff", body: "#7f8fa6", tree: "spruce" },
+    mid: { ridge: "snowGrass", trees: ["snowSpruce", "snowSpruce", "spruce"], density: 0.42 },
+    fore: { tree: "snowSpruce", frame: null },
+    water: "ice", fire: "campfire",
+    flora: ["tufts"], snowCover: true,
+    particles: "snow", leaf: [255, 255, 255], critters: { birds: true },
+    clouds: 7, sun: true,
+  },
+  desert: {
+    tweak: { color: [255, 190, 120], amount: 0.12 },
+    ground: { top: "sand", sub: "sandstone", deep: "sandstone" },
+    far: "dunes", hills: { top: "#e8d29a", body: "#d2b47a", tree: "cactus" },
+    mid: { ridge: "sand", trees: ["cactus", "cactus", "deadbush"], density: 0.3 },
+    fore: { tree: "cactus", frame: null },
+    water: "pool", fire: "campfire",
+    flora: ["deadBush", "deadBush"],
+    particles: "dust", leaf: [230, 210, 160], critters: { birds: true },
+    clouds: 3, sun: true,
+  },
+  ocean: {
+    tweak: { color: [140, 200, 255], amount: 0.15 },
+    ground: { top: "sand", sub: "sand", deep: "sandstone" },
+    far: "sea", hills: null,
+    mid: { ridge: null, trees: [], density: 0 },
+    fore: { tree: "oak", frame: null },
+    water: "sea", fire: "campfire",
+    flora: ["tufts", "deadBush"],
+    particles: "leaves", leaf: [96, 160, 56], critters: { birds: true, fish: true, fireflies: false },
+    clouds: 10, sun: true,
+  },
+  jungle: {
+    tweak: { color: [150, 230, 160], amount: 0.16 },
+    ground: { top: "jungleGrass", sub: "dirt", deep: "stone" },
+    far: "jungle", hills: { top: "#3f8f34", body: "#4b6a3a", tree: "jungle" },
+    mid: { ridge: "jungleGrass", trees: ["jungle", "jungle", "bush"], density: 0.6 },
+    fore: { tree: "jungle", frame: "jungle" },
+    water: "pond", fire: "campfire",
+    flora: ["ferns", "ferns", "tufts", "poppy"],
+    particles: "leaves", leaf: [60, 150, 40], critters: { butterflies: 4, birds: true, fireflies: true },
+    clouds: 7, sun: true,
+  },
+  village: {
+    ground: { top: "grass", sub: "dirt", deep: "stone" },
+    far: "mountains", hills: { top: "#6aa84f", body: "#6f7f52", tree: "oak" },
+    mid: { ridge: "grass", trees: ["house", "house", "oak", "house"], density: 0.7 },
+    fore: { tree: "oak", frame: null, path: true },
+    water: "none", fire: "campfire",
+    flora: ["poppy", "dandelion", "tufts", "tufts"],
+    particles: "leaves", leaf: [96, 160, 56], critters: { butterflies: 2, birds: true, fireflies: true },
+    clouds: 9, sun: true,
+  },
+  lush: {
+    time: { hour: 22, phase: "night", palette: { top: "#05090a", mid: "#0b1612", hor: "#1b2c22", haze: "#15241c", cloud: "#000000", cloudShade: "#000000", tint: [10, 28, 20], tintA: 0.38, rim: [190, 255, 150], rimA: 0.22, glow: [200, 255, 170], glowA: 0, stars: 0 } },
+    ground: { top: "mossCap", sub: "clay", deep: "deep" },
+    far: "cave", hills: null,
+    mid: { ridge: "moss", trees: ["azalea", "azalea", "bush"], density: 0.4 },
+    fore: { tree: "azalea", frame: null },
+    water: "pool", fire: "campfire", ceiling: "cave",
+    flora: ["dripleaf", "tufts", "ferns", "dripleaf"],
+    particles: "spores", leaf: [140, 200, 90], critters: { bats: true, fireflies: true, fish: true },
+    clouds: 0, sun: false,
+  },
+  nether: {
+    time: { hour: 19, phase: "dusk", palette: { top: "#1c0404", mid: "#4a0f0a", hor: "#9a3216", haze: "#6e200e", cloud: "#000000", cloudShade: "#000000", tint: [70, 14, 4], tintA: 0.18, rim: [255, 130, 60], rimA: 0.55, glow: [255, 110, 40], glowA: 0.5, stars: 0 } },
+    ground: { top: "nylium", sub: "netherrack", deep: "netherrack" },
+    far: "nether", hills: { top: "#7a1e1e", body: "#4e1616", tree: "fungus" },
+    mid: { ridge: "nylium", trees: ["crimson", "warped", "crimson"], density: 0.38 },
+    fore: { tree: "crimson", frame: null },
+    water: "lava", fire: "soul", ceiling: "nether",
+    flora: ["roots", "roots", "sprouts", "mushroom"],
+    particles: "ash", leaf: [255, 140, 60], critters: {},
+    clouds: 0, sun: false,
+  },
+  end: {
+    time: { hour: 23, phase: "night", palette: { top: "#040209", mid: "#120922", hor: "#2a1844", haze: "#24163a", cloud: "#000000", cloudShade: "#000000", tint: [26, 12, 46], tintA: 0.46, rim: [210, 170, 255], rimA: 0.14, glow: [200, 150, 255], glowA: 0, stars: 1 } },
+    ground: { top: "endstone", sub: "endstone", deep: "endstone" },
+    far: "end", hills: null,
+    mid: { ridge: "endstone", trees: ["chorus", "chorus", "chorus"], density: 0.36 },
+    fore: { tree: "chorus", frame: null },
+    water: "none", fire: "endrod",
+    flora: [],
+    particles: "portal", leaf: [200, 140, 255], critters: { dragon: true },
+    clouds: 0, sun: false,
+  },
+};
+
+// ------------------------------------------------------------------- trees --
+
+/** Draw a tree (or other tall feature) onto a layer. Returns glow points. */
+function drawTree(g, T, kind, x, base, bs, rims, r) {
+  const put = (tex, cx, cy, rim) => {
+    g.drawImage(tex, cx, cy, bs + 0.4, bs + 0.4);
+    if (rim) rims.push([cx, cy, bs]);
+  };
+  const lights = [];
+  const canopy = (leaf, ct, rows) => {
+    for (const [a, b, dy] of rows) {
+      for (let k = a; k <= b; k++) {
+        if ((k === a || k === b) && dy !== 0 && r() > 0.6) continue;
+        const top = dy === rows[rows.length - 1][2] || ((k === a || k === b) && dy !== rows[0][2]);
+        put(leaf, x + k * bs, ct + dy * bs, top || r() > 0.85);
+      }
+    }
+  };
+  switch (kind) {
+    case "oak":
+    case "birch":
+    case "azalea": {
+      const logT = kind === "birch" ? T.birch : T.oakLog;
+      const leaf = kind === "birch" ? T.birchLeaf : kind === "azalea" ? T.azaleaLeaf : T.oakLeaf;
+      const th = kind === "azalea" ? 2 : 3 + Math.floor(r() * 2);
+      for (let k = 1; k <= th; k++) put(logT, x, base - k * bs);
+      const ct = base - th * bs - bs;
+      canopy(leaf, ct, kind === "azalea" ? [[-1, 1, 0], [-1, 1, -1], [0, 0, -2]] : [[-2, 2, 0], [-2, 2, -1], [-1, 1, -2]]);
+      g.fillStyle = "rgba(10,20,10,0.35)";
+      g.fillRect(x, base - th * bs, bs, bs * 0.6);
+      break;
+    }
+    case "spruce":
+    case "snowSpruce": {
+      const leaf = kind === "snowSpruce" ? T.snowLeaf : T.spruceLeaf;
+      const th = 6 + Math.floor(r() * 2);
+      for (let k = 1; k <= th; k++) put(T.spruceLog, x, base - k * bs);
+      const layers = [2, 1, 2, 1, 1, 0, 0];
+      for (let i = 0; i < layers.length; i++) {
+        const y = base - (2 + i) * bs;
+        const wv = layers[i];
+        for (let k = -wv; k <= wv; k++) put(leaf, x + k * bs, y, k === -wv || k === wv || i === layers.length - 1);
+      }
+      put(leaf, x, base - (2 + layers.length) * bs, true);
+      break;
+    }
+    case "cherry": {
+      const th = 4;
+      for (let k = 1; k <= th; k++) put(T.cherryLog, x, base - k * bs);
+      put(T.cherryLog, x + bs, base - (th - 1) * bs);
+      const ct = base - th * bs - bs;
+      canopy(T.cherryLeaf, ct, [[-3, 3, 0], [-3, 3, -1], [-2, 2, -2]]);
+      // Hanging blossoms.
+      for (let k = -3; k <= 3; k++) if (r() > 0.6) put(T.cherryLeaf, x + k * bs, ct + bs, false);
+      break;
+    }
+    case "jungle": {
+      const th = 8 + Math.floor(r() * 3);
+      for (let k = 1; k <= th; k++) put(T.jungleLog, x, base - k * bs);
+      const ct = base - th * bs - bs;
+      canopy(T.jungleLeaf, ct, [[-3, 3, 0], [-3, 3, -1], [-2, 2, -2]]);
+      // Vines.
+      g.fillStyle = "#3d7a25";
+      for (let k = -3; k <= 3; k++) {
+        if (r() > 0.55) continue;
+        const len = bs * (1 + r() * 3);
+        g.fillRect(x + k * bs + bs * (0.2 + r() * 0.5), ct + bs, Math.max(2, bs * 0.12), len);
+      }
+      break;
+    }
+    case "bush":
+      put(T.oakLeaf, x, base - bs, true);
+      if (r() > 0.4) put(T.oakLeaf, x + bs, base - bs, true);
+      break;
+    case "cactus": {
+      const hgt = 2 + Math.floor(r() * 2);
+      for (let k = 1; k <= hgt; k++) put(T.cactus, x, base - k * bs, k === hgt);
+      if (r() > 0.5) { put(T.cactus, x + bs, base - 2 * bs, true); }
+      break;
+    }
+    case "deadbush":
+      g.drawImage(T.deadBush, x, base - bs, bs, bs);
+      break;
+    case "crimson":
+    case "warped": {
+      const stem = kind === "crimson" ? T.stemC : T.stemW;
+      const wart = kind === "crimson" ? T.wart : T.warpedWart;
+      const th = 4 + Math.floor(r() * 3);
+      for (let k = 1; k <= th; k++) put(stem, x, base - k * bs);
+      const ct = base - th * bs - bs;
+      const rows = [[-2, 2, 0], [-2, 2, -1], [-1, 1, -2]];
+      for (const [a, b, dy] of rows) {
+        for (let k = a; k <= b; k++) {
+          const shroom = r() > 0.86;
+          put(shroom ? T.shroom : wart, x + k * bs, ct + dy * bs, dy === -2 || k === a || k === b);
+          if (shroom) lights.push([x + k * bs + bs / 2, ct + dy * bs + bs / 2]);
+        }
+      }
+      // Weeping vines under crimson caps.
+      if (kind === "crimson") {
+        g.fillStyle = "#a01c1c";
+        for (let k = -2; k <= 2; k++) if (r() > 0.5) g.fillRect(x + k * bs + bs * 0.4, ct + bs, Math.max(2, bs * 0.14), bs * (0.8 + r() * 2));
+      }
+      break;
+    }
+    case "chorus": {
+      let cx = x, cy = base;
+      const hgt = 3 + Math.floor(r() * 3);
+      for (let k = 1; k <= hgt; k++) {
+        cy = base - k * bs;
+        put(T.chorus, cx, cy, false);
+        if (k > 1 && r() > 0.55) {
+          const dir = r() > 0.5 ? 1 : -1;
+          put(T.chorus, cx + dir * bs, cy, false);
+          put(T.chorus, cx + dir * bs, cy - bs, false);
+          put(T.chorusFlower, cx + dir * bs, cy - 2 * bs, true);
+        }
+      }
+      put(T.chorusFlower, cx, cy - bs, true);
+      break;
+    }
+    case "house": {
+      const w = 4, hh = 3;
+      const x0 = x - bs;
+      for (let i = 0; i < w; i++) {
+        for (let j = 1; j <= hh; j++) {
+          const corner = i === 0 || i === w - 1;
+          put(corner ? T.oakLog : T.planks, x0 + i * bs, base - j * bs, false);
+        }
+      }
+      put(T.cobble[0], x0, base - bs, false);
+      put(T.cobble[1], x0 + (w - 1) * bs, base - bs, false);
+      put(T.door, x0 + bs, base - bs, false);
+      put(T.door, x0 + bs, base - 2 * bs, false);
+      put(T.glass, x0 + 2 * bs, base - 2 * bs, false);
+      lights.push([x0 + 2.5 * bs, base - 1.5 * bs, "window"]);
+      // Roof: steps of dark planks.
+      for (let k = 0; k < 3; k++) {
+        const y = base - (hh + 1 + k) * bs;
+        for (let i = -1 + k; i <= w - k; i++) put(T.darkPlanks, x0 + i * bs, y, true);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  return lights;
 }
 
-const hash = (x, y) => {
-  let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-};
-
-const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
-
-// Block textures (day colours; the hour tints them later).
-const C = {
-  grass: [[108, 189, 69], [92, 170, 56], [126, 204, 82], [80, 152, 48]],
-  dirt: [[134, 92, 58], [116, 78, 48], [150, 106, 68], [102, 68, 42]],
-  stone: [[118, 118, 125], [109, 109, 117], [127, 127, 134], [101, 101, 109]],
-  sand: [[219, 207, 160], [204, 190, 142], [232, 222, 178]],
-  log: [[104, 78, 46], [86, 63, 37], [122, 92, 56]],
-  birch: [[226, 224, 214], [204, 202, 190], [52, 50, 46]],
-  leaves: [[72, 142, 50], [58, 120, 40], [92, 164, 62], [46, 102, 34]],
-  birchLeaves: [[112, 160, 66], [96, 142, 54], [132, 178, 80]],
-  coal: [[40, 40, 44]],
-  iron: [[214, 170, 140]],
-};
+// ------------------------------------------------------------------ world --
 
 export class World {
-  constructor(canvas) {
+  /**
+   * @param canvas the canvas to draw into
+   * @param opts { offscreen, width, height, scene, hour } — offscreen worlds
+   *   don't follow the window or animate; call drawStill() for a picture.
+   */
+  constructor(canvas, opts = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
-    this.land = document.createElement("canvas");
-    this.lctx = this.land.getContext("2d");
+    this.offscreen = !!opts.offscreen;
+    this.T = TEXTURES();
+    this.sceneId = DEFS[opts.scene] ? opts.scene : "meadow";
     this.mode = "cycle";
-    this.dayLength = 10 * 60; // seconds per in-game day
-    this.cycleHour = 6.2;
+    this.dayLength = 10 * 60;
+    this.cycleHour = opts.hour ?? 6.2;
     this.cycleRef = performance.now();
     this.days = 0;
     this.animate = true;
+    this.life = true;
     this.parallax = 0;
     this.parallaxTarget = 0;
-    this.rise = 0;
+    this.rise = this.offscreen ? 1 : 0;
     this.last = performance.now();
-    this.acc = 0;
     this.listeners = new Set();
     this.lastPhase = null;
     this.particles = [];
-    this.broken = null; // { col, crack, until }
+    this.broken = null;
     this.torch = null;
     this.fish = null;
-    this.skyKey = "";
+    this.dragon = null;
+    this.tintKey = "";
+    this.tintAt = 0;
+    if (this.offscreen) {
+      this.fixedHour = opts.hour;
+      this.resize(opts.width, opts.height, opts.dpr || 1);
+      return;
+    }
     this.resize();
     window.addEventListener("resize", () => this.resize());
     window.addEventListener("mousemove", (e) => {
@@ -114,15 +388,27 @@ export class World {
     requestAnimationFrame((t) => this.loop(t));
   }
 
+  get def() { return DEFS[this.sceneId] || DEFS.meadow; }
+
   // ------------------------------------------------------------- public --
 
   onPhase(fn) { this.listeners.add(fn); }
+
+  setScene(id) {
+    if (!DEFS[id] || id === this.sceneId) return;
+    this.sceneId = id;
+    this.particles = [];
+    this.broken = null;
+    this.build();
+    this.tintKey = "";
+    this.emitPhase(true);
+  }
 
   setMode(mode) {
     const h = this.hour();
     this.mode = mode || "cycle";
     if (this.mode === "cycle") { this.cycleHour = h; this.cycleRef = performance.now(); }
-    this.skyKey = "";
+    this.tintKey = "";
     this.emitPhase(true);
   }
 
@@ -135,7 +421,15 @@ export class World {
 
   setAnimate(on) { this.animate = on; }
 
+  /** Critters and particles on or off (the "World life" setting). */
+  setLife(on) { this.life = on !== false; }
+
+  /** True when the scene has its own fixed light (cave, Nether, End). */
+  get fixedTime() { return !!this.def.time; }
+
   hour() {
+    if (this.def.time) return this.def.time.hour;
+    if (this.offscreen && this.fixedHour != null) return this.fixedHour;
     if (this.mode in FIXED) return FIXED[this.mode];
     if (this.mode === "clock") {
       const d = new Date();
@@ -147,56 +441,70 @@ export class World {
     return ((total % 24) + 24) % 24;
   }
 
-  phase() { return phaseOf(this.hour()); }
+  phase() { return this.def.time ? this.def.time.phase : phaseOf(this.hour()); }
 
-  timeLabel() {
+  palette() {
+    const d = this.def;
+    if (d.time) return resolve(d.time.palette);
+    const p = cyclePalette(this.hour());
+    if (d.tweak) {
+      const { color, amount } = d.tweak;
+      for (const k of ["haze", "hor", "mid", "cloudShade"]) p[k] = mix(p[k], color, amount * (k === "haze" ? 1 : 0.6));
+    }
+    return p;
+  }
+
+  timeLabel(h12 = false) {
+    if (this.def.time) return SCENES.find((s) => s.id === this.sceneId)?.name || "";
     const h = this.hour();
-    const hh = Math.floor(h);
-    const mm = Math.floor((h - hh) * 60);
-    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    let hh = Math.floor(h);
+    const mm = String(Math.floor((h - hh) * 60)).padStart(2, "0");
+    if (h12) {
+      const ap = hh >= 12 ? "PM" : "AM";
+      hh = hh % 12 || 12;
+      return `${hh}:${mm} ${ap}`;
+    }
+    return `${String(hh).padStart(2, "0")}:${mm}`;
   }
 
   /** Darkness 0 (noon) … 1 (midnight). */
   darkness() {
-    return Math.min(1, palette(this.hour()).tintA / 0.64);
+    return Math.min(1, this.palette().tintA / 0.62);
   }
 
-  get scale() { return window.innerHeight / H; }
+  get scale() { return this.h / H; }
 
   /** Where the player's feet go, in screen pixels. */
   anchor() {
-    return { x: this.playerX * this.scale, y: this.groundY * this.scale, scale: this.scale };
+    return { x: this.playerX, y: this.groundY, scale: this.scale };
   }
 
-  /** Logical x of named spots, relative to the player's home (screen px). */
+  /** Screen-x of named spots, relative to the player's home. */
   spot(name) {
     const col = { punch: this.punchCol, fire: this.fireCol, pond: this.pondEnd }[name];
-    return ((col * B + B / 2) - this.playerX) * this.scale;
+    return this.colX(col) + this.BS / 2 - this.playerX;
   }
 
   /** Visible critters near the player, in screen pixels. */
   critters() {
-    const s = this.scale;
-    return [...(this.bees || []), ...(this.butterflies || [])]
-      .filter((c) => c.visible)
-      .map((c) => ({ x: c.x * s, y: c.y * s }));
+    return [...(this.bees || []), ...(this.butterflies || [])].filter((c) => c.visible).map((c) => ({ x: c.x, y: c.y }));
   }
 
   setTorch(screenX, screenY, on) {
-    this.torch = on ? { x: screenX / this.scale, y: screenY / this.scale } : null;
+    this.torch = on ? { x: screenX, y: screenY } : null;
   }
 
   /** One hit on the block in front of the player; it breaks after a few. */
   hitBlock() {
     const now = performance.now();
-    if (this.broken && this.broken.until > now) return;
-    if (!this.broken || this.broken.until) this.broken = { col: this.punchCol, crack: 0, until: 0 };
+    if (this.broken && this.broken.until > now) return false;
+    if (!this.broken || this.broken.until) this.broken = { col: this.punchCol, crack: 0, until: 0, grown: 0 };
     this.broken.crack += 1;
-    const x = this.punchCol * B + B / 2;
-    this.spawn(x, this.groundY + 1, 3, [C.grass[0], C.dirt[0]], 22);
+    const x = this.colX(this.punchCol) + this.BS / 2;
+    this.spawnChunks(x, this.groundY + 4, 3);
     if (this.broken.crack >= 4) {
       this.broken.until = now + 7000;
-      this.spawn(x, this.groundY + 2, 14, [C.grass[0], C.grass[2], C.dirt[0], C.dirt[1]], 40);
+      this.spawnChunks(x, this.groundY + this.BS / 2, 14);
       return true;
     }
     return false;
@@ -204,229 +512,498 @@ export class World {
 
   // --------------------------------------------------------- generation --
 
-  resize() {
-    const aspect = Math.max(1, window.innerWidth / Math.max(1, window.innerHeight));
-    this.W = Math.round(H * aspect);
-    this.canvas.width = this.W;
-    this.canvas.height = H;
-    this.land.width = this.W;
-    this.land.height = H;
-    this.ctx.imageSmoothingEnabled = false;
-    this.lctx.imageSmoothingEnabled = false;
+  colX(c) { return this.x0 + c * this.BS; }
+
+  resize(w = window.innerWidth, h = window.innerHeight, dpr = Math.min(2, window.devicePixelRatio || 1)) {
+    this.dpr = dpr;
+    this.w = w;
+    this.h = h;
+    this.canvas.width = Math.round(w * dpr);
+    this.canvas.height = Math.round(h * dpr);
+    if (!this.offscreen) {
+      this.canvas.style.width = `${w}px`;
+      this.canvas.style.height = `${h}px`;
+    }
     this.build();
-    this.skyKey = "";
+    this.tintKey = "";
+  }
+
+  layerCanvas(res, margin) {
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round((this.w + margin * 2) * this.dpr * res));
+    c.height = Math.max(1, Math.round(this.h * this.dpr * res));
+    const g = c.getContext("2d");
+    g.scale(this.dpr * res, this.dpr * res);
+    g.translate(margin, 0);
+    g.imageSmoothingEnabled = false;
+    return { c, g, res, margin };
   }
 
   build() {
-    const W = this.W;
-    const cols = Math.ceil(W / B) + 1;
+    const { w, h } = this;
+    const s = h / H;
+    const BS = Math.max(22, Math.round(s * 16));
+    this.BS = BS;
+    this.texel = BS / 16;
+    this.groundY = Math.round(198 * s);
+    const margin = 48;
+    this.x0 = -margin;
+    const cols = Math.ceil((w + margin * 2) / BS) + 1;
     this.cols = cols;
-    this.groundY = 33 * B; // 198: the plateau the player stands on
-    this.playerCol = Math.round((W * 0.4) / B);
-    this.playerX = this.playerCol * B + B / 2;
-    const pc = this.playerCol;
-    this.punchCol = pc - 3;
-    this.fireCol = pc + 4;
-    this.pondStart = pc - 15;
-    this.pondEnd = pc - 8;
+    const pc = Math.round((w * 0.4 - this.x0) / BS - 0.5);
+    this.playerCol = pc;
+    this.playerX = this.colX(pc) + BS / 2;
+    this.punchCol = pc - 2;
+    this.fireCol = pc + 3;
+    const water = this.def.water;
+    this.pondStart = pc - (water === "pool" ? 9 : 7);
+    this.pondEnd = pc - 5;
+    if (water === "none" || water === "sea") { this.pondStart = -99; this.pondEnd = -99; }
+    this.treeCol = pc + 7;
+    this.lights = [];
+    this.glows = [];
 
-    // Column heights, in blocks above the plateau.
     const off = new Array(cols).fill(0);
     for (let c = 0; c < cols; c++) {
       const d = c - pc;
-      const n = Math.sin(c * 0.33) * 1.2 + Math.sin(c * 0.11 + 2) * 1.6 + Math.sin(c * 0.71 + 1) * 0.5;
-      if (Math.abs(d) <= 6) off[c] = 0;
-      else if (c >= this.pondStart && c <= this.pondEnd) off[c] = -3;
-      else if (d === -7) off[c] = 0;
-      else if (d < -15) off[c] = Math.max(1, Math.round(1.5 + n + (-d - 16) * 0.12));
-      else if (d <= 9) off[c] = 1;
-      else off[c] = Math.max(1, Math.min(6, Math.round(2.2 + n + (d - 10) * 0.08)));
+      const n = Math.sin(c * 0.5) * 0.8 + Math.sin(c * 0.23 + 1.3) * 1.1;
+      if (d >= -4 && d <= 3) off[c] = 0;
+      else if (c >= this.pondStart && c <= this.pondEnd) off[c] = -2;
+      else if (water === "sea" && d < -4) off[c] = d < -9 ? 0 : 0;
+      else if (d < -7) off[c] = clamp(Math.round(1 + n * 0.6 + (-d - 8) * 0.25), 1, 4);
+      else if (d <= 5) off[c] = 1;
+      else off[c] = clamp(Math.round(2 + n * 0.7 + (d - 6) * 0.12), 2, 5);
+      if (water === "sea" && d > 5) off[c] = clamp(off[c], 1, 3);
     }
     this.off = off;
-    this.topOf = (c) => this.groundY - (off[Math.max(0, Math.min(cols - 1, c))] || 0) * B;
+    this.topOf = (c) => this.groundY - (off[clamp(c, 0, cols - 1)] || 0) * BS;
 
-    // Terrain image.
-    const img = this.lctx.createImageData(W, H);
-    const put = (x, y, c, a = 255) => {
-      if (x < 0 || y < 0 || x >= W || y >= H) return;
-      const i = (y * W + x) * 4;
-      img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = a;
+    this.buildFar();
+    this.buildHills();
+    this.buildMid();
+    this.buildFore();
+    this.buildFlora();
+    this.buildClouds();
+    this.buildStars();
+    this.buildCritters();
+    this.tinted = null;
+  }
+
+  /** Far land: mountains, dunes, sea islands, jungle canopy, Nether cliffs, End islands, cave walls. */
+  buildFar() {
+    const kind = this.def.far;
+    const L = this.layerCanvas(0.22, 60);
+    const { g } = L;
+    const { w, h } = this;
+    const r = rng(11 + kind.length);
+    const bs = this.BS * 0.62;
+    const base = this.groundY - this.BS * 2.2;
+    this.farLights = [];
+    this.lavaFalls = [];
+    this.crystals = [];
+    const ridge = (peaksN, hMin, hMax, fill, side, snowLine, snow = "#f4f8ff") => {
+      const peaks = [];
+      for (let x = -60; x < w + 60; x += w / peaksN) peaks.push({ x: x + r() * w * 0.12, hgt: h * (hMin + r() * (hMax - hMin)), wid: w * (0.16 + r() * 0.14) });
+      for (let x = -60; x < w + 60; x += bs) {
+        let top = base;
+        for (const p of peaks) {
+          const d = Math.abs(x - p.x) / p.wid;
+          if (d < 1) top = Math.min(top, base - p.hgt * (1 - d) * (1 - d * 0.35));
+        }
+        top = Math.round(top / bs) * bs;
+        g.fillStyle = fill;
+        g.fillRect(x, top, bs + 0.5, h - top);
+        g.fillStyle = side;
+        g.fillRect(x + bs * 0.6, top, bs * 0.4 + 0.5, h - top);
+        if (snowLine != null && base - top > h * snowLine) {
+          g.fillStyle = snow;
+          g.fillRect(x, top, bs + 0.5, bs * (1 + r() * (kind === "snowpeaks" ? 3 : 1)));
+        }
+      }
     };
-    // Mostly the base colour, with a few darker/lighter texels: reads as a
-    // block texture rather than noise.
-    const pick = (list, x, y) => {
-      const h = hash(x, y);
-      return h < 0.62 ? list[0] : list[1 + Math.floor(((h - 0.62) / 0.38) * (list.length - 1))];
-    };
-    const wetSand = C.sand.map((c) => mix(c, [70, 96, 120], 0.45));
+    if (kind === "mountains") ridge(4.2, 0.16, 0.3, "#7d8fa8", "#6a7c96", 0.12);
+    else if (kind === "snowpeaks") ridge(3.4, 0.24, 0.42, "#8a9ab4", "#71829f", 0.08);
+    else if (kind === "dunes") {
+      for (let layer = 0; layer < 2; layer++) {
+        let lvl = 2;
+        for (let x = -60; x < w + 60; x += bs) {
+          lvl = clamp(lvl + (r() > 0.7 ? (r() > 0.5 ? 1 : -1) : 0), 0, 5);
+          const top = base - lvl * bs * 0.8 - layer * bs * 2 + bs * 2;
+          g.fillStyle = layer ? "#e2b46a" : "#cf9a52";
+          g.fillRect(x, top, bs + 0.5, h - top);
+        }
+      }
+      // A desert temple on the horizon.
+      const tx = w * 0.72;
+      for (let k = 0; k < 6; k++) {
+        g.fillStyle = k % 2 ? "#c9a46a" : "#d6b47a";
+        g.fillRect(tx - (6 - k) * bs, base - k * bs, (6 - k) * 2 * bs, bs + 0.5);
+      }
+      g.fillStyle = "#b8925a";
+      g.fillRect(tx - 6.5 * bs, base - 7 * bs, bs * 1.2, bs * 7);
+      g.fillRect(tx + 5.3 * bs, base - 7 * bs, bs * 1.2, bs * 7);
+    } else if (kind === "sea") {
+      const sea = this.groundY - this.BS * 3.6;
+      for (let i = 0; i < 4; i++) {
+        const ix = w * (0.1 + r() * 0.8), iw = bs * (3 + r() * 6);
+        const top = sea - bs * (1 + r() * 2);
+        g.fillStyle = "#5f7f6a";
+        g.fillRect(ix, top, iw, sea - top + 2);
+        g.fillStyle = "#3f6a44";
+        g.fillRect(ix + bs, top - bs * 1.2, iw - bs * 2, bs * 1.4);
+      }
+      g.fillStyle = "#8aa4b8";
+      for (let x = -60; x < w + 60; x += bs) g.fillRect(x, sea - bs * (2 + Math.abs(Math.sin(x * 0.004)) * 4), bs + 0.5, h);
+    } else if (kind === "jungle") {
+      for (let x = -60; x < w + 60; x += bs * 2) {
+        const hgt = h * (0.08 + r() * 0.12);
+        const top = base - hgt;
+        g.fillStyle = r() > 0.5 ? "#2f6a2c" : "#3a7a32";
+        g.fillRect(x, top, bs * 2.6, h - top);
+        g.fillStyle = "#4f3a22";
+        if (r() > 0.6) g.fillRect(x + bs, top - h * 0.08, bs * 0.5, h * 0.08);
+        g.fillStyle = "#2a5f26";
+        if (r() > 0.6) g.fillRect(x - bs * 0.5, top - h * 0.1, bs * 3.5, h * 0.03);
+      }
+    } else if (kind === "nether") {
+      ridge(3, 0.2, 0.46, "#5a1414", "#481010", null);
+      for (let i = 0; i < 4; i++) {
+        const fx = w * (0.12 + i * 0.24 + r() * 0.08);
+        const top = h * (0.1 + r() * 0.12);
+        this.lavaFalls.push({ x: fx, top, bottom: base + this.BS, w: bs * (0.8 + r() * 0.8) });
+      }
+      for (let i = 0; i < 6; i++) {
+        const px = r() * w, ph = h * (0.1 + r() * 0.2);
+        g.fillStyle = "#3a3438";
+        g.fillRect(px, base - ph, bs * (1 + r()), ph + h);
+      }
+    } else if (kind === "end") {
+      for (let i = 0; i < 7; i++) {
+        const ix = r() * w, iy = h * (0.2 + r() * 0.35), iw = bs * (4 + r() * 10);
+        for (let k = 0; k < 4; k++) {
+          g.fillStyle = k === 0 ? "#d8dc9c" : "#b7bb80";
+          g.fillRect(ix + k * bs * 0.8, iy + k * bs * 0.7, iw - k * bs * 1.6, bs * 0.8);
+        }
+      }
+      for (let i = 0; i < 6; i++) {
+        const px = w * (0.06 + i * 0.17 + r() * 0.05), ph = h * (0.22 + r() * 0.3);
+        g.fillStyle = "#140d22";
+        g.fillRect(px, base - ph, bs * 1.6, ph + h);
+        g.fillStyle = "#24183a";
+        g.fillRect(px + bs, base - ph, bs * 0.6, ph + h);
+        this.crystals.push({ x: px + bs * 0.8, y: base - ph - bs * 1.2, ph: r() * 6 });
+      }
+      g.fillStyle = "#c9cd8e";
+      g.fillRect(-60, base, w + 120, h);
+    } else if (kind === "cave") {
+      for (let x = -60; x < w + 60; x += bs) {
+        const top = base - h * (0.1 + Math.abs(Math.sin(x * 0.01)) * 0.14);
+        g.fillStyle = "#26302c";
+        g.fillRect(x, top, bs + 0.5, h - top);
+        if (r() > 0.8) this.farLights.push([x, top + bs * r() * 4]);
+      }
+    }
+    this.far = L;
+  }
+
+  /** Rolling hills with tree lines, blurred. */
+  buildHills() {
+    const L = this.layerCanvas(0.34, 60);
+    this.hills = L;
+    const H0 = this.def.hills;
+    if (!H0) return;
+    const { g } = L;
+    const { w, h } = this;
+    const bs = this.BS * 0.7;
+    const base = this.groundY - this.BS * 1.1;
+    const r = rng(23);
+    for (let x = -60; x < w + 60; x += bs) {
+      const n = Math.sin(x * 0.006) * 0.9 + Math.sin(x * 0.017 + 2) * 0.6;
+      const top = Math.round((base - bs * (2 + n * 1.6)) / bs) * bs;
+      g.fillStyle = H0.top;
+      g.fillRect(x, top, bs + 0.5, bs * 0.4);
+      g.fillStyle = H0.body;
+      g.fillRect(x, top + bs * 0.4, bs + 0.5, h - top);
+      if (r() > 0.55) {
+        const t = H0.tree;
+        if (t === "cactus") {
+          g.fillStyle = "#5b8a34";
+          g.fillRect(x + bs * 0.3, top - bs * 1.6, bs * 0.4, bs * 1.6);
+          continue;
+        }
+        const th = bs * (1.5 + r() * 1.5) * (t === "jungle" ? 1.8 : 1);
+        g.fillStyle = t === "fungus" ? "#6a2a40" : "#4b3a26";
+        g.fillRect(x + bs * 0.35, top - th, bs * 0.3, th);
+        const leaf = { oak: ["#3f7d34", "#4f8f3a"], cherry: ["#f0a8c8", "#e690b8"], spruce: ["#2f5a3c", "#36654a"], jungle: ["#2f7a2a", "#3a8a30"], fungus: ["#9a1e26", "#1f8a80"] }[t] || ["#3f7d34", "#4f8f3a"];
+        g.fillStyle = leaf[r() > 0.4 ? 0 : 1];
+        if (t === "spruce") {
+          for (let k = 0; k < 4; k++) g.fillRect(x + bs / 2 - bs * (1.4 - k * 0.3), top - th - bs * (0.5 + k * 0.7), bs * (2.8 - k * 0.6), bs * 0.8);
+        } else {
+          const cw = bs * (2 + Math.floor(r() * 2));
+          g.fillRect(x + bs / 2 - cw / 2, top - th - bs * 1.4, cw, bs * 1.6);
+          g.fillRect(x + bs / 2 - cw / 4, top - th - bs * 2, cw / 2, bs * 0.7);
+        }
+      }
+    }
+  }
+
+  /** Mid-ground: textured trees (or houses) on a low ridge, slightly soft. */
+  buildMid() {
+    const L = this.layerCanvas(0.6, 60);
+    this.mid = L;
+    this.midRims = [];
+    this.midLights = [];
+    const M = this.def.mid;
+    if (!M.ridge) return;
+    const { g } = L;
+    const { w, h, T } = this;
+    const bs = this.BS * 0.78;
+    const base = this.groundY - this.BS * 0.25;
+    const r = rng(47 + this.sceneId.length * 13);
+    const ridgeTop = { grass: T.grass[0], snowGrass: T.snowGrass[0], sand: T.sand[0], jungleGrass: T.jungleGrass[0], moss: T.mossCap[0], nylium: T.nylium[0], endstone: T.endstone[0] }[M.ridge] || T.grass[0];
+    const fill = { sand: T.sandstone[0], nylium: T.netherrack[0], endstone: T.endstone[1], moss: T.stone[0] }[M.ridge] || T.dirt[0];
+    const tops = [];
+    for (let x = -60, i = 0; x < w + 60; x += bs, i++) {
+      const n = Math.sin(i * 0.4) * 0.7 + Math.sin(i * 0.13 + 1) * 0.9;
+      const top = base - Math.round(1 + n) * bs;
+      tops.push([x, top]);
+      g.drawImage(ridgeTop, x, top, bs + 0.4, bs + 0.4);
+      for (let y = top + bs; y < h; y += bs) g.drawImage(fill, x, y, bs + 0.4, bs + 0.4);
+      this.midRims.push([x, top, bs]);
+    }
+    let last = -999;
+    for (const [x, top] of tops) {
+      if (r() > M.density) continue;
+      if (Math.abs(x - this.playerX) < bs * 3) continue;
+      if (x - last < bs * 4) continue;
+      last = x;
+      const kind = M.trees[Math.floor(r() * M.trees.length)];
+      const lights = drawTree(g, T, kind, x, top, bs, this.midRims, r);
+      for (const [lx, ly, type] of lights) this.midLights.push([lx, ly, type]);
+    }
+  }
+
+  /** Foreground terrain: crisp textured blocks. */
+  buildFore() {
+    const L = this.layerCanvas(1, 0);
+    const { g } = L;
+    const { BS, T, h, cols } = this;
+    const D = this.def;
+    this.foreRims = [];
+    this.foreLights = [];
+    const top = { grass: T.grass, snowGrass: T.snowGrass, sand: T.sand, jungleGrass: T.jungleGrass, mossCap: T.mossCap, nylium: T.nylium, endstone: T.endstone }[D.ground.top];
+    const sub = { dirt: T.dirt, sandstone: T.sandstone, sand: T.sand, netherrack: T.netherrack, endstone: T.endstone, clay: T.clay }[D.ground.sub];
+    const deep = { stone: T.stone, sandstone: T.sandstone, netherrack: T.netherrack, endstone: T.endstone, deep: T.deep, basalt: T.basalt }[D.ground.deep];
     for (let c = 0; c < cols; c++) {
-      const top = this.topOf(c);
+      const x = this.colX(c);
+      const t0 = this.topOf(c);
       const pond = c >= this.pondStart && c <= this.pondEnd;
-      for (let y = top; y < H; y++) {
-        const depth = Math.floor((y - top) / B);
-        for (let x = c * B; x < c * B + B; x++) {
-          const lx = x - c * B, ly = (y - top) % B;
-          let col;
-          if (pond) col = depth < 2 ? pick(wetSand, x, y) : pick(C.stone, Math.floor(x / 2), Math.floor(y / 2));
-          else if (depth === 0) {
-            if (ly < 2) col = pick(C.grass, x, y);
-            else if (ly === 2 && hash(x, 7) > 0.55) col = C.grass[3];
-            else col = pick(C.dirt, x, y);
-          } else if (depth < 7) col = pick(C.dirt, x, y);
-          else {
-            col = pick(C.stone, Math.floor(x / 2), Math.floor(y / 2));
-            const ore = hash(Math.floor(x / 3), Math.floor(y / 3));
-            if (ore > 0.985) col = C.coal[0];
-            else if (ore > 0.98) col = C.iron[0];
-          }
-          // Deeper ground falls into shadow.
-          const deep = Math.max(0, Math.min(1, (y - (this.groundY + 2 * B)) / (H - this.groundY - 2 * B)));
-          if (deep > 0) col = mix(col, [24, 18, 30], deep * 0.55);
-          // Block edge shading for the blocky look.
-          if (ly === B - 1 || lx === B - 1) col = mix(col, [0, 0, 0], 0.1);
-          if (ly === 0 && depth > 0) col = mix(col, [255, 255, 255], 0.06);
-          put(x, y, col);
+      for (let y = t0, row = 0; y < h + BS; y += BS, row++) {
+        const hsh = hash(c, row, 3);
+        let t;
+        if (pond) t = row < 2 ? (D.water === "lava" ? T.netherrack[0] : D.water === "ice" ? T.stone[0] : T.sand[0]) : deep[0];
+        else if (row === 0) {
+          t = (D.water === "sea" && this.off[c] >= 1 ? T.grass : top)[Math.floor(hsh * top.length) % 3];
+          if (D.ground.top === "nylium" && hsh > 0.6) t = T.warpedNylium[0];
+          if (D.fore.path && Math.abs(c - this.playerCol) <= 1) t = T.path[0];
+        } else if (row < 5) t = sub[Math.floor(hsh * sub.length)];
+        else t = deep[Math.floor(hsh * deep.length)];
+        g.drawImage(t, x, y, BS + 0.4, BS + 0.4);
+        const dd = clamp((y - this.groundY - BS * 0.5) / (h - this.groundY), 0, 1);
+        if (dd > 0) {
+          g.fillStyle = `rgba(14,8,20,${Math.min(0.72, dd * 0.8)})`;
+          g.fillRect(x, y, BS + 0.4, BS + 0.4);
         }
       }
-      // Exposed side faces where the neighbour is lower: darker column edge.
-      for (const [nc, edgeX] of [[c - 1, c * B], [c + 1, c * B + B - 1]]) {
+      for (const [nc, side] of [[c - 1, 0], [c + 1, 1]]) {
         const ntop = this.topOf(nc);
-        if (ntop > top) {
-          for (let y = top; y < Math.min(ntop, H); y++) {
-            const i = (y * W + edgeX) * 4;
-            img.data[i] = img.data[i] * 0.7; img.data[i + 1] = img.data[i + 1] * 0.7; img.data[i + 2] = img.data[i + 2] * 0.7;
-          }
+        if (ntop > t0) {
+          const grd = g.createLinearGradient(side ? x + BS : x, 0, side ? x + BS - BS * 0.35 : x + BS * 0.35, 0);
+          grd.addColorStop(0, "rgba(0,0,0,0.32)");
+          grd.addColorStop(1, "rgba(0,0,0,0)");
+          g.fillStyle = grd;
+          g.fillRect(x, t0, BS, ntop - t0);
         }
       }
+      if (D.snowCover && !pond) {
+        g.fillStyle = "#ffffff";
+        g.fillRect(x, t0 - BS * 0.12, BS + 0.4, BS * 0.14);
+      }
+      if (!pond) this.foreRims.push([x, t0, BS]);
     }
-
-    // Trees (static), placed on columns relative to the player.
-    this.trees = [];
-    this.hive = null;
-    const tree = (dc, kind, h) => {
-      const c = pc + dc;
-      if (c < 1 || c >= cols - 1) return;
-      const base = this.topOf(c);
-      const tx = c * B;
-      const trunk = kind === "birch" ? C.birch : C.log;
-      for (let y = base - h * B; y < base; y++) {
-        for (let x = tx + 1; x < tx + B - 1; x++) {
-          let col = trunk[Math.floor(hash(x, y) * 2)];
-          if (kind === "birch" && hash(x * 3, y) > 0.82) col = C.birch[2];
-          if (kind !== "birch" && (x - tx) % 2 === 0 && hash(x, y * 5) > 0.6) col = C.log[1];
-          put(x, y, col);
+    const r = rng(91 + this.sceneId.length);
+    // The main tree, with a bee nest in leafy scenes.
+    const tc = this.treeCol;
+    if (D.fore.tree && tc < cols - 1) {
+      const x = this.colX(tc), base = this.topOf(tc);
+      const lights = drawTree(g, T, D.fore.tree, x, base, BS, this.foreRims, r);
+      for (const l of lights) this.foreLights.push(l);
+      if (D.fore.nest) {
+        const th = 4;
+        const ny = base - th * BS;
+        g.drawImage(T.nest, x - BS, ny, BS, BS);
+        this.hive = { x: x - BS / 2, y: ny + BS / 2 };
+      } else this.hive = null;
+      if (D.fore.tree === "cactus") drawTree(g, T, "cactus", this.colX(tc + 3), this.topOf(tc + 3), BS, this.foreRims, r);
+    } else this.hive = null;
+    // A big framing tree at the left edge, standing on the ground.
+    if (D.fore.frame) {
+      const leaf = { oak: T.oakLeaf, cherry: T.cherryLeaf, jungle: T.jungleLeaf }[D.fore.frame];
+      const logT = { oak: T.oakLog, cherry: T.cherryLog, jungle: T.jungleLog }[D.fore.frame];
+      const col = 1;
+      const lx = this.colX(col);
+      const base = this.topOf(col);
+      const th = D.fore.frame === "jungle" ? 7 : 5;
+      for (let k = 1; k <= th; k++) g.drawImage(logT, lx, base - k * BS, BS + 0.4, BS + 0.4);
+      const ct = base - th * BS - BS;
+      const rows = [[-3, 2, 1], [-3, 3, 0], [-3, 3, -1], [-2, 2, -2]];
+      for (const [a, b, dy] of rows) {
+        for (let k = a; k <= b; k++) {
+          if (dy === 1 && (k === a || k === b || r() > 0.6)) continue;
+          if ((k === a || k === b) && dy === -2 && r() > 0.5) continue;
+          const x = lx + k * BS, y = ct + dy * BS;
+          g.drawImage(leaf, x, y, BS + 0.4, BS + 0.4);
+          if (dy === -2 || k === b || (dy === -1 && k === a)) this.foreRims.push([x, y, BS]);
         }
       }
-      const leaves = kind === "birch" ? C.birchLeaves : C.leaves;
-      const cw = kind === "birch" ? 4 : 5;
-      const top = base - h * B - 2 * B;
-      const cx = tx + B / 2;
-      const rows = [[cw, 0], [cw, 1], [cw - 2, 2]];
-      const canopy = [];
-      for (const [wBlocks, r] of rows) {
-        const y0 = top + (2 - r) * B - B;
-        const x0 = Math.round(cx - (wBlocks * B) / 2);
-        for (let y = y0; y < y0 + B; y++) {
-          for (let x = x0; x < x0 + wBlocks * B; x++) {
-            const edge = (x === x0 || x === x0 + wBlocks * B - 1) && hash(x, y) > 0.5;
-            if (edge) continue;
-            let col = pick(leaves, x, y);
-            if (hash(x * 7, y * 3) > 0.9) col = leaves[leaves.length - 1];
-            put(x, y, col);
-          }
-        }
-        canopy.push({ x0, y0, w: wBlocks * B });
-      }
-      // Top tuft.
-      for (let y = top - B - 3; y < top - B; y++) for (let x = cx - 4; x < cx + 4; x++) put(x, y, pick(leaves, x, y));
-      this.trees.push({ x: cx, canopyTop: top - B - 3, canopyBottom: top + B, w: cw * B, kind });
-      if (kind === "oak-hive") {
-        // Bee nest hanging under the canopy.
-        const hx = tx + B, hy = top + B + 1;
-        for (let y = hy; y < hy + 5; y++) for (let x = hx; x < hx + 5; x++) {
-          const stripe = (y - hy) % 2 === 1;
-          put(x, y, stripe ? [196, 140, 40] : [236, 190, 74]);
-        }
-        put(hx + 2, hy + 3, [60, 40, 20]);
-        this.hive = { x: hx + 2.5, y: hy + 2.5 };
-      }
-    };
-    tree(11, "oak-hive", 4);
-    tree(17, "birch", 5);
-    tree(-21, "oak", 4);
-    tree(-27, "birch", 4);
-    tree(26, "oak", 5);
-    tree(33, "oak", 4);
-    if (!this.hive) this.hive = { x: this.playerX + 60, y: this.groundY - 40 };
-
-    // Campfire logs (flames are animated).
-    const fx = this.fireCol * B;
-    const fy = this.groundY;
-    for (let x = fx - 1; x < fx + B + 1; x++) { put(x, fy - 1, C.log[0]); put(x, fy - 2, C.log[2]); }
-    put(fx, fy - 3, [60, 60, 60]); put(fx + B - 1, fy - 3, [60, 60, 60]);
-    this.fire = { x: fx + B / 2, y: fy - 2 };
-    this.lctx.putImageData(img, 0, 0);
-    this.terrain = document.createElement("canvas");
-    this.terrain.width = W;
-    this.terrain.height = H;
-    this.terrain.getContext("2d").drawImage(this.land, 0, 0);
-
-    // Flowers and grass tufts on grass tops.
-    const r = rng(42);
-    this.flowers = [];
-    const kinds = ["poppy", "dandelion", "cornflower", "allium", "tulip"];
-    for (let c = 2; c < cols - 2; c++) {
-      const d = c - pc;
-      if ((c >= this.pondStart - 1 && c <= this.pondEnd + 1) || Math.abs(d) <= 2 || c === this.fireCol || c === this.punchCol) continue;
-      const top = this.topOf(c);
-      if (r() < 0.32) this.flowers.push({ x: c * B + 1 + Math.floor(r() * 4), y: top, kind: kinds[Math.floor(r() * kinds.length)], ph: r() * 6 });
-      if (r() < 0.55) this.flowers.push({ x: c * B + Math.floor(r() * 5), y: top, kind: "grass", h: 2 + Math.floor(r() * 3), ph: r() * 6 });
+      g.fillStyle = "rgba(10,20,10,0.35)";
+      g.fillRect(lx, base - th * BS, BS, BS * 0.6);
+      this.frameX = lx;
     }
-
-    // Far mountains and mid hills.
-    const ridge = (base, amp, freq, seed, step) => {
-      const rr = rng(seed);
-      const ph = [rr() * 9, rr() * 9, rr() * 9];
-      return Array.from({ length: W + 80 }, (_, i) => {
-        const x = i - 40;
-        const v = Math.abs(Math.sin(x * freq + ph[0])) * 0.65 + Math.sin(x * freq * 2.7 + ph[1]) * 0.25 + Math.sin(x * freq * 6.1 + ph[2]) * 0.1;
-        return Math.round((base - v * amp) / step) * step;
-      });
-    };
-    this.mountains = ridge(H * 0.6, 62, 0.012, 11, 2);
-    this.hills = ridge(H * 0.68, 22, 0.024, 23, 2);
-    const tr = rng(91);
-    this.hillTrees = Array.from({ length: Math.round(W / 9) }, () => ({ x: Math.floor(tr() * (W + 60)) - 30, s: 3 + Math.floor(tr() * 4), kind: tr() > 0.35 ? "spruce" : "round" }));
-
-    // Stars, clouds, critters.
-    const sr = rng(1337);
-    this.stars = Array.from({ length: Math.round(W * 0.5) }, () => ({ x: Math.floor(sr() * W), y: Math.floor(sr() * H * 0.62), tw: sr() * 6.28, sp: 0.5 + sr() * 2.4, big: sr() > 0.93 }));
-    const cr = rng(7);
-    this.clouds = Array.from({ length: Math.max(6, Math.round(W / 60)) }, (_, i) => {
-      const w = 6 + Math.floor(cr() * 10), h = 2 + Math.floor(cr() * 2);
-      const cells = [];
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const edge = (x === 0 || x === w - 1) && (y === 0 || y === h - 1);
-        if (!edge && cr() > 0.12) cells.push([x, y]);
-      }
-      return { x: cr() * W, y: 14 + cr() * H * 0.34, cells, w, h, speed: 1.2 + cr() * 2.4, layer: i % 2 };
-    });
-    this.bees = Array.from({ length: 4 }, (_, i) => ({ ph: i * 1.7, r: 10 + i * 4, cx: 0, cy: 0, x: 0, y: 0, visible: false }));
-    this.butterflies = Array.from({ length: 2 }, (_, i) => ({ ph: i * 3, x: this.playerX - 40 + i * 70, y: this.groundY - 20, visible: false, color: i ? [255, 240, 120] : [140, 200, 255] }));
-    this.birds = Array.from({ length: 5 }, (_, i) => ({ x: -20 - i * 40, y: 30 + i * 8, speed: 9 + i * 2, ph: i }));
-    this.flies = Array.from({ length: 22 }, () => ({ x: (this.pondStart - 6 + sr() * 30) * B, y: this.groundY - 4 - sr() * 30, ph: sr() * 6, sp: 0.5 + sr() }));
-    this.leafSpawn = 0;
+    this.fore = L;
   }
 
-  // ------------------------------------------------------------ effects --
+  /** Plants on top of the foreground (drawn every frame so they sway). */
+  buildFlora() {
+    const { T, cols, BS } = this;
+    const kinds = this.def.flora.map((k) => (Array.isArray(T[k]) ? T[k] : [T[k]])).filter((k) => k[0]);
+    this.flora = [];
+    if (!kinds.length) return;
+    for (let c = 0; c < cols; c++) {
+      if (c >= this.pondStart - 1 && c <= this.pondEnd + 1) continue;
+      if (c === this.punchCol || c === this.fireCol || c === this.treeCol || (this.def.fore.frame && c === 1)) continue;
+      const near = Math.abs(c - this.playerCol) <= 1;
+      const h = hash(c, 1, 41);
+      if (near && h > 0.3) continue;
+      if (h > 0.82) continue;
+      const list = kinds[Math.floor(hash(c, 2, 41) * kinds.length)];
+      const img = list[Math.floor(hash(c, 5, 41) * list.length)];
+      const x = this.colX(c), top = this.topOf(c);
+      this.flora.push({ img, x: x + BS * (0.05 + hash(c, 3, 41) * 0.4), y: top, size: BS * 0.8, phase: h * 6 });
+      if (h < 0.35 && T.tufts) this.flora.push({ img: (this.def.flora.includes("roots") ? T.roots : this.def.flora.includes("ferns") ? T.ferns : T.tufts)[c % 2], x: x + BS * 0.45, y: top, size: BS * 0.7, phase: h * 9 });
+    }
+  }
 
-  spawn(x, y, n, colors, speed) {
+  buildClouds() {
+    const r = rng(5);
+    const { w, h, BS } = this;
+    this.clouds = [];
+    const n = this.def.clouds || 0;
     for (let i = 0; i < n; i++) {
-      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
-      const sp = speed * (0.4 + Math.random() * 0.6);
-      this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 90, life: 0.6 + Math.random() * 0.6, color: colors[i % colors.length], size: 1 });
+      const far = i < Math.ceil(n * 0.45);
+      const bs = BS * (far ? 0.55 : 0.95);
+      const blocks = [];
+      const len = 3 + Math.floor(r() * 6);
+      for (let k = 0; k < len; k++) {
+        blocks.push([k, 0]);
+        if (r() > 0.4 && k > 0 && k < len - 1) blocks.push([k, -1]);
+      }
+      if (len > 4) blocks.push([Math.floor(len / 2), -2]);
+      this.clouds.push({ x: r() * (w + 400) - 200, y: h * (far ? 0.14 + r() * 0.1 : 0.06 + r() * 0.16), bs, blocks, speed: (far ? 3 : 7) * (0.6 + r() * 0.8), far });
     }
   }
+
+  buildStars() {
+    const r = rng(9);
+    this.stars = [];
+    for (let i = 0; i < 170; i++) this.stars.push({ x: r(), y: Math.pow(r(), 1.5) * 0.64, s: r() > 0.9 ? 2 : 1, tw: r() * 6.28 });
+  }
+
+  buildCritters() {
+    const r = rng(17);
+    const C = this.def.critters || {};
+    this.bees = [];
+    for (let i = 0; i < (C.bees || 0); i++) this.bees.push({ a: r() * 6.28, r: this.BS * (0.8 + r() * 1.4), sp: 0.7 + r() * 0.8, x: 0, y: 0, visible: false });
+    this.butterflies = [];
+    const colors = [[255, 180, 60], [140, 200, 255], [255, 255, 255], [240, 120, 200]];
+    for (let i = 0; i < (C.butterflies || 0); i++) this.butterflies.push({ t: r() * 100, cx: this.playerX + (r() - 0.5) * this.BS * 8, cy: this.groundY - this.BS * (1 + r() * 1.5), col: colors[i % colors.length], x: 0, y: 0, visible: false });
+    this.fireflies = [];
+    if (C.fireflies) for (let i = 0; i < 18; i++) this.fireflies.push({ x: r() * this.w, y: this.groundY - r() * this.BS * 4, t: r() * 100 });
+    this.bats = [];
+    if (C.bats) for (let i = 0; i < 3; i++) this.bats.push({ t: r() * 100, cx: r() * this.w, cy: this.h * (0.2 + r() * 0.2) });
+    this.birds = [];
+    this.dragon = null;
+  }
+
+  // ------------------------------------------------------------- tinting --
+
+  /** Re-tint the cached layers for the current light (a few times a second). */
+  retint(p) {
+    const key = `${this.sceneId}|` + [p.haze, p.tint, p.rim].map((c) => c.map((v) => v | 0).join(",")).join("|") + `|${p.tintA.toFixed(2)}|${p.rimA.toFixed(2)}`;
+    if (key === this.tintKey && this.tinted) return;
+    this.tintKey = key;
+    const layers = [
+      ["far", 0.72, null],
+      ["hills", 0.5, null],
+      ["mid", 0.24, "midRims"],
+      ["fore", 0, "foreRims"],
+    ];
+    this.tinted = this.tinted || {};
+    for (const [name, haze, rims] of layers) {
+      const L = this[name];
+      let out = this.tinted[name];
+      if (!out || out.width !== L.c.width || out.height !== L.c.height) {
+        out = document.createElement("canvas");
+        out.width = L.c.width;
+        out.height = L.c.height;
+        this.tinted[name] = out;
+      }
+      const g = out.getContext("2d");
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalCompositeOperation = "source-over";
+      g.clearRect(0, 0, out.width, out.height);
+      g.drawImage(L.c, 0, 0);
+      g.globalCompositeOperation = "source-atop";
+      if (haze > 0) {
+        const grd = g.createLinearGradient(0, 0, 0, out.height);
+        grd.addColorStop(0, rgb(p.haze, haze * 0.85));
+        grd.addColorStop(1, rgb(p.haze, Math.min(1, haze * 1.15)));
+        g.fillStyle = grd;
+        g.fillRect(0, 0, out.width, out.height);
+      }
+      const tintA = p.tintA * (1 - haze * 0.4);
+      if (tintA > 0.005) {
+        g.fillStyle = rgb(p.tint, tintA);
+        g.fillRect(0, 0, out.width, out.height);
+      }
+      if (rims && p.rimA > 0.02) {
+        const sc = this.dpr * L.res;
+        for (const [x, y, bs] of this[rims]) {
+          const X = (x + L.margin) * sc, Y = y * sc, W = bs * sc;
+          const grd = g.createLinearGradient(0, Y, 0, Y + W * 0.3);
+          grd.addColorStop(0, rgb(p.rim, p.rimA * (1 - haze)));
+          grd.addColorStop(1, rgb(p.rim, 0));
+          g.fillStyle = grd;
+          g.fillRect(X, Y, W, W * 0.3);
+        }
+      }
+      g.globalCompositeOperation = "source-over";
+    }
+    this.floraLit = new Map();
+    for (const f of this.flora) {
+      if (this.floraLit.has(f.img)) continue;
+      const c = document.createElement("canvas");
+      c.width = c.height = 16;
+      const g = c.getContext("2d");
+      g.drawImage(f.img, 0, 0);
+      g.globalCompositeOperation = "source-atop";
+      if (p.tintA > 0.005) { g.fillStyle = rgb(p.tint, p.tintA * 0.9); g.fillRect(0, 0, 16, 16); }
+      if (p.rimA > 0.05) { g.fillStyle = rgb(p.rim, p.rimA * 0.25); g.fillRect(0, 0, 16, 4); }
+      this.floraLit.set(f.img, c);
+    }
+  }
+
+  // -------------------------------------------------------------- frames --
 
   emitPhase(force = false) {
     const p = this.phase();
@@ -436,418 +1013,818 @@ export class World {
     }
   }
 
-  // ---------------------------------------------------------------- draw --
-
   loop(now) {
-    const dt = Math.min(0.1, (now - this.last) / 1000);
+    const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     if (!document.hidden) {
-      this.acc += dt;
-      const step = this.animate ? 1 / 30 : 1;
-      if (this.acc >= step) {
-        this.draw(this.animate ? this.acc : 0);
-        this.acc = 0;
-      }
-    }
-    if (Math.floor(now / 1000) !== this.lastSecond) {
-      this.lastSecond = Math.floor(now / 1000);
       this.emitPhase();
+      this.draw(now, this.animate ? dt : 0);
     }
     requestAnimationFrame((t) => this.loop(t));
   }
 
-  skyImage(p, hour) {
-    const key = `${this.W}:${hour.toFixed(2)}`;
-    if (key === this.skyKey && this.skyCache) return this.skyCache;
-    const W = this.W;
-    const img = this.ctx.createImageData(W, H);
-    const bands = 28;
-    for (let y = 0; y < H; y++) {
-      const t = Math.min(1, y / (H * 0.74));
-      const q = t * bands;
-      const lo = Math.floor(q);
-      const frac = q - lo;
-      for (let x = 0; x < W; x++) {
-        const th = (BAYER[y & 3][x & 3] + 0.5) / 16;
-        const band = Math.min(bands, lo + (frac > th ? 1 : 0)) / bands;
-        const c = band < 0.58 ? mix(p.top, p.mid, band / 0.58) : mix(p.mid, p.hor, (band - 0.58) / 0.42);
-        const i = (y * W + x) * 4;
-        img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
-      }
-    }
-    const off = this.skyCache || document.createElement("canvas");
-    off.width = W;
-    off.height = H;
-    off.getContext("2d").putImageData(img, 0, 0);
-    this.skyCache = off;
-    this.skyKey = key;
-    return off;
+  /** A single finished frame (for thumbnails and the in-game menu). */
+  drawStill() {
+    this.life = true;
+    const now = performance.now();
+    // Let particles and critters settle into place first.
+    for (let i = 0; i < 40; i++) this.draw(now + i * 50, 0.05);
+    return this.canvas;
   }
 
-  disc(ctx, cx, cy, r, color) {
-    ctx.fillStyle = color;
-    for (let y = -r; y <= r; y++) {
-      const w = Math.floor(Math.sqrt(r * r - y * y));
-      ctx.fillRect(Math.round(cx - w), Math.round(cy + y), w * 2 + 1, 1);
+  spawnChunks(x, y, n) {
+    const D = this.def.ground.top;
+    const top = { grass: [106, 170, 48], snowGrass: [240, 246, 255], sand: [220, 206, 160], jungleGrass: [72, 160, 44], mossCap: [90, 116, 46], nylium: [156, 32, 36], endstone: [222, 226, 168] }[D] || [106, 170, 48];
+    const cols = [top, [134, 96, 67], [118, 84, 56], top];
+    for (let i = 0; i < n; i++) {
+      this.particles.push({ kind: "chunk", x, y, vx: (Math.random() - 0.5) * 160, vy: -80 - Math.random() * 160, life: 1.2, age: 0, size: this.texel * (2 + Math.random() * 2), col: cols[i % cols.length] });
     }
   }
 
-  draw(dt) {
-    const { ctx, W } = this;
+  draw(now, dt) {
+    const ctx = this.ctx;
+    const { w, h, BS } = this;
+    const D = this.def;
+    const t = now / 1000;
     const hour = this.hour();
-    const p = palette(hour);
-    const t = performance.now() / 1000;
-    const dark = Math.min(1, p.tintA / 0.64);
-    this.parallax += (this.parallaxTarget - this.parallax) * Math.min(1, dt * 2.5);
+    const p = this.palette();
+    const life = this.life !== false;
     if (this.rise < 1) this.rise = Math.min(1, this.rise + dt / 2.8);
     const rise = 1 - Math.pow(1 - this.rise, 3);
-    const horizon = H * 0.62;
-    const px = this.parallax;
+    this.parallax += (this.parallaxTarget - this.parallax) * Math.min(1, dt * 3);
+    if (now - this.tintAt > 350 || !this.tinted) {
+      this.retint(p);
+      this.tintAt = now;
+    }
 
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.globalCompositeOperation = "source-over";
-    ctx.drawImage(this.skyImage(p, hour), 0, 0);
+    ctx.globalAlpha = 1;
 
-    // Aurora (night).
-    if (p.stars > 0.6) {
-      const a = (p.stars - 0.6) / 0.4;
-      for (let x = 0; x < W; x += 1) {
-        const y = 34 + Math.sin(x * 0.025 + t * 0.25) * 9 + Math.sin(x * 0.07 - t * 0.4) * 4;
-        const h = 14 + Math.sin(x * 0.05 + t * 0.3) * 6;
-        ctx.fillStyle = `rgba(90,255,190,${0.05 * a})`;
-        ctx.fillRect(x, Math.round(y), 1, Math.round(h));
-        ctx.fillStyle = `rgba(150,120,255,${0.035 * a})`;
-        ctx.fillRect(x, Math.round(y - 6), 1, 6);
-      }
-    }
+    // Sky.
+    const sky = ctx.createLinearGradient(0, 0, 0, this.groundY);
+    sky.addColorStop(0, rgb(p.top));
+    sky.addColorStop(0.55, rgb(p.mid));
+    sky.addColorStop(1, rgb(p.hor));
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
 
-    // Stars and shooting stars.
-    if (p.stars > 0.02) {
-      for (const s of this.stars) {
-        const a = p.stars * (0.45 + 0.55 * Math.sin(t * s.sp + s.tw));
-        if (a <= 0.05) continue;
-        ctx.fillStyle = `rgba(255,248,230,${a})`;
-        ctx.fillRect(s.x, s.y, 1, 1);
-        if (s.big && a > 0.7) {
-          ctx.fillStyle = `rgba(255,248,230,${a * 0.4})`;
-          ctx.fillRect(s.x - 1, s.y, 3, 1);
-          ctx.fillRect(s.x, s.y - 1, 1, 3);
-        }
-      }
-      if (this.animate && p.stars > 0.7) {
-        if (!this.shooting && Math.random() < dt * 0.1) this.shooting = { x: W * (0.3 + Math.random() * 0.7), y: Math.random() * H * 0.25, life: 0 };
-        if (this.shooting) {
-          const s = this.shooting;
-          s.life += dt; s.x -= dt * 130; s.y += dt * 48;
-          for (let i = 0; i < 9; i++) {
-            ctx.fillStyle = `rgba(255,250,235,${(1 - i / 9) * (1 - s.life)})`;
-            ctx.fillRect(Math.round(s.x + i * 2.6), Math.round(s.y - i), 2, 1);
-          }
-          if (s.life > 1) this.shooting = null;
-        }
-      }
-    }
+    if (p.stars > 0.02) this.drawStars(t, p);
+    const horizon = this.groundY - BS * 1.5;
+    let light = null;
+    if (D.sun) light = this.drawSunMoon(t, hour, p, horizon, rise);
+    if (D.time && p.glowA > 0.05) light = { x: w * 0.5, y: h * 1.05, col: p.glow, a: p.glowA * 0.7 };
 
-    // Sun and moon on arcs.
-    const sunP = (hour - 5.4) / 14.2;
-    if (sunP > -0.06 && sunP < 1.06) {
-      const sx = W * (0.88 - 0.76 * sunP) + px * 1.5;
-      const lift = Math.sin(Math.max(0, Math.min(1, sunP)) * Math.PI);
-      const sy = horizon - 4 - lift * (horizon - 28) + (1 - rise) * 70;
-      const low = 1 - lift;
-      const r = Math.round(10 + low * 5);
-      const core = mix([255, 252, 230], [255, 186, 104], low * 0.85);
-      const glow = mix([255, 242, 196], [255, 140, 90], low);
-      for (let i = 5; i >= 1; i--) this.disc(ctx, sx, sy, r + i * 5, rgb(glow, (0.05 + 0.03 * (6 - i)) * (0.55 + low * 0.7)));
-      if (low > 0.3) {
-        ctx.save();
-        ctx.translate(Math.round(sx), Math.round(sy));
-        ctx.rotate(t * 0.03);
-        ctx.fillStyle = rgb(glow, 0.09 * low);
-        for (let i = 0; i < 14; i++) {
-          ctx.rotate((Math.PI * 2) / 14);
-          ctx.fillRect(r + 8, -1, 40 + 10 * Math.sin(t * 0.8 + i), 2);
-        }
-        ctx.restore();
-      }
-      this.disc(ctx, sx, sy, r, rgb(core));
-      this.disc(ctx, sx - r * 0.3, sy - r * 0.3, Math.max(2, Math.round(r * 0.35)), "rgba(255,255,255,.35)");
-    }
-    const moonP = ((hour + 24 - 19.4) % 24) / 10.6;
-    if (moonP >= 0 && moonP <= 1 && p.stars > 0.1) {
-      const mx = W * (0.84 - 0.62 * moonP) + px * 1.5;
-      const my = horizon - 12 - Math.sin(moonP * Math.PI) * (horizon - 40) + (1 - rise) * 70;
-      this.disc(ctx, mx, my, 16, `rgba(200,210,255,${0.07 * p.stars})`);
-      this.disc(ctx, mx, my, 8, `rgba(238,238,252,${p.stars})`);
-      const phase = (this.days % 8) / 8;
-      if (phase > 0) {
-        const shift = Math.round((phase < 0.5 ? phase : phase - 1) * 32);
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(mx - 9, my - 9, 18, 18);
-        ctx.clip();
-        this.disc(ctx, mx + shift, my, 8, rgb(p.top, 0.85 * p.stars));
-        ctx.restore();
-      }
-      ctx.fillStyle = `rgba(190,192,218,${p.stars})`;
-      ctx.fillRect(Math.round(mx - 3), Math.round(my - 2), 2, 2);
-      ctx.fillRect(Math.round(mx + 2), Math.round(my + 2), 3, 2);
-    }
+    if (life && D.critters?.birds && p.stars < 0.3 && dt > 0) this.moveBirds(dt);
+    if (life) for (const b of this.birds) this.drawBird(b, t, p);
+    this.drawClouds(dt, p);
+    if (D.critters?.dragon && life) this.drawDragon(t, dt);
 
-    // Far clouds.
-    const cloud = (c, layer) => {
-      if (this.animate) c.x += c.speed * dt * (layer ? 1.5 : 0.8);
-      const cw = c.w * 5;
-      if (c.x > W + 40) c.x = -cw - 40;
-      const cx = Math.round(c.x + px * (layer ? 5 : 2));
-      const cy = Math.round(c.y);
-      const cs = layer ? 5 : 4, ch = layer ? 3 : 2;
-      for (const [x, y] of c.cells) {
-        ctx.fillStyle = y === c.h - 1 ? rgb(p.shade, layer ? 0.95 : 0.7) : rgb(p.cloud, layer ? 0.95 : 0.7);
-        ctx.fillRect(cx + x * cs, cy + y * ch, cs, ch);
-      }
+    const lay = (name, depth) => {
+      const L = this[name];
+      const img = this.tinted[name];
+      ctx.drawImage(img, -L.margin - this.parallax * depth, (1 - rise) * 30 * (1 - depth / 30), img.width / (this.dpr * L.res), img.height / (this.dpr * L.res));
     };
-    this.clouds.filter((c) => !c.layer).forEach((c) => cloud(c, 0));
+    lay("far", 4);
+    this.drawFarExtras(t, p);
+    const hz = ctx.createLinearGradient(0, horizon - BS * 3, 0, this.groundY);
+    hz.addColorStop(0, rgb(p.haze, 0));
+    hz.addColorStop(1, rgb(p.haze, 0.45));
+    ctx.fillStyle = hz;
+    ctx.fillRect(0, horizon - BS * 3, w, this.groundY - horizon + BS * 3);
+    if (D.water === "sea") this.drawSea(t, p, horizon, light);
+    lay("hills", 8);
+    lay("mid", 14);
+    ctx.imageSmoothingEnabled = false;
+    lay("fore", 0);
+    ctx.imageSmoothingEnabled = true;
+    if (D.ceiling) this.drawCeiling(t, p);
 
-    // Mountains with snow, then hills with trees, both hazed toward the horizon.
-    const mt = mix(p.far, p.hor, 0.25);
-    const snow = p.farSnow;
-    const mo = Math.round(px * 2);
-    for (let x = 0; x < W; x++) {
-      const y = this.mountains[x + 40 + mo] ?? this.mountains[x + 40];
-      ctx.fillStyle = rgb(mt);
-      ctx.fillRect(x, y, 1, H - y);
-      if (y < H * 0.48) {
-        ctx.fillStyle = rgb(snow, 0.9);
-        ctx.fillRect(x, y, 1, Math.max(1, Math.round((H * 0.48 - y) * 0.35)));
+    if (D.water === "pond" || D.water === "pool" || D.water === "ice") this.drawPond(t, dt, p);
+    if (D.water === "lava") this.drawLava(t, dt, p);
+    this.drawBroken(now, p);
+    this.drawFire(t, dt, p);
+    this.drawFlora(t);
+
+    // Lights.
+    const dark = this.darkness();
+    ctx.globalCompositeOperation = "lighter";
+    const fx = this.colX(this.fireCol) + BS / 2, fy = this.groundY - BS * 0.4;
+    const flick = 0.9 + Math.sin(t * 13) * 0.05 + Math.sin(t * 7.3) * 0.05;
+    const fireCol = D.fire === "soul" ? [80, 200, 255] : D.fire === "endrod" ? [240, 220, 255] : [255, 150, 60];
+    this.glow(fx, fy, BS * (2.5 + dark * 3.5) * flick, fireCol, 0.18 + dark * 0.4);
+    if (this.torch) this.glow(this.torch.x, this.torch.y, BS * 4.5 * flick, [255, 170, 80], 0.15 + dark * 0.45);
+    for (const [lx, ly, type] of this.midLights) {
+      const sx = lx - this.parallax * 14;
+      this.glow(sx, ly, BS * (type === "window" ? 1.4 : 1.8), type === "window" ? [255, 200, 110] : [255, 170, 70], (type === "window" ? dark : 0.5) * 0.5);
+    }
+    for (const [lx, ly] of this.foreLights) this.glow(lx, ly, BS * 2.4, [255, 170, 70], 0.4);
+    if (life && dark > 0.3) this.drawFireflies(dt, dark);
+    ctx.globalCompositeOperation = "source-over";
+
+    if (life) {
+      this.drawBees(t, dt, p);
+      this.drawButterflies(t, dt, p);
+      this.drawBats(t, dt);
+    }
+    this.drawParticles(dt, p, life);
+
+    if (light && light.a > 0.05) {
+      ctx.globalCompositeOperation = "screen";
+      const rr = Math.max(w, h) * 0.9;
+      const grd = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, rr);
+      grd.addColorStop(0, rgb(light.col, 0.32 * light.a));
+      grd.addColorStop(0.4, rgb(light.col, 0.1 * light.a));
+      grd.addColorStop(1, rgb(light.col, 0));
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    const vg = ctx.createRadialGradient(w / 2, h * 0.45, h * 0.35, w / 2, h * 0.5, Math.max(w, h) * 0.8);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, `rgba(6,4,16,${0.28 + dark * 0.25})`);
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  drawStars(t, p) {
+    const ctx = this.ctx;
+    const { w, h } = this;
+    for (const s of this.stars) {
+      const a = p.stars * (0.55 + 0.45 * Math.sin(t * 1.7 + s.tw));
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.fillRect(s.x * w, s.y * h, s.s, s.s);
+    }
+    if (p.stars > 0.5 && this.def.sun) {
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 3; i++) {
+        const y = h * (0.14 + i * 0.05) + Math.sin(t * 0.2 + i) * 10;
+        const grd = ctx.createLinearGradient(0, y - 40, 0, y + 40);
+        const col = i === 1 ? [140, 90, 220] : [60, 220, 160];
+        grd.addColorStop(0, rgb(col, 0));
+        grd.addColorStop(0.5, rgb(col, 0.06 * (p.stars - 0.5) * 2));
+        grd.addColorStop(1, rgb(col, 0));
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        for (let x = 0; x <= w; x += 40) ctx.lineTo(x, y + Math.sin(x * 0.006 + t * 0.3 + i) * 26);
+        ctx.lineTo(w, y + 60);
+        ctx.lineTo(0, y + 60);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }
+
+  drawSunMoon(t, hour, p, horizon, rise) {
+    const ctx = this.ctx;
+    const { w, h, BS } = this;
+    let light = null;
+    const sunP = (hour - 5.6) / 13.2;
+    if (sunP > -0.05 && sunP < 1.05) {
+      const sx = lerp(w * 0.08, w * 0.92, sunP);
+      const sy = horizon - Math.sin(clamp(sunP, 0, 1) * Math.PI) * (horizon - h * 0.12) + (1 - rise) * 90;
+      light = { x: sx, y: sy, col: p.glow, a: p.glowA };
+      ctx.globalCompositeOperation = "lighter";
+      const r1 = h * 0.55;
+      const g1 = ctx.createRadialGradient(sx, sy, 0, sx, sy, r1);
+      g1.addColorStop(0, rgb(p.glow, 0.55 * p.glowA));
+      g1.addColorStop(0.25, rgb(p.glow, 0.18 * p.glowA));
+      g1.addColorStop(1, rgb(p.glow, 0));
+      ctx.fillStyle = g1;
+      ctx.fillRect(sx - r1, sy - r1, r1 * 2, r1 * 2);
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(t * 0.01);
+      for (let i = 0; i < 12; i++) {
+        ctx.rotate((Math.PI * 2) / 12);
+        const len = h * (0.75 + 0.25 * Math.sin(t * 0.3 + i));
+        const grd = ctx.createLinearGradient(0, 0, len, 0);
+        grd.addColorStop(0, rgb(p.glow, 0.08 * p.glowA));
+        grd.addColorStop(1, rgb(p.glow, 0));
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(len, -len * 0.05);
+        ctx.lineTo(len, len * 0.05);
+        ctx.fill();
+      }
+      ctx.restore();
+      ctx.globalCompositeOperation = "source-over";
+      const sr = BS * 0.8;
+      const disc = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+      disc.addColorStop(0, "rgba(255,255,250,1)");
+      disc.addColorStop(0.55, rgb(mix([255, 252, 236], p.glow, 0.3), 1));
+      disc.addColorStop(1, rgb(p.glow, 0));
+      ctx.fillStyle = disc;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const moonP = ((hour + 24 - 18.6) % 24) / 11.6;
+    if (moonP >= 0 && moonP <= 1) {
+      const mx = lerp(w * 0.1, w * 0.9, moonP);
+      const my = horizon - Math.sin(moonP * Math.PI) * (horizon - h * 0.14) + (1 - rise) * 90;
+      if (!light) light = { x: mx, y: my, col: [170, 190, 255], a: 0.25 };
+      const mr = BS * 0.55;
+      ctx.globalCompositeOperation = "lighter";
+      const g2 = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 6);
+      g2.addColorStop(0, "rgba(180,200,255,0.22)");
+      g2.addColorStop(1, "rgba(180,200,255,0)");
+      ctx.fillStyle = g2;
+      ctx.fillRect(mx - mr * 6, my - mr * 6, mr * 12, mr * 12);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#eef2ff";
+      ctx.beginPath();
+      ctx.arc(mx, my, mr, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(160,170,200,0.55)";
+      for (const [dx, dy, rr] of [[-0.3, -0.2, 0.18], [0.25, 0.15, 0.13], [-0.05, 0.38, 0.1]]) {
+        ctx.beginPath();
+        ctx.arc(mx + dx * mr, my + dy * mr, rr * mr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const ph = ((this.days % 8) + 8) % 8;
+      if (ph !== 0) {
+        ctx.fillStyle = rgb(p.top, 0.85);
+        ctx.beginPath();
+        ctx.arc(mx + (ph - 4) * mr * 0.5, my, mr * 1.02, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
-    ctx.fillStyle = rgb(p.hor, 0.18);
-    ctx.fillRect(0, H * 0.5, W, H);
-    this.clouds.filter((c) => c.layer).forEach((c) => cloud(c, 1));
+    return light;
+  }
 
-    const ho = Math.round(px * 5);
-    const hillCol = mix(p.hill, p.hor, 0.12);
-    ctx.fillStyle = rgb(hillCol);
-    for (let x = 0; x < W; x++) {
-      const y = this.hills[x + 40 + ho] ?? this.hills[x + 40];
-      ctx.fillRect(x, y, 1, H - y);
+  drawClouds(dt, p) {
+    const ctx = this.ctx;
+    const { w } = this;
+    for (const c of this.clouds) {
+      if (dt > 0) c.x += c.speed * dt;
+      const width = (Math.max(...c.blocks.map((b) => b[0])) + 1) * c.bs;
+      if (c.x > w + 60) c.x = -width - 60;
+      const px = c.x - this.parallax * (c.far ? 4 : 10);
+      const alpha = c.far ? 0.55 : 0.88;
+      for (const [bx, by] of c.blocks) {
+        const x = px + bx * c.bs, y = c.y + by * c.bs * 0.6;
+        const grd = ctx.createLinearGradient(0, y, 0, y + c.bs * 0.6);
+        grd.addColorStop(0, rgb(mix(p.cloud, [255, 255, 255], 0.25), alpha));
+        grd.addColorStop(1, rgb(p.cloudShade, alpha));
+        ctx.fillStyle = grd;
+        ctx.fillRect(x, y, c.bs + 0.5, c.bs * 0.6);
+      }
     }
-    ctx.fillStyle = rgb(mix(hillCol, [10, 10, 30], 0.22));
-    for (const tr of this.hillTrees) {
-      const x = tr.x + ho;
-      if (x < -10 || x > W + 10) continue;
-      const base = this.hills[Math.max(0, Math.min(this.hills.length - 1, x + 40))];
-      if (tr.kind === "spruce") {
-        for (let row = 0; row < tr.s * 2; row++) {
-          const half = Math.floor((row + 1) / 2.3);
-          ctx.fillRect(x - half, base - tr.s * 2 + row, half * 2 + 1, 1);
+  }
+
+  drawFarExtras(t, p) {
+    const ctx = this.ctx;
+    const px = -this.parallax * 4;
+    // Nether lava falls.
+    for (const f of this.lavaFalls) {
+      const x = f.x + px;
+      const grd = ctx.createLinearGradient(x, 0, x + f.w, 0);
+      grd.addColorStop(0, "rgba(255,120,30,0.75)");
+      grd.addColorStop(0.5, "rgba(255,200,80,0.95)");
+      grd.addColorStop(1, "rgba(255,120,30,0.75)");
+      ctx.fillStyle = grd;
+      ctx.fillRect(x, f.top, f.w, f.bottom - f.top);
+      ctx.fillStyle = "rgba(255,240,170,0.5)";
+      for (let k = 0; k < 6; k++) {
+        const y = f.top + (((t * 60 + k * 47) % (f.bottom - f.top)));
+        ctx.fillRect(x + f.w * 0.2, y, f.w * 0.6, 4);
+      }
+      ctx.globalCompositeOperation = "lighter";
+      this.glow(x + f.w / 2, f.bottom, this.BS * 3, [255, 120, 40], 0.35);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    // End crystals on the pillars.
+    for (const c of this.crystals) {
+      const x = c.x + px, y = c.y + Math.sin(t * 1.5 + c.ph) * 4;
+      ctx.globalCompositeOperation = "lighter";
+      this.glow(x, y, this.BS * 1.6, [230, 140, 255], 0.5);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(t * 1.2 + c.ph);
+      ctx.fillStyle = "rgba(255,200,255,0.9)";
+      ctx.fillRect(-4, -4, 8, 8);
+      ctx.strokeStyle = "rgba(255,255,255,0.8)";
+      ctx.strokeRect(-6, -6, 12, 12);
+      ctx.restore();
+    }
+    // Cave glow lichen.
+    for (const [lx, ly] of this.farLights) {
+      ctx.globalCompositeOperation = "lighter";
+      this.glow(lx + px, ly, this.BS * 1.2, [200, 255, 170], 0.18 + Math.sin(t + lx) * 0.05);
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }
+
+  drawSea(t, p, horizon, light) {
+    const ctx = this.ctx;
+    const { w, BS } = this;
+    const top = this.groundY - BS * 3.6;
+    const bottom = this.groundY - BS * 0.2;
+    const grd = ctx.createLinearGradient(0, top, 0, bottom);
+    grd.addColorStop(0, rgb(mix(p.hor, [70, 140, 200], 0.5)));
+    grd.addColorStop(1, rgb(mix(mix(p.mid, [20, 80, 150], 0.7), p.tint, p.tintA)));
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, top, w, bottom - top);
+    // Glitter under the sun or moon.
+    if (light) {
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 40; i++) {
+        const k = i / 40;
+        const y = top + (bottom - top) * k;
+        const spread = 10 + k * BS * 3;
+        const x = light.x + Math.sin(t * 2 + i * 1.7) * spread;
+        ctx.fillStyle = rgb(light.col, (0.25 + 0.2 * Math.sin(t * 5 + i)) * light.a * (1 - k * 0.5));
+        ctx.fillRect(x - spread * 0.3, y, spread * 0.6, 2);
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
+    // Waves.
+    ctx.fillStyle = rgb(mix(p.hor, [255, 255, 255], 0.4), 0.35);
+    for (let i = 0; i < 18; i++) {
+      const y = top + ((i * 37) % (bottom - top));
+      const x = ((t * (10 + (i % 4) * 5) + i * 131) % (w + 200)) - 100;
+      ctx.fillRect(x, y, BS * (0.8 + (i % 3) * 0.4), 2);
+    }
+    // Foam at the shore.
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    for (let x = 0; x < w; x += BS * 0.5) {
+      const yy = bottom - 3 + Math.sin(t * 2 + x * 0.05) * 2;
+      ctx.fillRect(x, yy, BS * 0.45, 3);
+    }
+    // A boat far out.
+    const bx = ((t * 6) % (w + 200)) - 100;
+    ctx.fillStyle = rgb(mix([90, 60, 30], p.haze, 0.5));
+    ctx.fillRect(bx, top + BS * 0.6, BS * 1.2, BS * 0.25);
+  }
+
+  drawCeiling(t, p) {
+    const ctx = this.ctx;
+    const { w, h, BS } = this;
+    const nether = this.def.ceiling === "nether";
+    const r = rng(77);
+    const base = h * 0.08;
+    ctx.fillStyle = nether ? "#2a0a0a" : "#121a17";
+    ctx.fillRect(0, 0, w, base);
+    for (let x = 0; x < w; x += BS * 0.8) {
+      const len = BS * (0.5 + r() * (nether ? 3 : 2.4));
+      ctx.fillStyle = nether ? (r() > 0.5 ? "#3a0f0f" : "#4a1414") : r() > 0.5 ? "#1a2420" : "#222e28";
+      ctx.fillRect(x, base - 2, BS * 0.8 + 0.5, len * (r() > 0.6 ? 1 : 0.4));
+      if (nether && r() > 0.82) {
+        const gx = x + BS * 0.4, gy = base + len * 0.4;
+        ctx.fillStyle = "#ffd36b";
+        ctx.fillRect(gx - BS * 0.3, gy - BS * 0.3, BS * 0.6, BS * 0.6);
+        ctx.globalCompositeOperation = "lighter";
+        this.glow(gx, gy, BS * 2, [255, 210, 120], 0.45);
+        ctx.globalCompositeOperation = "source-over";
+      }
+      if (!nether && r() > 0.7) {
+        // Glow berry vines.
+        const vx = x + BS * 0.3, vlen = BS * (1 + r() * 3.5);
+        ctx.fillStyle = "#3e6a2a";
+        ctx.fillRect(vx, base, 3, vlen);
+        for (let k = BS * 0.6; k < vlen; k += BS * 0.9) {
+          const gy = base + k;
+          ctx.fillStyle = "#ffb347";
+          ctx.fillRect(vx - 3, gy, 8, 8);
+          ctx.globalCompositeOperation = "lighter";
+          this.glow(vx + 1, gy + 4, BS * 1.6, [255, 190, 90], 0.25 + Math.sin(t * 2 + k) * 0.05);
+          ctx.globalCompositeOperation = "source-over";
         }
-      } else {
-        ctx.fillRect(x - tr.s + 1, base - tr.s * 2, tr.s * 2 - 1, tr.s + 1);
-        ctx.fillRect(x - tr.s, base - tr.s * 2 + 1, tr.s * 2 + 1, tr.s - 1);
-      }
-      ctx.fillRect(x, base - 1, 1, 2);
-    }
-    ctx.fillStyle = rgb(p.hor, 0.1);
-    ctx.fillRect(0, H * 0.62, W, H);
-
-    // Birds.
-    if (p.stars < 0.3 && this.animate) {
-      ctx.fillStyle = rgb(mix(p.hill, [20, 16, 30], 0.5));
-      for (const b of this.birds) {
-        b.x += b.speed * dt;
-        if (b.x > W + 30) { b.x = -30 - Math.random() * 90; b.y = 24 + Math.random() * 40; }
-        const flap = Math.floor(t * 5 + b.ph) % 2;
-        const bx = Math.round(b.x), by = Math.round(b.y + Math.sin(t * 2 + b.ph) * 2);
-        ctx.fillRect(bx, by, 1, 1);
-        ctx.fillRect(bx - 1, by - 1 + flap, 1, 1);
-        ctx.fillRect(bx + 1, by - 1 + flap, 1, 1);
-        ctx.fillRect(bx - 2, by - 1 + flap * 2, 1, 1);
-        ctx.fillRect(bx + 2, by - 1 + flap * 2, 1, 1);
       }
     }
+    if (!nether) {
+      // Daylight through a crack in the cave roof.
+      ctx.globalCompositeOperation = "lighter";
+      const sx = w * 0.62;
+      const grd = ctx.createLinearGradient(sx, 0, sx - w * 0.2, h);
+      grd.addColorStop(0, "rgba(220,255,200,0.22)");
+      grd.addColorStop(1, "rgba(220,255,200,0)");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.moveTo(sx - BS, 0);
+      ctx.lineTo(sx + BS, 0);
+      ctx.lineTo(sx - w * 0.08, h);
+      ctx.lineTo(sx - w * 0.3, h);
+      ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }
 
-    // ----- Foreground land (drawn on its own canvas, then tinted). -----
-    const l = this.lctx;
-    l.globalCompositeOperation = "source-over";
-    l.clearRect(0, 0, W, H);
-    l.drawImage(this.terrain, 0, 0);
+  glow(x, y, r, col, a) {
+    if (a <= 0.005) return;
+    const ctx = this.ctx;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, rgb(col, a));
+    g.addColorStop(0.35, rgb(col, a * 0.4));
+    g.addColorStop(1, rgb(col, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
 
-    // Pond water with sky reflection and shimmer.
-    const wx0 = this.pondStart * B, wx1 = (this.pondEnd + 1) * B;
-    const wy = this.groundY + B;
-    const water = mix([46, 112, 196], p.hor, 0.35);
-    l.fillStyle = rgb(water, 0.9);
-    l.fillRect(wx0, wy, wx1 - wx0, 3);
-    l.fillStyle = rgb(mix(water, [10, 30, 80], 0.3), 0.9);
-    l.fillRect(wx0, wy + 3, wx1 - wx0, B);
-    l.fillStyle = rgb(mix(water, [8, 20, 60], 0.55), 0.92);
-    l.fillRect(wx0, wy + 3 + B, wx1 - wx0, B - 3);
+  lit(col, p) { return mix(col, p.tint, p.tintA); }
+
+  drawPond(t, dt, p) {
+    const ctx = this.ctx;
+    const { BS } = this;
+    const x0 = this.colX(this.pondStart), x1 = this.colX(this.pondEnd + 1);
+    const surface = this.groundY + BS * 0.18;
+    const bottom = this.groundY + BS * 2;
+    if (this.def.water === "ice") {
+      ctx.drawImage(this.T.ice[0], x0, surface - BS * 0.1, x1 - x0, BS * 0.5);
+      ctx.fillStyle = rgb(this.lit([90, 130, 190], p), 0.85);
+      ctx.fillRect(x0, surface + BS * 0.4, x1 - x0, bottom - surface - BS * 0.4);
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.fillRect(x0, surface - BS * 0.1, x1 - x0, 2);
+      return;
+    }
+    const grd = ctx.createLinearGradient(0, surface, 0, bottom);
+    const sky = mix(p.mid, [48, 128, 214], 0.8);
+    grd.addColorStop(0, rgb(this.lit(mix(sky, [255, 255, 255], 0.12), p), 0.86));
+    grd.addColorStop(1, rgb(this.lit([18, 52, 120], p), 0.94));
+    ctx.fillStyle = grd;
+    ctx.fillRect(x0, surface, x1 - x0, bottom - surface);
+    ctx.fillStyle = rgb(mix(p.hor, [255, 255, 255], 0.5), 0.45);
     for (let i = 0; i < 6; i++) {
-      const sx = wx0 + ((i * 13 + t * 6) % (wx1 - wx0 - 4));
-      l.fillStyle = rgb(mix(water, [255, 255, 255], 0.55), 0.8);
-      l.fillRect(Math.round(sx), wy + (i % 2), 3, 1);
+      const lx = x0 + (((t * 14 + i * 37) % (x1 - x0 + 40)) - 20);
+      const ly = surface + 4 + (i % 3) * BS * 0.35;
+      ctx.fillRect(clamp(lx, x0, x1 - 2), ly, Math.min(BS * 0.5, x1 - lx), 2);
     }
-    l.fillStyle = "rgb(76,140,52)";
-    l.fillRect(wx0 + 8, wy, 4, 1); l.fillRect(wx0 + 9, wy - 1, 2, 1);
-    l.fillRect(wx1 - 14, wy, 3, 1);
-
-    // Fish jumping.
-    if (this.animate) {
-      if (!this.fish && Math.random() < dt * 0.06) this.fish = { x: wx0 + 6 + Math.random() * (wx1 - wx0 - 18), t: 0 };
+    ctx.fillStyle = rgb(mix(p.hor, [255, 255, 255], 0.6), 0.7);
+    ctx.fillRect(x0, surface, x1 - x0, 2);
+    ctx.fillStyle = rgb(this.lit([60, 140, 50], p));
+    ctx.fillRect(x0 + (x1 - x0) * 0.7 + Math.sin(t * 0.5) * 3, surface - 1, BS * 0.45, 3);
+    if (dt > 0 && this.life !== false) {
+      if (!this.fish && Math.random() < dt * 0.12) this.fish = { x: x0 + (x1 - x0) * (0.2 + Math.random() * 0.5), t: 0, dir: Math.random() > 0.5 ? 1 : -1 };
       if (this.fish) {
         const f = this.fish;
         f.t += dt;
-        const k = f.t / 1.1;
-        const fx = Math.round(f.x + k * 12), fy = Math.round(wy - Math.sin(k * Math.PI) * 9);
-        l.fillStyle = "rgb(236,140,62)";
-        l.fillRect(fx, fy, 3, 1); l.fillRect(fx - 1, fy - 1, 1, 1);
-        if (k > 1) {
-          this.spawn(fx, wy, 6, [[200, 230, 255], [255, 255, 255]], 18);
-          this.fish = null;
+        const k = f.t / 0.9;
+        if (k >= 1) { this.splash(f.x + f.dir * BS * 0.8, surface); this.fish = null; }
+        else {
+          const fx = f.x + f.dir * BS * 0.8 * k, fy = surface - Math.sin(k * Math.PI) * BS * 0.9;
+          ctx.save();
+          ctx.translate(fx, fy);
+          ctx.rotate(f.dir * (k - 0.5) * 1.6);
+          const tx = this.texel;
+          ctx.fillStyle = rgb(this.lit([230, 140, 60], p));
+          ctx.fillRect(-tx * 3, -tx, tx * 6, tx * 2);
+          ctx.restore();
+          if (f.t - dt <= 0.02) this.splash(f.x, surface);
         }
       }
     }
+  }
 
-    // Broken block: cracks while being hit, a hole once broken.
-    const now = performance.now();
-    if (this.broken) {
-      const bx = this.broken.col * B, by = this.groundY;
-      if (this.broken.until && now < this.broken.until) {
-        l.clearRect(bx, by, B, B);
-        l.fillStyle = "rgb(70,48,30)";
-        l.fillRect(bx, by + B - 1, B, 1);
-      } else if (this.broken.until && now >= this.broken.until) {
-        this.spawn(bx + B / 2, by, 6, [C.grass[0], C.grass[2]], 10);
-        this.broken = null;
-      } else {
-        l.fillStyle = "rgba(20,12,6,.75)";
-        const k = this.broken.crack;
-        l.fillRect(bx + 1, by + 1, 1, Math.min(4, k + 1));
-        if (k > 1) l.fillRect(bx + 3, by + 2, 2, 1);
-        if (k > 2) l.fillRect(bx + 4, by + 3, 1, 2);
-      }
+  drawLava(t, dt, p) {
+    const ctx = this.ctx;
+    const { BS } = this;
+    const x0 = this.colX(this.pondStart), x1 = this.colX(this.pondEnd + 1);
+    const surface = this.groundY + BS * 0.18, bottom = this.groundY + BS * 2;
+    const grd = ctx.createLinearGradient(0, surface, 0, bottom);
+    grd.addColorStop(0, "#ffb02e");
+    grd.addColorStop(1, "#d8461a");
+    ctx.fillStyle = grd;
+    ctx.fillRect(x0, surface, x1 - x0, bottom - surface);
+    ctx.fillStyle = "rgba(255,240,150,0.7)";
+    for (let i = 0; i < 8; i++) {
+      const lx = x0 + (((t * 8 + i * 29) % (x1 - x0)));
+      ctx.fillRect(lx, surface + (i % 4) * BS * 0.4 + 3, BS * 0.4, BS * 0.15);
     }
-
-    // Flowers and grass tufts, swaying.
-    for (const f of this.flowers) {
-      const sway = this.animate ? Math.round(Math.sin(t * 1.6 + f.ph) * 0.7) : 0;
-      if (f.kind === "grass") {
-        l.fillStyle = "rgb(96,170,60)";
-        l.fillRect(f.x, f.y - f.h, 1, f.h);
-        l.fillRect(f.x + 2 + sway, f.y - f.h + 1, 1, f.h - 1);
-        l.fillStyle = "rgb(124,196,80)";
-        l.fillRect(f.x + 1 + sway, f.y - f.h - 1, 1, f.h + 1);
-        continue;
-      }
-      l.fillStyle = "rgb(70,140,46)";
-      l.fillRect(f.x, f.y - 3, 1, 3);
-      const bx = f.x + sway, by = f.y - 5;
-      const colors = { poppy: [222, 44, 44], dandelion: [255, 214, 60], cornflower: [80, 120, 240], allium: [190, 110, 230], tulip: [255, 140, 60] };
-      const c = colors[f.kind];
-      l.fillStyle = rgb(c);
-      l.fillRect(bx - 1, by, 3, 2);
-      l.fillRect(bx, by - 1, 1, 1);
-      l.fillStyle = rgb(mix(c, [0, 0, 0], 0.35));
-      l.fillRect(bx, by + 1, 1, 1);
-    }
-
-    // Campfire flames.
-    const fire = this.fire;
-    for (let i = 0; i < 7; i++) {
-      const h = 3 + Math.round((Math.sin(t * 9 + i * 1.7) + 1) * 2);
-      const x = Math.round(fire.x - 3 + i);
-      l.fillStyle = i % 3 === 0 ? "rgb(255,214,90)" : "rgb(255,140,40)";
-      l.fillRect(x, fire.y - h, 1, h);
-    }
-    l.fillStyle = "rgb(255,240,170)";
-    l.fillRect(Math.round(fire.x - 1), fire.y - 3, 2, 2);
-
-    // Tint the land by time of day.
-    if (p.tintA > 0.005) {
-      l.globalCompositeOperation = "source-atop";
-      l.fillStyle = rgb(p.tint, p.tintA);
-      l.fillRect(0, 0, W, H);
-      l.globalCompositeOperation = "source-over";
-    }
-    ctx.drawImage(this.land, 0, 0);
-
-    // ----- Critters and particles on top. -----
-    const hive = this.hive;
-    const showBees = dark < 0.55;
-    this.bees.forEach((b, i) => {
-      const target = i % 2 ? hive : { x: this.playerX + (i - 1.5) * 18, y: this.groundY - 10 };
-      b.x = target.x + Math.cos(t * (1.2 + i * 0.2) + b.ph) * b.r;
-      b.y = target.y + Math.sin(t * (2.1 + i * 0.3) + b.ph) * b.r * 0.4 - 6;
-      b.visible = showBees;
-      if (!showBees) return;
-      const x = Math.round(b.x), y = Math.round(b.y);
-      ctx.fillStyle = "rgb(250,206,60)"; ctx.fillRect(x, y, 2, 2);
-      ctx.fillStyle = "rgb(40,30,20)"; ctx.fillRect(x + 1, y, 1, 2);
-      if (Math.floor(t * 20 + i) % 2) { ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.fillRect(x, y - 1, 2, 1); }
-    });
-    this.butterflies.forEach((b, i) => {
-      b.visible = dark < 0.45;
-      if (!b.visible) return;
-      if (this.animate) {
-        b.x += Math.sin(t * 0.5 + b.ph) * dt * 14;
-        b.y = this.groundY - 16 - Math.sin(t * 1.3 + b.ph) * 8;
-      }
-      const open = Math.floor(t * 8 + i) % 2;
-      ctx.fillStyle = rgb(b.color);
-      ctx.fillRect(Math.round(b.x) - (open ? 2 : 1), Math.round(b.y), open ? 2 : 1, 2);
-      ctx.fillRect(Math.round(b.x) + 1, Math.round(b.y), open ? 2 : 1, 2);
-      ctx.fillStyle = "rgb(40,30,30)";
-      ctx.fillRect(Math.round(b.x), Math.round(b.y), 1, 2);
-    });
-
-    if (this.animate) {
-      // Smoke and embers from the campfire.
-      if (Math.random() < dt * 6) this.particles.push({ x: fire.x + (Math.random() - 0.5) * 3, y: fire.y - 6, vx: 1.5 + Math.random() * 2, vy: -8 - Math.random() * 4, g: 0, life: 3 + Math.random() * 1.5, color: [150, 150, 160], size: 2, smoke: true });
-      if (Math.random() < dt * 2) this.particles.push({ x: fire.x, y: fire.y - 6, vx: (Math.random() - 0.5) * 6, vy: -16 - Math.random() * 8, g: 0, life: 1 + Math.random(), color: [255, 180, 60], size: 1, ember: true });
-      // Falling leaves.
-      this.leafSpawn += dt;
-      if (this.leafSpawn > 1.6) {
-        this.leafSpawn = 0;
-        const tr = this.trees[Math.floor(Math.random() * this.trees.length)];
-        if (tr) this.particles.push({ x: tr.x + (Math.random() - 0.5) * tr.w, y: tr.canopyBottom, vx: 2, vy: 6, g: 0, life: 6, color: tr.kind === "birch" ? [140, 180, 80] : [96, 150, 56], size: 1, leaf: true, ph: Math.random() * 6 });
-      }
-    }
-    this.particles = this.particles.filter((q) => q.life > 0);
-    for (const q of this.particles) {
-      q.life -= dt;
-      q.vy += q.g * dt;
-      q.x += (q.vx + (q.leaf ? Math.sin(t * 2 + q.ph) * 6 : 0)) * dt;
-      q.y += q.vy * dt;
-      if (q.leaf && q.y > this.groundY) { q.vy = 0; q.vx = 0; }
-      const a = q.smoke ? Math.min(0.45, q.life / 3) * (1 - dark * 0.3) : Math.min(1, q.life * 2);
-      ctx.fillStyle = rgb(q.color, a);
-      ctx.fillRect(Math.round(q.x), Math.round(q.y), q.size, q.size);
-    }
-
-    // Light: campfire, torch and fireflies glow in the dark.
     ctx.globalCompositeOperation = "lighter";
-    const flicker = 0.85 + Math.sin(t * 11) * 0.06 + Math.sin(t * 17) * 0.05;
-    const light = (x, y, r, color, a) => {
-      if (a <= 0.01) return;
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, rgb(color, a));
-      g.addColorStop(1, rgb(color, 0));
-      ctx.fillStyle = g;
-      ctx.fillRect(x - r, y - r, r * 2, r * 2);
-    };
-    light(fire.x, fire.y - 4, 46 * flicker, [255, 140, 50], 0.12 + dark * 0.38);
-    if (this.torch) light(this.torch.x, this.torch.y, 40 * flicker, [255, 170, 80], dark * 0.42);
-    if (dark > 0.5) {
-      for (const f of this.flies) {
-        const a = Math.max(0, Math.sin(t * f.sp * 2 + f.ph));
-        if (a < 0.15) continue;
-        const x = Math.round(f.x + Math.sin(t * 0.7 + f.ph) * 8), y = Math.round(f.y + Math.cos(t * 0.5 + f.ph) * 4);
-        ctx.fillStyle = `rgba(220,255,140,${a})`;
-        ctx.fillRect(x, y, 1, 1);
-        light(x, y, 5, [190, 255, 120], 0.12 * a * dark);
+    this.glow((x0 + x1) / 2, surface, (x1 - x0) * 0.9, [255, 120, 40], 0.4);
+    ctx.globalCompositeOperation = "source-over";
+    if (dt > 0 && Math.random() < dt * 4) this.particles.push({ kind: "ember", x: x0 + Math.random() * (x1 - x0), y: surface, vx: (Math.random() - 0.5) * 20, vy: -40 - Math.random() * 50, life: 1.5, age: 0, size: this.texel, col: [255, 190, 70] });
+  }
+
+  splash(x, y) {
+    for (let i = 0; i < 8; i++) this.particles.push({ kind: "drop", x, y, vx: (Math.random() - 0.5) * 80, vy: -60 - Math.random() * 90, life: 0.7, age: 0, size: 2 + Math.random() * 2, col: [200, 230, 255] });
+  }
+
+  drawBroken(now, p) {
+    const b = this.broken;
+    if (!b) return;
+    const ctx = this.ctx;
+    const { BS } = this;
+    const x = this.colX(b.col), y = this.topOf(b.col);
+    if (b.until && now < b.until) {
+      ctx.fillStyle = rgb(this.lit([62, 42, 28], p));
+      ctx.fillRect(x, y, BS, BS);
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillRect(x, y, BS, BS * 0.25);
+      return;
+    }
+    if (b.until && now >= b.until) {
+      b.grown = b.grown || now;
+      const k = Math.min(1, (now - b.grown) / 260);
+      if (k < 1) { ctx.fillStyle = rgb([255, 255, 255], (1 - k) * 0.35); ctx.fillRect(x, y, BS, BS); return; }
+      this.broken = null;
+      return;
+    }
+    ctx.strokeStyle = "rgba(20,12,6,0.75)";
+    ctx.lineWidth = Math.max(1, this.texel);
+    ctx.beginPath();
+    const r = rng(b.col * 7);
+    for (let i = 0; i < b.crack * 2; i++) {
+      let cx = x + BS / 2, cy = y + BS / 2;
+      ctx.moveTo(cx, cy);
+      for (let k = 0; k < 3; k++) {
+        cx += (r() - 0.5) * BS * 0.5;
+        cy += (r() - 0.5) * BS * 0.5;
+        ctx.lineTo(clamp(cx, x, x + BS), clamp(cy, y, y + BS));
       }
+    }
+    ctx.stroke();
+  }
+
+  drawFire(t, dt, p) {
+    const ctx = this.ctx;
+    const { BS } = this;
+    const tx = this.texel;
+    const x = this.colX(this.fireCol), base = this.topOf(this.fireCol);
+    const kind = this.def.fire;
+    if (kind === "endrod") {
+      ctx.fillStyle = "#f4ecff";
+      ctx.fillRect(x + BS * 0.44, base - BS * 1.1, BS * 0.12, BS * 1.1);
+      ctx.fillStyle = "#c8b8e0";
+      ctx.fillRect(x + BS * 0.35, base - BS * 0.12, BS * 0.3, BS * 0.12);
+      ctx.globalCompositeOperation = "lighter";
+      this.glow(x + BS / 2, base - BS * 0.6, BS * 2, [240, 220, 255], 0.35);
+      ctx.globalCompositeOperation = "source-over";
+      if (dt > 0 && Math.random() < dt * 2) this.particles.push({ kind: "ember", x: x + BS / 2, y: base - BS, vx: (Math.random() - 0.5) * 10, vy: -12, life: 2, age: 0, size: tx, col: [255, 255, 255] });
+      return;
+    }
+    ctx.fillStyle = rgb(this.lit([92, 66, 38], p));
+    ctx.fillRect(x + tx, base - tx * 4, BS - tx * 2, tx * 3);
+    ctx.fillStyle = rgb(this.lit([70, 50, 28], p));
+    ctx.fillRect(x + tx * 3, base - tx * 6, BS - tx * 6, tx * 2);
+    const soul = kind === "soul";
+    ctx.fillStyle = soul ? "#7fe6ff" : "#ffb347";
+    ctx.fillRect(x + tx * 5, base - tx * 4, tx * 6, tx);
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < 4; i++) {
+      const fx = x + BS * (0.3 + i * 0.13);
+      const hgt = BS * (0.7 + 0.3 * Math.sin(t * 9 + i * 1.7) + 0.15 * Math.sin(t * 17 + i));
+      const grd = ctx.createLinearGradient(0, base - tx * 5 - hgt, 0, base - tx * 4);
+      if (soul) {
+        grd.addColorStop(0, "rgba(40,160,255,0)");
+        grd.addColorStop(0.4, "rgba(60,200,255,0.75)");
+        grd.addColorStop(1, "rgba(200,250,255,0.95)");
+      } else {
+        grd.addColorStop(0, "rgba(255,90,20,0)");
+        grd.addColorStop(0.4, "rgba(255,140,40,0.75)");
+        grd.addColorStop(1, "rgba(255,230,120,0.95)");
+      }
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      const wv = Math.sin(t * 6 + i) * tx * 1.5;
+      ctx.moveTo(fx - tx * 2.2, base - tx * 4);
+      ctx.quadraticCurveTo(fx - tx * 2 + wv, base - tx * 4 - hgt * 0.6, fx + wv, base - tx * 4 - hgt);
+      ctx.quadraticCurveTo(fx + tx * 2 + wv, base - tx * 4 - hgt * 0.6, fx + tx * 2.2, base - tx * 4);
+      ctx.fill();
     }
     ctx.globalCompositeOperation = "source-over";
+    if (dt > 0 && this.life !== false) {
+      if (Math.random() < dt * 5) this.particles.push({ kind: "smoke", x: x + BS / 2 + (Math.random() - 0.5) * tx * 4, y: base - BS * 0.9, vx: 6 + Math.random() * 8, vy: -24 - Math.random() * 12, life: 3.5, age: 0, size: tx * 2.5, col: [190, 190, 200] });
+      if (Math.random() < dt * 3) this.particles.push({ kind: "ember", x: x + BS / 2, y: base - BS * 0.6, vx: (Math.random() - 0.5) * 30, vy: -50 - Math.random() * 40, life: 1.4, age: 0, size: tx * 0.9, col: soul ? [120, 220, 255] : [255, 180, 60] });
+    }
   }
+
+  drawFlora(t) {
+    const ctx = this.ctx;
+    ctx.imageSmoothingEnabled = false;
+    for (const f of this.flora) {
+      const sway = this.animate ? Math.sin(t * 1.6 + f.phase) * 0.12 : 0;
+      ctx.save();
+      ctx.translate(f.x + f.size / 2, f.y);
+      ctx.transform(1, 0, sway, 1, 0, 0);
+      ctx.drawImage(this.floraLit?.get(f.img) || f.img, -f.size / 2, -f.size, f.size, f.size);
+      ctx.restore();
+    }
+    ctx.imageSmoothingEnabled = true;
+  }
+
+  drawFireflies(dt, dark) {
+    const ctx = this.ctx;
+    for (const f of this.fireflies) {
+      f.t += dt;
+      const fxp = f.x + Math.sin(f.t * 0.7) * 30, fyp = f.y + Math.sin(f.t * 1.1) * 14;
+      const a = (0.5 + 0.5 * Math.sin(f.t * 3)) * (dark - 0.3) * 1.4;
+      this.glow(fxp, fyp, this.BS * 0.5, [200, 255, 120], a * 0.5);
+      ctx.fillStyle = rgb([230, 255, 160], a);
+      ctx.fillRect(fxp - 1.5, fyp - 1.5, 3, 3);
+    }
+  }
+
+  moveBirds(dt) {
+    if (this.birds.length < 3 && Math.random() < dt * 0.05) {
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      const y = this.h * (0.12 + Math.random() * 0.2);
+      for (let i = 0; i < 3; i++) this.birds.push({ x: dir > 0 ? -40 - i * 26 : this.w + 40 + i * 26, y: y + i * 9, dir, ph: Math.random() * 6 });
+    }
+    for (const b of this.birds) b.x += b.dir * 46 * dt;
+    this.birds = this.birds.filter((b) => b.x > -120 && b.x < this.w + 120);
+  }
+
+  drawBird(b, t, p) {
+    const ctx = this.ctx;
+    const flap = Math.sin(t * 9 + b.ph) * 4;
+    ctx.strokeStyle = rgb(mix([40, 40, 60], p.top, 0.3), 0.75);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(b.x - 7, b.y - flap);
+    ctx.lineTo(b.x, b.y);
+    ctx.lineTo(b.x + 7, b.y - flap);
+    ctx.stroke();
+  }
+
+  drawDragon(t, dt) {
+    const ctx = this.ctx;
+    const { w, h } = this;
+    if (!this.dragon && Math.random() < dt * 0.05) this.dragon = { x: -200, y: h * (0.18 + Math.random() * 0.15), dir: 1 };
+    const d = this.dragon;
+    if (!d) return;
+    d.x += 70 * dt;
+    if (d.x > w + 200) { this.dragon = null; return; }
+    const flap = Math.sin(t * 3) * 18;
+    ctx.fillStyle = "rgba(10,6,18,0.85)";
+    ctx.beginPath();
+    ctx.moveTo(d.x - 60, d.y);
+    ctx.lineTo(d.x + 50, d.y - 4);
+    ctx.lineTo(d.x + 66, d.y + 2);
+    ctx.lineTo(d.x + 50, d.y + 6);
+    ctx.lineTo(d.x - 60, d.y + 6);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(d.x - 10, d.y);
+    ctx.lineTo(d.x - 40, d.y - 40 - flap);
+    ctx.lineTo(d.x + 20, d.y);
+    ctx.fill();
+    ctx.fillStyle = "rgba(220,120,255,0.9)";
+    ctx.fillRect(d.x + 58, d.y - 1, 4, 3);
+  }
+
+  drawBees(t, dt, p) {
+    const ctx = this.ctx;
+    const hive = this.hive;
+    const night = this.darkness() > 0.6;
+    const tx = this.texel;
+    for (const b of this.bees) {
+      b.visible = !!hive && !night;
+      if (!b.visible) continue;
+      b.a += dt * b.sp;
+      b.x = hive.x + Math.cos(b.a) * b.r + Math.sin(b.a * 2.3) * 8;
+      b.y = hive.y + Math.sin(b.a * 1.3) * b.r * 0.5 + 10;
+      const dir = Math.cos(b.a) < 0 ? 1 : -1;
+      ctx.fillStyle = rgb(this.lit([250, 200, 60], p));
+      ctx.fillRect(b.x - tx * 2, b.y - tx * 1.5, tx * 4, tx * 3);
+      ctx.fillStyle = rgb(this.lit([40, 30, 20], p));
+      ctx.fillRect(b.x - tx * 0.5, b.y - tx * 1.5, tx, tx * 3);
+      ctx.fillRect(b.x + dir * tx * 1.5 - tx * 0.5, b.y - tx * 1.5, tx, tx * 3);
+      ctx.fillStyle = "rgba(230,240,255,0.75)";
+      ctx.fillRect(b.x - tx, b.y - tx * 3 + (Math.sin(t * 40) > 0 ? -tx : 0), tx * 2, tx * 1.5);
+    }
+  }
+
+  drawButterflies(t, dt, p) {
+    const ctx = this.ctx;
+    const day = this.darkness() < 0.4;
+    const tx = this.texel;
+    for (const f of this.butterflies) {
+      f.visible = day;
+      if (!day) continue;
+      f.t += dt;
+      f.x = f.cx + Math.sin(f.t * 0.45) * this.BS * 2.2 + Math.sin(f.t * 1.3) * 10;
+      f.y = f.cy + Math.sin(f.t * 0.8) * this.BS * 0.6;
+      const flap = Math.abs(Math.sin(f.t * 12));
+      ctx.fillStyle = rgb(this.lit(f.col, p));
+      ctx.fillRect(f.x - tx * 2.5 * flap - tx, f.y - tx * 1.5, tx * 2.5 * flap + tx * 0.5, tx * 2.5);
+      ctx.fillRect(f.x + tx * 0.5, f.y - tx * 1.5, tx * 2.5 * flap + tx * 0.5, tx * 2.5);
+      ctx.fillStyle = "rgb(40,30,30)";
+      ctx.fillRect(f.x - tx * 0.5, f.y - tx * 1.5, tx, tx * 3);
+    }
+  }
+
+  drawBats(t, dt) {
+    const ctx = this.ctx;
+    const tx = this.texel;
+    for (const b of this.bats) {
+      b.t += dt;
+      const x = b.cx + Math.sin(b.t * 0.6) * this.w * 0.15, y = b.cy + Math.sin(b.t * 1.7) * 30;
+      const flap = Math.sin(b.t * 18) > 0 ? -tx * 2 : tx;
+      ctx.fillStyle = "#2a2018";
+      ctx.fillRect(x - tx, y - tx, tx * 2, tx * 2);
+      ctx.fillRect(x - tx * 4, y + flap, tx * 3, tx);
+      ctx.fillRect(x + tx, y + flap, tx * 3, tx);
+    }
+  }
+
+  drawParticles(dt, p, life) {
+    const ctx = this.ctx;
+    const kind = this.def.particles;
+    const { w, h, BS } = this;
+    if (life && dt > 0) {
+      if (kind === "leaves" && Math.random() < dt * 0.6 && this.def.fore.tree) {
+        const x = this.colX(this.treeCol) + (Math.random() - 0.5) * BS * 4;
+        this.particles.push({ kind: "leaf", x, y: this.topOf(this.treeCol) - BS * 5, vx: -10, vy: 16 + Math.random() * 10, life: 7, age: 0, size: this.texel * 2, col: this.def.leaf, ph: Math.random() * 6 });
+      }
+      if (kind === "petals" && Math.random() < dt * 4) {
+        this.particles.push({ kind: "leaf", x: Math.random() * w * 1.1, y: -10, vx: -14, vy: 22 + Math.random() * 14, life: 14, age: 0, size: this.texel * 1.6, col: Math.random() > 0.5 ? [250, 190, 214] : [255, 220, 234], ph: Math.random() * 6 });
+      }
+      if (kind === "snow" && Math.random() < dt * 14) {
+        this.particles.push({ kind: "snow", x: Math.random() * w * 1.2, y: -10, vx: -8, vy: 24 + Math.random() * 20, life: 16, age: 0, size: 1.5 + Math.random() * 2.5, col: [255, 255, 255], ph: Math.random() * 6 });
+      }
+      if (kind === "dust" && Math.random() < dt * 3) {
+        this.particles.push({ kind: "snow", x: w + 10, y: this.groundY - Math.random() * BS * 4, vx: -60 - Math.random() * 40, vy: (Math.random() - 0.5) * 6, life: 12, age: 0, size: 1.5 + Math.random() * 1.5, col: [236, 214, 160], ph: Math.random() * 6 });
+      }
+      if (kind === "ash" && Math.random() < dt * 10) {
+        this.particles.push({ kind: "snow", x: Math.random() * w, y: Math.random() * h * 0.8, vx: (Math.random() - 0.5) * 10, vy: 6 + Math.random() * 8, life: 8, age: 0, size: 1.5 + Math.random() * 2, col: Math.random() > 0.7 ? [255, 160, 80] : [200, 190, 190], ph: Math.random() * 6 });
+      }
+      if (kind === "portal" && Math.random() < dt * 8) {
+        this.particles.push({ kind: "glowdot", x: Math.random() * w, y: this.groundY - Math.random() * BS, vx: (Math.random() - 0.5) * 8, vy: -20 - Math.random() * 20, life: 4, age: 0, size: 2 + Math.random() * 2, col: [200, 120, 255] });
+      }
+      if (kind === "spores" && Math.random() < dt * 6) {
+        this.particles.push({ kind: "glowdot", x: Math.random() * w, y: h * 0.1 + Math.random() * h * 0.5, vx: (Math.random() - 0.5) * 6, vy: 6 + Math.random() * 6, life: 9, age: 0, size: 1.5 + Math.random() * 2, col: [180, 255, 140] });
+      }
+    }
+    const out = [];
+    for (const q of this.particles) {
+      q.age += dt;
+      if (q.age >= q.life) continue;
+      const k = q.age / q.life;
+      if (q.kind === "chunk" || q.kind === "drop") q.vy += 420 * dt;
+      if (q.kind === "leaf") q.vx = -12 + Math.sin(q.age * 2 + q.ph) * 24;
+      if (q.kind === "snow") q.x += Math.sin(q.age * 1.5 + q.ph) * 0.4;
+      q.x += q.vx * dt;
+      q.y += q.vy * dt;
+      if (q.kind === "chunk" && q.y > this.groundY + 2) { q.y = this.groundY + 2; q.vy *= -0.3; q.vx *= 0.6; }
+      if ((q.kind === "snow" || q.kind === "leaf") && q.y > this.groundY + BS * 0.2) continue;
+      if (q.kind === "smoke") {
+        const s = q.size * (1 + k * 3);
+        ctx.fillStyle = rgb(mix(q.col, p.hor, 0.3), 0.32 * (1 - k));
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, s, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (q.kind === "ember") {
+        ctx.fillStyle = rgb(q.col, 1 - k);
+        ctx.fillRect(q.x, q.y, q.size * 1.5, q.size * 1.5);
+      } else if (q.kind === "glowdot") {
+        const a = Math.sin(k * Math.PI);
+        ctx.globalCompositeOperation = "lighter";
+        this.glow(q.x, q.y, q.size * 4, q.col, 0.35 * a);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = rgb(q.col, a);
+        ctx.fillRect(q.x - q.size / 2, q.y - q.size / 2, q.size, q.size);
+      } else if (q.kind === "snow") {
+        ctx.fillStyle = rgb(q.col, 0.85 * Math.min(1, (1 - k) * 4));
+        ctx.fillRect(q.x, q.y, q.size, q.size);
+      } else {
+        ctx.fillStyle = rgb(this.lit(q.col, p), q.kind === "drop" ? 0.8 * (1 - k) : 1);
+        ctx.fillRect(q.x - q.size / 2, q.y - q.size / 2, q.size, q.size);
+      }
+      out.push(q);
+    }
+    this.particles = out.length > 500 ? out.slice(-500) : out;
+  }
+}
+
+// Textures are shared by every world (live, thumbnails, exports).
+let shared = null;
+function TEXTURES() {
+  shared ||= makeTextures();
+  return shared;
+}
+
+const thumbs = new Map();
+
+/** A small picture of a scene (data URL), cached. */
+export function sceneThumb(id, w = 176, h = 99) {
+  const key = `${id}@${w}x${h}`;
+  if (thumbs.has(key)) return thumbs.get(key);
+  const c = document.createElement("canvas");
+  // Render at a launcher-like size, then shrink, so it looks the same.
+  const world = new World(c, { offscreen: true, width: 960, height: 540, scene: id, hour: 7.2, dpr: 1 });
+  world.drawStill();
+  const small = document.createElement("canvas");
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  small.width = w * dpr;
+  small.height = h * dpr;
+  const g = small.getContext("2d");
+  g.imageSmoothingQuality = "high";
+  g.drawImage(c, 0, 0, small.width, small.height);
+  const url = small.toDataURL("image/jpeg", 0.86);
+  thumbs.set(key, url);
+  return url;
+}
+
+/** A full-size still of a scene (for the in-game main menu). */
+export function sceneStill(id, w, h, hour) {
+  const c = document.createElement("canvas");
+  const world = new World(c, { offscreen: true, width: w, height: h, scene: id, hour, dpr: 1 });
+  return world.drawStill();
 }

@@ -17,11 +17,13 @@ use vortex_core::instance::{Instance, Loader};
 use vortex_core::loaders::{self, LoaderKind, LoaderVersion};
 use vortex_core::logs::{LogLevel, LogLine};
 use vortex_core::manifest::VersionType;
+use vortex_core::modrinth::{self, ProjectKind};
 use vortex_core::mods::{self, InstalledMod};
 use vortex_core::news::{self, NewsEntry};
 use vortex_core::paths::Paths;
 use vortex_core::progress::{Progress, ProgressFn};
 use vortex_core::settings::Settings;
+use vortex_core::skins::{self, Skins};
 use vortex_core::{auth, launch, Launcher, LAUNCHER_VERSION};
 
 type CmdResult<T> = Result<T, String>;
@@ -396,6 +398,13 @@ async fn save_settings(state: State<'_, AppState>, settings: Settings) -> CmdRes
     s.min_memory_mb = s.min_memory_mb.clamp(256, s.max_memory_mb);
     s.download_concurrency = s.download_concurrency.clamp(1, 64);
     s.day_length_min = s.day_length_min.clamp(1, 120);
+    s.glass = s.glass.min(100);
+    s.logo_style = s.logo_style.min(9);
+    s.game_width = s.game_width.map(|w| w.clamp(320, 7680));
+    s.game_height = s.game_height.map(|h| h.clamp(240, 4320));
+    if !["keep", "minimize", "hide"].contains(&s.after_launch.as_str()) {
+        s.after_launch = "keep".into();
+    }
     s.save(&state.launcher.paths().settings_file()).map_err(fail)?;
     *state.settings.lock().await = s.clone();
     Ok(s)
@@ -406,35 +415,321 @@ async fn news(state: State<'_, AppState>) -> CmdResult<Vec<NewsEntry>> {
     news::patch_notes(&state.launcher, 12).await.map_err(fail)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ContentView {
+    #[serde(flatten)]
+    item: InstalledMod,
+    icon_url: Option<String>,
+    project_id: Option<String>,
+}
+
+fn content_dir(inst: &Instance, kind: Option<&str>) -> CmdResult<(ProjectKind, std::path::PathBuf)> {
+    let kind = ProjectKind::parse(kind.unwrap_or("mod")).map_err(fail)?;
+    Ok((kind, kind.dir(inst)))
+}
+
+fn content_views(inst: &Instance, kind: ProjectKind, dir: &Path) -> CmdResult<Vec<ContentView>> {
+    let index = modrinth::installed(inst);
+    let list = mods::list(dir).map_err(fail)?;
+    Ok(list
+        .into_iter()
+        .map(|item| {
+            let base = item.file.trim_end_matches(".disabled");
+            let entry = index.files.get(&format!("{}/{}", kind.folder(), base));
+            ContentView {
+                icon_url: entry.and_then(|e| e.icon_url.clone()),
+                project_id: entry.map(|e| e.project_id.clone()),
+                item: InstalledMod { name: entry.map(|e| e.title.clone()).filter(|_| item.loader == "unknown").unwrap_or(item.name.clone()), ..item },
+            }
+        })
+        .collect())
+}
+
 #[tauri::command]
-async fn list_mods(state: State<'_, AppState>, name: String) -> CmdResult<Vec<InstalledMod>> {
+async fn list_mods(state: State<'_, AppState>, name: String, kind: Option<String>) -> CmdResult<Vec<ContentView>> {
     let inst = find_instance(&state, &name)?;
-    let dir = mods::mods_dir(&inst);
-    tauri::async_runtime::spawn_blocking(move || mods::list(&dir))
+    let (kind, dir) = content_dir(&inst, kind.as_deref())?;
+    tauri::async_runtime::spawn_blocking(move || content_views(&inst, kind, &dir))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(fail)
 }
 
 #[tauri::command]
-async fn toggle_mod(state: State<'_, AppState>, name: String, file: String, enabled: bool) -> CmdResult<Vec<InstalledMod>> {
+async fn toggle_mod(state: State<'_, AppState>, name: String, file: String, enabled: bool, kind: Option<String>) -> CmdResult<Vec<ContentView>> {
     let inst = find_instance(&state, &name)?;
-    let dir = mods::mods_dir(&inst);
+    let (kind, dir) = content_dir(&inst, kind.as_deref())?;
     mods::set_enabled(&dir, &file, enabled).map_err(fail)?;
-    mods::list(&dir).map_err(fail)
+    content_views(&inst, kind, &dir)
 }
 
 #[tauri::command]
-async fn delete_mod(state: State<'_, AppState>, name: String, file: String) -> CmdResult<Vec<InstalledMod>> {
+async fn delete_mod(state: State<'_, AppState>, name: String, file: String, kind: Option<String>) -> CmdResult<Vec<ContentView>> {
     let inst = find_instance(&state, &name)?;
-    let dir = mods::mods_dir(&inst);
+    let (kind, dir) = content_dir(&inst, kind.as_deref())?;
     mods::delete(&dir, &file).map_err(fail)?;
-    mods::list(&dir).map_err(fail)
+    content_views(&inst, kind, &dir)
+}
+
+// --------------------------------------------------------------- modrinth --
+
+#[tauri::command]
+async fn modrinth_search(
+    state: State<'_, AppState>,
+    query: String,
+    kind: String,
+    instance: Option<String>,
+    sort: Option<String>,
+    category: Option<String>,
+    offset: Option<u32>,
+) -> CmdResult<modrinth::SearchPage> {
+    let kind = ProjectKind::parse(&kind).map_err(fail)?;
+    let inst = match instance {
+        Some(n) => Some(find_instance(&state, &n)?),
+        None => None,
+    };
+    let q = modrinth::SearchQuery {
+        text: query.chars().take(100).collect(),
+        kind,
+        game_version: inst.as_ref().map(|i| i.minecraft_version.clone()),
+        loader: inst.as_ref().and_then(modrinth::loader_name).map(String::from),
+        category: category.filter(|c| !c.is_empty() && c.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-')),
+        sort: modrinth::Sort::parse(sort.as_deref().unwrap_or("relevance")),
+        offset: offset.unwrap_or(0),
+        limit: 24,
+    };
+    modrinth::search(&state.launcher, &q).await.map_err(fail)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectView {
+    project: modrinth::Project,
+    versions: Vec<modrinth::VersionInfo>,
+}
+
+#[tauri::command]
+async fn modrinth_project(state: State<'_, AppState>, id: String, kind: String, instance: Option<String>) -> CmdResult<ProjectView> {
+    let kind = ProjectKind::parse(&kind).map_err(fail)?;
+    let project = modrinth::project(&state.launcher, &id).await.map_err(fail)?;
+    let versions = match instance {
+        Some(n) => {
+            let inst = find_instance(&state, &n)?;
+            let target = modrinth::Target::for_instance(&inst, kind);
+            modrinth::versions(&state.launcher, &project.id, &target).await.map_err(fail)?
+        }
+        None => Vec::new(),
+    };
+    Ok(ProjectView { project, versions: versions.into_iter().take(30).collect() })
+}
+
+#[tauri::command]
+async fn modrinth_install(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    instance: String,
+    project_id: String,
+    version_id: Option<String>,
+    kind: String,
+) -> CmdResult<modrinth::InstallResult> {
+    let kind = ProjectKind::parse(&kind).map_err(fail)?;
+    let inst = find_instance(&state, &instance)?;
+    let settings = state.settings.lock().await.clone();
+    let progress = progress_emitter(&app, &format!("modrinth:{project_id}"));
+    modrinth::install(
+        &state.launcher,
+        &inst,
+        kind,
+        &project_id,
+        version_id.as_deref(),
+        settings.mods_allow_unstable,
+        settings.mods_with_dependencies,
+        &progress,
+    )
+    .await
+    .map_err(fail)
+}
+
+/// Project ids already installed in an instance, by kind.
+#[tauri::command]
+async fn modrinth_installed(state: State<'_, AppState>, instance: String) -> CmdResult<HashMap<String, Vec<String>>> {
+    let inst = find_instance(&state, &instance)?;
+    let index = modrinth::installed(&inst);
+    let mut out: HashMap<String, Vec<String>> = HashMap::new();
+    for e in index.files.values() {
+        let k = match e.kind {
+            ProjectKind::Mod => "mod",
+            ProjectKind::Resourcepack => "resourcepack",
+            ProjectKind::Shader => "shader",
+        };
+        out.entry(k.to_string()).or_default().push(e.project_id.clone());
+    }
+    Ok(out)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VersionArt {
+    version: String,
+    image: String,
+}
+
+#[tauri::command]
+async fn version_art(state: State<'_, AppState>) -> CmdResult<Vec<VersionArt>> {
+    let list = news::version_images(&state.launcher).await.map_err(fail)?;
+    Ok(list.into_iter().map(|(version, image)| VersionArt { version, image }).collect())
+}
+
+// ------------------------------------------------------------------ skins --
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SkinItem {
+    id: String,
+    name: String,
+    slim: bool,
+    added: u64,
+    data_url: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SkinLibraryView {
+    skins: Vec<SkinItem>,
+    /// Skin id chosen for the selected account.
+    applied: Option<String>,
+    cape: String,
+    capes: Vec<&'static str>,
+    /// Whether the selected account is a Microsoft account.
+    microsoft: bool,
+}
+
+async fn skin_library_view(state: &AppState) -> CmdResult<SkinLibraryView> {
+    let account = state.accounts.lock().await.selected().cloned();
+    let library = Skins::new(&state.launcher);
+    let lib = library.load();
+    let skins = lib
+        .skins
+        .iter()
+        .filter_map(|s| {
+            let bytes = std::fs::read(library.png_path(&s.id).ok()?).ok()?;
+            Some(SkinItem { id: s.id.clone(), name: s.name.clone(), slim: s.slim, added: s.added, data_url: png_data_url(&bytes) })
+        })
+        .collect();
+    Ok(SkinLibraryView {
+        skins,
+        applied: account.as_ref().and_then(|a| lib.applied.get(&a.uuid).cloned()),
+        cape: account.as_ref().map(|a| library.cape_for(&a.uuid)).unwrap_or_else(|| "none".into()),
+        capes: skins::CAPES.to_vec(),
+        microsoft: account.as_ref().is_some_and(|a| a.is_microsoft()),
+    })
+}
+
+#[tauri::command]
+async fn skin_library(state: State<'_, AppState>) -> CmdResult<SkinLibraryView> {
+    skin_library_view(&state).await
+}
+
+#[tauri::command]
+async fn skin_add(state: State<'_, AppState>, data_url: String, name: String, slim: bool) -> CmdResult<SkinLibraryView> {
+    use base64::Engine;
+    let b64 = data_url.split_once("base64,").map(|(_, b)| b).ok_or("expected a PNG image")?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(b64.trim()).map_err(|e| e.to_string())?;
+    Skins::new(&state.launcher).add(&bytes, &name, slim).map_err(fail)?;
+    skin_library_view(&state).await
+}
+
+#[tauri::command]
+async fn skin_import_files(state: State<'_, AppState>, paths: Vec<String>) -> CmdResult<SkinLibraryView> {
+    let library = Skins::new(&state.launcher);
+    for p in paths {
+        let path = std::path::PathBuf::from(&p);
+        let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Skin").to_string();
+        let bytes = skins::read_png(&path).map_err(fail)?;
+        library.add(&bytes, &name, false).map_err(fail)?;
+    }
+    skin_library_view(&state).await
+}
+
+#[tauri::command]
+async fn skin_from_player(state: State<'_, AppState>, username: String) -> CmdResult<SkinLibraryView> {
+    let (name, png, slim) = skins::skin_of_player(state.launcher.http(), &username).await.map_err(fail)?;
+    Skins::new(&state.launcher).add(&png, &name, slim).map_err(fail)?;
+    skin_library_view(&state).await
+}
+
+#[tauri::command]
+async fn skin_update(state: State<'_, AppState>, id: String, name: Option<String>, slim: Option<bool>) -> CmdResult<SkinLibraryView> {
+    Skins::new(&state.launcher).update(&id, name.as_deref(), slim).map_err(fail)?;
+    skin_library_view(&state).await
+}
+
+#[tauri::command]
+async fn skin_remove(state: State<'_, AppState>, id: String) -> CmdResult<SkinLibraryView> {
+    Skins::new(&state.launcher).remove(&id).map_err(fail)?;
+    skin_library_view(&state).await
+}
+
+/// Use a saved skin on the selected account. Microsoft accounts get it
+/// uploaded to Mojang; offline accounts get it in-game through the Vortex
+/// mod.
+#[tauri::command]
+async fn skin_apply(state: State<'_, AppState>, id: Option<String>) -> CmdResult<SkinLibraryView> {
+    let mut account = state.accounts.lock().await.selected().cloned().ok_or("add an account first")?;
+    let library = Skins::new(&state.launcher);
+    if let (Some(id), true) = (&id, account.is_microsoft()) {
+        let skin = library.load().skins.into_iter().find(|s| &s.id == id).ok_or("no such skin")?;
+        let png = std::fs::read(library.png_path(id).map_err(fail)?).map_err(|e| e.to_string())?;
+        let settings = state.settings.lock().await.clone();
+        let before = account.clone();
+        let session = state.launcher.session_for(&mut account, &settings).await.map_err(fail)?;
+        if account != before {
+            let mut store = state.accounts.lock().await;
+            store.upsert(account.clone());
+            let _ = store.save();
+        }
+        skins::upload_to_account(state.launcher.http(), &session.access_token, png.clone(), skin.slim)
+            .await
+            .map_err(fail)?;
+        let cache = state.launcher.paths().cache().join("skins");
+        let _ = std::fs::create_dir_all(&cache);
+        let _ = std::fs::write(cache.join(format!("{}.png", account.uuid)), &png);
+    }
+    library.set_applied(&account.uuid, id.as_deref()).map_err(fail)?;
+    skin_library_view(&state).await
+}
+
+#[tauri::command]
+async fn set_cape(state: State<'_, AppState>, cape: String) -> CmdResult<SkinLibraryView> {
+    let account = state.accounts.lock().await.selected().cloned().ok_or("add an account first")?;
+    Skins::new(&state.launcher).set_cape(&account.uuid, &cape).map_err(fail)?;
+    skin_library_view(&state).await
+}
+
+/// Folder holding the in-game main menu art the UI exports before a launch.
+fn menu_dir(launcher: &Launcher) -> std::path::PathBuf {
+    launcher.paths().cache().join("menu")
+}
+
+/// Save the launcher's background and logo (PNG data URLs) for the Vortex
+/// main menu in-game.
+#[tauri::command]
+async fn save_menu_art(state: State<'_, AppState>, background: String, logo: String) -> CmdResult<()> {
+    use base64::Engine;
+    let dir = menu_dir(&state.launcher);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    for (name, url) in [("background.png", background), ("logo.png", logo)] {
+        let b64 = url.split_once("base64,").map(|(_, b)| b).ok_or("expected a PNG image")?;
+        let bytes = base64::engine::general_purpose::STANDARD.decode(b64.trim()).map_err(|e| e.to_string())?;
+        skins::png_size(&bytes).map_err(fail)?;
+        std::fs::write(dir.join(name), bytes).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// Copy dropped `.jar` files into an instance's mods folder.
 #[tauri::command]
-async fn import_mods(state: State<'_, AppState>, name: String, paths: Vec<String>) -> CmdResult<Vec<InstalledMod>> {
+async fn import_mods(state: State<'_, AppState>, name: String, paths: Vec<String>) -> CmdResult<Vec<ContentView>> {
     let inst = find_instance(&state, &name)?;
     let dir = mods::mods_dir(&inst);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -455,7 +750,7 @@ async fn import_mods(state: State<'_, AppState>, name: String, paths: Vec<String
     if copied == 0 {
         return Err("only .jar files can be installed as mods".into());
     }
-    mods::list(&dir).map_err(fail)
+    content_views(&inst, ProjectKind::Mod, &dir)
 }
 
 fn open_with_os(target: &str) -> std::io::Result<()> {
@@ -479,6 +774,10 @@ fn open_with_os(target: &str) -> std::io::Result<()> {
 async fn open_path(state: State<'_, AppState>, target: String, name: Option<String>) -> CmdResult<()> {
     let path = match (target.as_str(), name) {
         ("data", _) => state.launcher.paths().root.clone(),
+        ("skins", _) => state.launcher.paths().root.join("skins"),
+        ("runtimes", _) => state.launcher.paths().runtimes(),
+        ("resourcepacks", Some(n)) => find_instance(&state, &n)?.game_dir().join("resourcepacks"),
+        ("shaderpacks", Some(n)) => find_instance(&state, &n)?.game_dir().join("shaderpacks"),
         ("instance", Some(n)) => find_instance(&state, &n)?.game_dir(),
         ("mods", Some(n)) => mods::mods_dir(&find_instance(&state, &n)?),
         ("screenshots", Some(n)) => find_instance(&state, &n)?.game_dir().join("screenshots"),
@@ -530,10 +829,90 @@ fn progress_emitter(app: &AppHandle, instance: &str) -> ProgressFn {
     })
 }
 
+/// The Vortex in-game mod, built from `mod/` (see the README).
+const VORTEX_MOD: &[u8] = include_bytes!("../resources/vortex-mods.jar");
+const VORTEX_MOD_FILE: &str = "vortex-mods.jar";
+/// Minecraft version the bundled mod is built for.
+const VORTEX_MOD_MC: &str = "1.21.4";
+/// Modrinth project id of Fabric API, which the mod needs.
+const FABRIC_API: &str = "P7dR8mSH";
+
+/// Put the Vortex mod (and Fabric API) in a supported Fabric instance, or
+/// take it out when it's turned off. Adds the JVM properties the mod reads.
+async fn setup_vortex_mod(
+    launcher: &Launcher,
+    instance: &mut Instance,
+    account: &Account,
+    settings: &Settings,
+    progress: &ProgressFn,
+) -> anyhow::Result<bool> {
+    use anyhow::Context;
+    if !matches!(instance.loader, Loader::Fabric { .. }) || instance.minecraft_version != VORTEX_MOD_MC {
+        return Ok(false);
+    }
+    let dir = mods::mods_dir(instance);
+    let jar = dir.join(VORTEX_MOD_FILE);
+    if !settings.vortex_mods || VORTEX_MOD.is_empty() {
+        let _ = std::fs::remove_file(&jar);
+        return Ok(false);
+    }
+    // Turned off by hand on the Mods page: leave it off.
+    if dir.join(format!("{VORTEX_MOD_FILE}.disabled")).is_file() {
+        return Ok(false);
+    }
+    std::fs::create_dir_all(&dir)?;
+    if std::fs::read(&jar).map(|b| b != VORTEX_MOD).unwrap_or(true) {
+        std::fs::write(&jar, VORTEX_MOD)?;
+    }
+    let has_api = modrinth::installed(instance).files.values().any(|e| e.project_id == FABRIC_API)
+        || mods::list(&dir)?.iter().any(|m| m.name == "Fabric API");
+    if !has_api {
+        modrinth::install(launcher, instance, ProjectKind::Mod, FABRIC_API, None, false, true, progress)
+            .await
+            .context("could not install Fabric API, which the Vortex mod needs")?;
+    }
+    let library = Skins::new(launcher);
+    if !account.is_microsoft() {
+        if let Some((path, slim)) = library.applied_for(&account.uuid) {
+            instance.jvm_args.push(format!("-Dvortex.skin={}", path.display()));
+            instance.jvm_args.push(format!("-Dvortex.skinSlim={slim}"));
+        }
+    }
+    instance.jvm_args.push(format!("-Dvortex.cape={}", library.cape_for(&account.uuid)));
+    instance.jvm_args.push(format!("-Dvortex.accent={}", settings.accent));
+    instance.jvm_args.push(format!("-Dvortex.menu={}", settings.vortex_menu));
+    let menu = menu_dir(launcher);
+    for (prop, file) in [("menuBg", "background.png"), ("menuLogo", "logo.png")] {
+        let p = menu.join(file);
+        if p.is_file() {
+            instance.jvm_args.push(format!("-Dvortex.{prop}={}", p.display()));
+        }
+    }
+    Ok(true)
+}
+
+fn window_after_launch(app: &AppHandle, how: &str, game_running: bool) {
+    let Some(w) = app.get_webview_window("main") else { return };
+    match (how, game_running) {
+        ("minimize", true) => {
+            let _ = w.minimize();
+        }
+        ("hide", true) => {
+            let _ = w.hide();
+        }
+        ("minimize" | "hide", false) => {
+            let _ = w.show();
+            let _ = w.unminimize();
+            let _ = w.set_focus();
+        }
+        _ => {}
+    }
+}
+
 async fn run_game(
     app: &AppHandle,
     launcher: Arc<Launcher>,
-    instance: Instance,
+    mut instance: Instance,
     mut account: Account,
     settings: Settings,
     mut kill: oneshot::Receiver<()>,
@@ -554,13 +933,18 @@ async fn run_game(
         emit_lines(app, &name, vec![LogLineView { level: "warn", text: "Offline account: singleplayer and LAN only.".into() }]);
     }
 
-    let cmd = launcher
-        .prepare_launch(&instance, &session, &settings, &progress_emitter(app, &name))
-        .await?;
+    let progress = progress_emitter(app, &name);
+    match setup_vortex_mod(&launcher, &mut instance, &account, &settings, &progress).await {
+        Ok(true) => emit_lines(app, &name, vec![LogLineView { level: "info", text: "Vortex mods added (Right Shift in-game opens the mod menu).".into() }]),
+        Ok(false) => {}
+        Err(e) => emit_lines(app, &name, vec![LogLineView { level: "warn", text: format!("Vortex mods skipped: {e:#}") }]),
+    }
+    let cmd = launcher.prepare_launch(&instance, &session, &settings, &progress).await?;
     emit_lines(app, &name, vec![LogLineView { level: "debug", text: format!("> {}", cmd.display_redacted()) }]);
 
     let mut game = launch::spawn(&cmd)?;
     let _ = app.emit("game-state", state("running"));
+    window_after_launch(app, &settings.after_launch, true);
 
     let mut buffer: Vec<LogLineView> = Vec::new();
     let mut tick = tokio::time::interval(Duration::from_millis(120));
@@ -596,6 +980,7 @@ async fn run_game(
     if !buffer.is_empty() {
         emit_lines(app, &name, buffer);
     }
+    window_after_launch(app, &settings.after_launch, false);
     Ok(status.code())
 }
 
@@ -611,47 +996,15 @@ struct SkinView {
     /// `data:image/png;base64,…`, or `None` when no skin could be found.
     data_url: Option<String>,
     slim: bool,
-    /// `account`, `default` or `none`.
+    /// `chosen` (from the skin library), `account`, `default` or `none`.
     source: &'static str,
-}
-
-#[derive(serde::Deserialize)]
-struct SessionProfile {
-    #[serde(default)]
-    properties: Vec<SessionProperty>,
-}
-
-#[derive(serde::Deserialize)]
-struct SessionProperty {
-    name: String,
-    value: String,
+    /// Vortex cape id, or `none`.
+    cape: String,
 }
 
 fn png_data_url(bytes: &[u8]) -> String {
     use base64::Engine;
     format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes))
-}
-
-/// The selected Microsoft account's skin from Mojang's session server.
-async fn account_skin(http: &vortex_core::reqwest::Client, uuid: &str) -> anyhow::Result<(Vec<u8>, bool)> {
-    use base64::Engine;
-    let url = format!("https://sessionserver.mojang.com/session/minecraft/profile/{uuid}");
-    let profile: SessionProfile = http.get(url).send().await?.error_for_status()?.json().await?;
-    let textures = profile
-        .properties
-        .iter()
-        .find(|p| p.name == "textures")
-        .ok_or_else(|| anyhow::anyhow!("profile has no textures"))?;
-    let decoded = base64::engine::general_purpose::STANDARD.decode(&textures.value)?;
-    let v: serde_json::Value = serde_json::from_slice(&decoded)?;
-    let skin = &v["textures"]["SKIN"];
-    let url = skin["url"]
-        .as_str()
-        .ok_or_else(|| anyhow::anyhow!("no skin set"))?
-        .replacen("http://", "https://", 1);
-    let slim = skin["metadata"]["model"].as_str() == Some("slim");
-    let bytes = http.get(url).send().await?.error_for_status()?.bytes().await?;
-    Ok((bytes.to_vec(), slim))
 }
 
 /// The default skin from a Minecraft client jar the player already installed.
@@ -690,13 +1043,20 @@ fn default_skin_from_jars(paths: &Paths) -> Option<Vec<u8>> {
 #[tauri::command]
 async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
     let account = state.accounts.lock().await.selected().cloned();
+    let library = Skins::new(&state.launcher);
+    let cape = account.as_ref().map(|a| library.cape_for(&a.uuid)).unwrap_or_else(|| "none".into());
+    if let Some((path, slim)) = account.as_ref().and_then(|a| library.applied_for(&a.uuid)) {
+        if let Ok(bytes) = std::fs::read(&path) {
+            return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim, source: "chosen", cape });
+        }
+    }
     let skins = state.launcher.paths().cache().join("skins");
     let _ = std::fs::create_dir_all(&skins);
 
     if let Some(acc) = account.filter(|a| a.is_microsoft()) {
         let file = skins.join(format!("{}.png", acc.uuid));
         let slim_file = skins.join(format!("{}.slim", acc.uuid));
-        match account_skin(state.launcher.http(), &acc.uuid).await {
+        match skins::fetch_profile_skin(state.launcher.http(), &acc.uuid).await {
             Ok((bytes, slim)) => {
                 let _ = std::fs::write(&file, &bytes);
                 if slim {
@@ -704,11 +1064,11 @@ async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
                 } else {
                     let _ = std::fs::remove_file(&slim_file);
                 }
-                return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim, source: "account" });
+                return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim, source: "account", cape: cape.clone() });
             }
             Err(_) => {
                 if let Ok(bytes) = std::fs::read(&file) {
-                    return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: slim_file.is_file(), source: "account" });
+                    return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: slim_file.is_file(), source: "account", cape: cape.clone() });
                 }
             }
         }
@@ -716,7 +1076,7 @@ async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
 
     let cached = skins.join("default.png");
     if let Ok(bytes) = std::fs::read(&cached) {
-        return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default" });
+        return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default", cape: cape.clone() });
     }
     let paths = state.launcher.paths().clone();
     let found = tauri::async_runtime::spawn_blocking(move || default_skin_from_jars(&paths))
@@ -725,9 +1085,9 @@ async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
     Ok(match found {
         Some(bytes) => {
             let _ = std::fs::write(&cached, &bytes);
-            SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default" }
+            SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default", cape: cape.clone() }
         }
-        None => SkinView { data_url: None, slim: false, source: "none" },
+        None => SkinView { data_url: None, slim: false, source: "none", cape },
     })
 }
 
@@ -777,6 +1137,20 @@ fn main() {
             toggle_mod,
             delete_mod,
             import_mods,
+            modrinth_search,
+            modrinth_project,
+            modrinth_install,
+            modrinth_installed,
+            version_art,
+            skin_library,
+            skin_add,
+            skin_import_files,
+            skin_from_player,
+            skin_update,
+            skin_remove,
+            skin_apply,
+            set_cape,
+            save_menu_art,
             player_skin,
             open_path,
             open_url,

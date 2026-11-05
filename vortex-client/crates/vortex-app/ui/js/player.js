@@ -78,7 +78,7 @@ function parts(slim) {
   };
 }
 
-function cuboid([w, h, d], [U, V], inf, u, overlay) {
+function cuboid([w, h, d], [U, V], inf, u, overlay, texW = 64, texH = 64) {
   const box = document.createElement("div");
   box.className = `pl-cube${overlay ? " pl-overlay" : ""}`;
   const W = (w + inf * 2) * u, Hh = (h + inf * 2) * u, D = (d + inf * 2) * u;
@@ -94,7 +94,7 @@ function cuboid([w, h, d], [U, V], inf, u, overlay) {
     const el = document.createElement("div");
     el.className = `pl-face pl-${name}`;
     const sx = fw / tw, sy = fh / th;
-    el.style.cssText = `width:${fw}px;height:${fh}px;left:${-fw / 2}px;top:${-fh / 2}px;transform:${tf};background-size:${64 * sx}px ${64 * sy}px;background-position:${-tu * sx}px ${-tv * sy}px;`;
+    el.style.cssText = `width:${fw}px;height:${fh}px;left:${-fw / 2}px;top:${-fh / 2}px;transform:${tf};background-size:${texW * sx}px ${texH * sy}px;background-position:${-tu * sx}px ${-tv * sy}px;`;
     box.appendChild(el);
   }
   return box;
@@ -185,8 +185,28 @@ export class Player {
       this.root.appendChild(pivot);
       this.parts[name] = { el: pivot, p };
     }
+    // Cape: hangs from the shoulders behind the body (64×32 cape texture).
+    const cape = document.createElement("div");
+    cape.className = "pl-part pl-part-cape";
+    const capeInner = document.createElement("div");
+    capeInner.className = "pl-inner";
+    capeInner.style.transform = `translate3d(0px,${8 * u}px,0px)`;
+    const capeBox = cuboid([10, 16, 1], [0, 0], 0, u, false, 64, 32);
+    capeBox.classList.add("pl-capebox");
+    capeInner.appendChild(capeBox);
+    cape.appendChild(capeInner);
+    cape.hidden = !this.capeUrl;
+    this.root.appendChild(cape);
+    this.capeEl = cape;
     this.tag.style.setProperty("--u", `${u}px`);
     this.applySkin();
+  }
+
+  /** Show a cape (URL of a 64×32 cape texture), or none. */
+  setCape(url) {
+    this.capeUrl = url || null;
+    if (this.capeUrl) this.root.style.setProperty("--cape", `url("${this.capeUrl}")`);
+    if (this.capeEl) this.capeEl.hidden = !this.capeUrl;
   }
 
   async setSkin(url, slim = false) {
@@ -404,6 +424,10 @@ export class Player {
     set("larm", P.lArmX, 0, P.lArmZ);
     set("rleg", P.rLegX);
     set("lleg", P.lLegX);
+    if (this.capeEl && this.capeUrl) {
+      const swing = 6 + (this.walking ? 16 + Math.sin(this.walkPhase * 2) * 4 : Math.sin(performance.now() / 700) * 2) + Math.min(20, Math.max(0, -this.vy * 0.6));
+      this.capeEl.style.transform = `translate3d(0px,${-24 * u}px,${-2.6 * u}px) rotateY(180deg) rotateX(${swing}deg)`;
+    }
     this.root.style.transform = `translate3d(${this.x}px,${this.y + bob}px,0) rotateX(-7deg) rotateY(${this.facing}deg)`;
 
     if (!this.preview && this.world) {

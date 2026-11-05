@@ -1,10 +1,12 @@
 // Vortex Client UI: routing, pages, liquid-glass interactions, live game state.
 import { call, on, onFileDrop, isTauri } from "./api.js";
 import { icon, hydrateIcons, drawAvatar } from "./icons.js";
-import { World } from "./scene.js";
+import { World, SCENES, sceneThumb, sceneStill } from "./scene.js";
 import { Player, defaultSkin } from "./player.js";
 import { sound } from "./sound.js";
 import { fx, toast } from "./fx.js";
+import { STYLES, renderBrand, renderStyle, mount as mountLogo } from "./logo.js";
+import { coverFor, updateName } from "./versions.js";
 
 // ------------------------------------------------------------------ state --
 
@@ -36,6 +38,11 @@ const S = {
   instSearch: "",
   instSort: "recent",
   skin: null,
+  art: {},
+  modsTab: store.get("vortex.modsTab") || "browse",
+  browse: { query: "", sort: "relevance", hits: [], total: 0, offset: 0, loading: false, key: "", installed: {}, busy: {} },
+  skins: null,
+  settingsTab: store.get("vortex.settingsTab") || "general",
 };
 
 const ROUTES = {
@@ -43,10 +50,11 @@ const ROUTES = {
   instances: renderInstances,
   new: renderWizard,
   mods: renderMods,
+  skins: renderSkins,
   accounts: renderAccounts,
   settings: renderSettings,
 };
-const NAV_OF = { new: "instances" };
+const NAV_OF = { new: "instances", accounts: "skins" };
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -59,6 +67,20 @@ const selectedAccount = () => S.accounts.find((a) => a.selected) || null;
 const loaderIcon = (l) => ({ vanilla: "grass", fabric: "fabric", forge: "forge" }[l] || "grass");
 const errText = (e) => (typeof e === "string" ? e : e?.message || JSON.stringify(e));
 const block = (loader, cls = "") => `<span class="block ${loader} ${cls}">${loader === "vanilla" ? "" : icon(loaderIcon(loader), cls.includes("lg") ? 28 : 20)}</span>`;
+
+const cover = (id) => coverFor(id, S.art);
+const coverThumb = (inst, cls = "") => `<span class="cover-thumb ${cls}" style="background-image:url('${esc(cover(inst.minecraftVersion))}')">${inst.loader !== "vanilla" ? `<span class="loader-badge ${inst.loader}">${icon(loaderIcon(inst.loader), 10)}</span>` : ""}</span>`;
+const fmtCount = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(n >= 1e4 ? 0 : 1)}k` : String(n));
+const ACCENTS = {
+  amber: ["#ffb547", "#f08f22", "#2b1600"],
+  diamond: ["#4fd8eb", "#1fb3cc", "#03262c"],
+  emerald: ["#45d46b", "#22b04b", "#03290f"],
+  amethyst: ["#b58cff", "#8f5ff0", "#1b0a3a"],
+  redstone: ["#ff6a5c", "#e0362c", "#330404"],
+  copper: ["#ec9465", "#c8673a", "#2e1206"],
+};
+const capeUrl = (c) => (c && c !== "none" ? new URL(`img/capes/${c}.png`, location.href).href : null);
+const CAPE_NAMES = { none: "None", vortex: "Vortex", diamond: "Diamond", ember: "Ember", emerald: "Emerald", amethyst: "Amethyst" };
 
 function ago(secs) {
   if (!secs) return "Not played yet";
@@ -95,7 +117,7 @@ world.onPhase((phase) => {
 });
 
 function tick() {
-  $("#time-text").textContent = world.timeLabel();
+  $("#time-text").textContent = world.timeLabel(!!S.settings?.clock_12h);
   const inst = selectedInstance();
   if (inst && runOf(inst.name).phase === "running" && S.route === "home") {
     const sub = $("#play .play-sub");
@@ -111,14 +133,31 @@ function placeAnchor() {
 }
 window.addEventListener("resize", () => requestAnimationFrame(placeAnchor));
 
-function applyLook() {
-  const s = S.settings || {};
+function applyLook(s = S.settings || {}) {
+  world.setScene(s.background || "meadow");
   world.setMode(s.sky || "cycle");
   world.setDayLength(s.day_length_min || 10);
   world.setAnimate(s.animations !== false);
+  world.setLife(s.world_life !== false);
   sound.setEnabled(s.ui_sounds !== false);
   fx.setEnabled(s.animations !== false);
   document.body.classList.toggle("no-anim", s.animations === false);
+  document.body.classList.toggle("no-player", s.show_player === false);
+  const root = document.documentElement.style;
+  const [acc, deep, ink] = ACCENTS[s.accent] || ACCENTS.amber;
+  root.setProperty("--accent", acc);
+  root.setProperty("--accent-deep", deep);
+  root.setProperty("--accent-ink", ink);
+  root.setProperty("--accent-rgb", [1, 3, 5].map((i) => parseInt(acc.slice(i, i + 2), 16)).join(", "));
+  const glass = Number.isFinite(s.glass) ? s.glass : 60;
+  root.setProperty("--blur", `${Math.round(6 + glass * 0.32)}px`);
+  root.setProperty("--gk", (0.55 + (glass / 100) * 0.9).toFixed(2));
+  const style = Math.min(STYLES.length - 1, Math.max(0, s.logo_style || 0));
+  if (S.brandStyle !== style) {
+    S.brandStyle = style;
+    mountLogo($("#brand-logo"), renderBrand(style, 3.1));
+  }
+  tick();
 }
 
 async function loadSkin() {
@@ -128,10 +167,18 @@ async function loadSkin() {
     S.skin = { dataUrl: null, slim: false, source: "none" };
   }
   const url = S.skin.dataUrl || defaultSkin();
+  const cape = capeUrl(S.skin.cape);
   player.setSkin(url, S.skin.slim);
-  if (S.preview) S.preview.setSkin(url, S.skin.slim);
+  player.setCape(cape);
+  if (S.preview) { S.preview.setSkin(url, S.skin.slim); S.preview.setCape(cape); }
   drawHead($("#account-avatar"), url);
 }
+
+// Preview mode only: a couple of example skins for the Skins page.
+globalThis.__vortexSkinSeeds = () => {
+  const base = defaultSkin();
+  return [["Vortex outfit", base, false]];
+};
 
 function drawHead(canvas, url) {
   const img = new Image();
@@ -297,7 +344,7 @@ function sideBody() {
   return `<div class="tabpane">${list.map((i) => {
     const live = runOf(i.name).phase !== "idle";
     return `<button class="row-item ${i.name === S.selected ? "on" : ""}" data-action="select" data-name="${esc(i.name)}">
-      ${block(i.loader)}
+      ${coverThumb(i)}
       <span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.minecraftVersion)} · ${esc(i.loaderLabel)} · ${esc(ago(i.lastPlayed))}</span></span>
       ${live ? `<span class="live-dot" title="Running"></span>` : ""}</button>`;
   }).join("")}</div>`;
@@ -311,8 +358,8 @@ function renderHome() {
         <button class="glass square lq hl" data-action="toggle-switcher" aria-label="Choose instance" aria-expanded="${S.switcher}">${icon("grid", 20)}</button></div>`
     : `<div class="play-cluster"><button class="play lq" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
   const switcher = S.switcher && inst
-    ? `<div class="switcher glass">${[...S.instances].sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).map((i) => `<button class="row-item ${i.name === inst.name ? "on" : ""}" data-action="select" data-name="${esc(i.name)}">${block(i.loader)}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.minecraftVersion)} · ${esc(i.loaderLabel)}</span></span></button>`).join("")}
-        <button class="row-item" data-action="route" data-route="new"><span class="block" style="background:rgba(255,255,255,.08)">${icon("plus", 16)}</span><span class="meta"><strong>New instance</strong><span>Any version, Vanilla, Fabric or Forge</span></span></button></div>`
+    ? `<div class="switcher glass">${[...S.instances].sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).map((i) => `<button class="row-item ${i.name === inst.name ? "on" : ""}" data-action="select" data-name="${esc(i.name)}">${coverThumb(i)}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.minecraftVersion)} · ${esc(updateName(i.minecraftVersion))}</span></span></button>`).join("")}
+        <button class="row-item" data-action="route" data-route="new"><span class="cover-thumb add">${icon("plus", 16)}</span><span class="meta"><strong>New instance</strong><span>Any version, Vanilla, Fabric or Forge</span></span></button></div>`
     : "";
   return {
     html: `<div class="home">
@@ -382,20 +429,25 @@ function renderInstances() {
   const cards = list.map((i) => {
     const r = runOf(i.name);
     const kind = S.versions?.versions.find((v) => v.id === i.minecraftVersion)?.kind || "release";
-    return `<div class="card ${i.name === S.selected ? "on" : ""}" data-action="select-home" data-name="${esc(i.name)}" role="button" tabindex="0">
-      <div class="card-top">${block(i.loader, "lg")}<div style="min-width:0"><div class="card-name">${esc(i.name)}</div><div class="card-sub">${esc(ago(i.lastPlayed))}</div></div></div>
-      <div class="row" style="gap:6px">
-        <span class="chip"><span class="kind ${kind}">${esc(i.minecraftVersion)}</span></span>
-        <span class="chip">${esc(i.loaderLabel)}</span>
-        ${i.modCount ? `<span class="chip">${i.modCount} mods</span>` : ""}
+    return `<div class="card inst-card ${i.name === S.selected ? "on" : ""}" data-action="select-home" data-name="${esc(i.name)}" role="button" tabindex="0">
+      <div class="inst-cover" style="background-image:url('${esc(cover(i.minecraftVersion))}')">
+        <span class="inst-update">${esc(updateName(i.minecraftVersion))}</span>
         ${r.phase !== "idle" ? `<span class="chip live"><span class="live-dot"></span>${r.phase === "running" ? "Playing" : "Starting"}</span>` : ""}
+        <button class="inst-play lq" data-action="play" data-name="${esc(i.name)}" aria-label="Play ${esc(i.name)}">${icon("play", 16)}</button>
       </div>
-      <div class="card-actions">
-        <button class="btn btn-sm btn-accent lq" data-action="play" data-name="${esc(i.name)}">${icon("play", 12)} Play</button>
-        <button class="btn btn-sm btn-icon lq" data-action="edit" data-name="${esc(i.name)}" aria-label="Edit ${esc(i.name)}">${icon("edit", 12)}</button>
-        <button class="btn btn-sm btn-icon lq" data-action="folder" data-name="${esc(i.name)}" aria-label="Open folder">${icon("folder", 12)}</button>
-        <span class="grow"></span>
-        <button class="btn btn-sm btn-icon btn-danger lq" data-action="delete" data-name="${esc(i.name)}" aria-label="Delete ${esc(i.name)}">${icon("trash", 12)}</button>
+      <div class="inst-body">
+        <div class="card-name">${esc(i.name)}</div>
+        <div class="inst-meta">
+          <span class="chip"><span class="kind ${kind}">${esc(i.minecraftVersion)}</span></span>
+          <span class="chip">${i.loader !== "vanilla" ? icon(loaderIcon(i.loader), 11) : ""}${esc(i.loaderLabel)}</span>
+          ${i.modCount ? `<span class="chip">${i.modCount} mods</span>` : ""}
+        </div>
+        <div class="card-actions">
+          <span class="card-sub">${esc(ago(i.lastPlayed))}</span>
+          <button class="btn btn-sm btn-icon btn-ghost lq" data-action="edit" data-name="${esc(i.name)}" aria-label="Edit ${esc(i.name)}">${icon("edit", 12)}</button>
+          <button class="btn btn-sm btn-icon btn-ghost lq" data-action="folder" data-name="${esc(i.name)}" aria-label="Open folder">${icon("folder", 12)}</button>
+          <button class="btn btn-sm btn-icon btn-ghost btn-danger lq" data-action="delete" data-name="${esc(i.name)}" aria-label="Delete ${esc(i.name)}">${icon("trash", 12)}</button>
+        </div>
       </div></div>`;
   }).join("");
   return {
@@ -458,8 +510,15 @@ function renderWizard() {
           <button class="btn btn-sm lq" data-action="wiz-pick" data-id="${esc(S.versions.latestRelease)}">Latest release</button>
           <button class="btn btn-sm lq" data-action="wiz-pick" data-id="${esc(S.versions.latestSnapshot)}">Latest snapshot</button>
         </div>
-        <div class="vlist" role="listbox" aria-label="Minecraft versions">
-          ${rows.map((v) => `<button class="vrow ${w.version === v.id ? "on" : ""}" role="option" aria-selected="${w.version === v.id}" data-action="wiz-pick" data-id="${esc(v.id)}"><span class="vid">${esc(v.id)}</span><span class="kind ${v.kind}">${v.kind === "release" ? "Release" : v.kind === "snapshot" ? "Snapshot" : v.kind === "beta" ? "Beta" : "Alpha"}</span><span class="vdate">${esc(v.date)}</span></button>`).join("") || `<div class="empty"><p>No versions match.</p></div>`}
+        <div class="wiz-pick">
+          <div class="vlist" role="listbox" aria-label="Minecraft versions">
+            ${rows.map((v) => `<button class="vrow ${w.version === v.id ? "on" : ""}" role="option" aria-selected="${w.version === v.id}" data-action="wiz-pick" data-id="${esc(v.id)}"><span class="vid">${esc(v.id)}</span><span class="vname">${esc(updateName(v.id))}</span><span class="kind ${v.kind}">${v.kind === "release" ? "Release" : v.kind === "snapshot" ? "Snapshot" : v.kind === "beta" ? "Beta" : "Alpha"}</span><span class="vdate">${esc(v.date)}</span></button>`).join("") || `<div class="empty"><p>No versions match.</p></div>`}
+          </div>
+          ${w.version ? `<div class="vpreview">
+            <div class="vpreview-art" style="background-image:url('${esc(cover(w.version))}')"></div>
+            <div class="vpreview-text"><span class="label">${esc(updateName(w.version))}</span><strong>Minecraft ${esc(w.version)}</strong>
+            <span class="muted">${esc(S.versions.versions.find((v) => v.id === w.version)?.date || "")}</span></div>
+          </div>` : ""}
         </div>
         <div class="row"><span class="muted">${rows.length} shown. Selected: <strong style="color:var(--ink)">${esc(w.version || "none")}</strong></span><span class="grow"></span><button class="btn btn-accent lq" data-action="wiz-next" ${w.version ? "" : "disabled"}>Next</button></div>`;
     }
@@ -531,60 +590,406 @@ function loadLoaderVersions(w) {
 
 // ------------------------------------------------------------------- mods --
 
-function renderMods() {
-  const modded = S.instances.filter((i) => i.loader !== "vanilla");
+const KINDS = [["mod", "Mods"], ["resourcepack", "Resource packs"], ["shader", "Shaders"]];
+const KIND_ONE = { mod: "mod", resourcepack: "resource pack", shader: "shader" };
+const HIDDEN_TAGS = new Set(["babric", "rift", "legacy-fabric", "ornithe", "bta-babric", "java", "minecraft", "iris", "optifine", "canvas", "vanilla", "bukkit", "paper", "spigot", "purpur", "folia", "sponge", "velocity", "bungeecord", "waterfall", "datapack", "nilloader", "risugami"]);
+const SORTS = [["relevance", "Relevance"], ["downloads", "Downloads"], ["follows", "Follows"], ["updated", "Updated"], ["newest", "Newest"]];
+
+function modsInstance() {
   if (!S.mods.instance || !S.instances.some((i) => i.name === S.mods.instance)) {
     const sel = selectedInstance();
+    const modded = S.instances.filter((i) => i.loader !== "vanilla");
     S.mods.instance = sel && sel.loader !== "vanilla" ? sel.name : modded[0]?.name || sel?.name || null;
-    if (S.mods.instance) loadMods();
   }
-  const inst = S.instances.find((i) => i.name === S.mods.instance);
-  if (!inst) return { html: sheet("Mods", "", "", `<div class="empty"><h3>No instances yet</h3><button class="btn btn-accent lq" data-action="route" data-route="new">Create one</button></div>`) };
-  const picker = `<select class="input" id="mods-inst" aria-label="Instance" style="width:260px">${S.instances.map((i) => `<option value="${esc(i.name)}" ${i.name === S.mods.instance ? "selected" : ""}>${esc(i.name)} (${esc(i.loaderLabel)})</option>`).join("")}</select>`;
-  let body;
-  if (inst.loader === "vanilla") {
-    body = `<div class="empty">${block("vanilla", "lg")}<h3>Vanilla doesn't load mods</h3><p>Create a Fabric or Forge instance to use mods.</p><button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New modded instance</button></div>`;
-  } else if (S.mods.loading) {
-    body = `<div class="empty"><div class="bar" style="width:240px"><i></i></div></div>`;
-  } else {
-    const list = S.mods.list;
-    body = `${list.length ? `<div class="list">${list.map((m) => `<div class="list-row ${m.enabled ? "" : "off"}">
-        ${block(m.loader === "forge" ? "forge" : m.loader === "unknown" ? "vanilla" : "fabric")}
-        <div class="meta"><strong>${esc(m.name)}${m.version ? ` <span class="chip">${esc(m.version)}</span>` : ""}</strong><span>${esc(m.description || m.file)}</span></div>
-        <button class="switch" role="switch" aria-checked="${m.enabled}" aria-label="Enable ${esc(m.name)}" data-action="mod-toggle" data-file="${esc(m.file)}" data-on="${m.enabled}"></button>
-        <button class="btn btn-sm btn-icon btn-danger lq" data-action="mod-delete" data-file="${esc(m.file)}" aria-label="Delete ${esc(m.name)}">${icon("trash", 12)}</button>
-      </div>`).join("")}</div>` : `<div class="empty"><h3>No mods yet</h3><p>Add ${inst.loader === "forge" ? "Forge" : "Fabric"} mods made for Minecraft ${esc(inst.minecraftVersion)} to the mods folder.</p></div>`}
-      ${isTauri ? `<div class="dropzone" id="dropzone">Drop .jar files on this window to install them</div>` : ""}`;
+  const inst = S.instances.find((i) => i.name === S.mods.instance) || null;
+  if (inst && inst.loader === "vanilla" && (S.mods.kind || "mod") === "mod") S.mods.kind = "resourcepack";
+  S.mods.kind ||= inst?.loader === "vanilla" ? "resourcepack" : "mod";
+  return inst;
+}
+
+function contentRow(m, inst) {
+  const iconHtml = m.iconUrl
+    ? `<img class="proj-icon sm" src="${esc(m.iconUrl)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'proj-icon sm blank'}))">`
+    : `<span class="proj-icon sm blank">${icon(S.mods.kind === "mod" ? loaderIcon(m.loader === "forge" ? "forge" : "fabric") : "grid", 16)}</span>`;
+  const isVortex = /^vortex-mods/.test(m.file);
+  return `<div class="list-row ${m.enabled ? "" : "off"}">
+    ${iconHtml}
+    <div class="meta"><strong>${esc(m.name)}${m.version ? ` <span class="chip">${esc(m.version)}</span>` : ""}${isVortex ? ` <span class="chip accent">Vortex</span>` : ""}</strong><span>${esc(m.description || m.file)}</span></div>
+    <button class="switch" role="switch" aria-checked="${m.enabled}" aria-label="Enable ${esc(m.name)}" data-action="mod-toggle" data-file="${esc(m.file)}" data-on="${m.enabled}"></button>
+    <button class="btn btn-sm btn-icon btn-ghost btn-danger lq" data-action="mod-delete" data-file="${esc(m.file)}" aria-label="Delete ${esc(m.name)}">${icon("trash", 12)}</button>
+  </div>`;
+}
+
+function installedBody(inst) {
+  const kind = S.mods.kind;
+  if (kind === "mod" && inst.loader === "vanilla") {
+    return `<div class="empty">${block("vanilla", "lg")}<h3>Vanilla doesn't load mods</h3><p>Resource packs and shaders still work. For mods, make a Fabric or Forge instance.</p><button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New modded instance</button></div>`;
   }
+  if (S.mods.loading) return `<div class="empty"><div class="bar" style="width:240px"><i></i></div></div>`;
+  const list = S.mods.list;
+  if (!list.length) {
+    return `<div class="empty"><h3>No ${KIND_ONE[kind]}s yet</h3><p>Find some on the Browse tab${kind === "mod" && isTauri ? ", or drop .jar files on this window" : ""}.</p><button class="btn btn-accent lq" data-action="mods-tab" data-tab="browse">${icon("search", 14)} Browse ${KIND_ONE[kind]}s</button></div>`;
+  }
+  return `<div class="list">${list.map((m) => contentRow(m, inst)).join("")}</div>
+    ${isTauri && kind === "mod" ? `<div class="dropzone" id="dropzone">Drop .jar files on this window to install them</div>` : ""}`;
+}
+
+function hitCard(h, inst) {
+  const kind = S.mods.kind;
+  const installed = (S.browse.installed[kind] || []).includes(h.id);
+  const busy = S.browse.busy[h.id];
+  const btn = busy
+    ? `<button class="btn btn-sm lq" disabled><span class="spin"></span> Installing</button>`
+    : installed
+      ? `<button class="btn btn-sm btn-ghost lq" disabled>${icon("check", 12)} Installed</button>`
+      : `<button class="btn btn-sm btn-accent lq" data-action="mr-install" data-id="${esc(h.id)}">${icon("download", 12)} Install</button>`;
+  return `<article class="hit" data-action="mr-open" data-id="${esc(h.id)}" tabindex="0" role="button">
+    ${h.iconUrl ? `<img class="proj-icon" src="${esc(h.iconUrl)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'proj-icon blank'}))">` : `<span class="proj-icon blank"></span>`}
+    <div class="hit-main">
+      <div class="hit-title"><strong>${esc(h.title)}</strong><span>by ${esc(h.author)}</span></div>
+      <p>${esc(h.description)}</p>
+      <div class="hit-meta">
+        <span title="Downloads">${icon("download", 11)} ${fmtCount(h.downloads)}</span>
+        <span title="Follows">${icon("heart", 11)} ${fmtCount(h.follows)}</span>
+        ${h.categories.filter((c) => !HIDDEN_TAGS.has(c)).slice(0, 2).map((c) => `<span class="tag">${esc(c.replace(/-/g, " "))}</span>`).join("")}
+      </div>
+    </div>
+    <div class="hit-side">${btn}</div>
+  </article>`;
+}
+
+function browseBody(inst) {
+  const kind = S.mods.kind;
+  if (kind === "mod" && inst.loader === "vanilla") return installedBody(inst);
+  const b = S.browse;
+  const key = `${inst.name}|${kind}|${b.query}|${b.sort}`;
+  if (b.key !== key && !b.loading) searchModrinth(true);
+  const results = b.hits.length
+    ? `<div class="hits">${b.hits.map((h) => hitCard(h, inst)).join("")}</div>
+       ${b.hits.length < b.total ? `<div class="row" style="justify-content:center"><button class="btn lq" data-action="mr-more" ${b.loading ? "disabled" : ""}>${b.loading ? "Loading" : `Show more (${fmtCount(b.total - b.hits.length)} left)`}</button></div>` : ""}`
+    : b.loading
+      ? `<div class="hits">${Array.from({ length: 6 }, () => `<div class="hit skeleton"><span class="proj-icon blank"></span><div class="hit-main"><i></i><i></i><i></i></div></div>`).join("")}</div>`
+      : `<div class="empty"><h3>Nothing found</h3><p>${b.error ? esc(b.error) : `No ${KIND_ONE[kind]}s match for Minecraft ${esc(inst.minecraftVersion)}${kind === "mod" ? ` with ${esc(inst.loaderLabel.split(" ")[0])}` : ""}.`}</p></div>`;
+  return `<div class="browse-bar">
+      <div class="search-field">${icon("search", 14)}<input class="input" id="mr-search" type="search" placeholder="Search Modrinth for ${KIND_ONE[kind]}s" value="${esc(b.query)}" aria-label="Search Modrinth"></div>
+      <select class="input" id="mr-sort" aria-label="Sort">${SORTS.map(([v, l]) => `<option value="${v}" ${b.sort === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+    </div>
+    <p class="muted small">Showing ${KIND_ONE[kind]}s for Minecraft ${esc(inst.minecraftVersion)}${kind === "mod" ? ` · ${esc(inst.loaderLabel.split(" ")[0])}` : ""}. From modrinth.com.</p>
+    ${results}`;
+}
+
+function renderMods() {
+  const inst = modsInstance();
+  if (!inst) return { html: sheet("Mods", "", "", `<div class="empty"><h3>No instances yet</h3><p>Create an instance first, then add mods to it.</p><button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New instance</button></div>`) };
+  if (S.mods.loadedFor !== `${inst.name}|${S.mods.kind}`) loadMods();
+  const kind = S.mods.kind;
+  const picker = `<label class="inst-picker">${coverThumb(inst, "sm")}<select class="input" id="mods-inst" aria-label="Instance">${S.instances.map((i) => `<option value="${esc(i.name)}" ${i.name === inst.name ? "selected" : ""}>${esc(i.name)} · ${esc(i.loaderLabel)}</option>`).join("")}</select></label>`;
+  const folder = { mod: "folder-mods", resourcepack: "folder-packs", shader: "folder-shaders" }[kind];
+  const count = S.mods.list.length;
   return {
-    html: sheet("Mods", `${S.mods.list.length} installed in ${esc(inst.name)}.`, `${picker}
-      <button class="btn lq" data-action="mods-refresh">Refresh</button>
-      <button class="btn btn-accent lq" data-action="folder-mods" ${inst.loader === "vanilla" ? "disabled" : ""}>${icon("folder", 14)} Open folder</button>`, body),
+    html: sheet("Mods", `${esc(inst.name)} · Minecraft ${esc(inst.minecraftVersion)} · ${esc(inst.loaderLabel)}`, `${picker}
+      <button class="btn lq" data-action="${folder}">${icon("folder", 14)} Open folder</button>`,
+      `<div class="mods-tools">
+        <div class="tabs glass" id="mods-tabs"><span class="drop" aria-hidden="true"></span>
+          <button class="tab ${S.modsTab === "browse" ? "on" : ""}" data-action="mods-tab" data-tab="browse">${icon("search", 13)} Browse</button>
+          <button class="tab ${S.modsTab === "installed" ? "on" : ""}" data-action="mods-tab" data-tab="installed">${icon("check", 13)} Installed${count ? ` <b class="count">${count}</b>` : ""}</button>
+        </div>
+        <div class="tabs sm glass" id="kind-tabs"><span class="drop" aria-hidden="true"></span>
+          ${KINDS.map(([k, l]) => `<button class="tab ${kind === k ? "on" : ""}" data-action="mods-kind" data-kind="${k}">${l}</button>`).join("")}
+        </div>
+      </div>
+      <div class="mods-pane">${S.modsTab === "browse" ? browseBody(inst) : installedBody(inst)}</div>`),
     mount(root) {
       $("#mods-inst", root).addEventListener("change", (e) => {
         S.mods.instance = e.target.value;
         S.mods.list = [];
-        loadMods();
+        S.browse.hits = [];
         render();
       });
+      const search = $("#mr-search", root);
+      if (search) {
+        let timer;
+        search.addEventListener("input", () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            S.browse.query = search.value.trim();
+            const pos = search.selectionStart;
+            render();
+            const again = $("#mr-search");
+            again?.focus();
+            again?.setSelectionRange(pos, pos);
+          }, 320);
+        });
+      }
+      $("#mr-sort", root)?.addEventListener("change", (e) => { S.browse.sort = e.target.value; render(); });
     },
   };
 }
 
 async function loadMods() {
   const name = S.mods.instance;
+  const kind = S.mods.kind;
   const inst = S.instances.find((i) => i.name === name);
-  if (!inst || inst.loader === "vanilla") return;
+  if (!inst) return;
+  S.mods.loadedFor = `${name}|${kind}`;
   S.mods.loading = true;
   try {
-    const list = await call("list_mods", { name });
-    if (S.mods.instance === name) S.mods.list = list;
+    const [list, installed] = await Promise.all([call("list_mods", { name, kind }), call("modrinth_installed", { instance: name }).catch(() => ({}))]);
+    if (S.mods.instance === name && S.mods.kind === kind) {
+      S.mods.list = list;
+      S.browse.installed = installed;
+    }
   } catch (e) {
-    toast("Couldn't read mods", errText(e), "error");
+    toast("Couldn't read the folder", errText(e), "error");
   } finally {
     S.mods.loading = false;
     if (S.route === "mods") render();
   }
+}
+
+async function searchModrinth(reset) {
+  const inst = S.instances.find((i) => i.name === S.mods.instance);
+  if (!inst) return;
+  const b = S.browse;
+  const kind = S.mods.kind;
+  const key = `${inst.name}|${kind}|${b.query}|${b.sort}`;
+  if (reset) { b.hits = []; b.offset = 0; b.total = 0; }
+  b.key = key;
+  b.loading = true;
+  b.error = null;
+  try {
+    const page = await call("modrinth_search", { query: b.query, kind, instance: inst.name, sort: b.sort, offset: reset ? 0 : b.hits.length });
+    if (b.key !== key) return;
+    b.hits = reset ? page.hits : [...b.hits, ...page.hits];
+    b.total = page.total;
+  } catch (e) {
+    if (b.key === key) b.error = `Couldn't reach Modrinth: ${errText(e)}`;
+  } finally {
+    if (b.key === key) {
+      b.loading = false;
+      if (S.route === "mods" && S.modsTab === "browse") {
+        const pane = $(".mods-pane");
+        if (pane) { pane.innerHTML = browseBody(inst); hydrateIcons(pane); bindBrowseInputs(pane); }
+      }
+    }
+  }
+}
+
+function bindBrowseInputs(root) {
+  const search = $("#mr-search", root);
+  if (search && !search.dataset.bound) {
+    search.dataset.bound = "1";
+    let timer;
+    search.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { S.browse.query = search.value.trim(); searchModrinth(true); }, 320);
+    });
+  }
+  const sort = $("#mr-sort", root);
+  if (sort && !sort.dataset.bound) {
+    sort.dataset.bound = "1";
+    sort.addEventListener("change", (e) => { S.browse.sort = e.target.value; searchModrinth(true); });
+  }
+}
+
+async function installProject(id, versionId = null) {
+  const inst = S.instances.find((i) => i.name === S.mods.instance);
+  if (!inst || S.browse.busy[id]) return;
+  const kind = S.mods.kind;
+  S.browse.busy[id] = true;
+  refreshBrowseCard(id);
+  try {
+    const res = await call("modrinth_install", { instance: inst.name, projectId: id, versionId, kind });
+    (S.browse.installed[kind] ||= []).push(id);
+    sound.success();
+    const extra = res.installed.length > 1 ? ` with ${res.installed.slice(1).join(", ")}` : "";
+    toast("Installed", `${res.installed[0]}${extra} added to ${inst.name}.`, "success");
+    S.mods.loadedFor = null;
+    refreshInstances().catch(() => {});
+  } catch (e) {
+    sound.error();
+    toast("Couldn't install", errText(e), "error", 7000);
+  } finally {
+    delete S.browse.busy[id];
+    refreshBrowseCard(id);
+  }
+}
+
+function refreshBrowseCard(id) {
+  const inst = S.instances.find((i) => i.name === S.mods.instance);
+  const h = S.browse.hits.find((x) => x.id === id);
+  const el = $(`.hit[data-id="${CSS.escape(id)}"]`);
+  if (inst && h && el) {
+    el.outerHTML = hitCard(h, inst);
+    hydrateIcons($(`.hit[data-id="${CSS.escape(id)}"]`));
+  }
+  const mbtn = $(`#mr-modal-install`);
+  if (mbtn && mbtn.dataset.id === id) {
+    const installed = (S.browse.installed[S.mods.kind] || []).includes(id);
+    mbtn.disabled = !!S.browse.busy[id] || installed;
+    mbtn.innerHTML = S.browse.busy[id] ? `<span class="spin"></span> Installing` : installed ? `${icon("check", 14)} Installed` : `${icon("download", 14)} Install latest`;
+  }
+}
+
+async function openProject(id) {
+  const inst = S.instances.find((i) => i.name === S.mods.instance);
+  const hit = S.browse.hits.find((x) => x.id === id);
+  modal(`<div class="proj-head">${hit?.iconUrl ? `<img class="proj-icon lg" src="${esc(hit.iconUrl)}" alt="">` : `<span class="proj-icon lg blank"></span>`}
+      <div><h3>${esc(hit?.title || "Loading")}</h3><p class="muted">${esc(hit?.description || "")}</p></div></div>
+    <div class="bar"><i></i></div>`);
+  try {
+    const { project: p, versions } = await call("modrinth_project", { id, kind: S.mods.kind, instance: inst?.name });
+    if (!$("#modal-root").children.length) return;
+    const installed = (S.browse.installed[S.mods.kind] || []).includes(id);
+    const links = [["Modrinth", p.pageUrl], ["Source", p.sourceUrl], ["Wiki", p.wikiUrl], ["Discord", p.discordUrl]].filter(([, u]) => u);
+    const box = $("#modal-root .modal");
+    box.classList.add("wide");
+    box.innerHTML = `<div class="proj-head">${p.iconUrl ? `<img class="proj-icon lg" src="${esc(p.iconUrl)}" alt="">` : `<span class="proj-icon lg blank"></span>`}
+        <div class="grow"><h3>${esc(p.title)}</h3><p class="muted">${esc(p.description)}</p>
+          <div class="hit-meta"><span>${icon("download", 11)} ${fmtCount(p.downloads)} downloads</span><span>${icon("heart", 11)} ${fmtCount(p.follows)}</span>${p.license ? `<span class="tag">${esc(p.license)}</span>` : ""}<span class="tag">Updated ${esc(p.updated)}</span></div></div></div>
+      ${p.gallery.length ? `<div class="gallery">${p.gallery.slice(0, 4).map((g) => `<div class="shot" style="background-image:url('${esc(g.url)}')" title="${esc(g.title || "")}"></div>`).join("")}</div>` : ""}
+      <div class="section"><h2>Versions for ${esc(inst?.name || "")}</h2>
+        ${versions.length ? `<div class="list versions">${versions.slice(0, 8).map((v) => `<div class="list-row">
+          <div class="meta"><strong>${esc(v.name || v.number)} <span class="kind ${v.kind === "release" ? "release" : "snapshot"}">${esc(v.kind)}</span></strong><span>${esc(v.number)} · ${esc(v.date)} · ${fmtCount(v.downloads)} downloads</span></div>
+          <button class="btn btn-sm lq" data-action="mr-install-version" data-id="${esc(p.id)}" data-version="${esc(v.id)}">Install</button></div>`).join("")}</div>`
+          : `<p class="muted">No version of ${esc(p.title)} works with Minecraft ${esc(inst?.minecraftVersion || "")}${S.mods.kind === "mod" ? ` and ${esc(inst?.loaderLabel.split(" ")[0] || "")}` : ""}.</p>`}
+      </div>
+      <div class="modal-actions">${links.map(([l, u]) => `<button class="btn btn-sm btn-ghost lq" data-action="open-url" data-url="${esc(u)}">${icon("link", 12)} ${l}</button>`).join("")}<span class="grow"></span>
+        <button class="btn lq" id="mr-close">Close</button>
+        <button class="btn btn-accent lq" id="mr-modal-install" data-id="${esc(p.id)}" ${installed || !versions.length ? "disabled" : ""}>${installed ? `${icon("check", 14)} Installed` : `${icon("download", 14)} Install latest`}</button></div>`;
+    hydrateIcons(box);
+    $("#mr-close").onclick = closeModal;
+    $("#mr-modal-install").onclick = () => installProject(p.id);
+  } catch (e) {
+    closeModal();
+    toast("Couldn't load the project", errText(e), "error");
+  }
+}
+
+// ------------------------------------------------------------------ skins --
+
+/** A flat front view of a skin (head, body, arms, legs) for thumbnails. */
+function drawSkinFront(canvas, url, slim) {
+  const img = new Image();
+  img.onload = () => {
+    const g = canvas.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    const s = canvas.width / 16;
+    const legacy = img.height === 32;
+    const aw = slim ? 3 : 4;
+    const part = (sx, sy, w, h, dx, dy, flip) => {
+      g.save();
+      if (flip) { g.translate((dx + w) * s, dy * s); g.scale(-1, 1); g.drawImage(img, sx, sy, w, h, 0, 0, w * s, h * s); }
+      else g.drawImage(img, sx, sy, w, h, dx * s, dy * s, w * s, h * s);
+      g.restore();
+    };
+    const x0 = 4;
+    part(8, 8, 8, 8, x0, 0); part(40, 8, 8, 8, x0, 0);
+    part(20, 20, 8, 12, x0, 8); if (!legacy) part(20, 36, 8, 12, x0, 8);
+    part(44, 20, aw, 12, x0 - aw, 8); if (!legacy) part(44, 36, aw, 12, x0 - aw, 8);
+    if (legacy) part(44, 20, aw, 12, x0 + 8, 8, true); else { part(36, 52, aw, 12, x0 + 8, 8); part(52, 52, aw, 12, x0 + 8, 8); }
+    part(4, 20, 4, 12, x0, 20); if (!legacy) part(4, 36, 4, 12, x0, 20);
+    if (legacy) part(4, 20, 4, 12, x0 + 4, 20, true); else { part(20, 52, 4, 12, x0 + 4, 20); part(4, 52, 4, 12, x0 + 4, 20); }
+  };
+  img.src = url;
+}
+
+async function loadSkins() {
+  try {
+    S.skins = await call("skin_library");
+  } catch (e) {
+    S.skins = { skins: [], applied: null, cape: "none", capes: Object.keys(CAPE_NAMES), microsoft: false };
+    toast("Couldn't read your skins", errText(e), "error");
+  }
+  if (S.route === "skins") render();
+}
+
+function renderSkins() {
+  if (!S.skins) loadSkins();
+  const lib = S.skins || { skins: [], applied: null, cape: "none", capes: Object.keys(CAPE_NAMES), microsoft: false };
+  const acc = selectedAccount();
+  const skinCards = lib.skins.map((k) => `<div class="skin-card ${lib.applied === k.id ? "on" : ""}">
+      <button class="skin-art" data-action="skin-use" data-id="${esc(k.id)}" aria-label="Use ${esc(k.name)}"><canvas width="64" height="128" data-skin="${esc(k.id)}"></canvas>${lib.applied === k.id ? `<span class="chip accent">In use</span>` : ""}</button>
+      <div class="skin-meta"><strong title="${esc(k.name)}">${esc(k.name)}</strong>
+        <div class="seg sm" role="group" aria-label="Model">
+          <button class="${k.slim ? "" : "on"}" data-action="skin-model" data-id="${esc(k.id)}" data-slim="false">Classic</button>
+          <button class="${k.slim ? "on" : ""}" data-action="skin-model" data-id="${esc(k.id)}" data-slim="true">Slim</button>
+        </div></div>
+      <div class="skin-actions">
+        <button class="btn btn-sm ${lib.applied === k.id ? "btn-ghost" : "btn-accent"} lq grow" data-action="skin-use" data-id="${esc(k.id)}" ${lib.applied === k.id ? "disabled" : ""}>${lib.applied === k.id ? "In use" : "Use"}</button>
+        <button class="btn btn-sm btn-icon btn-ghost btn-danger lq" data-action="skin-remove" data-id="${esc(k.id)}" aria-label="Delete ${esc(k.name)}">${icon("trash", 12)}</button>
+      </div></div>`).join("");
+  const capeCards = lib.capes.map((c) => `<button class="cape ${lib.cape === c ? "on" : ""}" data-action="cape" data-cape="${c}" aria-pressed="${lib.cape === c}">
+      ${c === "none" ? `<span class="cape-art none">${icon("x", 16)}</span>` : `<span class="cape-art" style="background-image:url('img/capes/${c}.png')"></span>`}
+      <span>${CAPE_NAMES[c] || c}</span></button>`).join("");
+  const where = lib.microsoft
+    ? "Using a skin uploads it to your Microsoft account, so everyone sees it."
+    : "Offline accounts: Vortex mods show your skin and cape in-game on Fabric 1.21.4. Only you see them.";
+  return {
+    html: sheet("Skins", acc ? `${esc(acc.username)} · ${acc.kind === "microsoft" ? "Microsoft account" : "Offline account"}` : "Add an account to use skins.", `<button class="btn lq" data-action="route" data-route="accounts">${icon("user", 14)} Accounts</button>
+        <button class="btn lq" data-action="folder-skins">${icon("folder", 14)} Open folder</button>`, `
+      <div class="skins-layout">
+        <div class="pedestal" id="pedestal"><div class="who">${esc(acc?.username || "No account")}</div><div class="hint">Drag to turn</div></div>
+        <div class="skins-side">
+          <div class="section"><div class="section-head"><h2>Your skins</h2><span class="muted small">${where}</span></div>
+            <div class="skin-grid">${skinCards}
+              <label class="skin-card add" tabindex="0"><input type="file" id="skin-file" accept="image/png" hidden><span class="add-art">${icon("plus", 22)}</span><strong>Upload a skin</strong><span class="muted small">64×64 PNG${isTauri ? ", or drop it on the window" : ""}</span></label>
+            </div>
+          </div>
+          <div class="section"><h2>Copy a player's skin</h2>
+            <div class="row"><input class="input grow" id="skin-player" maxlength="16" placeholder="Java Edition username" aria-label="Username"><button class="btn lq" data-action="skin-player">${icon("download", 14)} Get skin</button></div>
+          </div>
+          <div class="section"><h2>Cape</h2><div class="capes">${capeCards}</div></div>
+        </div>
+      </div>`),
+    mount(root) {
+      const ped = $("#pedestal", root);
+      S.preview = new Player(ped, null, { preview: true, unit: 9 });
+      S.preview.setSkin(S.skin?.dataUrl || defaultSkin(), S.skin?.slim);
+      S.preview.setCape(capeUrl(lib.cape));
+      S.preview.facing = 200;
+      $$("canvas[data-skin]", root).forEach((c) => {
+        const k = lib.skins.find((x) => x.id === c.dataset.skin);
+        if (k) drawSkinFront(c, k.dataUrl, k.slim);
+      });
+      $("#skin-file", root).addEventListener("change", (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => addSkin(String(reader.result), file.name.replace(/\.png$/i, ""));
+        reader.readAsDataURL(file);
+      });
+      $("#skin-player", root).addEventListener("keydown", (e) => { if (e.key === "Enter") actions["skin-player"](); });
+    },
+  };
+}
+
+async function addSkin(dataUrl, name) {
+  const img = new Image();
+  img.onload = async () => {
+    if (img.width !== 64 || (img.height !== 64 && img.height !== 32)) {
+      sound.error();
+      toast("That isn't a skin", `Skins are 64×64 PNGs. This one is ${img.width}×${img.height}.`, "error");
+      return;
+    }
+    // Guess the model: slim skins leave the 4th arm column empty.
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 64;
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0);
+    const slim = img.height === 64 && g.getImageData(54, 20, 2, 12).data.every((v, i) => i % 4 !== 3 || v === 0);
+    try {
+      S.skins = await call("skin_add", { dataUrl, name, slim });
+      sound.success();
+      toast("Skin added", `${name} is in your skins. Press Use to wear it.`, "success");
+      render();
+    } catch (e) {
+      sound.error();
+      toast("Couldn't add the skin", errText(e), "error");
+    }
+  };
+  img.src = dataUrl;
 }
 
 // --------------------------------------------------------------- accounts --
@@ -637,55 +1042,162 @@ function skyControls(d) {
     <div class="field" ${d.sky === "cycle" ? "" : "hidden"} id="daylen-field"><label class="label" for="s-day">Length of a day</label><div class="row"><input class="range grow" id="s-day" type="range" min="2" max="40" step="1" value="${d.day_length_min}" style="--fill:${((d.day_length_min - 2) / 38) * 100}%"><span class="value" id="s-day-v">${d.day_length_min} min</span></div></div>`;
 }
 
+const SETTINGS_TABS = [["general", "General"], ["appearance", "Appearance"], ["game", "Game"], ["ingame", "In-game"], ["data", "Account & data"]];
+const WINDOW_SIZES = [["", "Minecraft default (854 × 480)"], ["1280x720", "1280 × 720"], ["1600x900", "1600 × 900"], ["1920x1080", "1920 × 1080"], ["2560x1440", "2560 × 1440"], ["custom", "Custom"]];
+
+const swRow = (d, key, title, desc) => `<div class="setting"><div><strong>${title}</strong>${desc ? `<span>${desc}</span>` : ""}</div><button class="switch" role="switch" aria-checked="${!!d[key]}" data-action="set-bool" data-key="${key}" aria-label="${title}"></button></div>`;
+const segRow = (d, key, title, options, desc = "") => `<div class="setting stack"><div><strong>${title}</strong>${desc ? `<span>${desc}</span>` : ""}</div>
+  <div class="seg" role="group" aria-label="${title}">${options.map(([v, l]) => `<button class="${String(d[key]) === String(v) ? "on" : ""}" data-action="set-choice" data-key="${key}" data-value="${v}">${l}</button>`).join("")}</div></div>`;
+const rangeRow = (id, label, value, lo, hi, step, text) => `<div class="field"><label class="label" for="${id}">${label}</label><div class="row"><input class="range grow" id="${id}" type="range" min="${lo}" max="${hi}" step="${step}" value="${value}" style="--fill:${((value - lo) / (hi - lo)) * 100}%"><span class="value" id="${id}-v">${text}</span></div></div>`;
+
+function settingsBody(d) {
+  const tab = S.settingsTab;
+  if (tab === "appearance") {
+    return `<div class="settings-grid">
+      <div class="card-pad"><h3>Background</h3><p class="muted small">The world behind the launcher. Vortex mods use it for the in-game main menu too.</p>
+        <div class="scene-grid">${SCENES.map((sc) => `<button class="scene-tile ${d.background === sc.id ? "on" : ""}" data-action="set-choice" data-key="background" data-value="${sc.id}" aria-pressed="${d.background === sc.id}">
+          <span class="scene-art" data-scene="${sc.id}"></span><span>${esc(sc.name)}</span></button>`).join("")}</div></div>
+      <div class="card-pad"><h3>Logo</h3><p class="muted small">Shown in the top bar and on the in-game main menu.</p>
+        <div class="logo-grid">${STYLES.map((st, i) => `<button class="logo-tile ${Number(d.logo_style) === i ? "on" : ""}" data-action="set-choice" data-key="logo_style" data-num="1" data-value="${i}" title="${esc(st.note)}">
+          <span class="logo-art" data-logo="${i}"></span><span>${esc(st.name)}</span></button>`).join("")}</div></div>
+      <div class="card-pad"><h3>Colour and glass</h3>
+        <div class="setting stack"><div><strong>Accent</strong><span>Buttons, highlights and the in-game mod menu</span></div>
+          <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${d.accent === k ? "on" : ""}" style="--c:${c}" data-action="set-choice" data-key="accent" data-value="${k}" aria-label="${k}" title="${k[0].toUpperCase() + k.slice(1)}"></button>`).join("")}</div></div>
+        ${rangeRow("s-glass", "Glass", d.glass, 0, 100, 5, glassLabel(d.glass))}
+        ${swRow(d, "show_player", "3D player on Home", "Your skin, living in the world")}
+        ${swRow(d, "clock_12h", "12-hour clock", "")}
+      </div>
+    </div>`;
+  }
+  if (tab === "game") {
+    const size = d.game_width && d.game_height ? `${d.game_width}x${d.game_height}` : "";
+    const preset = WINDOW_SIZES.some(([v]) => v === size) ? size : "custom";
+    return `<div class="settings-grid">
+      <div class="card-pad"><h3>Memory</h3>
+        ${rangeRow("s-max", "Maximum memory", d.max_memory_mb, 1024, 32768, 512, gb(d.max_memory_mb))}
+        ${rangeRow("s-min", "Minimum memory", d.min_memory_mb, 256, 8192, 256, gb(d.min_memory_mb))}
+        <span class="muted small">Instances can set their own maximum.</span>
+      </div>
+      <div class="card-pad"><h3>Game window</h3>
+        <div class="field"><label class="label" for="s-size">Size</label><select class="input" id="s-size">${WINDOW_SIZES.map(([v, l]) => `<option value="${v}" ${preset === v && (v !== "custom" || size) ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+        <div class="row" id="s-custom" ${preset === "custom" && size ? "" : "hidden"}><input class="input grow" id="s-w" type="number" min="320" max="7680" placeholder="Width" value="${d.game_width || ""}"><span class="muted">×</span><input class="input grow" id="s-h" type="number" min="240" max="4320" placeholder="Height" value="${d.game_height || ""}"></div>
+        ${swRow(d, "fullscreen", "Start fullscreen", "F11 switches in-game")}
+      </div>
+      <div class="card-pad"><h3>Java</h3>
+        <div class="field"><label class="label" for="s-java">Java</label><input class="input" id="s-java" placeholder="Automatic (recommended)" value="${esc(d.java_path || "")}"></div>
+        <div class="field"><label class="label" for="s-jvm">Extra JVM arguments</label><input class="input" id="s-jvm" placeholder="Optional, for example -XX:+UseG1GC" value="${esc((d.extra_jvm_args || []).join(" "))}"></div>
+        <span class="muted small">Vortex downloads the exact Java each version needs.</span>
+      </div>
+      <div class="card-pad"><h3>Mod downloads</h3>
+        ${swRow(d, "mods_with_dependencies", "Install required mods", "Adds the libraries a mod needs, like Fabric API")}
+        ${swRow(d, "mods_allow_unstable", "Prefer beta versions", "Otherwise betas are used only when there's nothing else")}
+        ${rangeRow("s-dl", "Parallel downloads", d.download_concurrency, 1, 64, 1, String(d.download_concurrency))}
+      </div>
+    </div>`;
+  }
+  if (tab === "ingame") {
+    return `<div class="settings-grid">
+      <div class="card-pad wide"><h3>Vortex mods</h3>
+        ${swRow(d, "vortex_mods", "Add Vortex mods to the game", "On Fabric 1.21.4 instances. Fabric API is installed with them")}
+        ${swRow(d, "vortex_menu", "Vortex main menu", "Replaces Minecraft's title screen with your background and logo, and restyles buttons")}
+        <div class="keys">
+          <div><kbd>Right Shift</kbd><span>Mod menu</span></div>
+          <div><kbd>C</kbd><span>Zoom (scroll to adjust)</span></div>
+          <div><kbd>Left Alt</kbd><span>Freelook</span></div>
+          <div><kbd>Ctrl</kbd><span>Sprint (Toggle Sprint on)</span></div>
+        </div>
+        <p class="muted small">Every feature is turned on and off in the mod menu, where you can also move HUD elements. Keys can be changed in Minecraft's Controls.</p>
+      </div>
+      <div class="card-pad"><h3>What's included</h3>
+        <ul class="features">${INGAME_FEATURES.map(([n, dsc]) => `<li><strong>${n}</strong><span>${dsc}</span></li>`).join("")}</ul>
+      </div>
+      <div class="card-pad"><h3>When the game starts</h3>
+        ${segRow(d, "after_launch", "Launcher", [["keep", "Stay open"], ["minimize", "Minimize"], ["hide", "Hide"]], "Hidden launchers come back when the game closes")}
+        ${swRow(d, "open_log_on_launch", "Open the game log", "Shows Minecraft's output as it starts")}
+      </div>
+    </div>`;
+  }
+  if (tab === "data") {
+    return `<div class="settings-grid">
+      <div class="card-pad"><h3>Microsoft sign-in</h3>
+        <div class="field"><label class="label" for="s-client">Azure client ID</label><input class="input" id="s-client" placeholder="00000000-0000-0000-0000-000000000000" value="${esc(d.microsoft_client_id || "")}"></div>
+        <span class="muted small">Register an app in the Azure portal and have it approved for the Minecraft API. The README has the steps.</span>
+      </div>
+      <div class="card-pad"><h3>Storage</h3>
+        <div class="field"><span class="label">Data folder</span><code class="path">${esc(S.dataDir)}</code></div>
+        <div class="row wrap"><button class="btn btn-sm lq" data-action="folder-data">${icon("folder", 12)} Data</button><button class="btn btn-sm lq" data-action="folder-skins">${icon("folder", 12)} Skins</button><button class="btn btn-sm lq" data-action="folder-runtimes">${icon("folder", 12)} Java runtimes</button></div>
+        <span class="muted small">Vortex Client ${esc(S.appVersion)}${isTauri ? "" : ", preview mode"}</span>
+      </div>
+    </div>`;
+  }
+  return `<div class="settings-grid">
+    <div class="card-pad"><h3>Time of day</h3>${skyControls(d)}</div>
+    <div class="card-pad"><h3>Motion and sound</h3>
+      ${swRow(d, "animations", "Animations", "The moving world, glass motion and particles")}
+      ${swRow(d, "world_life", "World life", "Bees, butterflies, birds, fish and fireflies")}
+      ${swRow(d, "ui_sounds", "Sounds", "Clicks, launch sounds and alerts")}
+    </div>
+  </div>`;
+}
+
+const INGAME_FEATURES = [
+  ["HUD", "Keystrokes, CPS, FPS, ping, coordinates, direction, armor, potions, saturation, memory, server, day counter, clock, speed"],
+  ["PvP", "Toggle sprint and sneak, target HUD, item counter, reach and combo display, custom crosshair, no hurt cam, low fire"],
+  ["Camera", "Zoom with scroll, freelook, fullbright"],
+  ["World", "Time changer and clear weather (only on your screen)"],
+  ["Chat", "Timestamps"],
+  ["Look", "Vortex main menu and buttons, your skin and cape on offline accounts"],
+];
+
+const glassLabel = (v) => (v < 25 ? "Clear" : v < 55 ? "Light" : v < 80 ? "Frosted" : "Heavy");
+
 function renderSettings() {
   const d = (S.draft ||= JSON.parse(JSON.stringify(S.settings)));
   const dirty = JSON.stringify(d) !== JSON.stringify(S.settings);
-  const pct = (v, lo, hi) => ((v - lo) / (hi - lo)) * 100;
   return {
-    html: sheet("Settings", "", "", `<div class="settings-grid">
-        <div class="card-pad"><h3>World and motion</h3>
-          ${skyControls(d)}
-          <div class="setting"><div><strong>Sounds</strong><span>Clicks, launch sounds and alerts</span></div><button class="switch" role="switch" aria-checked="${d.ui_sounds}" data-action="set-bool" data-key="ui_sounds" aria-label="Sounds"></button></div>
-          <div class="setting"><div><strong>Animations</strong><span>The living world, glass motion and particles</span></div><button class="switch" role="switch" aria-checked="${d.animations}" data-action="set-bool" data-key="animations" aria-label="Animations"></button></div>
-        </div>
-        <div class="card-pad"><h3>Game</h3>
-          <div class="field"><label class="label" for="s-max">Maximum memory</label><div class="row"><input class="range grow" id="s-max" type="range" min="1024" max="32768" step="512" value="${d.max_memory_mb}" style="--fill:${pct(d.max_memory_mb, 1024, 32768)}%"><span class="value" id="s-max-v">${gb(d.max_memory_mb)}</span></div></div>
-          <div class="field"><label class="label" for="s-min">Minimum memory</label><div class="row"><input class="range grow" id="s-min" type="range" min="256" max="8192" step="256" value="${d.min_memory_mb}" style="--fill:${pct(d.min_memory_mb, 256, 8192)}%"><span class="value" id="s-min-v">${gb(d.min_memory_mb)}</span></div></div>
-          <div class="field"><label class="label" for="s-java">Java</label><input class="input" id="s-java" placeholder="Automatic (recommended)" value="${esc(d.java_path || "")}"></div>
-          <div class="field"><label class="label" for="s-jvm">Extra JVM arguments</label><input class="input" id="s-jvm" placeholder="Optional, for example -XX:+UseG1GC" value="${esc((d.extra_jvm_args || []).join(" "))}"></div>
-        </div>
-        <div class="card-pad"><h3>Microsoft sign-in</h3>
-          <div class="field"><label class="label" for="s-client">Azure client ID</label><input class="input" id="s-client" placeholder="00000000-0000-0000-0000-000000000000" value="${esc(d.microsoft_client_id || "")}"></div>
-          <span class="muted" style="font-size:13px">Register an app in the Azure portal and have it approved for the Minecraft API. The README has the steps.</span>
-        </div>
-        <div class="card-pad"><h3>Downloads and data</h3>
-          <div class="field"><label class="label" for="s-dl">Parallel downloads</label><div class="row"><input class="range grow" id="s-dl" type="range" min="1" max="64" step="1" value="${d.download_concurrency}" style="--fill:${pct(d.download_concurrency, 1, 64)}%"><span class="value" id="s-dl-v">${d.download_concurrency}</span></div></div>
-          <div class="field"><span class="label">Data folder</span><div class="row"><code class="grow" style="font-size:12.5px;word-break:break-all;color:var(--ink-2)">${esc(S.dataDir)}</code><button class="btn btn-sm lq" data-action="folder-data">${icon("folder", 12)} Open</button></div></div>
-          <span class="muted" style="font-size:13px">Vortex Client ${esc(S.appVersion)}${isTauri ? "" : ", preview mode"}</span>
-        </div>
-      </div>`,
+    html: sheet("Settings", "", `<div class="tabs glass" id="settings-tabs"><span class="drop" aria-hidden="true"></span>${SETTINGS_TABS.map(([k, l]) => `<button class="tab ${S.settingsTab === k ? "on" : ""}" data-action="settings-tab" data-tab="${k}">${l}</button>`).join("")}</div>`,
+      `<div class="settings-pane">${settingsBody(d)}</div>`,
       `<div class="savebar glass" id="savebar" ${dirty ? "" : "hidden"}><span>Unsaved changes</span><button class="btn btn-sm lq" data-action="settings-reset">Discard</button><button class="btn btn-sm btn-accent lq" data-action="settings-save">${icon("check", 12)} Save</button></div>`),
-    mount(root) {
-      const range = (id, key, fmt, lo, hi) => {
-        const el = $(id, root);
-        if (!el) return;
-        el.addEventListener("input", () => {
-          d[key] = Number(el.value);
-          el.style.setProperty("--fill", `${((d[key] - lo) / (hi - lo)) * 100}%`);
-          $(`${id}-v`).textContent = fmt(d[key]);
-          if (key === "day_length_min") world.setDayLength(d[key]);
-          markDirty();
-        });
-      };
-      range("#s-max", "max_memory_mb", gb, 1024, 32768);
-      range("#s-min", "min_memory_mb", gb, 256, 8192);
-      range("#s-dl", "download_concurrency", String, 1, 64);
-      range("#s-day", "day_length_min", (v) => `${v} min`, 2, 40);
-      $("#s-java", root).addEventListener("input", (e) => { d.java_path = e.target.value.trim() || null; markDirty(); });
-      $("#s-jvm", root).addEventListener("input", (e) => { d.extra_jvm_args = e.target.value.split(/\s+/).filter(Boolean); markDirty(); });
-      $("#s-client", root).addEventListener("input", (e) => { d.microsoft_client_id = e.target.value.trim() || null; markDirty(); });
-    },
+    mount(root) { mountSettings(root, d); },
   };
+}
+
+function mountSettings(root, d) {
+  const range = (id, key, fmt, lo, hi, live) => {
+    const el = $(id, root);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      d[key] = Number(el.value);
+      el.style.setProperty("--fill", `${((d[key] - lo) / (hi - lo)) * 100}%`);
+      $(`${id}-v`, root).textContent = fmt(d[key]);
+      if (live) live(d[key]);
+      markDirty();
+    });
+  };
+  range("#s-max", "max_memory_mb", gb, 1024, 32768);
+  range("#s-min", "min_memory_mb", gb, 256, 8192);
+  range("#s-dl", "download_concurrency", String, 1, 64);
+  range("#s-day", "day_length_min", (v) => `${v} min`, 2, 40, (v) => world.setDayLength(v));
+  range("#s-glass", "glass", glassLabel, 0, 100, () => applyLook(d));
+  const text = (id, fn) => $(id, root)?.addEventListener("input", (e) => { fn(e.target.value); markDirty(); });
+  text("#s-java", (v) => (d.java_path = v.trim() || null));
+  text("#s-jvm", (v) => (d.extra_jvm_args = v.split(/\s+/).filter(Boolean)));
+  text("#s-client", (v) => (d.microsoft_client_id = v.trim() || null));
+  text("#s-w", (v) => (d.game_width = Number(v) || null));
+  text("#s-h", (v) => (d.game_height = Number(v) || null));
+  $("#s-size", root)?.addEventListener("change", (e) => {
+    const v = e.target.value;
+    $("#s-custom", root).hidden = v !== "custom";
+    if (v === "custom") { d.game_width ||= 1280; d.game_height ||= 720; $("#s-w", root).value = d.game_width; $("#s-h", root).value = d.game_height; }
+    else if (!v) { d.game_width = null; d.game_height = null; }
+    else { const [w, h] = v.split("x").map(Number); d.game_width = w; d.game_height = h; }
+    markDirty();
+  });
+  $$("[data-logo]", root).forEach((el) => mountLogo(el, renderStyle(Number(el.dataset.logo), 2.1)));
+  $$("[data-scene]", root).forEach((el) => {
+    const url = sceneThumb(el.dataset.scene, 176, 99);
+    el.style.backgroundImage = `url('${url}')`;
+  });
 }
 
 function markDirty() {
@@ -795,6 +1307,19 @@ function select(name) {
   player.setActivity(runOf(name).phase);
 }
 
+/** Give the game the launcher's background and logo for the Vortex main menu. */
+async function exportMenuArt(inst) {
+  const s = S.settings || {};
+  if (!inst || inst.loader !== "fabric" || inst.minecraftVersion !== "1.21.4" || s.vortex_mods === false || s.vortex_menu === false) return;
+  try {
+    const bg = sceneStill(s.background || "meadow", 1600, 900, world.fixedTime ? undefined : world.hour());
+    const logo = renderStyle(s.logo_style || 0, 9, { dpr: 1 });
+    await call("save_menu_art", { background: bg.toDataURL("image/png"), logo: logo.toDataURL("image/png") });
+  } catch (e) {
+    console.warn("menu art", e);
+  }
+}
+
 async function play(name) {
   if (runOf(name).phase !== "idle") return;
   if (!selectedAccount()) {
@@ -812,6 +1337,7 @@ async function play(name) {
   if (S.route !== "home") go("home");
   updateRunUI(name);
   try {
+    await exportMenuArt(S.instances.find((i) => i.name === name));
     await call("launch_instance", { name });
   } catch (e) {
     S.runs[name] = { phase: "idle" };
@@ -930,7 +1456,7 @@ const actions = {
     sound.toggle(enabled);
     el.setAttribute("aria-checked", enabled);
     try {
-      S.mods.list = await call("toggle_mod", { name: S.mods.instance, file: el.dataset.file, enabled });
+      S.mods.list = await call("toggle_mod", { name: S.mods.instance, file: el.dataset.file, enabled, kind: S.mods.kind });
       setTimeout(render, 380);
     } catch (e) {
       toast("Couldn't change the mod", errText(e), "error");
@@ -939,14 +1465,110 @@ const actions = {
   async "mod-delete"(el) {
     if (!(await confirmModal("Delete this mod?", el.dataset.file))) return;
     try {
-      S.mods.list = await call("delete_mod", { name: S.mods.instance, file: el.dataset.file });
+      S.mods.list = await call("delete_mod", { name: S.mods.instance, file: el.dataset.file, kind: S.mods.kind });
       sound.pop();
       render();
     } catch (e) {
       toast("Couldn't delete the mod", errText(e), "error");
     }
   },
-  "mods-refresh"() { loadMods(); render(); },
+  "mods-refresh"() { S.mods.loadedFor = null; render(); },
+  "mods-tab"(el) {
+    S.modsTab = el.dataset.tab;
+    store.set("vortex.modsTab", S.modsTab);
+    render();
+  },
+  "mods-kind"(el) {
+    S.mods.kind = el.dataset.kind;
+    S.mods.list = [];
+    S.browse.hits = [];
+    S.browse.key = "";
+    render();
+  },
+  "mr-install"(el, e) { e.stopPropagation(); installProject(el.dataset.id); },
+  "mr-install-version"(el) { installProject(el.dataset.id, el.dataset.version); },
+  "mr-open"(el) { openProject(el.dataset.id); },
+  "mr-more"() { searchModrinth(false); },
+  "open-url"(el) { call("open_url", { url: el.dataset.url }).catch((er) => toast("Couldn't open the link", errText(er), "error")); },
+  "folder-packs"() { call("open_path", { target: "resourcepacks", name: S.mods.instance }).catch((er) => toast("Couldn't open the folder", errText(er), "error")); },
+  "folder-shaders"() { call("open_path", { target: "shaderpacks", name: S.mods.instance }).catch((er) => toast("Couldn't open the folder", errText(er), "error")); },
+  "folder-skins"() { call("open_path", { target: "skins" }).catch((er) => toast("Couldn't open the folder", errText(er), "error")); },
+  "folder-runtimes"() { call("open_path", { target: "runtimes" }).catch((er) => toast("Couldn't open the folder", errText(er), "error")); },
+  async "skin-use"(el) {
+    if (!selectedAccount()) { toast("Add an account first", "Skins belong to an account.", "warn"); go("accounts"); return; }
+    try {
+      S.skins = await call("skin_apply", { id: el.dataset.id });
+      await loadSkin();
+      sound.success();
+      toast("Skin changed", S.skins.microsoft ? "Uploaded to your Microsoft account." : "You'll wear it in-game with Vortex mods.", "success");
+      render();
+      player.wave(1.6);
+    } catch (e) {
+      sound.error();
+      toast("Couldn't change the skin", errText(e), "error", 7000);
+    }
+  },
+  async "skin-model"(el) {
+    S.skins = await call("skin_update", { id: el.dataset.id, slim: el.dataset.slim === "true" });
+    if (S.skins.applied === el.dataset.id) await loadSkin();
+    render();
+  },
+  async "skin-remove"(el) {
+    const k = S.skins?.skins.find((x) => x.id === el.dataset.id);
+    if (!(await confirmModal(`Delete ${k?.name || "this skin"}?`, "It's removed from your skins on this computer.", "Delete"))) return;
+    S.skins = await call("skin_remove", { id: el.dataset.id });
+    await loadSkin();
+    render();
+  },
+  async "skin-player"() {
+    const input = $("#skin-player");
+    const name = input?.value.trim();
+    if (!name) return;
+    try {
+      S.skins = await call("skin_from_player", { username: name });
+      sound.success();
+      toast("Skin copied", `${name}'s skin is in your skins.`, "success");
+      render();
+    } catch (e) {
+      sound.error();
+      toast("Couldn't get that skin", errText(e), "error");
+    }
+  },
+  async cape(el) {
+    if (!selectedAccount()) { toast("Add an account first", "Capes belong to an account.", "warn"); return; }
+    S.skins = await call("set_cape", { cape: el.dataset.cape });
+    await loadSkin();
+    sound.pop();
+    render();
+  },
+  "settings-tab"(el) {
+    S.settingsTab = el.dataset.tab;
+    store.set("vortex.settingsTab", S.settingsTab);
+    const group = $("#settings-tabs");
+    $$(".tab", group).forEach((t) => t.classList.toggle("on", t === el));
+    liquidTabs(group);
+    const pane = $(".settings-pane");
+    pane.innerHTML = settingsBody(S.draft);
+    pane.classList.remove("fresh");
+    void pane.offsetWidth;
+    pane.classList.add("fresh");
+    hydrateIcons(pane);
+    $$(".tabs", pane).forEach((g) => liquidTabs(g, true));
+    mountSettings(pane, S.draft);
+  },
+  "set-choice"(el) {
+    const key = el.dataset.key;
+    const v = el.dataset.num ? Number(el.dataset.value) : el.dataset.value;
+    S.draft[key] = v;
+    sound.pop();
+    $$(`[data-action="set-choice"][data-key="${key}"]`).forEach((b) => {
+      const on = String(b.dataset.value) === String(v);
+      b.classList.toggle("on", on);
+      if (b.hasAttribute("aria-pressed")) b.setAttribute("aria-pressed", on);
+    });
+    if (["accent", "logo_style", "background"].includes(key)) applyLook(S.draft);
+    markDirty();
+  },
   async "acc-use"(el) {
     S.accounts = await call("select_account", { uuid: el.dataset.uuid });
     sound.success();
@@ -1019,6 +1641,7 @@ const actions = {
     S.draft[key] = !S.draft[key];
     sound.toggle(S.draft[key]);
     el.setAttribute("aria-checked", S.draft[key]);
+    if (["animations", "world_life", "show_player", "clock_12h"].includes(key)) applyLook(S.draft);
     markDirty();
   },
   "settings-reset"() { S.draft = null; applyLook(); render(); },
@@ -1103,6 +1726,7 @@ function bindEvents() {
     if (ev.state === "preparing") {
       S.runs[name] = { ...(S.runs[name] || {}), phase: "preparing", stage: S.runs[name]?.stage || "Preparing" };
     } else if (ev.state === "running") {
+      if (S.settings?.open_log_on_launch) openLog(name);
       S.runs[name] = { phase: "running" };
       S.started[name] = Date.now();
       sound.launch();
@@ -1157,6 +1781,17 @@ function bindEvents() {
     const zone = $("#dropzone");
     if (type) { zone?.classList.toggle("hot", type === "enter" || type === "over"); return; }
     zone?.classList.remove("hot");
+    if (S.route === "skins" && paths?.length) {
+      try {
+        S.skins = await call("skin_import_files", { paths: paths.filter((f) => /\.png$/i.test(f)) });
+        sound.success();
+        toast("Skin added", "Press Use to wear it.", "success");
+        render();
+      } catch (e) {
+        toast("Couldn't add the skin", errText(e), "error");
+      }
+      return;
+    }
     if (S.route !== "mods" || !S.mods.instance || !paths?.length) return;
     try {
       S.mods.list = await call("import_mods", { name: S.mods.instance, paths });
@@ -1180,6 +1815,7 @@ function updateAccount() {
 
 function bindChrome() {
   hydrateIcons(document);
+  mountLogo($("#boot-logo"), renderStyle(0, 7));
   bindLiquid();
   $$("#nav .tab").forEach((b) => b.addEventListener("click", () => go(b.dataset.route)));
   $("#account-chip").addEventListener("click", () => go("accounts"));
@@ -1217,7 +1853,7 @@ function bindChrome() {
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") { e.preventDefault(); toggleLog(); }
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { const inst = selectedInstance(); if (inst) play(inst.name); }
-    if (e.altKey && /^[1-5]$/.test(e.key)) go(["home", "instances", "mods", "accounts", "settings"][Number(e.key) - 1]);
+    if (e.altKey && /^[1-5]$/.test(e.key)) go(["home", "instances", "mods", "skins", "settings"][Number(e.key) - 1]);
   });
   window.addEventListener("resize", () => {
     liquidTabs($("#nav"), true);
@@ -1236,7 +1872,7 @@ async function boot() {
     const b = await call("bootstrap");
     S.appVersion = b.appVersion;
     S.dataDir = b.dataDir;
-    S.settings = { sky: "cycle", day_length_min: 10, ...b.settings };
+    S.settings = { sky: "cycle", day_length_min: 10, background: "meadow", vortex_menu: true, ...b.settings };
     S.accounts = b.accounts;
     S.instances = b.instances;
     if (!S.instances.some((i) => i.name === S.selected)) S.selected = S.instances[0]?.name || null;
@@ -1249,6 +1885,12 @@ async function boot() {
   }
   hint.textContent = "Loading your skin";
   await loadSkin();
+  call("version_art")
+    .then((list) => {
+      for (const a of list) S.art[a.version] ||= a.image;
+      if (["home", "instances", "mods"].includes(S.route)) render();
+    })
+    .catch(() => {});
   call("list_versions", { refresh: false })
     .then((v) => { S.versions = v; if (S.wizard && !S.wizard.version) S.wizard.version = v.latestRelease; if (S.route === "new") render(); })
     .catch((e) => toast("Working offline", `The version list couldn't load: ${errText(e)}`, "warn", 6000));

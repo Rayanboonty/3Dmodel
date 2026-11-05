@@ -72,6 +72,25 @@ pub async fn patch_notes(launcher: &Launcher, limit: usize) -> Result<Vec<NewsEn
     Ok(feed.entries.into_iter().take(limit).map(convert).collect())
 }
 
+/// Cover images from the patch notes, as (version, image URL), newest
+/// first. Releases and snapshots both have one.
+pub async fn version_images(launcher: &Launcher) -> Result<Vec<(String, String)>> {
+    let bytes = launcher
+        .downloader()
+        .get_cached(PATCH_NOTES_URL, &launcher.paths().cache().join("java-patch-notes.json"))
+        .await?;
+    let feed: Feed = serde_json::from_slice(&bytes).context("invalid patch notes feed")?;
+    Ok(feed
+        .entries
+        .into_iter()
+        .filter_map(|e| {
+            let url = e.image?.url;
+            let url = if url.starts_with('/') { format!("{CONTENT_BASE}{url}") } else { url };
+            Some((e.version, url))
+        })
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

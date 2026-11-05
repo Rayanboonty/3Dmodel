@@ -48,6 +48,7 @@ pub struct LaunchOptions {
     pub max_memory_mb: u32,
     pub extra_jvm_args: Vec<String>,
     pub resolution: Option<(u32, u32)>,
+    pub fullscreen: bool,
     /// `host[:port]` to join straight after start-up.
     pub join_server: Option<String>,
 }
@@ -236,12 +237,18 @@ pub fn build_command(
                 if opts.resolution.is_some() {
                     game.extend(["--width", "${resolution_width}", "--height", "${resolution_height}"].map(String::from));
                 }
+                if opts.fullscreen {
+                    game.push("--fullscreen".into());
+                }
                 legacy_server_args = true;
             }
         }
         (None, Some(args)) => {
             jvm.extend(args.jvm.iter().flat_map(|a| a.values(&env)));
             game.extend(args.game.iter().flat_map(|a| a.values(&env)));
+            if opts.fullscreen {
+                game.push("--fullscreen".into());
+            }
             legacy_server_args = !modern_quick_play;
         }
         (None, None) => return Err(anyhow!("version {} has no launch arguments", installed.id)),
@@ -386,6 +393,7 @@ mod tests {
             max_memory_mb: 2048,
             extra_jvm_args: vec!["-XX:+UseG1GC".into()],
             resolution: None,
+            fullscreen: false,
             join_server: Some("play.example.net".into()),
         }
     }

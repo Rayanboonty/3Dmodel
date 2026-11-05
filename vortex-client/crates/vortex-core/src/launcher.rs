@@ -272,7 +272,8 @@ impl Launcher {
             min_memory_mb: settings.min_memory_mb,
             max_memory_mb: instance.memory_mb.unwrap_or(settings.max_memory_mb),
             extra_jvm_args,
-            resolution: instance.resolution,
+            resolution: instance.resolution.or_else(|| settings.resolution()),
+            fullscreen: settings.fullscreen,
             join_server: instance.join_server.clone(),
         };
         report(progress, "Ready", 1, 1);

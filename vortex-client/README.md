@@ -15,25 +15,59 @@ and macOS work too.
   cracks, drops pieces and grows back), watch bees and butterflies, wave, warm their
   hands at the campfire at night and carry a torch after dark. While a game is being
   prepared they mine, and when it starts they celebrate.
-- **Full day cycle.** One in-game day takes 10 minutes by default (2–40 in Settings).
-  The sky moves through dawn, day, dusk and night with a sun and a moon with phases, stars,
-  aurora and shooting stars. The land has blocky clouds, snowy mountains, hills with spruce
-  trees, birch and oak trees with a bee nest, a pond with jumping fish, flowers and grass
-  that sway, birds, and fireflies at night. The campfire, torch and fireflies light the
-  land around them after dark. You can also follow your PC's clock or lock any phase.
+- **Ten backgrounds.** Sunrise Meadow, Cherry Grove, Snowy Peaks, Desert Oasis, Ocean
+  Shore, Jungle, Village Hills, Lush Cave, the Nether and the End. Each is drawn at full
+  resolution with textured blocks, blurred and hazy far layers for depth, rim light on
+  grass and leaves, sun bloom, and its own life: bees, butterflies, birds, fish, falling
+  petals or snow, lava falls, glow berries, ash, End crystals and a passing dragon.
+- **Full day cycle.** In the overworld scenes one day takes 10 minutes by default (2–40 in
+  Settings), through dawn, day, dusk and night with a phased moon, stars and aurora. The
+  campfire, torch, windows and fireflies light the land after dark. The cave, Nether and
+  End keep their own light.
+- **Your logo.** The Vortex wordmark is blocky 3D lettering in Minecraft-title style, in
+  ten designs (Diamond & Gold, Dawn Amber, Netherite Ember, Emerald Line, Amethyst Arch,
+  Grass Block, Obsidian Portal, Redstone, Oxidised Copper, Frost).
 - **Liquid glass.** Frosted, blurred panels with a highlight that follows the pointer.
-  Buttons squish and ripple when pressed. The tab indicator is a droplet that stretches
-  as it slides between tabs, in the main bar and everywhere else tabs appear.
+  Buttons squish and ripple when pressed. Tab indicators are droplets that stretch as
+  they slide. Accent colour and glass strength are in Settings.
 - **Pages.**
 
   | Page | What it does |
   |---|---|
-  | Home | Play button and instance switcher, with a side panel of your instances and Mojang's patch notes |
-  | Instances | Search, sort, play, edit, open folder, delete |
-  | New | Three-step wizard: pick any of 900+ versions, pick Vanilla, Fabric or Forge (and a build), then name and memory |
-  | Mods | Installed mods with enable/disable switches and delete. Drag `.jar` files onto the window to install them |
-  | Accounts | Offline accounts and Microsoft sign-in, with a rotating 3D preview of your skin |
-  | Settings | Memory, Java, JVM arguments, Azure client ID, parallel downloads, sky and day length, sounds, animations |
+  | Home | Play button and instance switcher, with a side panel of your instances (with cover art) and Mojang's patch notes |
+  | Instances | Cards with each version's cover art and update name; play, edit, open folder, delete |
+  | New | Three-step wizard: any of 900+ versions (with update names and a cover preview), Vanilla, Fabric or Forge, then name and memory |
+  | Mods | **Browse** Modrinth for mods, resource packs and shaders that fit the instance and install them (with required mods) in one click, or open a project to pick a version. **Installed** lists what's there with on/off switches |
+  | Skins | Upload skins, copy any player's skin by name, switch classic/slim, and pick a Vortex cape, on a 3D preview. Microsoft accounts get the skin uploaded to Mojang |
+  | Accounts | Offline accounts and Microsoft sign-in |
+  | Settings | General, Appearance (background, logo, accent, glass), Game (memory, window size, fullscreen, Java), In-game (Vortex mods and menu, launcher behaviour on start) and Account & data |
+
+- **Covers.** Versions from 1.13 on use the artwork from Mojang's patch notes; older ones
+  get a generated cover with the version in blocky letters.
+
+## In-game: Vortex mods (Fabric 1.21.4)
+
+On Fabric 1.21.4 instances the launcher adds the Vortex mod (and Fabric API) when the game
+starts. Its source is in `mod/`; a built copy ships in `crates/vortex-app/resources/`.
+
+- **Mod menu** on **Right Shift**, like Feather, Lunar and Dawn: cards with Enabled/Disabled
+  bars, categories, search, favourites, and an options page per mod with a live preview.
+  **Edit HUD** lets you drag elements; they snap to edges and centre lines.
+- **HUD:** keystrokes (with CPS), CPS, FPS, ping, coordinates (facing, biome), direction
+  compass, armor status, potion effects, saturation, memory, server address, day counter,
+  clock, speedometer.
+- **PvP:** toggle sprint and sneak, target HUD (health and distance), item counter (arrows,
+  pearls, golden apples, totems), reach display, combo counter, custom crosshair, no hurt
+  cam, low fire.
+- **Camera and world:** zoom on **C** (scroll to adjust), freelook on **Left Alt**,
+  fullbright, time changer and clear weather (both only change your screen), chat
+  timestamps.
+- **The Vortex look:** Minecraft's title screen becomes the Vortex main menu with your
+  launcher background and logo, and buttons in every menu use the Vortex glass style.
+  Offline accounts see their chosen skin and cape in-game (only you see them).
+
+None of these give an unfair advantage; they're the same kind of features the big clients
+ship. Rebuild the mod with `cd mod && gradle build` (JDK 21).
 
 - **Game log** (`Ctrl+L`): a compact panel at the bottom of the window. It's live,
   colour-coded, filterable and searchable.
@@ -133,6 +167,7 @@ on a headless Linux box with software OpenGL, no GPU and no sound card.
 |---|---|
 | **Desktop app, end to end** | PLAY → progress bar → Fabric 1.21.4 reached Minecraft's welcome screen. STOP closed it, and the game log streamed the game's output |
 | Desktop app, 3D player | The default skin was read from an installed version's jar and shown on the 3D model |
+| Vortex mods in Fabric 1.21.4 | Loaded with Fabric API. Vortex main menu with the launcher background and logo, restyled buttons, mod menu and options pages, HUD editor, keystrokes, CPS, FPS, coordinates, armor, potions, compass, memory, custom crosshair, chat timestamps, and the custom skin and cape in third person |
 | Forge 1.20.1 (47.4.28) | The installer's 6 patch steps ran, then Forge mod loading and textures |
 | Forge 1.12.2 and 1.8.9 | Loaded textures (legacy installers) |
 | Fabric 1.21.4 | Loaded textures |

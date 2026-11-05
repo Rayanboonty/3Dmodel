@@ -1,0 +1,152 @@
+package dev.vortexclient.mod;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
+
+/** A feature that can be turned on and off from the mod menu. */
+public final class Module {
+    public enum Category {
+        HUD("HUD"), PVP("PvP"), UTILITY("Utility");
+
+        public final String label;
+
+        Category(String label) {
+            this.label = label;
+        }
+    }
+
+    public enum Type { BOOL, SLIDER, CHOICE }
+
+    public record Option(String key, String label, Type type, Object def, double min, double max, double step, List<String> choices) {
+        static Option bool(String key, String label, boolean def) {
+            return new Option(key, label, Type.BOOL, def, 0, 1, 1, List.of());
+        }
+
+        static Option slider(String key, String label, double def, double min, double max, double step) {
+            return new Option(key, label, Type.SLIDER, def, min, max, step, List.of());
+        }
+
+        static Option choice(String key, String label, String def, String... choices) {
+            return new Option(key, label, Type.CHOICE, def, 0, 0, 1, List.of(choices));
+        }
+    }
+
+    /** Options every HUD element has. */
+    static final List<Option> HUD_OPTIONS = List.of(
+            Option.slider("scale", "Scale", 1.0, 0.5, 2.0, 0.1),
+            Option.bool("background", "Background", true),
+            Option.bool("shadow", "Text shadow", true),
+            Option.choice("color", "Text color", "White", "White", "Accent", "Aqua", "Gold", "Green", "Pink"));
+
+    public final String id;
+    public final String name;
+    public final String description;
+    public final Category category;
+    public final Item icon;
+    public final boolean hud;
+    public final boolean defaultOn;
+    public final List<Option> options;
+
+    private Module(String id, String name, String description, Category category, Item icon, boolean hud, boolean defaultOn, List<Option> extra) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.category = category;
+        this.icon = icon;
+        this.hud = hud;
+        this.defaultOn = defaultOn;
+        List<Option> all = new ArrayList<>(extra);
+        if (hud) all.addAll(HUD_OPTIONS);
+        this.options = List.copyOf(all);
+    }
+
+    public Option option(String key) {
+        for (Option o : options) if (o.key().equals(key)) return o;
+        return null;
+    }
+
+    public static final List<Module> ALL = List.of(
+            new Module("keystrokes", "Keystrokes", "Shows your movement keys and mouse buttons as you press them.",
+                    Category.HUD, Items.PISTON, true, true, List.of(
+                            Option.bool("mouse", "Mouse buttons", true),
+                            Option.bool("cps", "Clicks per second on buttons", true),
+                            Option.bool("space", "Space bar", true))),
+            new Module("cps", "CPS", "Your clicks per second.",
+                    Category.HUD, Items.TARGET, true, true, List.of(Option.bool("right", "Show right clicks", true))),
+            new Module("fps", "FPS", "Frames per second.",
+                    Category.HUD, Items.REPEATER, true, true, List.of()),
+            new Module("ping", "Ping", "Your connection's round trip time to the server.",
+                    Category.HUD, Items.SCULK_SENSOR, true, false, List.of()),
+            new Module("coords", "Coordinates", "Where you are and which way you're facing.",
+                    Category.HUD, Items.COMPASS, true, true, List.of(
+                            Option.bool("facing", "Facing", true),
+                            Option.bool("biome", "Biome", false))),
+            new Module("armor", "Armor Status", "Your armor and held item with their durability.",
+                    Category.HUD, Items.DIAMOND_CHESTPLATE, true, true, List.of(
+                            Option.bool("held", "Held item", true),
+                            Option.choice("durability", "Durability", "Value", "Value", "Percent", "Hidden"))),
+            new Module("potions", "Potion Effects", "Active effects with time left.",
+                    Category.HUD, Items.BREWING_STAND, true, true, List.of(Option.bool("icons", "Icons", true))),
+            new Module("reach", "Reach Display", "How far away your last hit landed, in blocks.",
+                    Category.PVP, Items.DIAMOND_SWORD, true, false, List.of()),
+            new Module("combo", "Combo Counter", "Hits in a row without being hit back.",
+                    Category.PVP, Items.FIRE_CHARGE, true, false, List.of()),
+            new Module("sprint", "Toggle Sprint", "Sprint stays on after you press it once.",
+                    Category.PVP, Items.RABBIT_FOOT, true, true, List.of(
+                            Option.bool("sneak", "Toggle sneak too", false))),
+            new Module("nohurtcam", "No Hurt Cam", "Stops the screen shaking when you take damage.",
+                    Category.PVP, Items.SHIELD, false, false, List.of()),
+            new Module("zoom", "Zoom", "Hold C to zoom. Scroll while zooming to change how far.",
+                    Category.UTILITY, Items.SPYGLASS, false, true, List.of(
+                            Option.slider("level", "Zoom", 4.0, 2.0, 10.0, 0.5),
+                            Option.bool("smooth", "Smooth camera", true),
+                            Option.bool("scroll", "Scroll to adjust", true))),
+            new Module("fullbright", "Fullbright", "See in the dark without night vision.",
+                    Category.UTILITY, Items.GLOWSTONE, false, false, List.of()),
+            new Module("speed", "Speedometer", "How fast you're moving.",
+                    Category.UTILITY, Items.SUGAR, true, false, List.of(
+                            Option.choice("unit", "Unit", "m/s", "m/s", "km/h"))),
+            new Module("clock", "Clock", "Your computer's time.",
+                    Category.UTILITY, Items.CLOCK, true, false, List.of(Option.bool("h24", "24-hour", true))),
+            new Module("direction", "Direction", "A compass strip at the top of the screen.",
+                    Category.HUD, Items.RECOVERY_COMPASS, true, false, List.of()),
+            new Module("target", "Target HUD", "Health and distance of what you're fighting.",
+                    Category.PVP, Items.GOLDEN_APPLE, true, true, List.of()),
+            new Module("items", "Item Counter", "How many arrows, pearls, golden apples and totems you carry.",
+                    Category.PVP, Items.ENDER_PEARL, true, false, List.of()),
+            new Module("memory", "Memory", "How much memory the game is using.",
+                    Category.UTILITY, Items.REDSTONE, true, false, List.of()),
+            new Module("server", "Server Address", "The server you're on.",
+                    Category.UTILITY, Items.OAK_SIGN, true, false, List.of()),
+            new Module("day", "Day Counter", "Days passed in this world.",
+                    Category.UTILITY, Items.SUNFLOWER, true, false, List.of()),
+            new Module("saturation", "Saturation", "Hidden hunger saturation.",
+                    Category.HUD, Items.COOKED_BEEF, true, false, List.of()),
+            new Module("crosshair", "Crosshair", "Your own crosshair shape, size and colour.",
+                    Category.PVP, Items.BOW, false, false, List.of(
+                            Option.choice("style", "Style", "Cross", "Cross", "Dot", "Plus", "Circle"),
+                            Option.slider("size", "Size", 5, 2, 12, 1),
+                            Option.slider("gap", "Gap", 2, 0, 6, 1),
+                            Option.slider("thick", "Thickness", 1, 1, 3, 1),
+                            Option.choice("color", "Colour", "White", "White", "Accent", "Green", "Red", "Aqua"),
+                            Option.bool("outline", "Outline", true))),
+            new Module("freelook", "Freelook", "Hold Left Alt to look around without turning.",
+                    Category.UTILITY, Items.ENDER_EYE, false, true, List.of()),
+            new Module("lowfire", "Low Fire", "Moves the fire overlay down so you can see.",
+                    Category.PVP, Items.FLINT_AND_STEEL, false, true, List.of()),
+            new Module("timestamps", "Chat Timestamps", "Adds the time to every chat message.",
+                    Category.UTILITY, Items.WRITABLE_BOOK, false, false, List.of(Option.bool("h24", "24-hour", true))),
+            new Module("timechanger", "Time Changer", "Pick the time of day. Only your screen changes.",
+                    Category.UTILITY, Items.DAYLIGHT_DETECTOR, false, false, List.of(
+                            Option.choice("time", "Time", "Day", "Sunrise", "Day", "Sunset", "Night"))),
+            new Module("weather", "Clear Weather", "Hides rain, snow and thunder. Only your screen changes.",
+                    Category.UTILITY, Items.WATER_BUCKET, false, false, List.of()));
+
+    public static Module get(String id) {
+        for (Module m : ALL) if (m.id.equals(id)) return m;
+        throw new IllegalArgumentException("unknown module " + id);
+    }
+}

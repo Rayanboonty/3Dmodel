@@ -1,0 +1,21 @@
+package dev.vortexclient.mod.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import dev.vortexclient.mod.Cosmetics;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.util.SkinTextures;
+
+@Mixin(AbstractClientPlayerEntity.class)
+public class PlayerSkinMixin {
+    @Inject(method = "getSkinTextures", at = @At("RETURN"), cancellable = true)
+    private void vortex$skin(CallbackInfoReturnable<SkinTextures> cir) {
+        if ((Object) this != MinecraftClient.getInstance().player) return;
+        SkinTextures t = Cosmetics.apply(cir.getReturnValue());
+        if (t != null) cir.setReturnValue(t);
+    }
+}
