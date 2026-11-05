@@ -69,6 +69,7 @@ function cyclePalette(hour) {
 
 /** The scenes you can pick, in order. */
 export const SCENES = [
+  { id: "vista", name: "Vortex Valley" },
   { id: "meadow", name: "Sunrise Meadow" },
   { id: "cherry", name: "Cherry Grove" },
   { id: "peaks", name: "Snowy Peaks" },
@@ -82,6 +83,17 @@ export const SCENES = [
 ];
 
 const DEFS = {
+  vista: {
+    tweak: { color: [150, 205, 255], amount: 0.12 },
+    ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
+    far: "vista", hills: { kind: "vista" },
+    mid: { kind: "vista", ridge: "vista", trees: [], density: 0 },
+    fore: { tree: "oak", nest: true, frame: "birch" },
+    water: "lake", fire: "campfire",
+    flora: ["poppy", "dandelion", "cornflower", "tulip", "tufts", "tufts"],
+    particles: "petals", leaf: [250, 190, 214], critters: { bees: 3, butterflies: 3, birds: true, fireflies: true, bats: 1, creeper: true, enderman: true },
+    clouds: 4, softClouds: 6, sun: true, farHaze: 0.42,
+  },
   meadow: {
     ground: { top: "grass", sub: "dirt", deep: "stone" },
     far: "mountains", hills: { top: "#5f9a46", body: "#6f7f52", tree: "oak" },
@@ -558,7 +570,7 @@ export class World {
     const water = this.def.water;
     this.pondStart = pc - (water === "pool" ? 9 : 7);
     this.pondEnd = pc - 5;
-    if (water === "none" || water === "sea") { this.pondStart = -99; this.pondEnd = -99; }
+    if (water === "none" || water === "sea" || water === "lake") { this.pondStart = -99; this.pondEnd = -99; }
     this.treeCol = pc + 7;
     this.lights = [];
     this.glows = [];
@@ -586,6 +598,7 @@ export class World {
     this.buildClouds();
     this.buildStars();
     this.buildCritters();
+    this.soft = null;
     this.tinted = null;
   }
 
@@ -695,6 +708,62 @@ export class World {
       }
       g.fillStyle = "#c9cd8e";
       g.fillRect(-60, base, w + 120, h);
+    } else if (kind === "vista") {
+      // Big jagged mountains with snow, lit from the left.
+      const mountains = [
+        { x: 0.1, top: 0.12, w: 0.2 }, { x: 0.3, top: 0.24, w: 0.16 }, { x: 0.46, top: 0.3, w: 0.14 },
+        { x: 0.6, top: 0.27, w: 0.15 }, { x: 0.8, top: 0.04, w: 0.26 }, { x: 0.98, top: 0.18, w: 0.18 },
+      ];
+      const foot = this.groundY - this.BS * 2.6;
+      for (const m of mountains) {
+        const cx = m.x * w, peak = h * m.top, half = m.w * w;
+        const pts = [[cx - half, foot]];
+        const steps = 9;
+        for (let i = 1; i < steps; i++) {
+          const k = i / steps;
+          const side = k < 0.5 ? k * 2 : (1 - k) * 2;
+          pts.push([cx - half + k * half * 2 + (r() - 0.5) * half * 0.12, foot - (foot - peak) * Math.pow(side, 0.85) + (r() - 0.3) * h * 0.03]);
+        }
+        pts.push([cx, peak]);
+        pts.sort((a, b) => a[0] - b[0]);
+        pts.push([cx + half, foot]);
+        g.save();
+        g.beginPath();
+        g.moveTo(cx - half, foot);
+        for (const [px, py] of pts) g.lineTo(px, py);
+        g.closePath();
+        g.clip();
+        const rock = g.createLinearGradient(0, peak, 0, foot);
+        rock.addColorStop(0, "#8d96a8");
+        rock.addColorStop(1, "#5d6b72");
+        g.fillStyle = rock;
+        g.fillRect(cx - half, peak - 10, half * 2, foot - peak + 20);
+        // Snow above a ragged line.
+        const snowLine = peak + (foot - peak) * (0.45 + r() * 0.15);
+        g.fillStyle = "#f6f9ff";
+        g.beginPath();
+        g.moveTo(cx - half, peak - 10);
+        for (let x = cx - half; x <= cx + half; x += half * 0.08) g.lineTo(x, snowLine + Math.sin(x * 0.13) * h * 0.02 + (r() - 0.5) * h * 0.03);
+        g.lineTo(cx + half, peak - 10);
+        g.fill();
+        // Shadowed right faces and a few rock streaks.
+        g.fillStyle = "rgba(40,50,80,0.32)";
+        g.beginPath();
+        g.moveTo(cx, peak);
+        g.lineTo(cx + half, foot);
+        g.lineTo(cx + half * 0.15, foot);
+        g.fill();
+        g.strokeStyle = "rgba(60,64,80,0.35)";
+        g.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+          const sx = cx - half * 0.6 + r() * half * 1.2;
+          g.beginPath();
+          g.moveTo(sx, snowLine - h * 0.04);
+          g.lineTo(sx + (r() - 0.5) * 20, snowLine + h * 0.08);
+          g.stroke();
+        }
+        g.restore();
+      }
     } else if (kind === "cave") {
       for (let x = -60; x < w + 60; x += bs) {
         const top = base - h * (0.1 + Math.abs(Math.sin(x * 0.01)) * 0.14);
@@ -704,6 +773,11 @@ export class World {
       }
     }
     this.far = L;
+  }
+
+  /** Where the lake meets the far shore (Vortex Valley). */
+  lakeTop() {
+    return this.groundY - this.BS * 2.6;
   }
 
   /** Rolling hills with tree lines, blurred. */
@@ -717,6 +791,36 @@ export class World {
     const bs = this.BS * 0.7;
     const base = this.groundY - this.BS * 1.1;
     const r = rng(23);
+    if (H0.kind === "vista") {
+      // Far shore: green hills with cherry groves on the left, terracotta
+      // mesas on the right, all standing on the lake line.
+      const lake = this.lakeTop();
+      for (let x = -60; x < w * 0.55; x += bs) {
+        const k = (x + 60) / (w * 0.6);
+        const top = Math.round((lake - bs * (1 + Math.sin(x * 0.012) * 0.8 + (1 - k) * 3)) / bs) * bs;
+        g.fillStyle = "#5fa846";
+        g.fillRect(x, top, bs + 0.5, bs * 0.4);
+        g.fillStyle = "#6b7f4c";
+        g.fillRect(x, top + bs * 0.4, bs + 0.5, lake - top + bs);
+        if (r() > 0.4) {
+          g.fillStyle = r() > 0.55 ? "#f2a7c8" : r() > 0.5 ? "#2f6f2c" : "#3f8a34";
+          const cw = bs * (1.4 + r() * 1.4);
+          g.fillRect(x - cw / 4, top - bs * (0.9 + r() * 0.6), cw, bs * 1.1);
+        }
+      }
+      const bands = ["#c46a3c", "#d99a62", "#b0533a", "#e3b98a", "#a85a3e", "#cf8450"];
+      for (let x = w * 0.58; x < w + 60; x += bs) {
+        const k = (x - w * 0.58) / (w * 0.42);
+        const top = Math.round((lake - bs * (2 + k * 5 + Math.abs(Math.sin(x * 0.02)) * 3)) / bs) * bs;
+        for (let y = top, i = 0; y < lake + bs; y += bs * 0.5, i++) {
+          g.fillStyle = bands[(i + Math.floor(x / 40)) % bands.length];
+          g.fillRect(x, y, bs + 0.5, bs * 0.5 + 0.5);
+        }
+        g.fillStyle = "#6aa84f";
+        if (r() > 0.6) g.fillRect(x, top - bs * 0.25, bs + 0.5, bs * 0.3);
+      }
+      return;
+    }
     for (let x = -60; x < w + 60; x += bs) {
       const n = Math.sin(x * 0.006) * 0.9 + Math.sin(x * 0.017 + 2) * 0.6;
       const top = Math.round((base - bs * (2 + n * 1.6)) / bs) * bs;
@@ -754,11 +858,47 @@ export class World {
     this.midRims = [];
     this.midLights = [];
     const M = this.def.mid;
+    this.waterfall = null;
+    this.mobsMid = [];
     if (!M.ridge) return;
     const { g } = L;
     const { w, h, T } = this;
     const bs = this.BS * 0.78;
     const base = this.groundY - this.BS * 0.25;
+    if (M.kind === "vista") {
+      const r = rng(61);
+      const lake = this.lakeTop() + bs * 0.6;
+      // Left bank sloping down into the lake, with cherry and oak trees.
+      for (let x = -60, i = 0; x < w * 0.27; x += bs, i++) {
+        const k = (x + 60) / (w * 0.27 + 60);
+        const top = Math.round((lake - bs * (2.6 - k * 2.6 + Math.sin(i * 0.7) * 0.4)) / bs) * bs;
+        g.drawImage(T.cleanGrass[i % 3], x, top, bs + 0.4, bs + 0.4);
+        for (let y = top + bs; y < h; y += bs) g.drawImage(y > top + bs * 3 ? T.cleanStone[i % 2] : T.cleanDirt[i % 3], x, y, bs + 0.4, bs + 0.4);
+        this.midRims.push([x, top, bs]);
+        if (i % 4 === 1 && x > 0) drawTree(g, T, r() > 0.45 ? "cherry" : "oak", x, top, bs * 0.62, this.midRims, r);
+        if (i === 3) this.mobsMid.push({ kind: "enderman", x: x + bs * 2, y: top });
+      }
+      // A small island with one tree.
+      const ix = w * 0.47;
+      for (let k = 0; k < 4; k++) {
+        g.drawImage(T.cleanGrass[k % 3], ix + k * bs, lake - bs * 0.6, bs + 0.4, bs + 0.4);
+        this.midRims.push([ix + k * bs, lake - bs * 0.6, bs]);
+      }
+      drawTree(g, T, "azalea", ix + bs * 1.5, lake - bs * 0.6, bs * 0.8, this.midRims, r);
+      // Right: a terracotta cliff with a waterfall pouring into the lake.
+      const cx0 = w * 0.76;
+      for (let x = cx0, i = 0; x < w + 60; x += bs, i++) {
+        const top = Math.round((lake - bs * (3 + Math.min(3, i * 0.45) + Math.abs(Math.sin(i * 0.9)) * 1.2)) / bs) * bs;
+        g.drawImage(T.cleanGrass[i % 3], x, top - bs, bs + 0.4, bs + 0.4);
+        this.midRims.push([x, top - bs, bs]);
+        for (let y = top, j = 0; y < h; y += bs, j++) g.drawImage(T.terracotta[(j + (i % 2)) % T.terracotta.length], x, y, bs + 0.4, bs + 0.4);
+        if (i === 0) this.waterfall = { x: x + bs * 0.15, top: top + bs * 0.4, bottom: lake + bs * 0.6, w: bs * 0.9 };
+        if (i % 3 === 2 && r() > 0.3) drawTree(g, T, "oak", x, top - bs, bs * 0.62, this.midRims, r);
+      }
+      g.fillStyle = "rgba(0,0,0,0.18)";
+      g.fillRect(cx0, lake - bs * 6, bs * 0.4, bs * 7);
+      return;
+    }
     const r = rng(47 + this.sceneId.length * 13);
     const ridgeTop = { grass: T.grass[0], snowGrass: T.snowGrass[0], sand: T.sand[0], jungleGrass: T.jungleGrass[0], moss: T.mossCap[0], nylium: T.nylium[0], endstone: T.endstone[0] }[M.ridge] || T.grass[0];
     const fill = { sand: T.sandstone[0], nylium: T.netherrack[0], endstone: T.endstone[1], moss: T.stone[0] }[M.ridge] || T.dirt[0];
@@ -791,9 +931,9 @@ export class World {
     const D = this.def;
     this.foreRims = [];
     this.foreLights = [];
-    const top = { grass: T.grass, snowGrass: T.snowGrass, sand: T.sand, jungleGrass: T.jungleGrass, mossCap: T.mossCap, nylium: T.nylium, endstone: T.endstone }[D.ground.top];
-    const sub = { dirt: T.dirt, sandstone: T.sandstone, sand: T.sand, netherrack: T.netherrack, endstone: T.endstone, clay: T.clay }[D.ground.sub];
-    const deep = { stone: T.stone, sandstone: T.sandstone, netherrack: T.netherrack, endstone: T.endstone, deep: T.deep, basalt: T.basalt }[D.ground.deep];
+    const top = { grass: T.grass, snowGrass: T.snowGrass, sand: T.sand, jungleGrass: T.jungleGrass, mossCap: T.mossCap, nylium: T.nylium, endstone: T.endstone, cleanGrass: T.cleanGrass }[D.ground.top];
+    const sub = { dirt: T.dirt, sandstone: T.sandstone, sand: T.sand, netherrack: T.netherrack, endstone: T.endstone, clay: T.clay, cleanDirt: T.cleanDirt }[D.ground.sub];
+    const deep = { stone: T.stone, sandstone: T.sandstone, netherrack: T.netherrack, endstone: T.endstone, deep: T.deep, basalt: T.basalt, cleanStone: T.cleanStone }[D.ground.deep];
     for (let c = 0; c < cols; c++) {
       const x = this.colX(c);
       const t0 = this.topOf(c);
@@ -848,8 +988,8 @@ export class World {
     } else this.hive = null;
     // A big framing tree at the left edge, standing on the ground.
     if (D.fore.frame) {
-      const leaf = { oak: T.oakLeaf, cherry: T.cherryLeaf, jungle: T.jungleLeaf }[D.fore.frame];
-      const logT = { oak: T.oakLog, cherry: T.cherryLog, jungle: T.jungleLog }[D.fore.frame];
+      const leaf = { oak: T.oakLeaf, cherry: T.cherryLeaf, jungle: T.jungleLeaf, birch: T.oakLeaf }[D.fore.frame];
+      const logT = { oak: T.oakLog, cherry: T.cherryLog, jungle: T.jungleLog, birch: T.birch }[D.fore.frame];
       const col = 1;
       const lx = this.colX(col);
       const base = this.topOf(col);
@@ -943,7 +1083,7 @@ export class World {
     if (key === this.tintKey && this.tinted) return;
     this.tintKey = key;
     const layers = [
-      ["far", 0.72, null],
+      ["far", this.def.farHaze ?? 0.72, null],
       ["hills", 0.5, null],
       ["mid", 0.24, "midRims"],
       ["fore", 0, "foreRims"],
@@ -1080,6 +1220,7 @@ export class World {
     if (life && D.critters?.birds && p.stars < 0.3 && dt > 0) this.moveBirds(dt);
     if (life) for (const b of this.birds) this.drawBird(b, t, p);
     this.drawClouds(dt, p);
+    if (D.softClouds) this.drawSoftClouds(dt, p);
     if (D.critters?.dragon && life) this.drawDragon(t, dt);
 
     const lay = (name, depth) => {
@@ -1096,7 +1237,10 @@ export class World {
     ctx.fillRect(0, horizon - BS * 3, w, this.groundY - horizon + BS * 3);
     if (D.water === "sea") this.drawSea(t, p, horizon, light);
     lay("hills", 8);
+    if (D.water === "lake") this.drawLake(t, p, light);
     lay("mid", 14);
+    if (this.waterfall) this.drawWaterfall(t, dt, p);
+    if (life) for (const m of this.mobsMid) this.drawEnderman(m, t, dt, p);
     ctx.imageSmoothingEnabled = false;
     lay("fore", 0);
     ctx.imageSmoothingEnabled = true;
@@ -1128,6 +1272,7 @@ export class World {
       this.drawBees(t, dt, p);
       this.drawButterflies(t, dt, p);
       this.drawBats(t, dt);
+      if (D.critters?.creeper) this.drawCreeper(t, p);
     }
     this.drawParticles(dt, p, life);
 
@@ -1255,6 +1400,172 @@ export class World {
       }
     }
     return light;
+  }
+
+  /** Puffy, soft-shaded clouds (Vortex Valley). */
+  drawSoftClouds(dt, p) {
+    const ctx = this.ctx;
+    const { w, h } = this;
+    if (!this.soft) {
+      const r = rng(303);
+      this.soft = [];
+      for (let i = 0; i < (this.def.softClouds || 0); i++) {
+        const puffs = [];
+        const n = 5 + Math.floor(r() * 5);
+        for (let k = 0; k < n; k++) puffs.push([k * 0.22 + (r() - 0.5) * 0.1, -Math.sin((k / (n - 1)) * Math.PI) * (0.25 + r() * 0.2), 0.22 + r() * 0.2]);
+        this.soft.push({ x: r() * w * 1.2 - w * 0.1, y: h * (0.06 + r() * 0.2), s: h * (0.12 + r() * 0.1), puffs, speed: 4 + r() * 6 });
+      }
+    }
+    for (const c of this.soft) {
+      if (dt > 0) c.x += c.speed * dt;
+      if (c.x > w + c.s * 2) c.x = -c.s * 2.5;
+      const px = c.x - this.parallax * 6;
+      for (const [dx, dy, rr] of c.puffs) {
+        const x = px + dx * c.s * 2, y = c.y + dy * c.s, rad = rr * c.s;
+        const grd = ctx.createRadialGradient(x - rad * 0.3, y - rad * 0.4, rad * 0.1, x, y, rad);
+        grd.addColorStop(0, rgb(mix(p.cloud, [255, 255, 255], 0.35), 0.95));
+        grd.addColorStop(0.7, rgb(mix(p.cloud, p.cloudShade, 0.35), 0.85));
+        grd.addColorStop(1, rgb(p.cloudShade, 0));
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(x, y, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  drawLake(t, p, light) {
+    const ctx = this.ctx;
+    const { w, BS } = this;
+    const top = this.lakeTop(), bottom = this.groundY + BS * 0.5;
+    const grd = ctx.createLinearGradient(0, top, 0, bottom);
+    grd.addColorStop(0, rgb(mix(p.hor, [120, 180, 230], 0.55)));
+    grd.addColorStop(0.5, rgb(mix(mix(p.mid, [50, 120, 190], 0.65), p.tint, p.tintA * 0.8)));
+    grd.addColorStop(1, rgb(mix(mix(p.top, [26, 70, 130], 0.6), p.tint, p.tintA)));
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, top, w, bottom - top);
+    // Mountain reflections: a soft mirrored band.
+    ctx.fillStyle = rgb(mix(p.haze, [255, 255, 255], 0.2), 0.18);
+    ctx.fillRect(0, top + 2, w, BS * 0.5);
+    if (light) {
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 30; i++) {
+        const k = i / 30;
+        const y = top + (bottom - top) * k;
+        const spread = 8 + k * BS * 2.5;
+        ctx.fillStyle = rgb(light.col, (0.2 + 0.15 * Math.sin(t * 4 + i)) * light.a * (1 - k * 0.6));
+        ctx.fillRect(light.x + Math.sin(t * 1.7 + i * 1.3) * spread - spread * 0.3, y, spread * 0.6, 2);
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
+    ctx.fillStyle = rgb(mix(p.hor, [255, 255, 255], 0.5), 0.3);
+    for (let i = 0; i < 16; i++) {
+      const y = top + 6 + ((i * 29) % (bottom - top - 8));
+      const x = ((t * (8 + (i % 3) * 4) + i * 151) % (w + 200)) - 100;
+      ctx.fillRect(x, y, BS * (0.6 + (i % 3) * 0.3), 2);
+    }
+  }
+
+  drawWaterfall(t, dt, p) {
+    const ctx = this.ctx;
+    const f = this.waterfall;
+    const x = f.x - this.parallax * 14;
+    const grd = ctx.createLinearGradient(x, 0, x + f.w, 0);
+    grd.addColorStop(0, rgb(this.lit([150, 200, 240], p), 0.85));
+    grd.addColorStop(0.5, rgb(this.lit([225, 245, 255], p), 0.95));
+    grd.addColorStop(1, rgb(this.lit([150, 200, 240], p), 0.85));
+    ctx.fillStyle = grd;
+    ctx.fillRect(x, f.top, f.w, f.bottom - f.top);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    for (let k = 0; k < 10; k++) {
+      const y = f.top + ((t * 90 + k * 37) % (f.bottom - f.top));
+      ctx.fillRect(x + f.w * (0.1 + (k % 3) * 0.3), y, f.w * 0.18, 8);
+    }
+    // Mist where it lands.
+    for (let k = 0; k < 5; k++) {
+      const mx = x + f.w / 2 + Math.sin(t * 1.3 + k) * f.w;
+      const g2 = ctx.createRadialGradient(mx, f.bottom, 0, mx, f.bottom, f.w * 1.6);
+      g2.addColorStop(0, "rgba(255,255,255,0.35)");
+      g2.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g2;
+      ctx.fillRect(mx - f.w * 1.6, f.bottom - f.w * 1.6, f.w * 3.2, f.w * 3.2);
+    }
+  }
+
+  /** A pixel sprite from rows of palette keys, drawn at `px` per pixel. */
+  sprite(rows, pal, x, y, px) {
+    const ctx = this.ctx;
+    for (let j = 0; j < rows.length; j++) {
+      for (let i = 0; i < rows[j].length; i++) {
+        const c = pal[rows[j][i]];
+        if (!c) continue;
+        ctx.fillStyle = c;
+        ctx.fillRect(x + i * px, y + j * px, px + 0.5, px + 0.5);
+      }
+    }
+  }
+
+  drawCreeper(t, p) {
+    const c = this.treeCol + 3;
+    if (c >= this.cols) return;
+    const px = Math.max(2, Math.round(this.scale * 1.8));
+    const base = this.topOf(c);
+    const x = this.colX(c) + this.BS * 0.2;
+    // Every few seconds it swells and flashes, then calms down.
+    const cyc = t % 9;
+    const flash = cyc > 7.6 && Math.floor(cyc * 8) % 2 === 0;
+    const swell = cyc > 7.6 ? 1 + (cyc - 7.6) * 0.05 : 1;
+    const g = (a) => rgb(this.lit(flash ? [245, 255, 245] : a, p));
+    const pal = { a: g([88, 176, 72]), b: g([60, 140, 52]), c: g([128, 206, 104]), d: g([36, 96, 34]), k: flash ? "#d8d8d8" : "#141414" };
+    const face = [
+      "abcabaca", "bacbacab", "akkbckka", "akkcbkka", "cbakkacb", "abkkkkba", "bckkkkcb", "abkbckba",
+    ];
+    const body = ["abcaba", "bacabc", "cabacb", "abcbab", "bcabca", "acbabc", "babcab", "abcabc", "cbacba", "abcabc", "bacbab", "cabcab"];
+    const legs = ["ab..ab", "ba..cb", "dd..dd", "dd..dd"];
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(x + px * 4, base);
+    ctx.scale(swell, swell);
+    ctx.translate(-px * 4, 0);
+    const bob = Math.sin(t * 2) * px * 0.15;
+    this.sprite(legs, pal, px, -px * 4, px);
+    this.sprite(body, pal, px, -px * 16 + bob, px);
+    this.sprite(face, pal, 0, -px * 24 + bob, px);
+    ctx.restore();
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(x - px, base - 2, px * 10, 3);
+  }
+
+  drawEnderman(m, t, dt, p) {
+    const px = Math.max(1.5, this.scale * 0.9);
+    // Now and then it teleports a little along the bank, in a puff of purple.
+    m.tp = (m.tp ?? 6) - dt;
+    if (m.tp <= 0) {
+      m.tp = 7 + Math.random() * 6;
+      for (let i = 0; i < 16; i++) this.particles.push({ kind: "glowdot", x: m.x - this.parallax * 14, y: m.y - px * 30, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60, life: 1, age: 0, size: 2, col: [200, 90, 255] });
+      m.offset = ((m.offset || 0) + (Math.random() > 0.5 ? 1 : -1) * px * 20 + px * 60) % (px * 120);
+    }
+    const x = m.x + (m.offset || 0) - this.parallax * 14, y = m.y;
+    const ctx = this.ctx;
+    const dark = rgb(this.lit([22, 16, 30], p)), dark2 = rgb(this.lit([34, 26, 44], p));
+    ctx.fillStyle = dark;
+    ctx.fillRect(x + px * 2, y - px * 30, px * 2, px * 30);
+    ctx.fillRect(x + px * 5, y - px * 30, px * 2, px * 30);
+    ctx.fillStyle = dark2;
+    ctx.fillRect(x, y - px * 42, px * 9, px * 12);
+    ctx.fillStyle = dark;
+    ctx.fillRect(x - px * 2, y - px * 41, px * 2, px * 26);
+    ctx.fillRect(x + px * 9, y - px * 41, px * 2, px * 26);
+    ctx.fillRect(x + px * 0.5, y - px * 50, px * 8, px * 8);
+    ctx.fillStyle = "#e07cff";
+    ctx.fillRect(x + px * 1.5, y - px * 46, px * 2.5, px);
+    ctx.fillRect(x + px * 5, y - px * 46, px * 2.5, px);
+    ctx.globalCompositeOperation = "lighter";
+    this.glow(x + px * 4.5, y - px * 46, px * 8, [200, 100, 255], 0.25);
+    ctx.globalCompositeOperation = "source-over";
+    // A grass block held in front.
+    ctx.drawImage(this.T.cleanGrass[0], x - px * 3, y - px * 26, px * 7, px * 7);
+    if (Math.random() < dt * 4) this.particles.push({ kind: "glowdot", x: x + Math.random() * px * 9, y: y - Math.random() * px * 50, vx: 0, vy: -10, life: 1.5, age: 0, size: 1.5, col: [190, 90, 255] });
   }
 
   drawClouds(dt, p) {

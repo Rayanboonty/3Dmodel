@@ -399,7 +399,7 @@ async fn save_settings(state: State<'_, AppState>, settings: Settings) -> CmdRes
     s.download_concurrency = s.download_concurrency.clamp(1, 64);
     s.day_length_min = s.day_length_min.clamp(1, 120);
     s.glass = s.glass.min(100);
-    s.logo_style = s.logo_style.min(9);
+    s.logo_style = s.logo_style.min(10);
     s.game_width = s.game_width.map(|w| w.clamp(320, 7680));
     s.game_height = s.game_height.map(|h| h.clamp(240, 4320));
     if !["keep", "minimize", "hide"].contains(&s.after_launch.as_str()) {

@@ -86,12 +86,20 @@ function textureFor(mat, seed = 1) {
 
 // ------------------------------------------------------------------ layout --
 
-function lineCells(text) {
+/** The VC monogram's own letter shapes (taller, with a stepped V). */
+export const MONO = {
+  V: ["XXX..XXX", "XXX..XXX", "XXX..XXX", "XXX..XXX", "XXX..XXX", "XXX..XXX", ".XXXXXX.", "..XXXX..", "...XX..."],
+  C: ["XXXXXXXX", "XXXXXXXX", "XXX.....", "XXX.....", "XXX.....", "XXX..XXX", "XXX..XXX", "XXXXXXXX", "XXXXXXXX"],
+};
+
+function lineCells(text, glyphs = null) {
   const cells = [];
   let x = 0;
+  let rows = 7;
   const letters = [];
   for (const ch of text.toUpperCase()) {
-    const g = GLYPHS[ch] || GLYPHS[" "];
+    const g = (glyphs && glyphs[ch]) || GLYPHS[ch] || GLYPHS[" "];
+    rows = Math.max(rows, g.length);
     const w = g[0].length;
     letters.push({ ch, x, w });
     g.forEach((row, y) => {
@@ -99,7 +107,7 @@ function lineCells(text) {
     });
     x += w + 1;
   }
-  return { cells, width: Math.max(0, x - 1), letters };
+  return { cells, width: Math.max(0, x - 1), letters, rows };
 }
 
 /**
@@ -151,6 +159,27 @@ export const STYLES = [
   },
 ];
 
+// Molten metal (red to gold across the word) over basalt, for the VC logo.
+MATERIALS.molten = {
+  face: ["#ffffff", "#ececec", "#f6f6f6", "#d6d6d6", "#ffffff"],
+  gradient: ["#a8130a", "#d6400f", "#ee7a14", "#f5ad22", "#f8cc46"],
+  side: "#5a1206", light: "#ffe7a8", dark: "#6e1606", gloss: 0.55, glow: "#ff5a14", spark: 0.04,
+};
+MATERIALS.basalt = {
+  face: ["#2d2d32", "#28282c", "#36363c", "#202024", "#4c4c54"], side: "#101012", light: "#64646e", dark: "#141416", gloss: 0.22, cracks: true,
+};
+STYLES.unshift({
+  id: "vc", name: "VC Molten", note: "Your VC logo: molten metal over basalt, with embers.",
+  lines: [
+    { text: "VC", glyphs: MONO, mats: () => "molten", lower: { from: 5, mat: "basalt" }, embers: true },
+    { text: "VORTEX CLIENT", scale: 0.36, mats: () => "molten" },
+  ],
+  brand: [
+    { text: "VC", glyphs: MONO, mats: () => "molten", lower: { from: 5, mat: "basalt" } },
+    { text: "VORTEX", scale: 0.6, mats: () => "molten" },
+  ],
+});
+
 MATERIALS.copperMid = {
   face: ["#b9a06a", "#a88f5c", "#cbb57f", "#957e4d", "#ead9a8"], side: "#5a5232", light: "#f1e4bd", dark: "#776a40", gloss: 0.42, spark: 0.04,
 };
@@ -173,8 +202,8 @@ export function renderLines(lines, cell, opts = {}) {
   const dpr = opts.dpr || Math.min(2, window.devicePixelRatio || 1);
   const items = lines.map((l) => {
     const c = cell * (l.scale || 1);
-    const lay = lineCells(l.text);
-    return { ...l, c, lay, w: lay.width * c, h: 7 * c };
+    const lay = lineCells(l.text, l.glyphs);
+    return { ...l, c, lay, w: lay.width * c, h: lay.rows * c };
   });
   // Placement: stacked and centred, or inline on one baseline.
   const pad = cell * 2.6;
@@ -226,7 +255,16 @@ function drawLine(g, it, dpr) {
     return -Math.sin(t * Math.PI) * it.arch * c * 3 + it.arch * c * 3 * 0;
   };
   const cellPos = (cl) => [it.ox + cl.x * c, it.oy + cl.y * c + archY(cl.letter)];
-  const matOf = (cl) => MATERIALS[it.mats(cl.letter)] || MATERIALS.gold;
+  // Lines can have a darker lower part (like the VC monogram's basalt base).
+  const nameOf = (cl) => (it.lower && cl.y >= it.lower.from ? it.lower.mat : it.mats(cl.letter));
+  const matOf = (cl) => MATERIALS[nameOf(cl)] || MATERIALS.gold;
+  // Gradient materials are tinted by their position across the line.
+  const gradAt = (m, cl) => {
+    const stops = m.gradient.map(hexrgb);
+    const t = Math.max(0, Math.min(1, cl.x / Math.max(1, lay.width - 1))) * (stops.length - 1);
+    const i = Math.min(stops.length - 2, Math.floor(t));
+    return mixc(stops[i], stops[i + 1], t - i);
+  };
 
   // Optional dark plate behind the line (a ribbon).
   if (it.plate) {
@@ -267,7 +305,7 @@ function drawLine(g, it, dpr) {
     const dx = depth * dirX * f, dy = depth * dirY * f;
     for (const cl of lay.cells) {
       const m = matOf(cl);
-      const side = hexrgb(m.side);
+      const side = m.gradient ? mixc(gradAt(m, cl), [40, 6, 0], 0.62) : hexrgb(m.side);
       g.fillStyle = css(mixc(side, [0, 0, 0], f * 0.35));
       const [x, y] = cellPos(cl);
       g.fillRect(x + dx, y + dy, c + 0.6, c + 0.6);
@@ -287,7 +325,7 @@ function drawLine(g, it, dpr) {
   for (const cl of lay.cells) {
     const m = matOf(cl);
     const [x, y] = cellPos(cl);
-    const name = it.mats(cl.letter);
+    const name = nameOf(cl);
     // Each cell shows a quarter of the 16px texture, so letters read as blocks.
     const tx = (cl.x % 2) * 8, ty = (cl.y % 2) * 8;
     if (m.grass && (cl.y <= 1 || !at(cl.x, cl.y - 1))) {
@@ -302,6 +340,32 @@ function drawLine(g, it, dpr) {
       }
     }
     f.drawImage(texture(name), tx, ty, 8, 8, x, y, c + 0.4, c + 0.4);
+    if (m.gradient) {
+      f.globalCompositeOperation = "multiply";
+      f.fillStyle = css(gradAt(m, cl));
+      f.fillRect(x, y, c + 0.4, c + 0.4);
+      f.globalCompositeOperation = "source-over";
+      // Molten glints.
+      if (hash(cl.x, cl.y, 41) > 0.72) {
+        f.fillStyle = "rgba(255,236,150,0.9)";
+        f.fillRect(x + c * (0.15 + hash(cl.x, cl.y, 42) * 0.5), y + c * (0.15 + hash(cl.x, cl.y, 43) * 0.5), c * 0.22, c * 0.22);
+      }
+    }
+    if (m.cracks && hash(cl.x, cl.y, 44) > 0.6) {
+      f.fillStyle = "rgba(0,0,0,0.45)";
+      f.fillRect(x + c * 0.2, y + c * (0.3 + hash(cl.x, cl.y, 45) * 0.4), c * 0.6, Math.max(1, c * 0.08));
+    }
+  }
+  // A bright rim where the coloured top meets the dark lower part.
+  if (it.lower) {
+    for (const cl of lay.cells) {
+      if (cl.y !== it.lower.from) continue;
+      const [x, y] = cellPos(cl);
+      f.fillStyle = "rgba(255,206,96,0.95)";
+      f.fillRect(x, y, c + 0.4, Math.max(1, c * 0.14));
+      f.fillStyle = "rgba(0,0,0,0.35)";
+      f.fillRect(x, y + c * 0.14, c + 0.4, Math.max(1, c * 0.1));
+    }
   }
   // Bevel: light along top and left edges, dark along bottom and right.
   const b = Math.max(1, c * 0.2);
@@ -336,6 +400,22 @@ function drawLine(g, it, dpr) {
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.drawImage(face, 0, 0);
   g.restore();
+
+  // Embers rising off molten letters.
+  if (it.embers) {
+    for (let i = 0; i < 18; i++) {
+      const ex = it.ox + hash(i, 1, 70) * it.w;
+      const ey = it.oy - c * (0.4 + hash(i, 2, 70) * 2.6);
+      const s = c * (0.18 + hash(i, 3, 70) * 0.3);
+      g.save();
+      g.shadowColor = "#ff8a1e";
+      g.shadowBlur = c * 1.2;
+      g.fillStyle = hash(i, 4, 70) > 0.5 ? "#ffd36b" : "#ff8a2a";
+      g.globalAlpha = 0.5 + hash(i, 5, 70) * 0.5;
+      g.fillRect(ex, ey, s, s);
+      g.restore();
+    }
+  }
 }
 
 /** Render one of the STYLES at a cell size. */
@@ -347,6 +427,7 @@ export function renderStyle(index, cell, opts = {}) {
 /** The compact one-line wordmark for the top bar. */
 export function renderBrand(index, cell = 3.2) {
   const s = STYLES[index] || STYLES[0];
+  if (s.brand) return renderLines(s.brand, cell, { inline: true });
   const [a, b] = s.lines;
   return renderLines([{ ...a, arch: 0 }, { ...b, scale: 0.5, plate: null }], cell, { inline: true });
 }

@@ -252,6 +252,48 @@ export function makeTextures() {
     }
   });
 
+  // "Clean" poster-style blocks: flat faces, a few square speckles, big pixels.
+  const clean = (base, specks, s, cell = 2) => texture((put) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+      const h = hash(cx, cy, s);
+      let c = base;
+      if (h > 0.9) c = specks[0];
+      else if (h > 0.82) c = specks[1];
+      put(x, y, c);
+    }
+  });
+  const cleanDirt = [[183, 120, 63], [[143, 90, 44], [205, 142, 80]]];
+  T.cleanDirt = [11, 12, 13].map((s) => clean(cleanDirt[0], cleanDirt[1], s));
+  T.cleanGrass = [11, 12, 13].map((s) => texture((put) => {
+    const dirt = clean(cleanDirt[0], cleanDirt[1], s).getContext("2d").getImageData(0, 0, 16, 16).data;
+    for (let x = 0; x < 16; x++) {
+      const col = Math.floor(x / 2);
+      const drip = 4 + (hash(col, 0, s) > 0.6 ? 2 : 0) + (hash(col, 1, s) > 0.85 ? 2 : 0);
+      for (let y = 0; y < 16; y++) {
+        if (y < drip) put(x, y, y < 2 ? [126, 214, 86] : hash(col, Math.floor(y / 2), s + 4) > 0.85 ? [80, 168, 48] : [96, 190, 62]);
+        else {
+          const i = (y * 16 + x) * 4;
+          put(x, y, y === drip ? [120, 78, 36] : [dirt[i], dirt[i + 1], dirt[i + 2]]);
+        }
+      }
+    }
+  }));
+  T.cleanStone = [11, 12].map((s) => texture((put) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const bx = Math.floor((x + (Math.floor(y / 4) % 2) * 4) / 8), by = Math.floor(y / 4);
+      const h = hash(bx, by, s);
+      let c = h > 0.66 ? [158, 159, 164] : h > 0.33 ? [143, 144, 149] : [128, 129, 134];
+      if (y % 4 === 3) c = [110, 111, 116];
+      if (hash(Math.floor(x / 2), Math.floor(y / 2), s + 2) > 0.93) c = [96, 97, 102];
+      put(x, y, c);
+    }
+  }));
+  T.cleanSand = [11].map((s) => clean([232, 214, 160], [[214, 194, 140], [244, 230, 184]], s));
+  // Terracotta in the colours of a badlands cliff.
+  T.terracotta = [[180, 92, 52], [196, 120, 74], [214, 160, 104], [152, 74, 44], [222, 186, 132], [168, 104, 72]].map((c, i) =>
+    clean(c, [mix(c, [0, 0, 0], 0.14), mix(c, [255, 255, 255], 0.12)], 30 + i, 4));
+
   // Plants (transparent sprites).
   const flower = (petal, center, s, kind) => sprite((put) => {
     const stem = [62, 132, 40];
