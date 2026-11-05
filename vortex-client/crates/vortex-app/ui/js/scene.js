@@ -69,6 +69,7 @@ function cyclePalette(hour) {
 
 /** The scenes you can pick, in order. */
 export const SCENES = [
+  { id: "valley", name: "Valley" },
   { id: "vista", name: "Vortex Valley" },
   { id: "meadow", name: "Sunrise Meadow" },
   { id: "cherry", name: "Cherry Grove" },
@@ -83,6 +84,13 @@ export const SCENES = [
 ];
 
 const DEFS = {
+  valley: {
+    image: true,
+    ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
+    far: "none", hills: null, mid: { ridge: null, trees: [], density: 0 },
+    fore: { tree: null }, water: "lake", fire: "campfire", flora: [],
+    particles: "petals", leaf: [250, 190, 214], critters: {}, clouds: 0, sun: false,
+  },
   vista: {
     tweak: { color: [150, 205, 255], amount: 0.12 },
     ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
@@ -1183,6 +1191,21 @@ export class World {
 
   draw(now, dt) {
     const ctx = this.ctx;
+    if (this.def.image) {
+      const img = VALLEY;
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      ctx.fillStyle = "#6fa8d8";
+      ctx.fillRect(0, 0, this.w, this.h);
+      if (img.complete && img.naturalWidth) {
+        this.parallax += (this.parallaxTarget - this.parallax) * Math.min(1, dt * 3);
+        const s = Math.max(this.w / img.naturalWidth, this.h / img.naturalHeight) * 1.04;
+        const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, (this.w - dw) / 2 - this.parallax * this.w * 0.01, (this.h - dh) / 2, dw, dh);
+      }
+      return;
+    }
     const { w, h, BS } = this;
     const D = this.def;
     const t = now / 1000;
@@ -2103,6 +2126,9 @@ export class World {
     this.particles = out.length > 500 ? out.slice(-500) : out;
   }
 }
+
+const VALLEY = new Image();
+VALLEY.src = new URL("../img/valley.webp", import.meta.url).href;
 
 // Textures are shared by every world (live, thumbnails, exports).
 let shared = null;

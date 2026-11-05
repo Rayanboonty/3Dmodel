@@ -134,7 +134,7 @@ function placeAnchor() {
 window.addEventListener("resize", () => requestAnimationFrame(placeAnchor));
 
 function applyLook(s = S.settings || {}) {
-  world.setScene(s.background || "vista");
+  world.setScene(s.background || "valley");
   world.setMode(s.sky || "cycle");
   world.setDayLength(s.day_length_min || 10);
   world.setAnimate(s.animations !== false);
@@ -1312,7 +1312,7 @@ async function exportMenuArt(inst) {
   const s = S.settings || {};
   if (!inst || inst.loader !== "fabric" || inst.minecraftVersion !== "1.21.4" || s.vortex_mods === false || s.vortex_menu === false) return;
   try {
-    const bg = sceneStill(s.background || "vista", 1600, 900, world.fixedTime ? undefined : world.hour());
+    const bg = sceneStill(s.background || "valley", 1600, 900, world.fixedTime ? undefined : world.hour());
     const logo = renderStyle(s.logo_style || 0, 9, { dpr: 1 });
     await call("save_menu_art", { background: bg.toDataURL("image/png"), logo: logo.toDataURL("image/png") });
   } catch (e) {
@@ -1872,7 +1872,7 @@ async function boot() {
     const b = await call("bootstrap");
     S.appVersion = b.appVersion;
     S.dataDir = b.dataDir;
-    S.settings = { sky: "cycle", day_length_min: 10, background: "vista", vortex_menu: true, ...b.settings };
+    S.settings = { sky: "cycle", day_length_min: 10, background: "valley", vortex_menu: true, ...b.settings };
     S.accounts = b.accounts;
     S.instances = b.instances;
     if (!S.instances.some((i) => i.name === S.selected)) S.selected = S.instances[0]?.name || null;
