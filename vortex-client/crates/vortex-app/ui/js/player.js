@@ -585,11 +585,12 @@ export class Player {
           this.accentHex = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ffb547";
         }
         const cols = Math.max(1, (this.displayName || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 16).length * 6 - 1);
-        const cell = Math.round(Math.min(u * 0.9, (u * 28) / cols) * 10) / 10;
+        const cell = Math.round(Math.min(u * 1.4, (u * 40) / cols) * 10) / 10;
         this.blockName.set(this.displayName, cell, this.accentHex);
         const h = 7 * cell;
-        // Fixed just above his head; it moves only with him.
-        this.blockName.update(now, this.x, -(u * 34 + h / 2) + this.y + bob, 0, true);
+        // Centred on him, straight on, set behind his head: the head covers the
+        // lower middle of the name, so it reads as standing at his back.
+        this.blockName.update(now, this.x, -(u * 31.5 + h / 2 - h * 0.35) + this.y + bob, 0, true);
       }
       // Torch at night, in the right hand (the viewer's left when facing us).
       const showTorch = !!this.holdingTorch;

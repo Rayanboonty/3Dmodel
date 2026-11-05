@@ -81,7 +81,7 @@ function texture(hex, shade) {
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (let y = 0; y < 8; y++) {
     for (let x = 0; x < 8; x++) {
-      const edge = x === 0 || y === 0 ? 1.18 : x === 7 || y === 7 ? 0.78 : 1;
+      const edge = x === 0 || y === 0 ? 1.2 : x === 7 || y === 7 ? 0.55 : 1;
       const k = shade * edge * (0.88 + rnd() * 0.24);
       g.fillStyle = `rgb(${base.map((v) => Math.max(0, Math.min(255, Math.round(v * k)))).join(",")})`;
       g.fillRect(x, y, 1, 1);
@@ -119,7 +119,7 @@ export class BlockName {
     if (!name) return;
     const rows = bitmap(name);
     const cols = rows[0].length;
-    const W = cols * cell, H = 7 * cell, D = cell * 1.5; // chunky, deeper than tall
+    const W = cols * cell, H = 7 * cell, D = cell * 2.2; // deep blocks, so the depth reads straight on
     this.width = W;
     this.height = H;
     const front = texture(accent, 1), side = texture(accent, 0.62), top = texture(accent, 1.22), bottom = texture(accent, 0.45);
@@ -150,7 +150,8 @@ export class BlockName {
     if (still) {
       // A fixed three-quarter angle: the block sides and tops show, nothing moves.
       this.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
-      this.rot.style.transform = "rotateX(-16deg) rotateY(-14deg)";
+      // Straight on, no turn: the block depth shows through perspective.
+      this.rot.style.transform = `translateZ(${(-this.cell * 2).toFixed(1)}px) rotateX(-12deg)`;
       return;
     }
     const target = Math.sin(now / 2600) * 24 + pointer * 10;
