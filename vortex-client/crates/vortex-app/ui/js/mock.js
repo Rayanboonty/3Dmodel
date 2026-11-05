@@ -22,7 +22,7 @@ const state = {
     microsoft_client_id: null, download_concurrency: 32, show_snapshots: false,
     show_old_versions: false, sky: "cycle", day_length_min: 10, ui_sounds: true, animations: true,
     game_width: null, game_height: null, fullscreen: false, after_launch: "keep", vortex_mods: true, open_log_on_launch: false,
-    accent: "amber", glass: 60, logo_style: 0, background: "sunset", vortex_menu: true, show_player: true, world_life: true, clock_12h: false,
+    accent: "amber", glass: 60, logo_style: 0, background: "golden", vortex_menu: true, show_player: true, world_life: true, clock_12h: false,
     mods_allow_unstable: false, mods_with_dependencies: true,
   },
   skins: [],

@@ -69,6 +69,10 @@ function cyclePalette(hour) {
 
 /** The scenes you can pick, in order. */
 export const SCENES = [
+  { id: "golden", name: "Golden Meadow" },
+];
+export const ALL_SCENES = [
+  { id: "golden", name: "Golden Meadow" },
   { id: "sunset", name: "Sunset Lake" },
   { id: "valley", name: "Valley" },
   { id: "vista", name: "Vortex Valley" },
@@ -85,6 +89,13 @@ export const SCENES = [
 ];
 
 const DEFS = {
+  golden: {
+    image: "golden", sunAt: [0.445, 0.33], glowCol: [255, 196, 120], dust: [255, 226, 150], phase: "dusk",
+    ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
+    far: "none", hills: null, mid: { ridge: null, trees: [], density: 0 },
+    fore: { tree: null }, water: "lake", fire: "campfire", flora: [],
+    particles: "petals", leaf: [250, 190, 214], critters: {}, clouds: 0, sun: false,
+  },
   sunset: {
     image: "sunset", sunAt: [0.49, 0.45], glowCol: [255, 170, 80], dust: [255, 200, 120], phase: "dusk",
     ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
@@ -409,7 +420,7 @@ export class World {
       return;
     }
     this.resize();
-    window.addEventListener("resize", () => this.resize());
+    window.addEventListener("resize", () => { if (!this.viewport) this.resize(); });
     window.addEventListener("mousemove", (e) => {
       this.mouseY = e.clientY / window.innerHeight;
       this.parallaxTarget = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -507,8 +518,22 @@ export class World {
   get scale() { return this.h / H; }
 
   /** Where the player's feet go, in screen pixels. */
+  /** Put the world in a box on screen (the Home wallpaper card). */
+  setViewport(x, y, w, h) {
+    const v = this.viewport;
+    if (v && v.x === x && v.y === y && v.w === w && v.h === h) return;
+    this.viewport = { x, y, w, h };
+    this.ox = x;
+    this.oy = y;
+    Object.assign(this.canvas.style, { left: `${x}px`, top: `${y}px`, right: "auto", bottom: "auto" });
+    this.resize(w, h);
+  }
+
+  /** Screen x of the middle of the world. */
+  centerX() { return (this.ox || 0) + this.w / 2; }
+
   anchor() {
-    if (this.def.image) return { x: this.w / 2 - Math.min(250, this.w * 0.17), y: Math.round(this.h * 0.8), scale: this.scale };
+    if (this.def.image) return { x: (this.ox || 0) + this.w / 2 - Math.min(250, this.w * 0.24), y: (this.oy || 0) + this.h - 84, scale: this.scale };
     return { x: this.playerX, y: this.groundY, scale: this.scale };
   }
 
@@ -2226,7 +2251,7 @@ export class World {
 }
 
 const PICTURES = {};
-for (const [id, file] of [["sunset", "sunset.jpg"], ["valley", "valley.webp"]]) {
+for (const [id, file] of [["golden", "meadow-sunset.jpg"], ["sunset", "sunset.jpg"], ["valley", "valley.webp"]]) {
   PICTURES[id] = new Image();
   PICTURES[id].src = new URL(`../img/${file}`, import.meta.url).href;
 }

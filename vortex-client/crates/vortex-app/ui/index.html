@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="phase-dawn">
+  <div class="backdrop" aria-hidden="true"></div>
   <canvas id="world" aria-hidden="true"></canvas>
   <svg width="0" height="0" aria-hidden="true" style="position:absolute">
     <filter id="lg-refract" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -36,21 +37,23 @@
 
   <div class="app" id="app">
     <header class="topbar">
-      <div class="brand" role="img" aria-label="Vortex Client"><img class="brand-logo" id="brand-logo" src="img/logo.png" alt="" height="40"></div>
-      <nav class="glass nav tabs hl" id="nav" aria-label="Main">
-        <span class="drop" aria-hidden="true"></span>
-        <button class="tab" data-route="home"><span data-icon="home" data-size="14"></span><span class="tab-label">Home</span></button>
-        <button class="tab" data-route="instances"><span data-icon="grid" data-size="14"></span><span class="tab-label">Instances</span></button>
-        <button class="tab" data-route="mods"><span data-icon="puzzle" data-size="14"></span><span class="tab-label">Mods</span></button>
-        <button class="tab" data-route="skins"><span data-icon="shirt" data-size="14"></span><span class="tab-label">Skins</span></button>
-        <button class="tab" data-route="settings"><span data-icon="gear" data-size="14"></span><span class="tab-label">Settings</span></button>
-      </nav>
+      <div class="brand" role="img" aria-label="Vortex Client"><img class="brand-logo" id="brand-logo" src="img/logo.png" alt="" height="34"><span class="brand-name">VORTEX<b>CLIENT</b></span></div>
       <div class="top-right">
-        <button class="glass top-chip time-chip lq hl" id="time-chip" aria-label="Time of day"><span data-icon="sun" data-size="16" id="time-icon"></span><span class="time" id="time-text">06:00</span><span class="phase" id="phase-text">Dawn</span></button>
+        <button class="glass top-chip time-chip lq hl" id="time-chip" aria-label="Time of day" hidden><span data-icon="sun" data-size="16" id="time-icon"></span><span class="time" id="time-text">06:00</span><span class="phase" id="phase-text">Dawn</span></button>
         <button class="glass top-chip lq hl" id="log-toggle" aria-label="Game log (Ctrl+L)"><span data-icon="log" data-size="16"></span><span class="log-badge" id="log-badge" hidden></span></button>
         <button class="glass top-chip lq hl" id="account-chip"><canvas class="avatar" width="8" height="8" id="account-avatar"></canvas><span id="account-name">No account</span></button>
       </div>
     </header>
+    <nav class="sidebar tabs vertical" id="nav" aria-label="Main">
+      <span class="drop" aria-hidden="true"></span>
+      <button class="tab" data-route="home"><span data-icon="play" data-size="18"></span><span class="tab-label">Play</span></button>
+      <button class="tab" data-route="instances"><span data-icon="grid" data-size="18"></span><span class="tab-label">Instances</span></button>
+      <button class="tab" data-route="mods"><span data-icon="puzzle" data-size="18"></span><span class="tab-label">Mods</span></button>
+      <button class="tab" data-route="skins"><span data-icon="shirt" data-size="18"></span><span class="tab-label">Skins</span></button>
+      <button class="tab" data-route="accounts"><span data-icon="user" data-size="18"></span><span class="tab-label">Accounts</span></button>
+      <button class="tab" data-route="settings"><span data-icon="gear" data-size="18"></span><span class="tab-label">Settings</span></button>
+      <span class="side-version" id="side-version"></span>
+    </nav>
     <main class="page" id="page"></main>
   </div>
 

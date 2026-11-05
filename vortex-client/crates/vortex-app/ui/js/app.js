@@ -54,7 +54,7 @@ const ROUTES = {
   accounts: renderAccounts,
   settings: renderSettings,
 };
-const NAV_OF = { new: "instances", accounts: "skins" };
+const NAV_OF = { new: "instances" };
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -126,18 +126,132 @@ function tick() {
 }
 setInterval(tick, 1000);
 
+/** Fit the world (wallpaper + Steve) into the Home wallpaper card. */
+function placeHero() {
+  const hero = $("#hero");
+  const on = !!hero && S.route === "home";
+  document.body.classList.toggle("hero-on", on);
+  if (!on) return;
+  const r = hero.getBoundingClientRect();
+  world.setViewport(Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height));
+  const layer = $("#player-layer");
+  layer.style.clipPath = `inset(${r.top}px ${window.innerWidth - r.right}px ${window.innerHeight - r.bottom}px ${r.left}px round 22px)`;
+  placeAnchor();
+  applyLenses(document);
+}
+window.addEventListener("resize", () => requestAnimationFrame(placeHero));
+
+// ------------------------------------------------------------ lens glass --
+// Natural refraction: each glass element gets a displacement map for its
+// own size, bending the backdrop only near the rounded edges (like the rim
+// of a lens) and leaving the middle clear. Chromium only (WebView2).
+
+function lensMap(w, h, r) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d");
+  const img = g.createImageData(w, h);
+  const bevel = Math.max(6, Math.min(22, Math.min(w, h) * 0.32));
+  const hx = w / 2, hy = h / 2;
+  r = Math.min(r, hx, hy);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const px = x + 0.5 - hx, py = y + 0.5 - hy;
+      const qx = Math.abs(px) - (hx - r), qy = Math.abs(py) - (hy - r);
+      const out = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
+      const d = r - (out + Math.min(Math.max(qx, qy), 0)); // distance in from the edge
+      let nx = 0, ny = 0;
+      if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy) || 1; nx = (qx / l) * Math.sign(px); ny = (qy / l) * Math.sign(py); }
+      else if (qx > qy) nx = Math.sign(px);
+      else ny = Math.sign(py);
+      let m = 0;
+      if (d < bevel) { const t = 1 - Math.max(0, d) / bevel; m = t * t * (3 - 2 * t); }
+      const i = (y * w + x) * 4;
+      img.data[i] = 128 - nx * m * 127;
+      img.data[i + 1] = 128 - ny * m * 127;
+      img.data[i + 2] = 128;
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return c.toDataURL();
+}
+
+function lensDefs() {
+  let svg = document.getElementById("lens-defs");
+  if (!svg) {
+    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.id = "lens-defs";
+    svg.setAttribute("width", "0");
+    svg.setAttribute("height", "0");
+    svg.setAttribute("aria-hidden", "true");
+    svg.style.position = "absolute";
+    document.body.appendChild(svg);
+  }
+  return svg;
+}
+
+function lensFilter(w, h, r) {
+  const id = `lens-${w}-${h}-${Math.round(r)}`;
+  if (document.getElementById(id)) return id;
+  const NS = "http://www.w3.org/2000/svg";
+  const f = document.createElementNS(NS, "filter");
+  f.id = id;
+  for (const [k, v] of Object.entries({ x: 0, y: 0, width: w, height: h, filterUnits: "userSpaceOnUse", primitiveUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" })) f.setAttribute(k, v);
+  const im = document.createElementNS(NS, "feImage");
+  for (const [k, v] of Object.entries({ x: 0, y: 0, width: w, height: h, result: "map", preserveAspectRatio: "none" })) im.setAttribute(k, v);
+  im.setAttribute("href", lensMap(w, h, r));
+  const dm = document.createElementNS(NS, "feDisplacementMap");
+  for (const [k, v] of Object.entries({ in: "SourceGraphic", in2: "map", scale: Math.round(Math.min(48, Math.min(w, h) * 0.7)), xChannelSelector: "R", yChannelSelector: "G" })) dm.setAttribute(k, v);
+  f.append(im, dm);
+  lensDefs().appendChild(f);
+  return id;
+}
+
+/** Tint each lens to suit what's behind it: darker over bright sky. */
+function lensTint(el) {
+  const c = $("#world");
+  const r = el.getBoundingClientRect();
+  if (!c || !document.body.classList.contains("hero-on") || !world.viewport) return;
+  const v = world.viewport;
+  if (r.left < v.x || r.right > v.x + v.w || r.top < v.y || r.bottom > v.y + v.h) return;
+  try {
+    const k = world.dpr;
+    const data = c.getContext("2d").getImageData(Math.round((r.left - v.x) * k), Math.round((r.top - v.y) * k), Math.max(1, Math.round(r.width * k)), Math.max(1, Math.round(r.height * k))).data;
+    let sum = 0, n = 0;
+    for (let i = 0; i < data.length; i += 64) { sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255; n++; }
+    const L = sum / Math.max(1, n);
+    el.style.setProperty("--lens-tint", L > 0.5 ? `rgba(14, 8, 24, ${(0.16 + (L - 0.5) * 0.7).toFixed(2)})` : `rgba(255, 255, 255, ${(0.04 + (0.5 - L) * 0.1).toFixed(3)})`);
+  } catch { /* canvas not readable */ }
+}
+
+function applyLenses(root) {
+  const refract = document.body.classList.contains("refract");
+  $$(".lens", root).forEach((el) => {
+    const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+    if (!w || !h) return;
+    if (refract) {
+      const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 12;
+      el.style.backdropFilter = `url(#${lensFilter(w, h, rad)}) blur(1.5px) saturate(150%) brightness(1.04)`;
+    }
+    lensTint(el);
+  });
+}
+setInterval(() => { if (S.route === "home") $$(".lens").forEach(lensTint); }, 1500);
+
 function placeAnchor() {
   const a = world.anchor();
   document.documentElement.style.setProperty("--ax", `${a.x}px`);
   document.documentElement.style.setProperty("--ay", `${a.y}px`);
   document.body.classList.toggle("picture", world.picture);
   // Where the Play button is, relative to the player's home spot.
-  player.introTarget = world.picture ? window.innerWidth / 2 - a.x : null;
+  player.introTarget = world.picture ? world.centerX() - a.x : null;
 }
 window.addEventListener("resize", () => requestAnimationFrame(placeAnchor));
 
 function applyLook(s = S.settings || {}) {
-  world.setScene(s.background || "sunset");
+  world.setScene("golden");
   placeAnchor();
   world.setMode(s.sky || "cycle");
   world.setDayLength(s.day_length_min || 10);
@@ -204,6 +318,17 @@ function liquidTabs(group, instant = false) {
   const on = group.querySelector(":scope > .tab.on");
   if (!drop || !on) { if (drop) drop.style.opacity = "0"; return; }
   drop.style.opacity = "1";
+  if (group.classList.contains("vertical")) {
+    drop.style.top = `${on.offsetTop}px`;
+    drop.style.height = `${on.offsetHeight}px`;
+    if (!instant && anims() && drop.dataset.top !== String(on.offsetTop)) {
+      drop.classList.add("moving");
+      setTimeout(() => drop.classList.remove("moving"), 260);
+    }
+    if (instant) { drop.classList.add("still"); void drop.offsetWidth; drop.classList.remove("still"); }
+    drop.dataset.top = on.offsetTop;
+    return;
+  }
   const left = on.offsetLeft;
   const right = group.clientWidth - (on.offsetLeft + on.offsetWidth);
   const prev = Number(drop.dataset.left ?? left);
@@ -271,6 +396,7 @@ function go(route, opts = {}) {
   $$("#nav .tab").forEach((b) => b.classList.toggle("on", b.dataset.route === navRoute));
   liquidTabs($("#nav"));
   document.body.classList.toggle("sheet-open", route !== "home");
+  if (route !== "home") document.body.classList.remove("hero-on");
   if (!same && !opts.silent) sound.nav();
   const page = $("#page");
   const swap = () => {
@@ -326,11 +452,11 @@ function playButton(inst) {
   if (r.phase === "running") {
     const t = S.started[inst.name] ? clock(Date.now() - S.started[inst.name]) : "";
     return `<button class="play running lq" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Stop the game">
-      <span class="play-label"><span class="run-text">PLAYING</span><span class="stop-text">${icon("stop", 20)} STOP</span></span>
+      <span class="play-label"><span class="run-text">PLAYING</span><span class="stop-text">${icon("stop", 18)} STOP GAME</span></span>
       <span class="play-sub">${esc(inst.name)}${t ? ` · ${t}` : ""}</span></button>`;
   }
   return `<button class="play lq" id="play" data-action="play" data-name="${esc(inst.name)}">
-    <span class="play-label">${icon("play", 22)} PLAY</span>
+    <span class="play-label">LAUNCH GAME</span>
     <span class="play-sub">${label}</span></button>`;
 }
 
@@ -356,32 +482,57 @@ function sideBody() {
 function renderHome() {
   const inst = selectedInstance();
   const acc = selectedAccount();
+  S.side = "instances";
+  const recent = [...S.instances].filter((i) => !inst || i.name !== inst.name).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).slice(0, 3);
   const cluster = inst
     ? `<div class="play-cluster">${playButton(inst)}
-        <button class="glass square lq hl" data-action="toggle-switcher" aria-label="Choose instance" aria-expanded="${S.switcher}">${icon("grid", 20)}</button></div>`
+        <button class="square lens hl lq" data-action="toggle-switcher" aria-label="Choose instance" aria-expanded="${S.switcher}">${icon("grid", 20)}</button></div>`
     : `<div class="play-cluster"><button class="play lq" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
   const switcher = S.switcher && inst
     ? `<div class="switcher glass">${[...S.instances].sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).map((i) => `<button class="row-item ${i.name === inst.name ? "on" : ""}" data-action="select" data-name="${esc(i.name)}">${coverThumb(i)}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.minecraftVersion)} · ${esc(updateName(i.minecraftVersion))}</span></span></button>`).join("")}
         <button class="row-item" data-action="route" data-route="new"><span class="cover-thumb add">${icon("plus", 16)}</span><span class="meta"><strong>New instance</strong><span>Any version, Vanilla, Fabric or Forge</span></span></button></div>`
     : "";
+  const chips = recent.map((i) => `<button class="recent-chip lens hl lq" data-action="play" data-name="${esc(i.name)}" title="Play ${esc(i.name)}">
+      ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(i.loaderLabel.split(" ")[0])} ${esc(i.minecraftVersion)}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("");
+  const news = (S.news || []).slice(0, 3);
+  const newsCards = news.length
+    ? news.map((n, i) => `<button class="news-card" data-action="news" data-idx="${i}" style="${n.image_url ? `background-image:url('${esc(n.image_url)}')` : ""}"><span class="cap"><strong>${esc(n.title)}</strong><span>${esc(n.kind === "snapshot" ? "Snapshot" : "Release")} · ${esc(n.date)}</span></span></button>`).join("")
+    : `<div class="side-note">${S.news ? "Patch notes are unavailable offline." : "Loading patch notes from Mojang."}</div>`;
   return {
     html: `<div class="home">
-      ${cluster}
-      ${switcher}
-      <aside class="glass side hl" aria-label="Library">
-        <div class="side-head">
-          <div class="tabs sm" id="side-tabs"><span class="drop" aria-hidden="true"></span>
-            <button class="tab ${S.side === "instances" ? "on" : ""}" data-action="side" data-side="instances">Instances</button>
-            <button class="tab ${S.side === "news" ? "on" : ""}" data-action="side" data-side="news">News</button>
-          </div>
-          <button class="btn btn-sm lq" data-action="route" data-route="new">${icon("plus", 12)} New</button>
+      <section class="hero" id="hero" aria-label="Play">
+        <div class="hero-fx" aria-hidden="true"></div>
+        <div class="play-zone">
+          ${switcher}
+          ${cluster}
+          ${chips ? `<div class="recent">${chips}</div>` : ""}
         </div>
-        <div class="side-body" id="side-body">${sideBody()}</div>
-        ${acc ? "" : `<div class="side-foot"><button class="btn btn-accent btn-sm lq" data-action="route" data-route="accounts">Add an account to play</button></div>`}
+      </section>
+      <section class="home-row">
+        <div class="news-block"><div class="block-head"><h2>Latest news</h2></div><div class="news-cards">${newsCards}</div></div>
+        <div class="quick glass hl"><div class="block-head"><h2>Quick actions</h2></div>
+          <div class="quick-grid">
+            <button class="btn lq" data-action="route" data-route="mods">${icon("puzzle", 14)} Mods</button>
+            <button class="btn lq" data-action="route" data-route="skins">${icon("shirt", 14)} Skins</button>
+            <button class="btn lq" data-action="route" data-route="new">${icon("plus", 14)} New</button>
+            <button class="btn lq" data-action="folder" data-name="${esc(inst?.name || "")}" ${inst ? "" : "disabled"}>${icon("folder", 14)} Folder</button>
+          </div>
+        </div>
+      </section>
+      <aside class="home-side">
+        <div class="acct glass hl">
+          <canvas width="8" height="8" data-head="1"></canvas>
+          <div class="meta"><strong>${esc(acc?.username || "No account")}</strong><span>${acc ? (acc.kind === "microsoft" ? "Microsoft account" : "Offline account") : "Add one to play"}</span></div>
+          <button class="btn btn-sm lq" data-action="route" data-route="accounts">${acc ? "Switch" : "Add"}</button>
+        </div>
+        <div class="lib glass hl">
+          <div class="side-head"><h2>Instances</h2><button class="btn btn-sm lq" data-action="route" data-route="new">${icon("plus", 12)} New</button></div>
+          <div class="side-body" id="side-body">${sideBody()}</div>
+        </div>
       </aside>
     </div>`,
     mount(root) {
-      placeAnchor();
+      requestAnimationFrame(placeHero);
       const play = $("#play", root);
       if (play) play.addEventListener("pointerenter", () => player.wave(1.4));
     },
@@ -1057,12 +1208,6 @@ function settingsBody(d) {
   const tab = S.settingsTab;
   if (tab === "appearance") {
     return `<div class="settings-grid">
-      <div class="card-pad"><h3>Background</h3><p class="muted small">The world behind the launcher. Vortex mods use it for the in-game main menu too.</p>
-        <div class="scene-grid">${SCENES.map((sc) => `<button class="scene-tile ${d.background === sc.id ? "on" : ""}" data-action="set-choice" data-key="background" data-value="${sc.id}" aria-pressed="${d.background === sc.id}">
-          <span class="scene-art" data-scene="${sc.id}"></span><span>${esc(sc.name)}</span></button>`).join("")}</div></div>
-      <div class="card-pad"><h3>Logo</h3><p class="muted small">Shown in the top bar and on the in-game main menu.</p>
-        <div class="logo-grid">${STYLES.map((st, i) => `<button class="logo-tile ${Number(d.logo_style) === i ? "on" : ""}" data-action="set-choice" data-key="logo_style" data-num="1" data-value="${i}" title="${esc(st.note)}">
-          <span class="logo-art" data-logo="${i}"></span><span>${esc(st.name)}</span></button>`).join("")}</div></div>
       <div class="card-pad"><h3>Colour and glass</h3>
         <div class="setting stack"><div><strong>Accent</strong><span>Buttons, highlights and the in-game mod menu</span></div>
           <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${d.accent === k ? "on" : ""}" style="--c:${c}" data-action="set-choice" data-key="accent" data-value="${k}" aria-label="${k}" title="${k[0].toUpperCase() + k.slice(1)}"></button>`).join("")}</div></div>
@@ -1134,10 +1279,9 @@ function settingsBody(d) {
     </div>`;
   }
   return `<div class="settings-grid">
-    <div class="card-pad"><h3>Time of day</h3>${skyControls(d)}</div>
     <div class="card-pad"><h3>Motion and sound</h3>
       ${swRow(d, "animations", "Animations", "The moving world, glass motion and particles")}
-      ${swRow(d, "world_life", "World life", "Bees, butterflies, birds, fish and fireflies")}
+      ${swRow(d, "world_life", "World life", "Drifting light, birds and dust in the wallpaper")}
       ${swRow(d, "ui_sounds", "Sounds", "Clicks, launch sounds and alerts")}
     </div>
   </div>`;
@@ -1331,7 +1475,7 @@ async function exportMenuArt(inst) {
   const s = S.settings || {};
   if (!inst || inst.loader !== "fabric" || inst.minecraftVersion !== "1.21.4" || s.vortex_mods === false || s.vortex_menu === false) return;
   try {
-    const bg = sceneStill(s.background || "sunset", 1600, 900, world.fixedTime ? undefined : world.hour());
+    const bg = sceneStill("golden", 1600, 900, world.fixedTime ? undefined : world.hour());
     const logo = await logoCanvas();
     await call("save_menu_art", { background: bg.toDataURL("image/png"), logo: logo.toDataURL("image/png") });
   } catch (e) {
@@ -1892,7 +2036,7 @@ async function boot() {
     const b = await call("bootstrap");
     S.appVersion = b.appVersion;
     S.dataDir = b.dataDir;
-    S.settings = { sky: "cycle", day_length_min: 10, background: "sunset", vortex_menu: true, ...b.settings };
+    S.settings = { sky: "cycle", day_length_min: 10, background: "golden", vortex_menu: true, ...b.settings };
     S.accounts = b.accounts;
     S.instances = b.instances;
     if (!S.instances.some((i) => i.name === S.selected)) S.selected = S.instances[0]?.name || null;
@@ -1915,10 +2059,11 @@ async function boot() {
     .then((v) => { S.versions = v; if (S.wizard && !S.wizard.version) S.wizard.version = v.latestRelease; if (S.route === "new") render(); })
     .catch((e) => toast("Working offline", `The version list couldn't load: ${errText(e)}`, "warn", 6000));
   call("news")
-    .then((n) => { S.news = n; if (S.route === "home" && S.side === "news") actions.side({ dataset: { side: "news" } }); })
+    .then((n) => { S.news = n; if (S.route === "home") render(); })
     .catch(() => { S.news = []; });
 
   tick();
+  $("#side-version").textContent = `v${S.appVersion}`;
   go("home", { silent: true });
   requestAnimationFrame(() => liquidTabs($("#nav"), true));
   const bootEl = $("#boot");
@@ -1928,7 +2073,7 @@ async function boot() {
     setTimeout(() => bootEl.remove(), 950);
   } else bootEl.remove();
   placeAnchor();
-  if (world.picture && anims()) setTimeout(() => player.intro(window.innerWidth / 2 - world.anchor().x), 500);
+  if (world.picture && anims()) setTimeout(() => { placeHero(); player.intro(world.centerX() - world.anchor().x); }, 500);
   else setTimeout(() => player.wave(1.8), 1200);
 }
 
