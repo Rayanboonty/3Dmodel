@@ -983,6 +983,73 @@ async fn setup_vortex_mod(
     Ok(true)
 }
 
+/// Performance mods by Modrinth project id, for Fabric and for Forge.
+const PERF_FABRIC: &[(&str, &str)] = &[
+    ("AANobbMI", "Sodium"),
+    ("gvQqBUqZ", "Lithium"),
+    ("uXXizFIs", "FerriteCore"),
+    ("NNAgCjsB", "EntityCulling"),
+    ("5ZwdcRci", "ImmediatelyFast"),
+];
+const PERF_FORGE: &[(&str, &str)] = &[
+    ("uXXizFIs", "FerriteCore"),
+    ("NNAgCjsB", "EntityCulling"),
+    ("5ZwdcRci", "ImmediatelyFast"),
+    ("nmDcB62a", "ModernFix"),
+];
+/// Remembers which performance mods were already added to an instance, so
+/// one you remove stays removed.
+const PERF_MARK: &str = ".vortex-performance.json";
+
+/// Add the performance pack to a Fabric or Forge instance: each mod once,
+/// when a version exists for this Minecraft. Returns the names added.
+async fn setup_performance_mods(
+    launcher: &Launcher,
+    instance: &Instance,
+    settings: &Settings,
+    progress: &ProgressFn,
+) -> Vec<String> {
+    if !settings.performance_mods {
+        return Vec::new();
+    }
+    let pack = match instance.loader {
+        Loader::Fabric { .. } => PERF_FABRIC,
+        Loader::Forge { .. } => PERF_FORGE,
+        _ => return Vec::new(),
+    };
+    let mark = instance.dir.join(PERF_MARK);
+    let mut done: Vec<String> = std::fs::read(&mark).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    let dir = mods::mods_dir(instance);
+    let present = mods::list(&dir).unwrap_or_default();
+    let index = modrinth::installed(instance);
+    // OptiFine (through OptiFabric) and Sodium don't mix.
+    let optifine = present.iter().any(|m| m.name.to_lowercase().contains("optif"));
+    let mut added = Vec::new();
+    for (id, name) in pack {
+        if done.iter().any(|d| d == id) {
+            continue;
+        }
+        let have = index.files.values().any(|e| e.project_id == *id)
+            || present.iter().any(|m| m.name.eq_ignore_ascii_case(name));
+        if have || (optifine && *id == "AANobbMI") {
+            done.push(id.to_string());
+            continue;
+        }
+        match modrinth::install(launcher, instance, ProjectKind::Mod, id, None, false, true, progress).await {
+            Ok(_) => {
+                added.push(name.to_string());
+                done.push(id.to_string());
+            }
+            // None for this version: don't keep asking.
+            Err(e) if format!("{e:#}").contains("no version") => done.push(id.to_string()),
+            // Offline or Modrinth down: try again next launch.
+            Err(_) => {}
+        }
+    }
+    let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
+    added
+}
+
 fn window_after_launch(app: &AppHandle, how: &str, game_running: bool) {
     let Some(w) = app.get_webview_window("main") else { return };
     match (how, game_running) {
@@ -1026,6 +1093,10 @@ async fn run_game(
     }
 
     let progress = progress_emitter(app, &name);
+    let perf = setup_performance_mods(&launcher, &instance, &settings, &progress).await;
+    if !perf.is_empty() {
+        emit_lines(app, &name, vec![LogLineView { level: "info", text: format!("Performance mods added: {}.", perf.join(", ")) }]);
+    }
     match setup_vortex_mod(&launcher, &mut instance, &account, &settings, &progress).await {
         Ok(true) => emit_lines(app, &name, vec![LogLineView { level: "info", text: "Vortex mods added (Right Shift in-game opens the mod menu).".into() }]),
         Ok(false) => {}

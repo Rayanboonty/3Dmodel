@@ -3,27 +3,52 @@ plugins {
     id 'java'
 }
 
-version = project.mod_version
+// One source tree, a jar per Minecraft version: `gradle build -Pmc=1.21.1`.
+// versions/<mc>.properties holds that version's mappings and Fabric API;
+// versions/<mc>/java and versions/<mc>/resources hold the files that differ
+// for it (they replace the shared file of the same path).
+def mc = project.findProperty('mc') ?: '1.21.4'
+def vp = new Properties()
+file("versions/${mc}.properties").withInputStream { vp.load(it) }
+def javaVersion = (vp.java ?: '21') as int
+
+version = "${project.mod_version}+${mc}"
 group = 'dev.vortexclient'
 base { archivesName = 'vortex-mods' }
 
+def merged = layout.buildDirectory.dir("merged/${mc}")
+tasks.register('mergeSources', Sync) {
+    from('src/main/java') { into 'java' }
+    from("versions/${mc}/java") { into 'java' }
+    from('src/main/resources') { into 'resources' }
+    from("versions/${mc}/resources") { into 'resources' }
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    into merged
+}
+sourceSets.main.java.srcDirs = [merged.map { it.dir('java') }]
+sourceSets.main.resources.srcDirs = [merged.map { it.dir('resources') }]
+tasks.named('compileJava') { dependsOn 'mergeSources' }
+tasks.named('processResources') { dependsOn 'mergeSources' }
+
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    minecraft "com.mojang:minecraft:${vp.minecraft_version}"
+    mappings "net.fabricmc:yarn:${vp.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${vp.fabric_version}"
 }
 
 processResources {
     inputs.property 'version', project.version
-    filesMatching('fabric.mod.json') { expand 'version': project.version }
+    inputs.property 'mc', mc
+    filesMatching('fabric.mod.json') { expand 'version': project.version, 'mc': mc }
+    filesMatching('vortex.mixins.json') { expand 'java': javaVersion }
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.toVersion(javaVersion)
+    targetCompatibility = JavaVersion.toVersion(javaVersion)
 }
 
-tasks.withType(JavaCompile).configureEach { it.options.release = 21; it.options.encoding = 'UTF-8' }
+tasks.withType(JavaCompile).configureEach { it.options.release = javaVersion; it.options.encoding = 'UTF-8' }
 
 jar { from('LICENSE') }

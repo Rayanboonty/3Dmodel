@@ -40,6 +40,10 @@ pub struct Settings {
     /// Add the Vortex in-game mods (HUD, PvP tools, your skin and cape) to
     /// Fabric instances they support.
     pub vortex_mods: bool,
+    /// Add performance mods (Sodium, Lithium, FerriteCore, EntityCulling,
+    /// ImmediatelyFast; ModernFix on Forge) to Fabric and Forge instances,
+    /// once each, so the game runs at a higher frame rate.
+    pub performance_mods: bool,
     /// Open the game log when a game starts.
     pub open_log_on_launch: bool,
 
@@ -99,6 +103,7 @@ impl Default for Settings {
             fullscreen: false,
             after_launch: "keep".to_string(),
             vortex_mods: true,
+            performance_mods: true,
             open_log_on_launch: false,
             accent: "amber".to_string(),
             glass: 60,

@@ -10,5 +10,5 @@
   "environment": "client",
   "entrypoints": { "client": ["dev.vortexclient.mod.VortexMods"] },
   "mixins": ["vortex.mixins.json"],
-  "depends": { "fabricloader": ">=0.16.0", "minecraft": "1.21.4", "fabric-api": "*" }
+  "depends": { "fabricloader": ">=0.16.0", "minecraft": "${mc}", "fabric-api": "*" }
 }

@@ -1912,6 +1912,7 @@ function settingsBody(d) {
       <div class="card-pad wide"><h3>Vortex mods</h3>
         ${swRow(d, "vortex_mods", "Add Vortex mods to the game", "On Fabric 1.21.4 instances. Fabric API is installed with them")}
         ${swRow(d, "vortex_menu", "Vortex main menu", "Replaces Minecraft's title screen with your background and logo, and restyles buttons")}
+        ${swRow(d, "performance_mods", "Performance mods", "Adds Sodium, Lithium, FerriteCore, EntityCulling and ImmediatelyFast to Fabric instances (ModernFix on Forge) for a much higher frame rate. Each is added once; remove one and it stays removed")}
         <div class="keys">
           <div><kbd>Right Shift</kbd><span>Mod menu</span></div>
           <div><kbd>C</kbd><span>Zoom (scroll to adjust)</span></div>
