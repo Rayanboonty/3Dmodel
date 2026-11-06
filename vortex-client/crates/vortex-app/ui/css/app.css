@@ -2135,3 +2135,12 @@ body.m :focus-visible:not(input, select, textarea) { outline: none; animation: n
 /* The tabs sit in the middle of the rail. */
 body:not(.m) .sidebar, body.m.land .sidebar { justify-content: center; }
 body:not(.m) .side-version { position: absolute; left: 0; right: 0; bottom: 24px; margin: 0; }
+
+/* The rail fits around the tabs, centred beside the page, instead of
+   running the full height of the window. */
+body:not(.m) .sidebar, body.m.land .sidebar {
+  align-self: center; height: auto; padding-top: 10px; padding-bottom: 10px; gap: 4px;
+}
+body:not(.m) .sidebar::before, body.m.land .sidebar::before { inset: 0 6px; }
+body:not(.m) .side-version { position: fixed; left: 0; width: 96px; bottom: 18px; padding: 0; text-align: center; }
+body.compact-side:not(.m) .side-version { width: 76px; }
