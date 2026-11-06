@@ -417,6 +417,9 @@ export class World {
     this.dragon = null;
     this.tintKey = "";
     this.tintAt = 0;
+    this.maxFps = opts.maxFps || 60;
+    this.dprCap = opts.dprCap || 2;
+    this.paused = false;
     if (this.offscreen) {
       this.fixedHour = opts.hour;
       this.resize(opts.width, opts.height, opts.dpr || 1);
@@ -583,7 +586,7 @@ export class World {
 
   colX(c) { return this.x0 + c * this.BS; }
 
-  resize(w = window.innerWidth, h = window.innerHeight, dpr = Math.min(2, window.devicePixelRatio || 1)) {
+  resize(w = window.innerWidth, h = window.innerHeight, dpr = Math.min(this.dprCap || 2, window.devicePixelRatio || 1)) {
     this.dpr = dpr;
     this.w = w;
     this.h = h;
@@ -1212,13 +1215,23 @@ export class World {
   }
 
   loop(now) {
+    requestAnimationFrame((t) => this.loop(t));
+    // Nothing to draw while the wallpaper is hidden (another page is open).
+    if (document.hidden || this.paused) { this.last = now; return; }
+    // Phones draw at most maxFps frames a second.
+    if (this.maxFps < 60 && now - this.last < 1000 / this.maxFps - 3) return;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    if (!document.hidden) {
-      this.emitPhase();
-      this.draw(now, this.animate ? dt : 0);
-    }
-    requestAnimationFrame((t) => this.loop(t));
+    this.emitPhase();
+    this.draw(now, this.animate ? dt : 0);
+  }
+
+  /** Stop or restart drawing (a hidden wallpaper costs nothing). */
+  setPaused(on) {
+    on = !!on;
+    if (on === !!this.paused) return;
+    this.paused = on;
+    if (!on) { this.last = performance.now(); this.draw(this.last, 0); }
   }
 
   /** A single finished frame (for thumbnails and the in-game menu). */

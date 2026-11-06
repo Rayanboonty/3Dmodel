@@ -2185,3 +2185,111 @@ html.liquid body.theme-light .lg-on.sheet, html.liquid body.theme-light .lg-on.m
    to bend. */
 html.liquid .backdrop { filter: blur(18px) brightness(0.62) saturate(1.4); }
 html.liquid body.hero-on .backdrop { filter: blur(22px) brightness(0.54) saturate(1.35); }
+
+/* ============================================================ the dock ===
+   Desktop: the tabs float in a glass dock near the bottom of the wallpaper
+   card (and of every page), centred on it, instead of a rail at the side.
+   JS (placeNav) gives it --nav-x / --nav-b from the card it sits in. */
+body:not(.m) .app { grid-template-columns: minmax(0, 1fr); }
+body:not(.m) .page { grid-column: 1; margin: 0 20px 20px 20px; }
+body:not(.m) .sidebar {
+  position: fixed; z-index: 6; top: auto; left: var(--nav-x, 50%); bottom: var(--nav-b, 36px);
+  translate: -50% 0; grid-column: auto; grid-row: auto;
+  flex-direction: row; align-items: stretch; align-self: auto; justify-content: center; height: auto;
+  gap: 2px; padding: 7px 8px;
+  transition: left 0.62s var(--spring), bottom 0.45s var(--ease);
+}
+body:not(.m) .sidebar::before { inset: 0; border-radius: 24px; }
+body:not(.m) .sidebar .tab { width: 76px; flex: none; padding: 8px 4px 7px; gap: 5px; border-radius: 18px; font-size: 10.5px; letter-spacing: 0.05em; }
+body:not(.m) .sidebar .tab.on .tab-label { letter-spacing: 0.06em; }
+body:not(.m) .sidebar.tight .tab { width: 52px; padding: 12px 4px; }
+body:not(.m) .sidebar.tight .tab-label { display: none; }
+body:not(.m) .sidebar .drop {
+  top: 7px; bottom: 7px; height: auto; border-radius: 18px; transform: none;
+  transition: left 0.52s var(--spring) var(--dl, 0s), right 0.52s var(--spring) var(--dr, 0s), scale 0.45s var(--spring), background 0.3s, box-shadow 0.3s, opacity 0.2s;
+}
+body:not(.m) .sidebar .drop.moving { transform: none; scale: 1 0.86; }
+body:not(.m) .side-version { display: none; }
+.brand-ver { font-size: 11px; color: var(--ink-3); font-weight: 600; letter-spacing: 0.04em; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); margin-left: 4px; }
+body.m .brand-ver { display: none; }
+@keyframes dockIn { from { opacity: 0; translate: -50% 30px; scale: 0.9; filter: blur(8px); } }
+@keyframes dockTab { from { opacity: 0; translate: 0 14px; scale: 0.85; filter: blur(4px); } }
+body.intro:not(.m) .sidebar { animation: dockIn 0.8s var(--liquid) 0.1s backwards; }
+body.intro:not(.m) .sidebar::before { animation: none; }
+body.intro:not(.m) .sidebar .tab { animation-name: dockTab; }
+/* Room under the dock at the end of every page: the bottom scroll edge
+   (.sheet-body::after) is that room. */
+body:not(.m) .sheet-body { padding-bottom: 0; }
+body:not(.m) .sheet-body::after { height: 104px; }
+
+/* Phone (portrait): the tab bar floats inside the page too, over the
+   bottom of the wallpaper and the widgets, instead of under them. */
+body.m:not(.land) .app { grid-template-rows: 54px minmax(0, 1fr); }
+body.m:not(.land) .page { grid-row: 2; margin: 0 10px 10px; }
+body.m:not(.land) .sidebar { grid-row: 2; align-self: end; position: relative; z-index: 6; padding: 6px 26px 26px; }
+body.m:not(.land) .sidebar::before { inset: 0 20px 20px; border-radius: 22px; }
+body.m:not(.land) .sidebar .drop { top: 6px; bottom: 26px; }
+body.m:not(.land) .sheet-body { padding-bottom: 0; }
+body.m:not(.land) .sheet-body::after { height: 100px; }
+body.m:not(.land) .home .home-side { padding-bottom: 0; -webkit-mask-image: none; mask-image: none; }
+body.m:not(.land) .home .home-side::after { height: 88px; }
+
+/* ======================================================== scroll edges ===
+   iOS-style: what scrolls under the top of a page (and under the dock at
+   the bottom) is softly blurred and faded rather than cut off. */
+.sheet-body::before, body.m .home .home-side::before,
+.sheet-body::after, body.m .home .home-side::after {
+  content: ""; display: block; position: sticky; z-index: 4; pointer-events: none; flex: none;
+  -webkit-backdrop-filter: blur(9px) saturate(1.2); backdrop-filter: blur(9px) saturate(1.2);
+  opacity: 0; transition: opacity 0.3s var(--ease);
+}
+.sheet-body::before, body.m .home .home-side::before {
+  top: 0; height: 40px; margin-bottom: -40px;
+  background: linear-gradient(180deg, rgba(14, 9, 22, 0.42), rgba(14, 9, 22, 0));
+  -webkit-mask-image: linear-gradient(180deg, #000 0, rgba(0, 0, 0, 0.7) 45%, transparent);
+  mask-image: linear-gradient(180deg, #000 0, rgba(0, 0, 0, 0.7) 45%, transparent);
+}
+.sheet-body::after, body.m .home .home-side::after {
+  bottom: 0; height: 30px; margin-top: 0;
+  background: linear-gradient(0deg, rgba(14, 9, 22, 0.38), rgba(14, 9, 22, 0));
+  -webkit-mask-image: linear-gradient(0deg, #000 0, rgba(0, 0, 0, 0.75) 40%, transparent);
+  mask-image: linear-gradient(0deg, #000 0, rgba(0, 0, 0, 0.75) 40%, transparent);
+}
+body.m .home .home-side::before { margin-bottom: -50px; } /* the column's 10px gap */
+.sheet-body.scrolled::before, body.m .home .home-side.scrolled::before,
+.sheet-body.more::after, body.m .home .home-side.more::after { opacity: 1; }
+body.theme-light .sheet-body::before, body.theme-light.m .home .home-side::before { background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0)); }
+body.theme-light .sheet-body::after, body.theme-light.m .home .home-side::after { background: linear-gradient(0deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0)); }
+
+/* ================================================================ lite ===
+   Phones and tablets (html.lite): no live blur on the panels (the
+   wallpaper behind them is blurred once, ahead of time), so the screen
+   only has to blur the tab bar and the scroll edges. */
+html.lite *, html.lite *::before, html.lite *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html.lite .sidebar::before { -webkit-backdrop-filter: blur(14px) saturate(1.4) !important; backdrop-filter: blur(14px) saturate(1.4) !important; }
+html.lite.liquid .sidebar.lg-rail::before { -webkit-backdrop-filter: var(--lg) saturate(150%) brightness(1.05) !important; backdrop-filter: var(--lg) saturate(150%) brightness(1.05) !important; }
+html.lite .sheet-body::before, html.lite .sheet-body::after,
+html.lite body.m .home .home-side::before, html.lite body.m .home .home-side::after { -webkit-backdrop-filter: blur(7px) !important; backdrop-filter: blur(7px) !important; }
+html.lite .backdrop.pre { inset: 0; filter: none !important; background-image: var(--bd-dark) !important; transition: opacity 0.6s var(--ease); }
+html.lite body.hero-on .backdrop.pre { opacity: 0.86; }
+html.lite body.theme-light .backdrop.pre { background-image: var(--bd-light) !important; opacity: 0.85; }
+html.lite .modal, html.lite .popover, html.lite .toast, html.lite .switcher, html.lite .log-dock { background: rgba(24, 16, 34, 0.95) !important; }
+html.lite body.theme-light .modal, html.lite body.theme-light .popover, html.lite body.theme-light .toast,
+html.lite body.theme-light .switcher, html.lite body.theme-light .log-dock { background: rgba(250, 247, 252, 0.96) !important; }
+html.lite .scrim { background: rgba(8, 5, 20, 0.62); }
+html.lite body.theme-light .scrim { background: rgba(236, 229, 240, 0.7); }
+html.lite .hero .glass, html.lite .hero-chip, html.lite .recent-chip { background-color: rgba(16, 10, 24, 0.5); }
+html.lite body.theme-light .hero .glass, html.lite body.theme-light .hero-chip, html.lite body.theme-light .recent-chip { background-color: rgba(255, 255, 255, 0.7); }
+html.lite .play:not(.busy):not(.running)::after, html.lite .log-badge:not([hidden]) { animation: none !important; }
+html.lite #world { will-change: transform; }
+.sheet-body, body.m.land .sheet-body { padding-bottom: 0; }
+/* The scroller itself fades out right at its edges, so nothing is cut off
+   with a hard line; the blur strips above soften what's near them. */
+.sheet-body, body.m .home .home-side {
+  --mt: 0px; --mb: 0px;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 var(--mt), #000 calc(100% - var(--mb)), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 var(--mt), #000 calc(100% - var(--mb)), transparent 100%);
+}
+.sheet-body.scrolled, body.m .home .home-side.scrolled { --mt: 26px; }
+.sheet-body.more, body.m .home .home-side.more { --mb: 18px; }
+.sheet-body::before, body.m .home .home-side::before { background: linear-gradient(180deg, rgba(14, 9, 22, 0.2), rgba(14, 9, 22, 0)); }

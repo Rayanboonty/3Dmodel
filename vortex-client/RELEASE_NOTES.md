@@ -1,8 +1,12 @@
-**Liquid glass.** Panels are now iOS 26 style liquid glass: their rounded edges bend and magnify what is behind them, with a bright rim of light.
+**Smooth on phones.** The launcher runs much faster on phones and tablets. The wallpaper and Steve now draw at an even 30 frames a second, and stop drawing when you leave Home. The background blur is done once instead of on every frame, and particles are lighter.
 
-**Particles like MagicOS.** Closing a dialog, a notification or a menu, deleting something, or switching tabs on a phone breaks it into fine round grains in its own colours, which lift off from the top and float away.
+**Tabs in a dock.** On PC the tabs now float in a glass dock at the bottom of the wallpaper, and of every page. On phones the tab bar floats inside the page too.
 
-**Everything lines up.** The wallpaper card now runs from the top of the account card to the bottom of the last widget, and the tabs sit in a compact rail, spaced like the widgets.
+**Soft scroll edges.** When you scroll a page, the content blurs and fades as it goes under the top of the page or under the dock, like on iOS.
+
+**From 0.5.4:**
+- Liquid glass panels.
+- MagicOS-style particles.
 
 **From 0.5.0:**
 - Updates install by themselves.

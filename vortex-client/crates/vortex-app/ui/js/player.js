@@ -591,13 +591,17 @@ export class Player {
   }
 
   loop(now) {
+    if (this.stage.isConnected) requestAnimationFrame((t) => this.loop(t));
+    else return;
+    if (document.hidden || (this.world && this.world.paused)) { this.last = now; return; }
+    const fps = this.world ? this.world.maxFps : Player.maxFps || 60;
+    if (fps < 60 && now - this.last < 1000 / fps - 3) return;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    if (!document.hidden && this.stage.isConnected) {
+    {
       if (this.currentUnit() !== this.unit) this.build();
       this.update(dt);
       this.render();
     }
-    if (this.stage.isConnected) requestAnimationFrame((t) => this.loop(t));
   }
 }

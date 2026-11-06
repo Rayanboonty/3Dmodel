@@ -186,9 +186,13 @@ export function liquify(root = document) {
 export function liquifyRail(rail) {
   if (!enabled || !rail) return;
   const fit = () => {
-    const w = Math.round(rail.offsetWidth - 12), h = Math.round(rail.offsetHeight - (document.body.classList.contains("m") && !document.body.classList.contains("land") ? 10 : 0));
+    // The glass is the rail's ::before, inset from the rail itself.
+    const b = getComputedStyle(rail, "::before");
+    const px = (v) => parseFloat(v) || 0;
+    const w = Math.round(rail.offsetWidth - px(b.left) - px(b.right));
+    const h = Math.round(rail.offsetHeight - px(b.top) - px(b.bottom));
     if (w < 8 || h < 8) return;
-    const r = Math.round(parseFloat(getComputedStyle(rail, "::before").borderTopLeftRadius) || 24);
+    const r = Math.round(px(b.borderTopLeftRadius) || 24);
     rail.style.setProperty("--lg", `url(#${filterFor(w, h, r, false)})`);
     rail.classList.add("lg-rail");
   };

@@ -75,7 +75,9 @@ function applyPhone() {
   document.body.classList.toggle("m", m);
   document.body.classList.toggle("land", land);
   const nav = document.getElementById("nav");
-  if (nav) nav.classList.toggle("vertical", !m || land);
+  // Desktop and phone portrait: a dock along the bottom. Phone landscape:
+  // a slim rail on the left.
+  if (nav) nav.classList.toggle("vertical", land);
 }
 addEventListener("resize", () => {
   const before = document.body.className;
@@ -127,7 +129,21 @@ function clock(ms) {
 
 // --------------------------------------------------------- world + player --
 
-const world = new World(document.getElementById("world"));
+// Phones and tablets get a lighter launcher: the wallpaper and Steve draw
+// at 30 frames a second at a lower resolution, panels skip live blur, and
+// particles are fewer. Desktops keep everything.
+const lite = (() => {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has("lite")) return q.get("lite") !== "0";
+  } catch { /* no query */ }
+  return isAndroid || (matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches);
+})();
+document.documentElement.classList.toggle("lite", lite);
+dust.setLite(lite);
+if (lite) Player.maxFps = 30;
+
+const world = new World(document.getElementById("world"), lite ? { maxFps: 30, dprCap: 1.5 } : {});
 const player = new Player(document.getElementById("player-layer"), world);
 player.onPoke = (p) => {
   sound.pop();
@@ -168,7 +184,9 @@ function layoutRect(el) {
 function placeHero() {
   const hero = $("#hero");
   const on = !!hero && S.route === "home";
+  placeNav();
   document.body.classList.toggle("hero-on", on);
+  world.setPaused(!on);
   if (!on) return;
   const r = layoutRect(hero);
   world.setViewport(Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height));
@@ -179,7 +197,65 @@ function placeHero() {
   placeAnchor();
   tintGlass();
 }
-window.addEventListener("resize", () => requestAnimationFrame(placeHero));
+window.addEventListener("resize", () => requestAnimationFrame(() => { placeHero(); placeNav(); }));
+
+/**
+ * Desktop: the tab dock floats near the bottom of the wallpaper card (on
+ * Home) or of the page, centred on it.
+ */
+/** Scroll edges: blur the top once scrolled, the bottom while there's more. */
+const EDGES = ".sheet-body, .home-side";
+function edgeState(el) {
+  if (!el || !el.classList) return;
+  const more = el.scrollHeight - el.clientHeight - el.scrollTop > 4;
+  el.classList.toggle("scrolled", el.scrollTop > 2);
+  el.classList.toggle("more", more);
+}
+document.addEventListener("scroll", (e) => { const el = e.target; if (el instanceof Element && el.matches(EDGES)) edgeState(el); }, { capture: true, passive: true });
+const edgeCheck = () => $$(EDGES).forEach(edgeState);
+setInterval(edgeCheck, 1200);
+
+function placeNav() {
+  requestAnimationFrame(edgeCheck);
+  const nav = $("#nav");
+  if (!nav) return;
+  if (document.body.classList.contains("m")) { nav.style.removeProperty("--nav-x"); nav.style.removeProperty("--nav-b"); return; }
+  const target = (S.route === "home" && $("#hero")) || $("#page");
+  if (!target) return;
+  const r = layoutRect(target);
+  if (!r.width) return;
+  // Too narrow for labelled tabs: icons only.
+  nav.classList.toggle("tight", r.width < 560);
+  nav.style.setProperty("--nav-x", `${Math.round(r.left + r.width / 2)}px`);
+  nav.style.setProperty("--nav-b", `${Math.max(12, Math.round(window.innerHeight - r.bottom + 16))}px`);
+}
+
+/**
+ * Phones: blur the wallpaper behind the panels once, into a small picture,
+ * instead of asking the screen to blur it live on every frame.
+ */
+function preblurBackdrop() {
+  const el = $(".backdrop");
+  if (!el) return;
+  const img = new Image();
+  img.onload = () => {
+    const make = (filter) => {
+      const c = document.createElement("canvas");
+      c.width = 192; c.height = Math.max(1, Math.round(192 * img.naturalHeight / img.naturalWidth));
+      const g = c.getContext("2d");
+      g.filter = filter;
+      // Overdraw so the blur doesn't fade in from the edges.
+      g.drawImage(img, -12, -12, c.width + 24, c.height + 24);
+      return `url("${c.toDataURL("image/jpeg", 0.86)}")`;
+    };
+    try {
+      el.style.setProperty("--bd-dark", make("blur(4px) brightness(0.6) saturate(1.4)"));
+      el.style.setProperty("--bd-light", make("blur(4px) brightness(1.15) saturate(1.15)"));
+      el.classList.add("pre");
+    } catch { /* keep the live blur */ }
+  };
+  img.src = "img/meadow-sunset.jpg";
+}
 
 /** Glass over the wallpaper reads its brightness and darkens to suit. */
 function tintGlass() {
@@ -205,7 +281,7 @@ function tintGlass() {
     } catch { /* not readable */ }
   }
 }
-setInterval(() => { if (S.route === "home") tintGlass(); }, 1600);
+setInterval(() => { if (S.route === "home") tintGlass(); }, lite ? 6000 : 1600);
 
 /** Steve's spot: the middle of the Launch button, standing just behind it. */
 function placeAnchor() {
@@ -524,7 +600,7 @@ function go(route, opts = {}) {
   const dir = wasOn && nowOn ? Math.sign(tabs.indexOf(nowOn) - tabs.indexOf(wasOn)) : 0;
   $("#page").style.setProperty("--dir", String(dir || 1));
   document.body.classList.toggle("sheet-open", route !== "home");
-  if (route !== "home") document.body.classList.remove("hero-on");
+  if (route !== "home") { document.body.classList.remove("hero-on"); world.setPaused(true); }
   if (!same && !opts.silent) sound.nav();
   const page = $("#page");
   // New pages grow out of the sidebar tab that opened them.
@@ -541,6 +617,7 @@ function go(route, opts = {}) {
   if (swept) dustAway(page, { panels: true });
   page.classList.toggle("after-dust", !!swept);
   render({ enter: !same });
+  placeNav();
 }
 
 /** A sidebar tab just became active: its icon plays its own little move
@@ -2939,12 +3016,16 @@ async function boot() {
 
   tick();
   $("#side-version").textContent = `v${S.appVersion}`;
+  $("#brand-ver").textContent = `v${S.appVersion}`;
   go("home", { silent: true });
   requestAnimationFrame(() => liquidTabs($("#nav"), true));
   // iOS 26 liquid glass on every glass surface (where the engine can).
+  // Phones keep it on the tab bar only (every glass panel bending a moving
+  // wallpaper costs too much there).
   setLiquid(true);
-  watchGlass();
+  if (!lite) watchGlass();
   liquifyRail($("#nav"));
+  if (lite) preblurBackdrop();
   // Let the loading bar's light run for a moment before the burst.
   const shown = performance.now() - bootT0;
   if (anims() && shown < 1400) await new Promise((r) => setTimeout(r, 1400 - shown));

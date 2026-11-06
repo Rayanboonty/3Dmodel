@@ -14,10 +14,13 @@ let toHide = [];
 let rings = [];
 let raf = 0;
 let enabled = true;
-const MAX = 4200;
+let MAX = 4200;
+// Phones: fewer, cheaper particles (a lower-resolution canvas too).
+let lite = false;
+const LK = () => (lite ? 0.4 : 1);
 
 function resize() {
-  dpr = Math.min(2, window.devicePixelRatio || 1);
+  dpr = Math.min(lite ? 1.25 : 2, window.devicePixelRatio || 1);
   W = window.innerWidth; H = window.innerHeight;
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
@@ -285,6 +288,7 @@ function colorAt(el, x, y, cache) {
 
 export const dust = {
   setEnabled(on) { enabled = !!on; if (!on) { parts = []; } },
+  setLite(on) { lite = !!on; MAX = lite ? 1800 : 4200; resize(); },
   get enabled() { return enabled; },
 
   /**
@@ -308,6 +312,7 @@ export const dust = {
     const r = el.getBoundingClientRect();
     if (!enabled || !r.width || !r.height) return Promise.resolve();
     const area = r.width * r.height;
+    density *= LK();
     // Fine, round grains (MagicOS-like), within a budget for big panels.
     const step = Math.max(2.6, Math.min(9, Math.sqrt(area / (5200 * density))));
     const cache = new Map();
@@ -441,7 +446,7 @@ export const dust = {
     const r = el.getBoundingClientRect();
     if (!r.width) return;
     const colors = colorsOf(el);
-    const total = Math.min(1600, Math.max(200, (r.width * r.height) / 40)) * density;
+    const total = Math.min(1600, Math.max(200, (r.width * r.height) / 40)) * density * LK();
     const reach = Math.max(r.width, r.height) * 0.7 * spread + 60;
     for (let i = 0; i < total; i++) {
       const tx = r.left + Math.random() * r.width, ty = r.top + Math.random() * r.height;
@@ -512,6 +517,7 @@ export const dust = {
    */
   form(origin, targets, { duration = 1250, total = 2600 } = {}) {
     if (!enabled) return;
+    total *= LK();
     const items = targets.map((t) => ({ ...t, r: t.el.getBoundingClientRect() })).filter((t) => t.r.width && t.r.height);
     const area = items.reduce((n, t) => n + t.r.width * t.r.height, 0) || 1;
     const far = Math.hypot(W, H);
@@ -549,6 +555,7 @@ export const dust = {
   /** A burst of dust from a point. */
   burst(x, y, { count = 220, colors = ["rgba(255,210,140,1)", "rgba(255,181,71,1)", "rgba(240,143,34,1)"], speed = 1 } = {}) {
     if (!enabled) return;
+    count = Math.round(count * LK());
     for (let i = 0; i < count; i++) {
       const a = Math.random() * 6.283, sp = (40 + Math.random() * 200) * speed;
       add({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, color: pick(colors), size: 0.8 + Math.random() * 2, life: 0.7 + Math.random() * 0.9, drag: 2.6, turb: 50, wy: -10 });
