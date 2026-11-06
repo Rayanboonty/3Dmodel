@@ -44,6 +44,7 @@ jobs:
     outputs:
       tag: ${{ steps.v.outputs.tag }}
       go: ${{ steps.v.outputs.go }}
+      android: ${{ steps.v.outputs.android }}
     steps:
       - uses: actions/checkout@v4
       - id: v
@@ -61,12 +62,20 @@ jobs:
           if [ "$tag" != "vortex-v$version" ]; then echo "Tag $tag doesn't match version $version"; exit 1; fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           # Already published: nothing to do (a push that didn't change the version).
-          if gh release view "$tag" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+          if assets=$(gh release view "$tag" --repo "${{ github.repository }}" --json assets --jq '.assets[].name' 2>/dev/null); then
             echo "$tag is already released"
             echo "go=false" >> "$GITHUB_OUTPUT"
+            # Its Android APKs can still be missing (a failed Android build).
+            if echo "$assets" | grep -q '^Vortex-Client-android-universal.apk$'; then
+              echo "android=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "Adding the Android APKs to $tag"
+              echo "android=true" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "Releasing $tag"
             echo "go=true" >> "$GITHUB_OUTPUT"
+            echo "android=true" >> "$GITHUB_OUTPUT"
           fi
 
   release:
@@ -112,7 +121,7 @@ jobs:
   android:
     name: Android APKs
     needs: [plan, release]
-    if: needs.plan.outputs.go == 'true'
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.android == 'true' && (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -19,9 +19,9 @@ if [ ! -d "$SRC/.git" ]; then
 fi
 git -C "$SRC" fetch --depth 1 origin "$COMMIT" 2>/dev/null || true
 git -C "$SRC" checkout -q --force "$COMMIT"
-git -C "$SRC" config submodule.androidnsbypass.url https://github.com/alexytomi/androidnsbypass.git
-git -C "$SRC" submodule sync -q
-git -C "$SRC" submodule update --init --depth 1 androidnsbypass MioLibPatcher
+# Amethyst lists one submodule by SSH; fetch every GitHub one over HTTPS.
+git -C "$SRC" -c url."https://github.com/".insteadOf="git@github.com:" \
+  submodule update --init --depth 1 androidnsbypass MioLibPatcher
 
 (cd "$SRC" && bash scripts/languagelist_updater.sh >/dev/null)
 python3 "$HERE/apply.py" "$SRC"
