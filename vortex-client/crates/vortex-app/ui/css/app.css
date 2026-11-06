@@ -1972,3 +1972,9 @@ body.no-anim #dust { display: none; }
    it instead of fading the dialog away first. */
 .scrim.closing { animation: scrimClear 0.55s var(--ease) forwards; }
 @keyframes scrimClear { to { background: rgba(8, 5, 20, 0); -webkit-backdrop-filter: blur(0px); backdrop-filter: blur(0px); } }
+/* After the old page breaks into dust, the new one rises just behind the
+   dust edge instead of on top of the old page. */
+.page.after-dust.enter > *, .page.after-dust.enter > .home > :not(.hero) { animation-delay: 0.16s; }
+.page.after-dust.enter > .home > .home-row { animation-delay: 0.22s; }
+.page.after-dust.enter > .home > .home-side { animation-delay: 0.28s; }
+.settings-pane.fresh { animation: none; }

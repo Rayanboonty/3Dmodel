@@ -388,6 +388,35 @@ function bindLiquid() {
   });
 }
 
+/**
+ * Lift a container's current content into a ghost laid exactly over it
+ * and dissolve that into dust, so the container can take new content
+ * right away. With `panels`, each frosted panel dissolves on its own
+ * (one after another, left to right), which keeps their blur intact.
+ */
+function dustAway(box, { panels = false, duration = 640 } = {}) {
+  const r = box.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  // Don't let quick clicks pile up ghosts.
+  $$(".dust-ghost").slice(0, -1).forEach((g) => g.remove());
+  const scrolls = $$(".sheet-body, .side-body, .list, .vlist", box).map((el) => [el, el.scrollTop]);
+  const ghost = document.createElement("div");
+  ghost.className = `${box.className} dust-ghost`.replace(/\b(enter|leave|fresh)\b/g, "");
+  ghost.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:6;pointer-events:none`;
+  ghost.setAttribute("aria-hidden", "true");
+  while (box.firstChild) ghost.appendChild(box.firstChild);
+  (box.closest(".app") || document.body).appendChild(ghost);
+  for (const [el, top] of scrolls) el.scrollTop = top;
+  let targets = [ghost];
+  if (panels) {
+    targets = $$(":scope > :not(.home), :scope > .home > .hero, :scope > .home > .home-side > *, :scope > .home > .home-row > *", ghost);
+    targets.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+  }
+  const all = targets.map((t, i) => dust.dissolve(t, { duration, dir: "right", density: panels ? 0.85 : 0.7, delay: i * 55 }));
+  Promise.all(all).then(() => ghost.remove());
+  setTimeout(() => ghost.remove(), duration + targets.length * 55 + 600);
+}
+
 /** Dissolve the card or row a control belongs to into dust. */
 function vanish(el) {
   const card = el?.closest(".inst-card, .list-row, .skin-card, .card, .wz-item");
@@ -476,25 +505,14 @@ function go(route, opts = {}) {
     page.style.setProperty("--ox", `${Math.round(tr.left + tr.width / 2 - pr.left)}px`);
     page.style.setProperty("--oy", `${Math.round(tr.top + tr.height / 2 - pr.top)}px`);
   }
-  // Clicking several tabs quickly renders only the last one, once.
-  const leaving = !!goTimer;
-  clearTimeout(goTimer);
-  goTimer = 0;
-  const swap = () => {
-    goTimer = 0;
-    page.classList.remove("leave");
-    render({ enter: true });
-  };
-  if ((!same || leaving) && anims() && page.children.length) {
-    if (!leaving) dust.shed(page.firstElementChild, { count: 150 });
-    page.classList.add("leave");
-    goTimer = setTimeout(swap, leaving ? 90 : 170);
-  } else {
-    page.classList.remove("leave");
-    render({ enter: !same || leaving });
-  }
+  page.classList.remove("leave");
+  // The page you leave breaks up into dust while the new one rises
+  // underneath it.
+  const swept = !same && anims() && page.children.length;
+  if (swept) dustAway(page, { panels: true });
+  page.classList.toggle("after-dust", !!swept);
+  render({ enter: !same });
 }
-let goTimer = 0;
 
 /** A sidebar tab just became active: its icon plays its own little move
  *  and a few pixels spark off it. */
@@ -1205,12 +1223,15 @@ function updateMods() {
   }
   const scroll = $(".sheet-body", page)?.scrollTop;
   const kindChanged = pane.dataset.view !== `${S.modsTab}|${S.mods.kind}|${S.mods.instance}`;
+  const swept = kindChanged && anims() && pane.children.length;
+  if (swept) dustAway(pane, { duration: 560 });
   pane.innerHTML = nextPane.innerHTML;
+  if (swept) dust.reveal(pane, { duration: 560 });
   pane.dataset.view = `${S.modsTab}|${S.mods.kind}|${S.mods.instance}`;
   hydrateIcons(page);
   mount?.(page);
   if (!kindChanged && scroll != null) $(".sheet-body", page).scrollTop = scroll;
-  if (kindChanged && anims()) pane.animate([{ opacity: 0, translate: "0px 8px", filter: "blur(4px)" }, { opacity: 1, translate: "0px 0px", filter: "blur(0px)" }], { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+
 }
 
 function loadLoaderVersions(w) {
@@ -1870,7 +1891,7 @@ function mountSettings(root, d) {
 }
 
 function refreshSettingsPane() {
-  const pane = $(".settings-pane");
+  const pane = $("#page .settings-pane");
   if (!pane) return;
   pane.innerHTML = settingsBody(S.draft);
   pane.classList.remove("fresh");
@@ -2451,7 +2472,10 @@ const actions = {
     const group = $("#settings-tabs");
     $$(".tab", group).forEach((t) => t.classList.toggle("on", t === el));
     liquidTabs(group);
+    const pane = $("#page .settings-pane");
+    if (pane && anims()) dustAway(pane, { duration: 560 });
     refreshSettingsPane();
+    if (pane && anims()) dust.reveal(pane, { duration: 560 });
   },
   "settings-noop"() {},
   "set-choice"(el) {

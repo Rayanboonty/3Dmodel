@@ -191,7 +191,8 @@ export const dust = {
    * right by default); what's behind the edge is gone, and dust streams
    * off the edge and drifts away. Resolves when it's fully gone.
    */
-  dissolve(el, { duration = 720, dir = "right", density = 1, keep = false } = {}) {
+  dissolve(el, { duration = 720, dir = "right", density = 1, keep = false, delay = 0 } = {}) {
+    if (delay > 0) return new Promise((res) => setTimeout(() => this.dissolve(el, { duration, dir, density, keep }).then(res), delay));
     if (!el || !el.isConnected) return Promise.resolve();
     const r = el.getBoundingClientRect();
     if (!enabled || !r.width || !r.height) return Promise.resolve();
@@ -255,6 +256,26 @@ export const dust = {
       };
       requestAnimationFrame(frame);
     });
+  },
+
+  /** The other half of a dissolve: uncover an element behind the same
+   *  moving edge, so new content appears exactly where the dust left. */
+  reveal(el, { duration = 720, dir = "right" } = {}) {
+    if (!el || !enabled) return;
+    const t0 = performance.now();
+    const deg = { right: 90, left: 270, up: 0, down: 180 }[dir];
+    const frame = (now) => {
+      const k = Math.min(1, (now - t0) / duration);
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      const pct = -12 + e * 124;
+      const m = `linear-gradient(${deg}deg, #000 ${pct.toFixed(1)}%, transparent ${(pct + 12).toFixed(1)}%)`;
+      if (k < 1) {
+        el.style.webkitMaskImage = m;
+        el.style.maskImage = m;
+        requestAnimationFrame(frame);
+      } else el.style.webkitMaskImage = el.style.maskImage = "";
+    };
+    frame(t0);
   },
 
   /** Clear a dissolve's mask so the element shows again. */
