@@ -2,6 +2,8 @@
 // drifts away, and things that arrive gather out of it. One full-window
 // canvas draws every particle with additive light, so dense dust glows.
 
+import { snapshot } from "./snapshot.js";
+
 const canvas = document.createElement("canvas");
 canvas.id = "dust";
 canvas.setAttribute("aria-hidden", "true");
@@ -11,10 +13,13 @@ let dpr = 1;
 let W = 0, H = 0;
 let parts = [];
 let toHide = [];
+// Elements being broken up: the real element stays on screen and is cut
+// away from the top as its rows break off.
+let cuts = [];
 let rings = [];
 let raf = 0;
 let enabled = true;
-let MAX = 4200;
+let MAX = 12000;
 // Phones: fewer, cheaper particles (a lower-resolution canvas too).
 let lite = false;
 const LK = () => (lite ? 0.4 : 1);
@@ -67,14 +72,33 @@ function step(now) {
   ctx.clearRect(0, 0, W, H);
   let n = 0;
   for (const p of parts) {
+    if (p.breakAt !== undefined && now < p.breakAt) {
+      // Still part of the element. Below the break line the element itself
+      // shows; just above it, its grains hang on for a moment, so the edge
+      // crumbles instead of being a straight cut. (On the same clock as the
+      // break line, so slow frames can't open a gap between them.)
+      if (now >= p.breakAt - p.jit) {
+        if (p.src) {
+          // A piece of the element's own picture.
+          ctx.globalAlpha = 1;
+          const s = p.src;
+          ctx.drawImage(s.c, Math.max(0, (p.gx - s.x) * s.k), Math.max(0, (p.gy - s.y) * s.k), p.cell * s.k, p.cell * s.k, p.gx, p.gy, p.cell, p.cell);
+        } else {
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.gx, p.gy, p.cell, p.cell);
+        }
+      }
+      parts[n++] = p;
+      continue;
+    }
     if (p.hold > 0) {
-      // Still part of the element: drawn in place until it breaks off.
       p.hold -= dt;
-      ctx.globalAlpha = p.alpha;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size / 2, 0, 6.2832);
-      ctx.fill();
+      if (p.jit === undefined || p.hold <= p.jit) {
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.gx, p.gy, p.cell, p.cell);
+      }
       parts[n++] = p;
       continue;
     }
@@ -117,12 +141,15 @@ function step(now) {
     const size = p.bz ? p.size * (0.55 + Math.sin(Math.PI * k) * 0.9) : p.size * (p.tx !== undefined ? 0.6 + 0.4 * (1 - k) : 1 - k * 0.55);
     if (p.sq) {
       // A grain of a broken element: a round dot that shrinks as it rises.
-      const q = p.size * (1 - k * 0.75);
-      ctx.globalAlpha = p.alpha * Math.min(1, 1.6 * (1 - k));
+      const q = p.size * (1 - k * 0.7);
+      ctx.globalAlpha = p.alpha * Math.min(1, 1.5 * Math.pow(1 - k, 1.4));
       ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(0.4, q / 2), 0, 6.2832);
-      ctx.fill();
+      if (q < 2.6) ctx.fillRect(p.x - q / 2, p.y - q / 2, q, q);
+      else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, q / 2, 0, 6.2832);
+        ctx.fill();
+      }
     } else {
       ctx.globalAlpha = a * p.alpha;
       ctx.drawImage(sprite(p.color), p.x - size * 2, p.y - size * 2, size * 4, size * 4);
@@ -131,6 +158,7 @@ function step(now) {
   }
   parts.length = n;
   ctx.globalAlpha = 1;
+  if (cuts.length) cuts = cuts.filter((c) => cutAt(c, now));
   if (toHide.length) { for (const el of toHide) { el.style.opacity = "0"; el.style.visibility = "hidden"; } toHide = []; }
   // Soft glowing bands (the theme change's edge).
   rings = rings.filter((g) => now - g.t0 < g.dur);
@@ -148,8 +176,33 @@ function step(now) {
     ctx.fillStyle = grd;
     ctx.fillRect(0, 0, W, H);
   }
-  raf = parts.length || rings.length ? requestAnimationFrame(step) : 0;
+  raf = parts.length || rings.length || cuts.length ? requestAnimationFrame(step) : 0;
   if (!raf) ctx.clearRect(0, 0, W, H);
+}
+
+/** Move an element's break line; false once it has fully broken up. */
+function cutAt(c, now) {
+  const e = (now - c.t0) / 1000;
+  const front = c.top + Math.max(0, Math.min(1, e / c.peel)) * c.h;
+  const done = e >= c.peel + c.tail;
+  if (c.paint && !done && front < c.top + c.h) {
+    // Drawn from its picture (it can't stay on screen itself).
+    const s = c.paint, y0 = front - c.top;
+    ctx.globalAlpha = 1;
+    ctx.drawImage(s.c, 0, y0 * s.k, c.w * s.k, (c.h - y0) * s.k, c.left, front, c.w, c.h - y0);
+  }
+  for (const t of c.els) {
+    if (!t.el.isConnected) continue;
+    if (done) {
+      t.el.style.clipPath = t.clip;
+      if (t.restore) t.restore();
+      else { t.el.style.opacity = "0"; t.el.style.visibility = "hidden"; }
+    } else {
+      t.el.style.clipPath = `inset(${Math.max(0, front - t.top).toFixed(1)}px -90px -90px -90px)`;
+    }
+  }
+  if (done && c.resolve) c.resolve();
+  return !done;
 }
 
 function add(p) {
@@ -288,7 +341,7 @@ function colorAt(el, x, y, cache) {
 
 export const dust = {
   setEnabled(on) { enabled = !!on; if (!on) { parts = []; } },
-  setLite(on) { lite = !!on; MAX = lite ? 1800 : 4200; resize(); },
+  setLite(on) { lite = !!on; MAX = lite ? 3200 : 12000; resize(); },
   get enabled() { return enabled; },
 
   /**
@@ -312,36 +365,66 @@ export const dust = {
     const r = el.getBoundingClientRect();
     if (!enabled || !r.width || !r.height) return Promise.resolve();
     const area = r.width * r.height;
-    density *= LK();
-    // Fine, round grains (MagicOS-like), within a budget for big panels.
-    const step = Math.max(2.6, Math.min(9, Math.sqrt(area / (5200 * density))));
+    // Fine grains within a budget (big panels get bigger ones).
+    const budget = Math.max(300, Math.min(MAX - parts.length, (lite ? 1500 : 8000) * density));
+    const cell = Math.max(2.4, Math.min(11, Math.sqrt(area / budget)));
+    const cols = Math.max(1, Math.round(r.width / cell)), rows = Math.max(1, Math.round(r.height / cell));
+    const cw = r.width / cols, ch = r.height / rows;
+    // The element's own picture, one pixel per grain.
+    let pic = null, src = null;
+    try {
+      const shot = snapshot(el, cols, rows, { budget: lite ? 500 : 1400, scale: dpr });
+      pic = shot.data;
+      src = { c: shot.canvas, k: shot.k, x: r.left, y: r.top };
+    } catch (e) { pic = null; }
     const cache = new Map();
-    // The wallpaper card is a window onto the wallpaper canvas behind it:
-    // its grains take that picture's own pixels.
-    const pix = el.classList.contains("hero") ? readCanvas(document.getElementById("world")) : null;
-    const wall = [];
-    const fallback = colorsOf(el);
-    // Hit-testing skips things that ignore the pointer; for this moment
-    // nothing inside the element does.
-    el.classList.add("dust-sampling");
-    const peel = (duration / 1000) * 0.7;
+    const fallback = pic ? null : colorsOf(el);
+    if (!pic) el.classList.add("dust-sampling");
+    const peel = (duration / 1000) * 0.72;
+    const jitter = 0.11;
+    const t0 = performance.now();
     const cx = r.left + r.width / 2;
-    for (let y = r.top + step / 2; y < r.bottom; y += step) {
-      for (let x = r.left + step / 2; x < r.right; x += step) {
-        const color = (pix ? pixelAt(pix, x, y) : colorAt(el, x, y, cache)) || pick(fallback);
-        const row = (y - r.top) / r.height;
+    for (let j = 0; j < rows; j++) {
+      const y = r.top + (j + 0.5) * ch;
+      const row = (j + 0.5) / rows;
+      for (let i = 0; i < cols; i++) {
+        const x = r.left + (i + 0.5) * cw;
+        let color, alpha = 1;
+        if (pic) {
+          const q = (j * cols + i) * 4;
+          if (pic[q + 3] < 24) continue; // outside the rounded corners
+          alpha = Math.min(1, pic[q + 3] / 255);
+          let R = pic[q], G = pic[q + 1], B = pic[q + 2];
+          // Dark grains catch a little light as they fly, so they read
+          // against the dark background.
+          const L = (0.2126 * R + 0.7152 * G + 0.0722 * B) / 255;
+          if (L < 0.32) { const m = 0.38 * (1 - L / 0.32); R += (255 - R) * m; G += (255 - G) * m; B += (255 - B) * m; }
+          color = `rgb(${R | 0},${G | 0},${B | 0})`;
+        } else {
+          color = colorAt(el, x, y, cache) || pick(fallback);
+        }
+        const jit = Math.random() * jitter;
         add({
-          x: x + (Math.random() - 0.5) * step * 0.3, y: y + (Math.random() - 0.5) * step * 0.3,
-          hold: row * peel + Math.random() * 0.09, sq: true, size: step * 1.18, color,
-          vx: (Math.random() - 0.5) * 50 + ((x - cx) / r.width) * 40, vy: -(30 + Math.random() * 110),
-          turb: 45, drag: 1.1, wx: 0, wy: -38, life: 0.7 + Math.random() * 0.6, alpha: 1,
+          // Each grain flies from a random spot in its piece (no grid).
+          x: x + (Math.random() - 0.5) * cw * 0.8, y: y + (Math.random() - 0.5) * ch * 0.8,
+          gx: r.left + i * cw - 0.3, gy: r.top + j * ch - 0.3, cell: Math.max(cw, ch) + 0.6, src,
+          breakAt: t0 + (row * peel + jit) * 1000, jit: jit * 1000, sq: true, size: Math.min(cell * 0.95, 4.6) * (0.7 + Math.random() * 0.55), color,
+          vx: (Math.random() - 0.5) * 60 + ((x - cx) / r.width) * 46, vy: -(36 + Math.random() * 120),
+          turb: 48, drag: 1.1, wx: 0, wy: -40, life: 0.6 + Math.random() * 0.55, alpha,
         });
       }
     }
-    el.classList.remove("dust-sampling");
-    toHide.push(el);
-    kick();
-    return new Promise((res) => setTimeout(res, (peel + 0.1) * 1000));
+    if (!pic) el.classList.remove("dust-sampling");
+    // The element itself stays and is cut away from the top as it breaks.
+    const els = [{ el, top: r.top, clip: el.style.clipPath }];
+    // The wallpaper card is a window onto the world canvas, which the next
+    // page covers: it's drawn from its picture on top instead.
+    const paint = el.classList.contains("hero") && src ? src : null;
+    if (paint) el.style.visibility = "hidden";
+    return new Promise((resolve) => {
+      cuts.push({ els, top: r.top, h: r.height, left: r.left, w: r.width, paint, t0, peel, tail: jitter + 0.03, resolve });
+      kick();
+    });
   },
 
   /** The old edge-sweep dissolve, kept for reference. */

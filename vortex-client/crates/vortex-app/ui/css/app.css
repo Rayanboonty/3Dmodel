@@ -2293,3 +2293,6 @@ html.lite #world { will-change: transform; }
 .sheet-body.scrolled, body.m .home .home-side.scrolled { --mt: 26px; }
 .sheet-body.more, body.m .home .home-side.more { --mb: 18px; }
 .sheet-body::before, body.m .home .home-side::before { background: linear-gradient(180deg, rgba(14, 9, 22, 0.2), rgba(14, 9, 22, 0)); }
+/* A closing dialog breaks into particles: only the dimming behind it fades,
+   not the dialog itself. */
+.scrim.closing { animation: none !important; background-color: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; transition: background-color 0.3s var(--ease); }

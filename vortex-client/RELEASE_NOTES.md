@@ -1,8 +1,9 @@
-**Smooth on phones.** The launcher runs much faster on phones and tablets. The wallpaper and Steve now draw at an even 30 frames a second, and stop drawing when you leave Home. The background blur is done once instead of on every frame, and particles are lighter.
+**Particles that look like the thing they come from.** When a dialog, a notification, a menu or a page closes, it now really breaks apart. It crumbles from the top, piece by piece, and each piece keeps its own look (its text, icons, buttons and glass), then floats away as fine grains in its own colours.
 
-**Tabs in a dock.** On PC the tabs now float in a glass dock at the bottom of the wallpaper, and of every page. On phones the tab bar floats inside the page too.
-
-**Soft scroll edges.** When you scroll a page, the content blurs and fades as it goes under the top of the page or under the dock, like on iOS.
+**From 0.5.5:**
+- Much smoother on phones.
+- The tabs sit in a dock at the bottom of the wallpaper.
+- Pages blur and fade softly at their edges as you scroll.
 
 **From 0.5.4:**
 - Liquid glass panels.
