@@ -1,4 +1,11 @@
-**Steve moves naturally.** His glitchy moves are fixed. When he runs in, you see him from a three-quarter angle with a normal stride, and his cape no longer sticks out like a thin stick. His jump is a real jump: he crouches, pushes off, lifts his arms and lands softly. Tap him on Home and he jumps.
+**Vortex mods on more Minecraft versions.** The in-game Vortex mods now work on Fabric 1.20.1, 1.20.4, 1.21.1 and 1.21.4, not just 1.21.4. That includes the HUD (keystrokes, CPS, FPS, coordinates, armor, potions and more), zoom, freelook, the mod menu, the Vortex main menu, and your skin and cape. More versions are coming, including the newest ones and 1.8.9.
+
+**Much higher FPS.** Fabric instances now get Sodium, Lithium, FerriteCore, EntityCulling and ImmediatelyFast added automatically (on Forge: FerriteCore, EntityCulling, ImmediatelyFast and ModernFix). Each is added once. If you remove one, it stays removed. You can turn this off in Settings, In-Game.
+
+**Fewer crashes.** Every Vortex hook is now checked against each Minecraft version before release. This found and fixed a zoom bug that would have crashed 1.21.1 as soon as you joined a world.
+
+**From 0.5.8:**
+- Steve moves naturally.
 
 **From 0.5.7:**
 - The birch forest wallpaper.

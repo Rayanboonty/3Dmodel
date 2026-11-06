@@ -21,7 +21,7 @@ const state = {
     min_memory_mb: 512, max_memory_mb: 4096, java_path: null, extra_jvm_args: [],
     microsoft_client_id: null, download_concurrency: 32, show_snapshots: false,
     show_old_versions: false, sky: "cycle", day_length_min: 10, ui_sounds: true, animations: true,
-    game_width: null, game_height: null, fullscreen: false, after_launch: "keep", vortex_mods: true, open_log_on_launch: false,
+    game_width: null, game_height: null, fullscreen: false, after_launch: "keep", vortex_mods: true, performance_mods: true, open_log_on_launch: false,
     accent: "amber", glass: 60, logo_style: 0, background: "golden", theme: "dark", vortex_menu: true, show_player: true, world_life: true, clock_12h: false,
     mods_allow_unstable: false, mods_with_dependencies: true, fast_launch: true, tuned_jvm: true,
   },
@@ -110,7 +110,7 @@ export const mock = {
     await wait(60 + Math.random() * 120);
     switch (cmd) {
       case "bootstrap":
-        return { appVersion: "0.5.8", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
+        return { appVersion: "0.6.0", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
       case "list_versions":
         return versionList();
       case "loader_versions": {
@@ -160,9 +160,9 @@ export const mock = {
       }
       case "check_update":
         return location.search.includes("update")
-          ? { available: true, current: "0.5.8", version: "0.5.9", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.5.9/Vortex-windows-x64.zip",
+          ? { available: true, current: "0.6.0", version: "0.6.1", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.6.1/Vortex-windows-x64.zip",
               notes: "## What's new\n- Faster instance switching\n- New Servers panel on Home\n- Smoother pop-up animations\n- Fixed the Stop Game button" }
-          : { available: false, current: "0.5.8", version: "0.5.8" };
+          : { available: false, current: "0.6.0", version: "0.6.0" };
       case "install_update":
         for (let i = 0; i <= 20; i++) { emit("update-progress", { stage: "download", done: i * 535000, total: 10_700_000 }); await wait(90); }
         emit("update-progress", { stage: "install", done: 1, total: 1 });
