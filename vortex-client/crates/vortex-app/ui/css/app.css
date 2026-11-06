@@ -2102,3 +2102,11 @@ body.m.land .cards, body.m.land .cards.inst-grid { grid-template-columns: repeat
   .srv .srv-count { display: none; }
   .srv:hover { translate: none; }
 }
+
+/* Touch: no blue tap highlight, no long-press pop-up, and no focus ring
+   left behind after a tap (keyboard focus still shows one). */
+* { -webkit-tap-highlight-color: transparent; }
+html, body { -webkit-touch-callout: none; }
+img, canvas, a, button { -webkit-user-drag: none; -webkit-touch-callout: none; }
+:focus:not(:focus-visible) { outline: none; }
+body.m :focus-visible:not(input, select, textarea) { outline: none; animation: none; }
