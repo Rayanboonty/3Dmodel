@@ -145,6 +145,19 @@ if (lite) Player.maxFps = 30;
 
 const world = new World(document.getElementById("world"), lite ? { maxFps: 30, dprCap: 1.5 } : {});
 const player = new Player(document.getElementById("player-layer"), world);
+// Steve sits under the page (the wallpaper card is a window onto him), so
+// a tap on him is picked up here: he jumps.
+document.addEventListener("click", (e) => {
+  if (S.route !== "home" || !e.target.closest?.("#page") || e.target.closest("button, a, input, select, .glass, .home-side, .home-row")) return;
+  // His box is the union of his body parts' faces (the 3D root has no size).
+  let l = 1e9, t = 1e9, rr = -1e9, bb = -1e9;
+  for (const f of player.root.querySelectorAll(".pl-face")) {
+    const q = f.getBoundingClientRect();
+    if (!q.width) continue;
+    l = Math.min(l, q.left); t = Math.min(t, q.top); rr = Math.max(rr, q.right); bb = Math.max(bb, q.bottom);
+  }
+  if (e.clientX >= l - 6 && e.clientX <= rr + 6 && e.clientY >= t - 6 && e.clientY <= bb) player.jump(true);
+});
 player.onPoke = (p) => {
   sound.pop();
 };

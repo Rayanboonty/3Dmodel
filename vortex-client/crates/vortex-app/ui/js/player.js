@@ -253,8 +253,9 @@ export class Player {
   }
 
   jump(fromClick = false) {
-    if (this.y < -0.5) return;
-    this.vy = -22;
+    if (this.y < -0.5 || this.vy < 0 || this.jumpPrep > 0) return;
+    // Crouch for a moment, then push off (see update).
+    this.jumpPrep = 0.11;
     if (fromClick && this.onPoke) this.onPoke(this.headScreen());
   }
 
@@ -312,9 +313,9 @@ export class Player {
     if (dist < u * 0.4 && Math.abs(this.vx) < u * 1.5) { this.vx = 0; this.x = target; return true; }
     const dir = Math.sign(dx) || 1;
     // Short moves are a side-step, still facing us; longer ones turn to walk.
-    this.facingTarget = sideStep ? 12 + dir * 22 : dir > 0 ? 90 : -90;
+    this.facingTarget = sideStep ? 12 + dir * 22 : dir > 0 ? 66 : -58;
     // Don't set off until he's mostly turned the right way.
-    const aligned = sideStep || Math.abs(this.facing - this.facingTarget) < 55;
+    const aligned = sideStep || Math.abs(this.facing - this.facingTarget) < 40;
     const maxV = u * speed;
     const accel = maxV * 3.4;
     const decel = maxV * 2.4;
@@ -494,8 +495,8 @@ export class Player {
     this.runK = approach(this.runK, runK, 6, dt);
     const g = this.gait;
     const stepK = this.sideStep ? 0.45 : 1;
-    legSwing = Math.sin(this.walkPhase) * (30 + 28 * this.runK) * g * stepK;
-    armSwing = Math.sin(this.walkPhase) * (26 + 40 * this.runK) * g * stepK;
+    legSwing = Math.sin(this.walkPhase) * (28 + 14 * this.runK) * g * stepK;
+    armSwing = Math.sin(this.walkPhase) * (24 + 22 * this.runK) * g * stepK;
     if (!walking) this.sideStep = false;
     // Lean into speed and into acceleration, back when braking.
     const acc = (this.vx - this.prevVx) / Math.max(dt, 1e-3) / u * Math.sign(this.vx || 1);
@@ -531,12 +532,29 @@ export class Player {
     this.yaw = approach(this.yaw, clamp(ty, -42, 42), 5, dt);
     this.pitch = approach(this.pitch, clamp(tp, -25, 30), 5, dt);
 
-    // Gravity for jumps.
-    if (this.y < 0 || this.vy < 0) {
-      this.vy += 90 * dt;
-      this.y += this.vy * dt * u;
-      if (this.y > 0) { this.y = 0; this.vy = 0; }
+    // Jumps: crouch, push off, fly with arms up and legs tucked, land
+    // softly with a small dip.
+    if (this.jumpPrep > 0) {
+      this.jumpPrep -= dt;
+      this.crouch = approach(this.crouch || 0, 1, 22, dt);
+      if (this.jumpPrep <= 0) { this.jumpPrep = 0; this.vy = -34; }
     }
+    const airborne = this.y < 0 || this.vy < 0;
+    if (airborne) {
+      this.vy += 120 * dt;
+      this.y += this.vy * dt * u;
+      if (this.y >= 0) { this.y = 0; this.vy = 0; this.landT = 0.16; }
+      this.crouch = approach(this.crouch || 0, 0, 18, dt);
+      const up = clamp(-this.vy / 34, -1, 1); // 1 rising, -1 falling
+      if (!rArmZ) P.rArmZ = approach(P.rArmZ, 34 + 10 * up, 14, dt);
+      if (!lArmZ) P.lArmZ = approach(P.lArmZ, -34 - 10 * up, 14, dt);
+      if (!walking) { P.rLegX = approach(P.rLegX, 16, 14, dt); P.lLegX = approach(P.lLegX, -10, 14, dt); }
+    } else if (this.landT > 0) {
+      this.landT -= dt;
+      this.crouch = Math.sin(Math.max(0, this.landT) / 0.16 * Math.PI) * 0.7;
+    } else if (!(this.jumpPrep > 0)) this.crouch = approach(this.crouch || 0, 0, 12, dt);
+    // Crouching bends at the hips (the legs splay), so the feet stay put.
+    if (this.crouch > 0.01) { P.rLegX += 26 * this.crouch * Math.min(1, dt * 30); P.lLegX -= 20 * this.crouch * Math.min(1, dt * 30); }
 
     this.walking = this.gait > 0.05;
   }
@@ -555,7 +573,7 @@ export class Player {
     const g = this.gait || 0;
     const stepBob = -(0.5 + 0.5 * Math.cos(2 * this.walkPhase)) * (0.45 + 0.35 * (this.runK || 0)) * u * g;
     const idleBob = this.panting ? Math.abs(Math.sin(now / 160)) * 0.35 * u : Math.sin(now / 1100) * 0.12 * u;
-    const bob = stepBob + idleBob * (1 - g);
+    const bob = stepBob + idleBob * (1 - g) + (this.crouch || 0) * 1.0 * u;
     set("body");
     // The head stays steady while the shoulders twist.
     set("head", this.pitch, this.yaw - (this.twist || 0) * 0.8, 0);
@@ -564,7 +582,7 @@ export class Player {
     set("rleg", P.rLegX, 0, P.legZ || 0);
     set("lleg", P.lLegX, 0, -(P.legZ || 0));
     if (this.capeEl && this.capeUrl) {
-      const swing = 6 + (this.gait || 0) * (14 + 12 * (this.runK || 0) + Math.sin(this.walkPhase * 2) * 4) + Math.sin(performance.now() / 700) * 2 * (1 - (this.gait || 0)) + Math.min(20, Math.max(0, -this.vy * 0.6));
+      const swing = 5 + (this.gait || 0) * (9 + 7 * (this.runK || 0) + Math.sin(this.walkPhase * 2) * 3) + Math.sin(performance.now() / 700) * 2 * (1 - (this.gait || 0)) + Math.min(14, Math.max(0, -this.vy * 0.4));
       this.capeEl.style.transform = `translate3d(0px,${-24 * u}px,${-2.6 * u}px) rotateY(180deg) rotateX(${swing}deg)`;
     }
     this.root.style.transform = `translate3d(${this.x}px,${this.y + bob}px,0) rotateX(${-7 - (this.lean || 0) * Math.cos(this.facing * DEG)}deg) rotateZ(${(this.lean || 0) * Math.sin(this.facing * DEG) * -0.6 + (this.roll || 0)}deg) rotateY(${this.facing + (this.twist || 0)}deg)`;

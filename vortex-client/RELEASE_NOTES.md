@@ -1,4 +1,7 @@
-**A new wallpaper.** A sunny birch forest with Alex, Steve and a beehive. It's on Home and behind every page, and on the Vortex main menu in the game.
+**Steve moves naturally.** His glitchy moves are fixed. When he runs in, you see him from a three-quarter angle with a normal stride, and his cape no longer sticks out like a thin stick. His jump is a real jump: he crouches, pushes off, lifts his arms and lands softly. Tap him on Home and he jumps.
+
+**From 0.5.7:**
+- The birch forest wallpaper.
 
 **From 0.5.6:**
 - Closing things breaks them into particles that keep their own look.
