@@ -146,7 +146,8 @@ jobs:
           export JDK_PATHS="$JAVA_HOME_8_X64,$JAVA_HOME_21_X64"
           bash android/build.sh
           ls -la android/out
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.plan.outputs.tag }}
-          files: vortex-client/android/out/*.apk
+      - name: Attach the APKs to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.plan.outputs.tag }}" android/out/*.apk --clobber --repo "${{ github.repository }}"
