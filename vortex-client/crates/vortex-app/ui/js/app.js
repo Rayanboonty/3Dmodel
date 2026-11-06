@@ -438,6 +438,11 @@ function dustAway(box, { panels = false, duration = 640 } = {}) {
   setTimeout(() => ghost.remove(), duration + targets.length * 55 + 600);
 }
 
+/** A pane's new content fades up into place (desktop tab switches). */
+function paneIn(pane) {
+  pane.animate([{ opacity: 0, translate: "0px 10px", filter: "blur(4px)" }, { opacity: 1, translate: "0px 0px", filter: "blur(0px)" }], { duration: 360, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+}
+
 /** Dissolve the card or row a control belongs to into dust. */
 function vanish(el) {
   const card = el?.closest(".inst-card, .list-row, .skin-card, .card, .wz-item");
@@ -527,9 +532,9 @@ function go(route, opts = {}) {
     page.style.setProperty("--oy", `${Math.round(tr.top + tr.height / 2 - pr.top)}px`);
   }
   page.classList.remove("leave");
-  // The page you leave breaks up into dust while the new one rises
-  // underneath it.
-  const swept = !same && anims() && page.children.length;
+  // On phones the page you leave breaks up into dust while the new one
+  // rises underneath it; on desktop the new page simply rises in.
+  const swept = !same && anims() && page.children.length && phone();
   if (swept) dustAway(page, { panels: true });
   page.classList.toggle("after-dust", !!swept);
   render({ enter: !same });
@@ -1244,10 +1249,11 @@ function updateMods() {
   }
   const scroll = $(".sheet-body", page)?.scrollTop;
   const kindChanged = pane.dataset.view !== `${S.modsTab}|${S.mods.kind}|${S.mods.instance}`;
-  const swept = kindChanged && anims() && pane.children.length;
+  const swept = kindChanged && anims() && pane.children.length && phone();
   if (swept) dustAway(pane, { duration: 560 });
   pane.innerHTML = nextPane.innerHTML;
   if (swept) dust.reveal(pane, { duration: 560 });
+  else if (kindChanged && anims()) paneIn(pane);
   pane.dataset.view = `${S.modsTab}|${S.mods.kind}|${S.mods.instance}`;
   hydrateIcons(page);
   mount?.(page);
@@ -2526,9 +2532,11 @@ const actions = {
     $$(".tab", group).forEach((t) => t.classList.toggle("on", t === el));
     liquidTabs(group);
     const pane = $("#page .settings-pane");
-    if (pane && anims()) dustAway(pane, { duration: 560 });
+    const swept = pane && anims() && phone();
+    if (swept) dustAway(pane, { duration: 560 });
     refreshSettingsPane();
-    if (pane && anims()) dust.reveal(pane, { duration: 560 });
+    if (swept) dust.reveal(pane, { duration: 560 });
+    else if (pane && anims()) paneIn(pane);
   },
   "settings-noop"() {},
   "set-choice"(el) {
