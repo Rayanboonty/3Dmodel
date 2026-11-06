@@ -2151,3 +2151,37 @@ body:not(.m) .page > .home.no-row > .hero, body.m.land .page > .home.no-row > .h
 body:not(.m) .sidebar { gap: 14px; }
 body:not(.m) .page > .home.no-row > .home-side, body.m.land .page > .home.no-row > .home-side { grid-row: 1 / -1; }
 .dust-sampling, .dust-sampling * { pointer-events: auto !important; }
+
+/* ============================================================ liquid glass ===
+   iOS 26 liquid glass on Chromium: the backdrop is bent through each panel's
+   own refraction map (js/lglass.js), so its rounded edges magnify and curve
+   what's behind them, with a bright rim. The glass is clearer than frost;
+   reading surfaces (pages, dialogs) keep a deeper tint. */
+html.liquid .lg-on {
+  -webkit-backdrop-filter: var(--lg) saturate(150%) brightness(1.05) !important;
+  backdrop-filter: var(--lg) saturate(150%) brightness(1.05) !important;
+}
+html.liquid .lg-on.glass:not(.sheet):not(.modal):not(.log-dock),
+html.liquid .lg-on.top-chip, html.liquid .lg-on.hero-chip, html.liquid .lg-on.recent-chip {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 45%, rgba(20, 12, 30, 0.16)) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1.5px 0 rgba(255, 255, 255, 0.38), inset 0 -10px 24px -16px rgba(255, 255, 255, 0.28), 0 18px 40px -22px rgba(0, 0, 0, 0.55) !important;
+}
+html.liquid .lg-on.sheet, html.liquid .lg-on.modal, html.liquid .lg-on.log-dock, html.liquid .lg-on.toast, html.liquid .lg-on.popover, html.liquid .lg-on.switcher {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 40%), rgba(18, 12, 28, 0.5) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 1.5px 0 rgba(255, 255, 255, 0.32), 0 22px 50px -24px rgba(0, 0, 0, 0.65) !important;
+}
+html.liquid .sidebar.lg-rail::before {
+  -webkit-backdrop-filter: var(--lg) saturate(150%) brightness(1.05);
+  backdrop-filter: var(--lg) saturate(150%) brightness(1.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 45%, rgba(20, 12, 30, 0.16));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1.5px 0 rgba(255, 255, 255, 0.38), 0 18px 40px -22px rgba(0, 0, 0, 0.55);
+}
+html.liquid body.theme-light .lg-on.glass:not(.sheet):not(.modal):not(.log-dock),
+html.liquid body.theme-light .lg-on.top-chip, html.liquid body.theme-light .lg-on.hero-chip {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.28)) !important;
+}
+html.liquid body.theme-light .lg-on.sheet, html.liquid body.theme-light .lg-on.modal { background: rgba(253, 250, 254, 0.62) !important; }
+/* A livelier wallpaper behind the glass, so the liquid glass has something
+   to bend. */
+html.liquid .backdrop { filter: blur(18px) brightness(0.62) saturate(1.4); }
+html.liquid body.hero-on .backdrop { filter: blur(22px) brightness(0.54) saturate(1.35); }

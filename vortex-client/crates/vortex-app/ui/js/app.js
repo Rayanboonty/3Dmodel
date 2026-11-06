@@ -7,6 +7,7 @@ import { Player, defaultSkin } from "./player.js";
 import { sound } from "./sound.js";
 import { fx, toast } from "./fx.js";
 import { dust } from "./dust.js";
+import { watch as watchGlass, setEnabled as setLiquid, liquifyRail } from "./lglass.js";
 import { STYLES, renderBrand, renderStyle, mount as mountLogo } from "./logo.js";
 import { coverFor, updateName } from "./versions.js";
 
@@ -2940,6 +2941,10 @@ async function boot() {
   $("#side-version").textContent = `v${S.appVersion}`;
   go("home", { silent: true });
   requestAnimationFrame(() => liquidTabs($("#nav"), true));
+  // iOS 26 liquid glass on every glass surface (where the engine can).
+  setLiquid(true);
+  watchGlass();
+  liquifyRail($("#nav"));
   // Let the loading bar's light run for a moment before the burst.
   const shown = performance.now() - bootT0;
   if (anims() && shown < 1400) await new Promise((r) => setTimeout(r, 1400 - shown));

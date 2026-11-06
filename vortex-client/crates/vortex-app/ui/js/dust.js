@@ -69,7 +69,9 @@ function step(now) {
       p.hold -= dt;
       ctx.globalAlpha = p.alpha;
       ctx.fillStyle = p.color;
-      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size / 2, 0, 6.2832);
+      ctx.fill();
       parts[n++] = p;
       continue;
     }
@@ -111,11 +113,13 @@ function step(now) {
     const a = Math.min(1, k * 8) * Math.pow(1 - k, p.fade) * (0.75 + 0.25 * Math.sin(t * 9 + p.ph * 3));
     const size = p.bz ? p.size * (0.55 + Math.sin(Math.PI * k) * 0.9) : p.size * (p.tx !== undefined ? 0.6 + 0.4 * (1 - k) : 1 - k * 0.55);
     if (p.sq) {
-      // A grain of a broken element: a little square that shrinks as it rises.
-      const q = p.size * (1 - k * 0.7);
+      // A grain of a broken element: a round dot that shrinks as it rises.
+      const q = p.size * (1 - k * 0.75);
       ctx.globalAlpha = p.alpha * Math.min(1, 1.6 * (1 - k));
       ctx.fillStyle = p.color;
-      ctx.fillRect(p.x - q / 2, p.y - q / 2, q, q);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(0.4, q / 2), 0, 6.2832);
+      ctx.fill();
     } else {
       ctx.globalAlpha = a * p.alpha;
       ctx.drawImage(sprite(p.color), p.x - size * 2, p.y - size * 2, size * 4, size * 4);
@@ -234,7 +238,13 @@ function paintOf(n, cache) {
     const m = str && str.match(/rgba?\(([^)]+)\)/);
     if (!m) return null;
     const [rr, g, b, a = 1] = m[1].split(",").map((v) => parseFloat(v));
-    return a > 0.06 ? `rgba(${rr | 0},${g | 0},${b | 0},${Math.min(1, Math.max(0.6, a)).toFixed(2)})` : null;
+    if (a <= 0.06) return null;
+    // See-through glass breaks into light, glassy grains.
+    if (a < 0.75) {
+      const k = 0.42;
+      return `rgba(${(rr + (255 - rr) * k) | 0},${(g + (255 - g) * k) | 0},${(b + (255 - b) * k) | 0},0.7)`;
+    }
+    return `rgba(${rr | 0},${g | 0},${b | 0},${Math.min(1, a).toFixed(2)})`;
   };
   // A plain fill, or the colour of a gradient (frosted panels tint that way).
   if (!out) { const c = solid(cs.backgroundColor) || (cs.backgroundImage.includes("gradient") ? solid(cs.backgroundImage.slice(cs.backgroundImage.indexOf("gradient"))) : null); if (c) out = [c]; }
@@ -298,7 +308,8 @@ export const dust = {
     const r = el.getBoundingClientRect();
     if (!enabled || !r.width || !r.height) return Promise.resolve();
     const area = r.width * r.height;
-    const step = Math.max(3.5, Math.min(14, Math.sqrt(area / (2600 * density))));
+    // Fine, round grains (MagicOS-like), within a budget for big panels.
+    const step = Math.max(2.6, Math.min(9, Math.sqrt(area / (5200 * density))));
     const cache = new Map();
     // The wallpaper card is a window onto the wallpaper canvas behind it:
     // its grains take that picture's own pixels.
@@ -316,7 +327,7 @@ export const dust = {
         const row = (y - r.top) / r.height;
         add({
           x: x + (Math.random() - 0.5) * step * 0.3, y: y + (Math.random() - 0.5) * step * 0.3,
-          hold: row * peel + Math.random() * 0.09, sq: true, size: step * 1.02, color,
+          hold: row * peel + Math.random() * 0.09, sq: true, size: step * 1.18, color,
           vx: (Math.random() - 0.5) * 50 + ((x - cx) / r.width) * 40, vy: -(30 + Math.random() * 110),
           turb: 45, drag: 1.1, wx: 0, wy: -38, life: 0.7 + Math.random() * 0.6, alpha: 1,
         });

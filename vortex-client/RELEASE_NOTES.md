@@ -1,4 +1,6 @@
-**Things break into particles.** Closing a dialog, a notification or a menu, deleting something, or switching tabs on a phone now breaks it into particles in its own colours that lift off from the top and float away.
+**Liquid glass.** Panels are now iOS 26 style liquid glass: their rounded edges bend and magnify what is behind them, with a bright rim of light.
+
+**Particles like MagicOS.** Closing a dialog, a notification or a menu, deleting something, or switching tabs on a phone breaks it into fine round grains in its own colours, which lift off from the top and float away.
 
 **Everything lines up.** The wallpaper card now runs from the top of the account card to the bottom of the last widget, and the tabs sit in a compact rail, spaced like the widgets.
 
