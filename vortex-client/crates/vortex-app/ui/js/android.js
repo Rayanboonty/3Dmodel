@@ -33,6 +33,19 @@ window.__vx = {
 };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const UPDATE_REPO = "Rayanboonty/3Dmodel";
+
+/** 0.10.2 vs 0.9.9: like the Windows updater, by numbers. */
+function cmpVersion(a, b) {
+  const p = (v) => String(v).replace(/^v/, "").split(/[-+]/)[0].split(".").map((x) => parseInt(x, 10) || 0);
+  const x = p(a), y = p(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; }
+  return 0;
+}
+
+// Download progress events from the native side, by call id.
+const downloadWatch = new Map();
+function onDownload(id, fn) { downloadWatch.set(id, fn); return () => downloadWatch.delete(id); }
 
 async function http(url, { method = "GET", body = "", headers = {}, base64 = false } = {}) {
   const r = await nat("http", method, url, body, JSON.stringify(headers), base64);
@@ -166,6 +179,8 @@ function onNative(name, p) {
   } else if (name === "native-closed") {
     nativeClosed++;
     emit("android-resume", {});
+  } else if (name === "download") {
+    downloadWatch.get(p.id)?.(p);
   } else if (name === "accounts") {
     emit("android-accounts", {});
   }
@@ -482,10 +497,30 @@ export const android = {
       case "skin_library":
         return { skins: [], applied: null, cape: "none", capes: ["none"], microsoft: false };
 
-      case "check_update":
-        return { available: false, current: snap?.appVersion || "", version: snap?.appVersion || "" };
-      case "install_update":
-        throw "updates for the Android app come as a new APK";
+      case "check_update": {
+        read();
+        const current = snap.appVersion || "0";
+        const list = await getJson(`https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=30`);
+        const best = list.filter((r) => !r.draft && !r.prerelease && r.tag_name.startsWith("vortex-v"))
+          .sort((a, b) => cmpVersion(b.tag_name.slice(8), a.tag_name.slice(8)))[0];
+        if (!best) return { available: false, current, version: current };
+        const version = best.tag_name.slice(8);
+        const want = { "arm64-v8a": "arm64", "armeabi-v7a": "armv7", "x86_64": "x86_64" }[snap.abi] || "universal";
+        const asset = best.assets.find((x) => x.name === `Vortex-Client-android-${want}.apk`) || best.assets.find((x) => x.name === "Vortex-Client-android-universal.apk");
+        return { available: !!asset && cmpVersion(version, current) > 0, current, version, notes: (best.body || "").trim(), published: (best.published_at || "").slice(0, 10), url: asset?.browser_download_url || null, size: asset?.size || 0, page: best.html_url };
+      }
+      case "install_update": {
+        read();
+        const dest = `${snap.cacheDir}/vortex-update.apk`;
+        const id = `c${++seq}`;
+        const off = onDownload(id, (d) => emit("update-progress", { stage: "download", done: d.done, total: d.total }));
+        try {
+          await new Promise((resolve, reject) => { pending.set(id, { resolve, reject }); N.download(id, a.url, dest); });
+        } finally { off(); }
+        emit("update-progress", { stage: "android", done: 1, total: 1 });
+        N.installApk(dest);
+        return null;
+      }
 
       case "open_path": {
         read();

@@ -74,3 +74,35 @@ jobs:
           name: Vortex Client ${{ github.event.inputs.tag || github.ref_name }}
           body_path: vortex-client/RELEASE_NOTES.md
           files: vortex-client/dist/Vortex-windows-x64.zip
+
+  android:
+    name: Android APKs
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            8
+            21
+      - name: Android SDK and NDK
+        shell: bash
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.3.13750724" > /dev/null
+      - name: Build (Amethyst + the Vortex overlay)
+        shell: bash
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_21_X64 }}
+        run: |
+          export JDK_PATHS="$JAVA_HOME_8_X64,$JAVA_HOME_21_X64"
+          bash android/build.sh
+          ls -la android/out
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: vortex-client/android/out/*.apk

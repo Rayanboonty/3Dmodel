@@ -1,16 +1,12 @@
-**Frosted glass everywhere.** The wallpaper now glows through every panel, with a heavier frost, a fine grain and a soft top light. The sidebar has its own frosted rail.
+**Updates install by themselves.** From this version on, Vortex updates itself when you open it.
 
-**Particle dust.** Leaving a tab breaks the page into glowing dust while the next one rises behind it. Closing dialogs, notifications and menus, and deleting instances, mods, skins or accounts, dissolve them the same way. The logo gathers out of dust when the launcher starts.
+**A launcher built from light.** Particles stream inside the loading bar. When it's ready, the bar bursts, and the launcher forms where the particles land.
 
-**New motion.**
-- Every sidebar icon has its own animation when its tab opens.
-- Cards tilt toward your pointer.
-- The light/dark switch spreads as a circle from the button.
-- Page titles shrink as you scroll.
-- Launch sends out rings of light.
+**A new light and dark switch.** The new theme spreads from the button behind a soft, glowing edge while the old one sinks back.
 
-**Fixes.**
-- Clicking tabs quickly no longer flickers.
-- Instance cards line up.
-- Server rows no longer flicker when another server answers.
-- Closing a dialog no longer leaves a focus ring behind.
+**The Android app.** It now has the full Vortex interface built for phones, and it updates from the same releases.
+
+**Also:**
+- Switching tabs on desktop is quicker, with no dust.
+- No more blue flash when you tap on touch screens.
+- Several bug fixes.

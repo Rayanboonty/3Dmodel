@@ -157,6 +157,35 @@ if LA + "            android:configChanges" not in m:
     m = m.replace(LA, LA + '            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode"\n', 1)
     manifest.write_text(m, encoding="utf-8")
 
+# Updates: the app downloads the new APK from the release and hands it to
+# Android's installer, which needs a permission and a file provider.
+m = manifest.read_text(encoding="utf-8")
+if "REQUEST_INSTALL_PACKAGES" not in m:
+    m = m.replace("<application", '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n\n    <application', 1)
+if ".vortexupdate" not in m:
+    m = m.replace("    </application>", '''        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.vortexupdate"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/vortex_update_paths" />
+        </provider>
+    </application>''', 1)
+manifest.write_text(m, encoding="utf-8")
+
+# The app's version is the launcher's version (vortex-client/Cargo.toml), so
+# the Android app and Windows releases line up and updates compare right.
+cargo = (HERE.parent / "Cargo.toml").read_text(encoding="utf-8")
+ver = re.search(r'^version = "([^"]+)"', cargo, re.M).group(1)
+parts = [int(x) for x in (re.findall(r"\d+", ver) + ["0", "0", "0"])[:3]]
+code = 10000000 + parts[0] * 10000 + parts[1] * 100 + parts[2]
+g = gradle.read_text(encoding="utf-8")
+g = re.sub(r"versionCode \d+", f"versionCode {code}", g, count=1)
+g = re.sub(r"versionName (getVersionName\(\)|\"[^\"]*\")", f'versionName "{ver}"', g, count=1)
+gradle.write_text(g, encoding="utf-8")
+
 # 7. No "Amethyst" left in the app's own text (crash screen, notifications);
 #    the credit stays in the About text below.
 for strings in RES.glob("values*/strings.xml"):

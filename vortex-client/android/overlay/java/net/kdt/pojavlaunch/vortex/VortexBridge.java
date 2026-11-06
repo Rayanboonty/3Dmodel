@@ -157,6 +157,8 @@ public class VortexBridge {
             out.put("dataDir", Tools.DIR_GAME_HOME);
             out.put("gameHome", Tools.DIR_GAME_HOME);
             out.put("versionsDir", Tools.DIR_HOME_VERSION);
+            out.put("cacheDir", activity.getCacheDir().getAbsolutePath());
+            out.put("abi", Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "");
             out.put("device", Build.MANUFACTURER + " " + Build.MODEL);
             out.put("sdk", Build.VERSION.SDK_INT);
             out.put("deviceRamMb", Tools.getTotalDeviceMemory(activity));
@@ -359,6 +361,23 @@ public class VortexBridge {
         ui.post(() -> {
             try { activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
             catch (Exception e) { Toast.makeText(activity, e.toString(), Toast.LENGTH_SHORT).show(); }
+        });
+    }
+
+    /** Open Android's installer for a downloaded update. */
+    @JavascriptInterface
+    public void installApk(String path) {
+        ui.post(() -> {
+            try {
+                File f = new File(path);
+                Uri uri = androidx.core.content.FileProvider.getUriForFile(activity, activity.getPackageName() + ".vortexupdate", f);
+                Intent i = new Intent(Intent.ACTION_VIEW);
+                i.setDataAndType(uri, "application/vnd.android.package-archive");
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                activity.startActivity(i);
+            } catch (Exception e) {
+                Toast.makeText(activity, "Couldn't open the installer: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
         });
     }
 

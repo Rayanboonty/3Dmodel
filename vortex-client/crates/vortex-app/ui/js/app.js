@@ -2189,22 +2189,26 @@ async function checkForUpdate(manual = false) {
     }
     if (updateOffered && !manual) return;
     updateOffered = true;
-    showUpdate(u);
+    // Found on its own at start: install straight away (unless a game is
+    // running), so every player gets the new version without a choice.
+    const busy = Object.values(S.runs).some((r) => r.phase !== "idle");
+    showUpdate(u, { auto: !manual && !busy });
   } catch (e) {
     if (manual) toast("Couldn't check for updates", errText(e), "warn");
   }
 }
 
-function showUpdate(u) {
+function showUpdate(u, { auto = false } = {}) {
   const notes = (u.notes || "").split("\n").filter((l) => !/^\s*#/.test(l)).map((l) => l.replace(/^[*\-\s]+/, "").trim()).filter(Boolean).slice(0, 6);
   const mb = u.size ? `${(u.size / 1048576).toFixed(1)} MB` : "";
   modal(`<div class="upd">
       <div class="upd-head"><img class="upd-logo" src="img/logo.png" alt=""><div><span class="upd-kicker">Update available</span><h3>Vortex Client ${esc(u.version)}</h3><p class="muted small">You have ${esc(u.current)}${u.published ? ` · released ${esc(u.published)}` : ""}${mb ? ` · ${mb}` : ""}</p></div></div>
       ${notes.length ? `<ul class="upd-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
       <div class="upd-progress" id="upd-progress" hidden><div class="upd-bar"><i id="upd-fill"></i></div><span id="upd-text">Starting download</span></div>
-      <div class="modal-actions" id="upd-actions"><button class="btn" id="upd-later">Later</button><button class="btn btn-accent" id="upd-now">${icon("download", 12)} Update and restart</button></div>
+      <div class="modal-actions" id="upd-actions"><button class="btn" id="upd-later">Later</button><button class="btn btn-accent" id="upd-now">${icon("download", 12)} ${isAndroid ? "Update" : "Update and restart"}</button></div>
     </div>`, (root) => {
     $("#upd-later", root).onclick = () => closeModal();
+    if (auto) setTimeout(() => $("#upd-now", root)?.click(), 700);
     $("#upd-now", root).onclick = async () => {
       if (Object.values(S.runs).some((r) => r.phase !== "idle")) { toast("Close the game first", "The launcher restarts to finish updating.", "warn"); return; }
       $("#upd-actions", root).hidden = true;
@@ -2229,6 +2233,7 @@ on("update-progress", (p) => {
     text.textContent = p.total ? `Downloading ${pct}% · ${(p.done / 1048576).toFixed(1)} of ${(p.total / 1048576).toFixed(1)} MB` : "Downloading";
   } else if (p.stage === "install") { fill.style.width = "100%"; text.textContent = "Installing"; }
   else if (p.stage === "restart") { text.textContent = "Restarting into the new version"; }
+  else if (p.stage === "android") { fill.style.width = "100%"; text.textContent = "Tap Install to finish. Your instances and settings stay."; }
 });
 
 /** Swap the news cards in place (no page re-render). */
