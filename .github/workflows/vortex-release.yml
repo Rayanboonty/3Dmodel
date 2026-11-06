@@ -1,24 +1,30 @@
 name: Vortex Client release
 
-# Publish a launcher update: bump `version` in vortex-client/Cargo.toml and
-# vortex-client/crates/vortex-app/tauri.conf.json, commit, then push a tag:
+# Every installed launcher (Windows and Android) updates itself from the
+# newest GitHub release tagged vortex-v<version>.
 #
-#   git tag vortex-v0.3.0 && git push origin vortex-v0.3.0
-#
-# This builds Windows x64, attaches Vortex-windows-x64.zip to a GitHub
-# release, and every installed launcher offers the update on its next start.
-# The release text (shown in the launcher's update pop-up) comes from
+# Publishing is automatic: when a new `version` in vortex-client/Cargo.toml
+# lands on the release branch, this builds Windows x64 and the Android APKs
+# and publishes them as release vortex-v<version>. Pushes that don't change
+# the version publish nothing. A tag push (vortex-v0.6.0) or a manual run
+# works too. The release text (shown in the update pop-up) comes from
 # vortex-client/RELEASE_NOTES.md.
 
 on:
   push:
+    branches:
+      - claude/vortex-minecraft-client-xxro99
+    paths:
+      - vortex-client/Cargo.toml
+      - vortex-client/RELEASE_NOTES.md
+      - .github/workflows/vortex-release.yml
     tags:
       - "vortex-v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to release (for example vortex-v0.3.0)"
-        required: true
+        description: "Tag to release (for example vortex-v0.6.0); empty means the version in Cargo.toml"
+        required: false
 
 permissions:
   contents: write
@@ -27,27 +33,53 @@ defaults:
   run:
     working-directory: vortex-client
 
+concurrency:
+  group: vortex-release
+  cancel-in-progress: false
+
 jobs:
+  plan:
+    name: Which version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      go: ${{ steps.v.outputs.go }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          conf=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' crates/vortex-app/tauri.conf.json | head -1)
+          if [ "$version" != "$conf" ]; then echo "tauri.conf.json says $conf, Cargo.toml says $version"; exit 1; fi
+          tag="${{ github.event.inputs.tag }}"
+          if [ -z "$tag" ]; then
+            if [ "${{ github.ref_type }}" = "tag" ]; then tag="${{ github.ref_name }}"; else tag="vortex-v$version"; fi
+          fi
+          if [ "$tag" != "vortex-v$version" ]; then echo "Tag $tag doesn't match version $version"; exit 1; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # Already published: nothing to do (a push that didn't change the version).
+          if gh release view "$tag" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            echo "$tag is already released"
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Releasing $tag"
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
-    name: Build and publish
+    name: Windows build and publish
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: vortex-client
-
-      - name: Check the tag matches the version
-        shell: pwsh
-        run: |
-          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
-          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
-          if ($tag -ne "vortex-v$version") { throw "Tag $tag doesn't match Cargo.toml version $version" }
-          $conf = Get-Content crates\vortex-app\tauri.conf.json -Raw | ConvertFrom-Json
-          if ($conf.version -ne $version) { throw "tauri.conf.json says $($conf.version), Cargo.toml says $version" }
 
       - name: Unit tests
         run: cargo test --workspace
@@ -70,19 +102,20 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: Vortex Client ${{ github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ needs.plan.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Vortex Client ${{ needs.plan.outputs.tag }}
           body_path: vortex-client/RELEASE_NOTES.md
+          make_latest: true
           files: vortex-client/dist/Vortex-windows-x64.zip
 
   android:
     name: Android APKs
-    needs: release
+    needs: [plan, release]
+    if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -104,5 +137,5 @@ jobs:
           ls -la android/out
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ needs.plan.outputs.tag }}
           files: vortex-client/android/out/*.apk
