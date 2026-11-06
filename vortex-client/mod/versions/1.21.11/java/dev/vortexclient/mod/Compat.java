@@ -7,7 +7,7 @@ import net.minecraft.util.StringHelper;
 
 /**
  * Small game calls that are spelled differently between Minecraft versions
- * (see Gfx for drawing). This one is for 1.21.6 and later; older versions
+ * (see Gfx for drawing). This one is for 1.21.9 and later; older versions
  * have their own in versions/<mc>/java.
  */
 public final class Compat {
@@ -38,5 +38,24 @@ public final class Compat {
 
     public static String gameVersionName() {
         return net.minecraft.SharedConstants.getGameVersion().name();
+    }
+
+    private static net.minecraft.client.option.KeyBinding.Category category;
+
+    public static net.minecraft.client.option.KeyBinding keyBinding(String id, int key) {
+        if (category == null) category = net.minecraft.client.option.KeyBinding.Category.create(net.minecraft.util.Identifier.of("vortex", "main"));
+        return new net.minecraft.client.option.KeyBinding(id, net.minecraft.client.util.InputUtil.Type.KEYSYM, key, category);
+    }
+
+    public static boolean keyMatches(net.minecraft.client.option.KeyBinding k, int key, int scancode) {
+        return k.matchesKey(new net.minecraft.client.input.KeyInput(key, scancode, 0));
+    }
+
+    public static boolean isClient(net.minecraft.world.World w) {
+        return w.isClient();
+    }
+
+    public static net.minecraft.util.math.Vec3d pos(net.minecraft.entity.Entity e) {
+        return e.getEntityPos();
     }
 }

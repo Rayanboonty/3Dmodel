@@ -9,7 +9,7 @@ import net.minecraft.client.texture.Sprite;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.util.Identifier;
 
-/** Drawing calls for Minecraft 1.21.6 and later (see the shared Gfx). */
+/** Drawing calls for Minecraft 1.21.9 and later (see the shared Gfx). */
 public final class Gfx {
     private Gfx() {}
 
@@ -43,5 +43,10 @@ public final class Gfx {
 
     public static void effectIcon(DrawContext c, StatusEffectInstance e, int x, int y, int size) {
         c.drawGuiTexture(RenderPipelines.GUI_TEXTURED, InGameHud.getEffectTexture(e.getEffectType()), x, y, size, size);
+    }
+
+    public static void buttonLabel(DrawContext c, net.minecraft.client.gui.widget.PressableWidget w, int color) {
+        var tr = net.minecraft.client.MinecraftClient.getInstance().textRenderer;
+        c.drawCenteredTextWithShadow(tr, w.getMessage(), w.getX() + w.getWidth() / 2, w.getY() + (w.getHeight() - 8) / 2, color);
     }
 }

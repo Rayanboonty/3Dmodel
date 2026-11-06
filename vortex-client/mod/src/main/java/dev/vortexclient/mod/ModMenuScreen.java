@@ -516,8 +516,8 @@ public class ModMenuScreen extends ScreenBase {
     // -------------------------------------------------------------- input --
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        if (button != 0) return super.mouseClicked(mx, my, button);
+    protected boolean onMouseDown(double mx, double my, int button) {
+        if (button != 0) return super.onMouseDown(mx, my, button);
         boolean wasFocused = searchFocused;
         searchFocused = false;
         for (int i = hits.size() - 1; i >= 0; i--) {
@@ -528,26 +528,26 @@ public class ModMenuScreen extends ScreenBase {
             }
         }
         if (wasFocused) return true;
-        return super.mouseClicked(mx, my, button);
+        return super.onMouseDown(mx, my, button);
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+    protected boolean onMouseDrag(double mx, double my, int button, double dx, double dy) {
         if (draggingSlider != null) {
             setSlider(mx);
             return true;
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return super.onMouseDrag(mx, my, button, dx, dy);
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
+    protected boolean onMouseUp(double mx, double my, int button) {
         if (draggingSlider != null) {
             draggingSlider = null;
             VortexMods.config.save();
             return true;
         }
-        return super.mouseReleased(mx, my, button);
+        return super.onMouseUp(mx, my, button);
     }
 
     @Override
@@ -558,7 +558,7 @@ public class ModMenuScreen extends ScreenBase {
     }
 
     @Override
-    public boolean keyPressed(int key, int scan, int mods) {
+    protected boolean onKey(int key, int scan, int mods) {
         if (searchFocused) {
             if (key == GLFW.GLFW_KEY_BACKSPACE && !search.isEmpty()) {
                 search = search.substring(0, search.length() - 1);
@@ -574,22 +574,22 @@ public class ModMenuScreen extends ScreenBase {
             selected = null;
             return true;
         }
-        if (VortexMods.menuKey != null && VortexMods.menuKey.matchesKey(key, scan) && !searchFocused) {
+        if (VortexMods.menuKey != null && Compat.keyMatches(VortexMods.menuKey, key, scan) && !searchFocused) {
             close();
             return true;
         }
-        return super.keyPressed(key, scan, mods);
+        return super.onKey(key, scan, mods);
     }
 
     @Override
-    public boolean charTyped(char chr, int mods) {
+    protected boolean onChar(char chr, int mods) {
         if (selected == null && Compat.isValidChar(chr) && search.length() < 24) {
             searchFocused = true;
             search += chr;
             scrollTarget = 0;
             return true;
         }
-        return super.charTyped(chr, mods);
+        return super.onChar(chr, mods);
     }
 
     @Override

@@ -32,4 +32,20 @@ public final class Compat {
     public static String gameVersionName() {
         return net.minecraft.SharedConstants.getGameVersion().getName();
     }
+
+    public static net.minecraft.client.option.KeyBinding keyBinding(String id, int key) {
+        return new net.minecraft.client.option.KeyBinding(id, net.minecraft.client.util.InputUtil.Type.KEYSYM, key, "category.vortex");
+    }
+
+    public static boolean keyMatches(net.minecraft.client.option.KeyBinding k, int key, int scancode) {
+        return k.matchesKey(key, scancode);
+    }
+
+    public static boolean isClient(net.minecraft.world.World w) {
+        return w.isClient;
+    }
+
+    public static net.minecraft.util.math.Vec3d pos(net.minecraft.entity.Entity e) {
+        return e.getPos();
+    }
 }

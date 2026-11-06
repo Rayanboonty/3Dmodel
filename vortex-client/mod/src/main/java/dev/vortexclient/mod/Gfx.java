@@ -52,4 +52,9 @@ public final class Gfx {
         Sprite sprite = MinecraftClient.getInstance().getStatusEffectSpriteManager().getSprite(e.getEffectType());
         sprite(c, sprite, x, y, size, size);
     }
+
+    /** A button's own label, centred, in the given colour. */
+    public static void buttonLabel(DrawContext c, net.minecraft.client.gui.widget.PressableWidget w, int color) {
+        w.drawMessage(c, net.minecraft.client.MinecraftClient.getInstance().textRenderer, color);
+    }
 }

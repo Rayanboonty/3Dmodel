@@ -1,4 +1,18 @@
 pluginManagement {
+    // Newer Minecraft needs a newer Loom: versions/<mc>.properties may say
+    // loom=<version>, which replaces the one in build.gradle for that build.
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == 'fabric-loom') {
+                def mcVer = settings.providers.gradleProperty('mc').getOrElse('1.21.4')
+                def vfile = new File(settingsDir, "versions/${mcVer}.properties")
+                if (!vfile.exists()) vfile = new File(settingsDir, "versions/${mcVer}.properties.wip")
+                def vprops = new Properties()
+                if (vfile.exists()) vfile.withInputStream { vprops.load(it) }
+                if (vprops.loom) useVersion(vprops.loom)
+            }
+        }
+    }
     repositories {
         maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
         mavenCentral()

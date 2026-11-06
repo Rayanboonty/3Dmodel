@@ -2,3 +2,4 @@ minecraft_version=1.21.11
 yarn_mappings=1.21.11+build.6
 fabric_version=0.141.6+1.21.11
 java=21
+loom=1.13.6

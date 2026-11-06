@@ -59,7 +59,7 @@ public class HudEditorScreen extends ScreenBase {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    protected boolean onMouseDown(double mx, double my, int button) {
         for (Map.Entry<Module, Hud.Rect> e : Hud.layout(width, height).entrySet()) {
             Hud.Rect r = e.getValue();
             if (!r.contains(mx, my)) continue;
@@ -75,11 +75,11 @@ public class HudEditorScreen extends ScreenBase {
             grabY = my - r.y();
             return true;
         }
-        return super.mouseClicked(mx, my, button);
+        return super.onMouseDown(mx, my, button);
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+    protected boolean onMouseDrag(double mx, double my, int button, double dx, double dy) {
         if (dragging == null) return false;
         Hud.Rect r = Hud.layout(width, height).get(dragging);
         if (r == null) return false;
@@ -101,13 +101,13 @@ public class HudEditorScreen extends ScreenBase {
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
+    protected boolean onMouseUp(double mx, double my, int button) {
         if (dragging != null) {
             dragging = null;
             VortexMods.config.save();
             return true;
         }
-        return super.mouseReleased(mx, my, button);
+        return super.onMouseUp(mx, my, button);
     }
 
     @Override

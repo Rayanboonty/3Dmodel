@@ -83,7 +83,7 @@ public final class Stats {
         }
         if (now - lastHitAt > 2500) combo = 0;
 
-        Vec3d pos = client.player.getPos();
+        Vec3d pos = Compat.pos(client.player);
         if (lastPos != null) {
             double dx = pos.x - lastPos.x, dz = pos.z - lastPos.z;
             double perSecond = Math.sqrt(dx * dx + dz * dz) * 20.0;

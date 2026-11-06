@@ -42,9 +42,9 @@ public class VortexMods implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         config = Config.load();
-        menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.vortex.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "category.vortex"));
-        zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.vortex.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.vortex"));
-        freelookKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.vortex.freelook", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, "category.vortex"));
+        menuKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.menu", GLFW.GLFW_KEY_RIGHT_SHIFT));
+        zoomKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.zoom", GLFW.GLFW_KEY_C));
+        freelookKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.freelook", GLFW.GLFW_KEY_LEFT_ALT));
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
             if (hintShown) return;
             hintShown = true;
@@ -54,7 +54,7 @@ public class VortexMods implements ClientModInitializer {
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> sessionStart = System.currentTimeMillis());
         net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
-            if (world.isClient) hitParticles(entity);
+            if (Compat.isClient(world)) hitParticles(entity);
             return net.minecraft.util.ActionResult.PASS;
         });
         HudRenderCallback.EVENT.register((ctx, tick) -> Hud.render(ctx));

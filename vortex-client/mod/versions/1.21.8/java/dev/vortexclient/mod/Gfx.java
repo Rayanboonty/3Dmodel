@@ -44,4 +44,9 @@ public final class Gfx {
     public static void effectIcon(DrawContext c, StatusEffectInstance e, int x, int y, int size) {
         c.drawGuiTexture(RenderPipelines.GUI_TEXTURED, InGameHud.getEffectTexture(e.getEffectType()), x, y, size, size);
     }
+
+    /** A button's own label, centred, in the given colour. */
+    public static void buttonLabel(DrawContext c, net.minecraft.client.gui.widget.PressableWidget w, int color) {
+        w.drawMessage(c, net.minecraft.client.MinecraftClient.getInstance().textRenderer, color);
+    }
 }

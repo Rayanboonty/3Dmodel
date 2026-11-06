@@ -31,7 +31,7 @@ public final class VortexStyle {
         c.fill(x + 2, y + 1, x + wd - 2, y + 2, hot ? 0x30FFFFFF : 0x14FFFFFF);
         if (hot) c.fill(x + 3, y + h - 2, x + wd - 3, y + h - 1, Ui.alpha(accent, 0.85f));
         int tc = !active ? 0xFF6E747E : hot ? 0xFFFFFFFF : 0xFFE4E8EE;
-        w.drawMessage(c, Ui.font(), tc);
+        Gfx.buttonLabel(c, w, tc);
     }
 
     // ------------------------------------------------------------ menu art --
