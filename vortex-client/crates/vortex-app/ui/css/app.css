@@ -2110,3 +2110,8 @@ html, body { -webkit-touch-callout: none; }
 img, canvas, a, button { -webkit-user-drag: none; -webkit-touch-callout: none; }
 :focus:not(:focus-visible) { outline: none; }
 body.m :focus-visible:not(input, select, textarea) { outline: none; animation: none; }
+
+/* The loading bar: a little thicker, with a glowing light that the
+   particles stream around. */
+.boot .bar { height: 8px; background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.boot .bar i { background: linear-gradient(90deg, rgba(var(--accent-rgb), 0), var(--accent) 40%, #ffe1a8 70%, rgba(var(--accent-rgb), 0)); box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.8); width: 45%; }

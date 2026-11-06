@@ -64,8 +64,17 @@ function step(now) {
   for (const p of parts) {
     p.age += dt;
     if (p.age >= p.life) continue;
+    if (p.bound && (p.x > p.bound[1] || p.x < p.bound[0])) continue;
     if (p.age < 0) { parts[n++] = p; continue; }
-    if (p.tx !== undefined) {
+    if (p.bz) {
+      // Out of the burst along a curve and down onto its spot.
+      const k = Math.min(1, p.age / p.life);
+      // Fast out of the burst, slowing as it lands.
+      const e = 1 - Math.pow(1 - k, 2.6);
+      const u = 1 - e;
+      p.x = u * u * p.ox + 2 * u * e * p.cx + e * e * p.tx;
+      p.y = u * u * p.oy + 2 * u * e * p.cy + e * e * p.ty;
+    } else if (p.tx !== undefined) {
       // Gathering: ease toward a target point, curling on the way.
       const k = Math.min(1, p.age / p.life);
       const e = 1 - Math.pow(1 - k, 3);
@@ -89,7 +98,7 @@ function step(now) {
     const k = p.age / p.life;
     // Quick fade in, long fade out, with a slow twinkle.
     const a = Math.min(1, k * 8) * Math.pow(1 - k, p.fade) * (0.75 + 0.25 * Math.sin(t * 9 + p.ph * 3));
-    const size = p.size * (p.tx !== undefined ? 0.6 + 0.4 * (1 - k) : 1 - k * 0.55);
+    const size = p.bz ? p.size * (0.55 + Math.sin(Math.PI * k) * 0.9) : p.size * (p.tx !== undefined ? 0.6 + 0.4 * (1 - k) : 1 - k * 0.55);
     ctx.globalAlpha = a * p.alpha;
     ctx.drawImage(sprite(p.color), p.x - size * 2, p.y - size * 2, size * 4, size * 4);
     parts[n++] = p;
@@ -318,6 +327,79 @@ export const dust = {
     }
     kick();
   },
+
+  /**
+   * Glowing grains streaming along inside a loading bar, thickest around
+   * its moving light. Returns a function that stops the stream.
+   */
+  flow(bar) {
+    if (!bar || !enabled) return () => {};
+    let on = true;
+    const light = bar.firstElementChild;
+    const colors = ["rgba(255,210,140,1)", "rgba(255,181,71,1)", "rgba(240,143,34,1)", "rgba(255,236,205,1)"];
+    const tick = () => {
+      if (!on || !bar.isConnected || !enabled) return;
+      const r = bar.getBoundingClientRect();
+      const l = light ? light.getBoundingClientRect() : r;
+      if (r.width) {
+        for (let i = 0; i < 7; i++) {
+          const near = Math.random() < 0.75;
+          const x = near ? l.left + Math.random() * l.width : r.left + Math.random() * r.width;
+          add({
+            x: Math.max(r.left + 2, Math.min(r.right - 2, x)), y: r.top + 2 + Math.random() * Math.max(1, r.height - 4),
+            vx: 40 + Math.random() * 120, vy: (Math.random() - 0.5) * 4, turb: 0, drag: 0.8, wx: 0, wy: 0,
+            color: pick(colors), size: 0.9 + Math.random() * 1.1, life: 0.3 + Math.random() * 0.4, fade: 1.1, alpha: 1,
+            bound: [r.left + 2, r.right - 3],
+          });
+        }
+        kick();
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+    return () => { on = false; };
+  },
+
+  /**
+   * An explosion that builds things: grains burst out of `origin`, curve
+   * through the air and land on each target, which forms where they land.
+   * targets: [{ el, colors? }]
+   */
+  form(origin, targets, { duration = 1250, total = 2600 } = {}) {
+    if (!enabled) return;
+    const items = targets.map((t) => ({ ...t, r: t.el.getBoundingClientRect() })).filter((t) => t.r.width && t.r.height);
+    const area = items.reduce((n, t) => n + t.r.width * t.r.height, 0) || 1;
+    const far = Math.hypot(W, H);
+    for (const t of items) {
+      const cs = t.colors || colorsOf(t.el);
+      const cx0 = t.r.left + t.r.width / 2, cy0 = t.r.top + t.r.height / 2;
+      const dist = Math.hypot(cx0 - origin.x, cy0 - origin.y);
+      const delay = (dist / far) * 0.35;
+      const life = (duration / 1000) * (0.75 + (dist / far) * 0.5);
+      const n = Math.max(70, Math.round(total * ((t.r.width * t.r.height) / area)));
+      for (let i = 0; i < n; i++) {
+        const tx = t.r.left + Math.random() * t.r.width, ty = t.r.top + Math.random() * t.r.height;
+        // The control point flings each grain out past the burst first.
+        const a = Math.random() * 6.283, out = 90 + Math.random() * 260;
+        add({
+          bz: true, ox: origin.x + (Math.random() - 0.5) * 30, oy: origin.y + (Math.random() - 0.5) * 8,
+          cx: origin.x + Math.cos(a) * out * 1.4, cy: origin.y + Math.sin(a) * out, tx, ty, x: origin.x, y: origin.y,
+          age: -(delay + Math.random() * 0.12), life: life * (0.85 + Math.random() * 0.3),
+          color: pick(cs), size: 0.7 + Math.random() * 1.6, fade: 0.6, alpha: 0.95,
+        });
+      }
+      // The piece itself forms as its grains arrive.
+      t.el.animate(
+        [{ opacity: 0, filter: "blur(12px) brightness(1.6)", scale: "0.97" }, { opacity: 1, filter: "blur(0px) brightness(1)", scale: "1" }],
+        { duration: 560, delay: (delay + life * 0.5) * 1000, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "backwards" },
+      );
+    }
+    kick();
+  },
+
+  /** Start reading a picture's colours now, so they're ready later. */
+  warm(url) { sampleImage(url); },
+  colorsOfImage(url) { return sampleImage(url); },
 
   /** A burst of dust from a point. */
   burst(x, y, { count = 220, colors = ["rgba(255,210,140,1)", "rgba(255,181,71,1)", "rgba(240,143,34,1)"], speed = 1 } = {}) {

@@ -2888,6 +2888,7 @@ function bindChrome() {
 
 // ------------------------------------------------------------------- boot --
 
+const bootT0 = performance.now();
 async function boot() {
   const hint = $("#boot-hint");
   const logo = $("#boot-logo");
@@ -2895,6 +2896,9 @@ async function boot() {
     const go = () => dust.gather(logo, { duration: 1000, density: 1.2, spread: 1.4 });
     if (logo.complete) go(); else logo.addEventListener("load", go, { once: true });
   }
+  // Light streams along inside the loading bar while it loads.
+  const stopFlow = matchMedia("(prefers-reduced-motion: reduce)").matches ? () => {} : dust.flow($("#boot .bar"));
+  dust.warm("img/meadow-sunset.jpg");
   bindChrome();
   bindEvents();
   try {
@@ -2939,14 +2943,30 @@ async function boot() {
   $("#side-version").textContent = `v${S.appVersion}`;
   go("home", { silent: true });
   requestAnimationFrame(() => liquidTabs($("#nav"), true));
+  // Let the loading bar's light run for a moment before the burst.
+  const shown = performance.now() - bootT0;
+  if (anims() && shown < 1400) await new Promise((r) => setTimeout(r, 1400 - shown));
   const bootEl = $("#boot");
   world.rise = 0;
   if (anims()) {
-    dust.dissolve($(".boot-inner", bootEl), { duration: 800, dir: "up", density: 1.3 });
+    // The bar bursts, and the grains fly out and build the launcher: each
+    // piece forms where its grains land.
+    stopFlow();
+    const br = $(".bar", bootEl).getBoundingClientRect();
+    const origin = { x: br.left + br.width / 2, y: br.top + br.height / 2 };
+    const wall = dust.colorsOfImage("img/meadow-sunset.jpg");
+    const pieces = [
+      ...$$(".topbar .brand, .top-right > :not([hidden])"),
+      $("#nav"),
+      ...$$("#page .home > .hero"),
+      ...$$("#page .home-side > *, #page .home-row > *"),
+    ].filter(Boolean).map((el) => ({ el }));
+    if ($("#page .hero")) pieces.push({ el: $("#world"), colors: wall.length ? wall : undefined });
+    $(".boot-inner", bootEl).animate([{ opacity: 1, scale: 1 }, { opacity: 0, scale: 1.08, filter: "blur(6px)" }], { duration: 380, easing: "ease-out", fill: "forwards" });
+    dust.burst(origin.x, origin.y, { count: 260, speed: 1.4 });
+    requestAnimationFrame(() => dust.form(origin, pieces));
     bootEl.classList.add("out");
-    document.body.classList.add("intro");
     setTimeout(() => bootEl.remove(), 950);
-    setTimeout(() => document.body.classList.remove("intro"), 2200);
   } else bootEl.remove();
   placeHero();
   const u = { ...UI_DEFAULTS, ...S.settings };
