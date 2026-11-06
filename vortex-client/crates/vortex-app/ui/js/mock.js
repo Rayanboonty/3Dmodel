@@ -28,25 +28,10 @@ const state = {
   skins: [],
   applied: null,
   cape: "vortex",
-  installed: { "Fabric Optimized": { mod: ["AANobbMI", "gvQqBUqZ"] } },
+  installed: {},
   accounts: [{ uuid: "5627dd98e6be3c21b8a8e92344183641", username: "Steve", kind: "offline", selected: true }],
-  instances: [
-    { name: "Classic", minecraftVersion: "1.8.9", loader: "vanilla", loaderVersion: null, loaderLabel: "Vanilla", memoryMb: 2048, joinServer: null, jvmArgs: "", lastPlayed: now - 3600, gameDir: "", running: false, modCount: 0 },
-    { name: "Fabric Optimized", minecraftVersion: "1.21.4", loader: "fabric", loaderVersion: null, loaderLabel: "Fabric", memoryMb: null, joinServer: null, jvmArgs: "", lastPlayed: now - 86400, gameDir: "", running: false, modCount: 3 },
-    { name: "Forge Adventure", minecraftVersion: "1.20.1", loader: "forge", loaderVersion: "47.4.28", loaderLabel: "Forge 47.4.28", memoryMb: 6144, joinServer: null, jvmArgs: "", lastPlayed: now - 3 * 86400, gameDir: "", running: false, modCount: 2 },
-    { name: "Survival", minecraftVersion: "26.3", loader: "vanilla", loaderVersion: null, loaderLabel: "Vanilla", memoryMb: null, joinServer: null, jvmArgs: "", lastPlayed: null, gameDir: "", running: false, modCount: 0 },
-  ],
-  mods: {
-    "Fabric Optimized": [
-      { file: "sodium.jar", enabled: true, size: 1200000, name: "Sodium", version: "0.6.13", description: "Modern rendering engine", loader: "fabric" },
-      { file: "lithium.jar", enabled: true, size: 700000, name: "Lithium", version: "0.15.0", description: "Game logic optimizations", loader: "fabric" },
-      { file: "zoomify.jar.disabled", enabled: false, size: 300000, name: "Zoomify", version: "2.14.2", description: "Zoom with style", loader: "fabric" },
-    ],
-    "Forge Adventure": [
-      { file: "jei.jar", enabled: true, size: 1800000, name: "Just Enough Items", version: "15.20.0", description: "Item and recipe viewer", loader: "forge" },
-      { file: "journeymap.jar", enabled: true, size: 5200000, name: "JourneyMap", version: "5.10.3", description: "Real-time mapping", loader: "forge" },
-    ],
-  },
+  instances: [],
+  mods: {},
   running: new Map(),
 };
 

@@ -107,7 +107,7 @@ export function toast(title, text = "", kind = "info", ms = 4200) {
     if (closing || !el.isConnected) return;
     closing = true;
     // The toast breaks up into dust that drifts off to the right.
-    if (dust.enabled) { el.style.animation = "none"; dust.dissolve(el, { duration: 560, dir: "right", density: 0.9 }).then(() => el.remove()); return; }
+    if (dust.enabled) { el.style.animation = "none"; dust.dissolve(el, { duration: 560, dir: "down", density: 0.9 }).then(() => el.remove()); return; }
     el.classList.add("out");
     setTimeout(() => el.remove(), 260);
   };

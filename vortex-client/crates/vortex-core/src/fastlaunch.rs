@@ -184,14 +184,26 @@ pub fn ensure_base_cds(java: &Path, java_major: u32) -> bool {
     if archive.is_file() {
         return true;
     }
-    let mut cmd = std::process::Command::new(java);
-    cmd.arg("-Xshare:dump").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    // Building the archive takes several seconds, so it never holds up a
+    // launch: it's made once in the background (the next launch uses it),
+    // and a Java that can't make one is never asked again.
+    let tried = server.join("classes.jsa.vortex-tried");
+    if tried.exists() {
+        return false;
     }
-    cmd.status().map(|s| s.success()).unwrap_or(false) && archive.is_file()
+    let _ = std::fs::write(&tried, b"");
+    let java = java.to_path_buf();
+    std::thread::spawn(move || {
+        let mut cmd = std::process::Command::new(&java);
+        cmd.arg("-Xshare:dump").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000 | 0x0000_4000); // CREATE_NO_WINDOW, BELOW_NORMAL_PRIORITY_CLASS
+        }
+        let _ = cmd.status();
+    });
+    false
 }
 
 /// JVM flags that make start-up and play smoother, for Java 17 and newer.

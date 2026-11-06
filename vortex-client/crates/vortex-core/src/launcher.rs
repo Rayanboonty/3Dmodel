@@ -305,6 +305,9 @@ impl Launcher {
             fullscreen: settings.fullscreen,
             join_server: instance.join_server.clone(),
         };
+        // Newer versions take fullscreen from the game's own options.txt over
+        // the --fullscreen flag, so the launcher's choice is written there too.
+        set_game_option(&opts.game_dir, "fullscreen", if settings.fullscreen { "true" } else { "false" });
         report(progress, "Ready", 1, 1);
         launch::build_command(&installed, &self.paths, session, &opts)
     }
@@ -330,5 +333,48 @@ impl Launcher {
     /// Make the next launch of an instance check and repair every file.
     pub fn forget_launch_plan(&self, instance: &Instance) {
         fastlaunch::forget(&self.paths, instance);
+    }
+}
+
+/// Set one `key:value` line in a game folder's options.txt, adding it if
+/// missing and leaving every other option as the player left it.
+pub fn set_game_option(game_dir: &std::path::Path, key: &str, value: &str) {
+    let path = game_dir.join("options.txt");
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let prefix = format!("{key}:");
+    let mut found = false;
+    let mut lines: Vec<String> = text
+        .lines()
+        .map(|l| {
+            if l.starts_with(&prefix) {
+                found = true;
+                format!("{key}:{value}")
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
+    if !found {
+        lines.push(format!("{key}:{value}"));
+    }
+    let _ = std::fs::write(&path, lines.join("\n") + "\n");
+}
+
+#[cfg(test)]
+mod option_tests {
+    use super::set_game_option;
+
+    #[test]
+    fn writes_and_replaces_an_option() {
+        let dir = std::env::temp_dir().join(format!("vortex-opt-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("options.txt"), "version:3955\nfullscreen:false\nfov:0.5\n").unwrap();
+        set_game_option(&dir, "fullscreen", "true");
+        let t = std::fs::read_to_string(dir.join("options.txt")).unwrap();
+        assert_eq!(t, "version:3955\nfullscreen:true\nfov:0.5\n");
+        std::fs::remove_file(dir.join("options.txt")).unwrap();
+        set_game_option(&dir, "fullscreen", "true");
+        assert_eq!(std::fs::read_to_string(dir.join("options.txt")).unwrap(), "fullscreen:true\n");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

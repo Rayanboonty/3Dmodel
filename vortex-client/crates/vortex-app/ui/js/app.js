@@ -235,7 +235,9 @@ const FEATURED_SERVERS = [
 ];
 
 function applyLook(s = S.settings || {}) {
-  s = { ...UI_DEFAULTS, ...s };
+  // Fixed look: the Golden Meadow wallpaper, 40 px corner blur, 60% edge
+  // shade, moving light on, frosted glass.
+  s = { ...UI_DEFAULTS, ...s, wall_custom: false, wall_blur: 40, wall_dim: 60, world_life: true, glass_style: "frosted", glass: 60 };
   world.setScene(s.wall_custom && S.customWall ? "custom" : "golden");
   world.setDim(Math.min(0.6, (s.wall_dim ?? 12) / 100));
   placeAnchor();
@@ -433,7 +435,7 @@ function dustAway(box, { panels = false, duration = 640 } = {}) {
     targets = $$(":scope > :not(.home), :scope > .home > .hero, :scope > .home > .home-side > *, :scope > .home > .home-row > *", ghost);
     targets.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
   }
-  const all = targets.map((t, i) => dust.dissolve(t, { duration, dir: "right", density: panels ? 0.85 : 0.7, delay: i * 55 }));
+  const all = targets.map((t, i) => dust.dissolve(t, { duration, dir: "down", density: panels ? 0.85 : 0.7, delay: i * 55 }));
   Promise.all(all).then(() => ghost.remove());
   setTimeout(() => ghost.remove(), duration + targets.length * 55 + 600);
 }
@@ -446,7 +448,7 @@ function paneIn(pane) {
 /** Dissolve the card or row a control belongs to into dust. */
 function vanish(el) {
   const card = el?.closest(".inst-card, .list-row, .skin-card, .card, .wz-item");
-  return anims() && card ? dust.dissolve(card, { duration: 700, dir: "right" }) : Promise.resolve();
+  return anims() && card ? dust.dissolve(card, { duration: 700, dir: "down" }) : Promise.resolve();
 }
 
 /** Two rings of light burst out of the Launch button. */
@@ -714,7 +716,7 @@ function closeSwitcher(instant = false, then) {
   panel.id = "";
   const done = () => { panel.remove(); then?.(); };
   if (instant || !anims()) done();
-  else dust.dissolve(panel, { duration: 460, dir: "up", density: 0.8 }).then(done);
+  else dust.dissolve(panel, { duration: 460, dir: "down", density: 0.8 }).then(done);
 }
 
 const newsVersion = (n) => n.version || (String(n.title || "").match(/(\d+(?:\.\d+)+(?:[-\s]?(?:snapshot|pre|rc)[-\s]?\d+)?|\d\dw\d\d[a-z])/i)?.[1] || "").replace(/\s+/g, "-").toLowerCase();
@@ -844,11 +846,6 @@ const DEFAULT_LAYOUT = { side: ["account", "servers", "quick"], row: [] };
 
 /** The Home layout, from settings (older settings map onto it). */
 function homeLayout(u = { ...UI_DEFAULTS, ...(S.settings || {}) }) {
-  const w = u.widgets;
-  if (w && Array.isArray(w.side) && Array.isArray(w.row)) {
-    const ok = (z) => w[z].filter((id, i, a) => WIDGETS[id] && WIDGETS[id].zones.includes(z) && a.indexOf(id) === i);
-    return { side: ok("side"), row: ok("row").filter((id) => !w.side.includes(id)) };
-  }
   return {
     side: DEFAULT_LAYOUT.side.filter((id) => id !== "quick" || u.home_quick !== false),
     row: [...DEFAULT_LAYOUT.row],
@@ -962,7 +959,7 @@ function renderHome() {
   const recent = [...S.instances].filter((i) => !inst || i.name !== inst.name).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).slice(0, 3);
   const cluster = inst
     ? `<div class="play-cluster split">${playButton(inst)}<button class="play-more" data-action="toggle-switcher" aria-label="Choose instance" aria-haspopup="menu" aria-expanded="false"><span class="chev">${icon("chev", 12)}</span></button></div>`
-    : `<div class="play-cluster"><button class="play" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
+    : `<div class="play-cluster"><button class="play" id="play" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
   const chips = u.home_recent ? recent.map((i) => `<button class="recent-chip glass glassy hl" data-action="play" data-name="${esc(i.name)}" title="Play ${esc(i.name)}">
       ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(chipSub(i))}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("") : "";
   const fast = inst && S.fast[inst.name];
@@ -976,7 +973,7 @@ function renderHome() {
           ${inst ? `<span class="hero-chip glass glassy">${coverThumb(inst, "xs")}<span>${esc(inst.minecraftVersion)}${updateName(inst.minecraftVersion) ? ` · ${esc(updateName(inst.minecraftVersion))}` : ""}</span></span>` : ""}
           ${fast ? `<span class="hero-chip glass glassy fast" title="Files are ready: the game starts without checking or downloading anything">${icon("bolt", 12)}<span>Instant launch</span></span>` : ""}
           <span class="grow"></span>
-          <button class="hero-chip glass glassy hero-edit" data-action="customize-home" aria-label="Customize Home widgets">${icon("edit", 12)}<span>Customize</span></button>
+
         </div>
         <div class="play-zone">
           ${cluster}
@@ -1252,7 +1249,7 @@ function updateMods() {
   const swept = kindChanged && anims() && pane.children.length && phone();
   if (swept) dustAway(pane, { duration: 560 });
   pane.innerHTML = nextPane.innerHTML;
-  if (swept) dust.reveal(pane, { duration: 560 });
+  if (swept) dust.reveal(pane, { duration: 560, dir: "down" });
   else if (kindChanged && anims()) paneIn(pane);
   pane.dataset.view = `${S.modsTab}|${S.mods.kind}|${S.mods.instance}`;
   hydrateIcons(page);
@@ -1742,23 +1739,7 @@ function settingsBody(d) {
     const u = { ...UI_DEFAULTS, ...d };
     const wall = u.wall_custom && S.customWallUrl ? S.customWallUrl : "img/meadow-sunset.jpg";
     return `<div class="settings-grid">
-      <div class="card-pad"><h3>Wallpaper</h3>
-        <div class="wall-row">
-          <span class="wall-preview" style="background-image:url('${esc(wall)}')"><span class="wall-corners" style="--wb:${u.wall_blur}px"></span></span>
-          <div class="wall-actions">
-            <strong>${u.wall_custom && S.customWallUrl ? "Your image" : "Golden Meadow"}</strong>
-            <span class="muted small">${u.wall_custom && S.customWallUrl ? "Shown on Home and on the in-game menu" : "The default Vortex wallpaper"}</span>
-            <div class="row wrap"><button class="btn btn-sm" data-action="wall-pick">${icon("image", 12)} Choose image</button>${u.wall_custom ? `<button class="btn btn-sm btn-ghost" data-action="wall-reset">Use default</button>` : ""}</div>
-            <input type="file" id="wall-file" accept="image/png,image/jpeg,image/webp" hidden>
-          </div>
-        </div>
-        ${rangeRow("s-wblur", "Corner blur", u.wall_blur, 0, 40, 1, `${u.wall_blur} px`)}
-        ${rangeRow("s-wdim", "Edge shade", u.wall_dim, 0, 60, 1, `${u.wall_dim}%`)}
-        ${swRow(d, "world_life", "Moving light", "Drifting light, birds and sun glow")}
-      </div>
-      <div class="card-pad"><h3>Glass</h3>
-        ${segRow(u, "glass_style", "Style", [["clear", "Clear"], ["frosted", "Frosted"], ["smoke", "Smoke"]], "How much of the wallpaper shows through")}
-        ${rangeRow("s-glass", "Blur", d.glass, 0, 100, 5, glassLabel(d.glass))}
+      <div class="card-pad"><h3>Feel</h3>
         ${segRow(u, "radius", "Corners", [["round", "Round"], ["soft", "Soft"], ["sharp", "Sharp"]])}
         ${segRow(u, "motion", "Motion", [["bouncy", "Bouncy"], ["smooth", "Smooth"]], "How presses, menus and tabs spring")}
       </div>
@@ -1768,7 +1749,6 @@ function settingsBody(d) {
           <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${d.accent === k ? "on" : ""}" style="--c:${c}" data-action="set-choice" data-key="accent" data-value="${k}" aria-label="${k}" title="${k[0].toUpperCase() + k.slice(1)}"></button>`).join("")}</div></div>
       </div>
       <div class="card-pad"><h3>Home</h3>
-        <div class="setting"><div><strong>Widgets</strong><span>Choose, order and place the panels around the wallpaper</span></div><button class="btn btn-sm" data-action="customize-home">${icon("edit", 12)} Customize</button></div>
         ${swRow(u, "home_recent", "Recent instances", "Under the Launch button")}
         ${swRow(u, "side_labels", "Sidebar labels", "Off for a slim icon sidebar")}
         ${swRow(d, "show_player", "3D player", "Your skin, standing at the Launch button")}
@@ -1878,7 +1858,6 @@ function settingsBody(d) {
   return `<div class="settings-grid">
     <div class="card-pad"><h3>Motion and sound</h3>
       ${swRow(d, "animations", "Animations", "The moving world, panel motion and particles")}
-      ${swRow(d, "world_life", "World life", "Drifting light, birds and dust in the wallpaper")}
       ${swRow(d, "ui_sounds", "Sounds", "Clicks, launch sounds and alerts")}
     </div>
   </div>`;
@@ -2098,7 +2077,7 @@ function closeModal(instant = false) {
   // Opened with the mouse: don't leave a focus ring on the card behind.
   if (box?._source && document.activeElement && !document.activeElement.matches("input, textarea, select")) document.activeElement.blur();
   if (instant || !anims()) { scrim.remove(); return; }
-  dust.dissolve(box, { duration: 620, dir: "right" }).then(() => scrim.remove());
+  dust.dissolve(box, { duration: 620, dir: "down" }).then(() => scrim.remove());
 }
 
 function confirmModal(title, text, okLabel = "Delete") {
@@ -2540,7 +2519,7 @@ const actions = {
     const swept = pane && anims() && phone();
     if (swept) dustAway(pane, { duration: 560 });
     refreshSettingsPane();
-    if (swept) dust.reveal(pane, { duration: 560 });
+    if (swept) dust.reveal(pane, { duration: 560, dir: "down" });
     else if (pane && anims()) paneIn(pane);
   },
   "settings-noop"() {},

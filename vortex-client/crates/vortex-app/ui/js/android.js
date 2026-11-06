@@ -111,6 +111,9 @@ function instances() {
   const used = new Set();
   const list = [];
   for (const p of snap.profiles || []) {
+    // Amethyst adds a "Default" 1.7.10 profile on its own; players start
+    // with no instances, so it isn't shown.
+    if (/^\(?Default\)?$/.test((p.name || "").trim()) && p.lastVersionId === "1.7.10" && !p.gameDir) continue;
     const v = parseVersion(p.lastVersionId);
     let name = (p.name || "").trim() || `${LOADER_LABEL[v.loader]} ${v.mc}`;
     let n = name, k = 2;
