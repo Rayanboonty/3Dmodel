@@ -10,6 +10,7 @@ const ctx = canvas.getContext("2d");
 let dpr = 1;
 let W = 0, H = 0;
 let parts = [];
+let toHide = [];
 let rings = [];
 let raf = 0;
 let enabled = true;
@@ -63,6 +64,15 @@ function step(now) {
   ctx.clearRect(0, 0, W, H);
   let n = 0;
   for (const p of parts) {
+    if (p.hold > 0) {
+      // Still part of the element: drawn in place until it breaks off.
+      p.hold -= dt;
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      parts[n++] = p;
+      continue;
+    }
     p.age += dt;
     if (p.age >= p.life) continue;
     if (p.bound && (p.x > p.bound[1] || p.x < p.bound[0])) continue;
@@ -100,12 +110,21 @@ function step(now) {
     // Quick fade in, long fade out, with a slow twinkle.
     const a = Math.min(1, k * 8) * Math.pow(1 - k, p.fade) * (0.75 + 0.25 * Math.sin(t * 9 + p.ph * 3));
     const size = p.bz ? p.size * (0.55 + Math.sin(Math.PI * k) * 0.9) : p.size * (p.tx !== undefined ? 0.6 + 0.4 * (1 - k) : 1 - k * 0.55);
-    ctx.globalAlpha = a * p.alpha;
-    ctx.drawImage(sprite(p.color), p.x - size * 2, p.y - size * 2, size * 4, size * 4);
+    if (p.sq) {
+      // A grain of a broken element: a little square that shrinks as it rises.
+      const q = p.size * (1 - k * 0.7);
+      ctx.globalAlpha = p.alpha * Math.min(1, 1.6 * (1 - k));
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - q / 2, p.y - q / 2, q, q);
+    } else {
+      ctx.globalAlpha = a * p.alpha;
+      ctx.drawImage(sprite(p.color), p.x - size * 2, p.y - size * 2, size * 4, size * 4);
+    }
     parts[n++] = p;
   }
   parts.length = n;
   ctx.globalAlpha = 1;
+  if (toHide.length) { for (const el of toHide) { el.style.opacity = "0"; el.style.visibility = "hidden"; } toHide = []; }
   // Soft glowing bands (the theme change's edge).
   rings = rings.filter((g) => now - g.t0 < g.dur);
   for (const g of rings) {
@@ -200,6 +219,58 @@ function hexToRgb(h) {
 
 const pick = (a) => a[(Math.random() * a.length) | 0];
 
+function paintOf(n, cache) {
+  if (cache.has(n)) return cache.get(n);
+  let out = null;
+  const cs = getComputedStyle(n);
+  if (n.tagName === "IMG" && n.src) {
+    const c = sampleImage(n.src);
+    out = c.length ? c : null;
+  } else if (cs.backgroundImage && cs.backgroundImage !== "none") {
+    const m = cs.backgroundImage.match(/url\("([^"]+)"\)/);
+    if (m && !m[1].startsWith("data:image/svg")) { const c = sampleImage(m[1]); out = c.length ? c : null; }
+  }
+  const solid = (str) => {
+    const m = str && str.match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const [rr, g, b, a = 1] = m[1].split(",").map((v) => parseFloat(v));
+    return a > 0.06 ? `rgba(${rr | 0},${g | 0},${b | 0},${Math.min(1, Math.max(0.6, a)).toFixed(2)})` : null;
+  };
+  // A plain fill, or the colour of a gradient (frosted panels tint that way).
+  if (!out) { const c = solid(cs.backgroundColor) || (cs.backgroundImage.includes("gradient") ? solid(cs.backgroundImage.slice(cs.backgroundImage.indexOf("gradient"))) : null); if (c) out = [c]; }
+  cache.set(n, out);
+  return out;
+}
+
+/** A canvas's pixels with where it sits on screen (null if unreadable). */
+function readCanvas(c) {
+  if (!c || !c.width || !c.height) return null;
+  try {
+    const r = c.getBoundingClientRect();
+    const data = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    return { data, w: c.width, h: c.height, r };
+  } catch { return null; }
+}
+
+function pixelAt(pix, x, y) {
+  const px = Math.floor(((x - pix.r.left) / pix.r.width) * pix.w), py = Math.floor(((y - pix.r.top) / pix.r.height) * pix.h);
+  if (px < 0 || py < 0 || px >= pix.w || py >= pix.h) return null;
+  const i = (py * pix.w + px) * 4;
+  return `rgba(${pix.data[i]},${pix.data[i + 1]},${pix.data[i + 2]},1)`;
+}
+
+function colorAt(el, x, y, cache) {
+  let stack;
+  try { stack = document.elementsFromPoint(x, y); } catch { return null; }
+  for (const n of stack) {
+    if (n === canvas || !el.contains(n)) continue;
+    const c = paintOf(n, cache);
+    if (c) return pick(c);
+    if (n === el) break;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------- API --
 
 export const dust = {
@@ -211,8 +282,54 @@ export const dust = {
    * right by default); what's behind the edge is gone, and dust streams
    * off the edge and drifts away. Resolves when it's fully gone.
    */
-  dissolve(el, { duration = 720, dir = "right", density = 1, keep = false, delay = 0 } = {}) {
+  dissolve(el, { duration = 720, dir = "down", density = 1, keep = false, delay = 0 } = {}) {
     if (delay > 0) return new Promise((res) => setTimeout(() => this.dissolve(el, { duration, dir, density, keep }).then(res), delay));
+    return this.shatter(el, { duration, density });
+  },
+
+  /**
+   * Break an element into particles: it's replaced at once by a grid of
+   * small grains in its own colours (so it still looks like itself), and
+   * the grains break off row by row from the top and float up and away.
+   * Resolves once the last row has broken off.
+   */
+  shatter(el, { duration = 720, density = 1 } = {}) {
+    if (!el || !el.isConnected) return Promise.resolve();
+    const r = el.getBoundingClientRect();
+    if (!enabled || !r.width || !r.height) return Promise.resolve();
+    const area = r.width * r.height;
+    const step = Math.max(3.5, Math.min(14, Math.sqrt(area / (2600 * density))));
+    const cache = new Map();
+    // The wallpaper card is a window onto the wallpaper canvas behind it:
+    // its grains take that picture's own pixels.
+    const pix = el.classList.contains("hero") ? readCanvas(document.getElementById("world")) : null;
+    const wall = [];
+    const fallback = colorsOf(el);
+    // Hit-testing skips things that ignore the pointer; for this moment
+    // nothing inside the element does.
+    el.classList.add("dust-sampling");
+    const peel = (duration / 1000) * 0.7;
+    const cx = r.left + r.width / 2;
+    for (let y = r.top + step / 2; y < r.bottom; y += step) {
+      for (let x = r.left + step / 2; x < r.right; x += step) {
+        const color = (pix ? pixelAt(pix, x, y) : colorAt(el, x, y, cache)) || pick(fallback);
+        const row = (y - r.top) / r.height;
+        add({
+          x: x + (Math.random() - 0.5) * step * 0.3, y: y + (Math.random() - 0.5) * step * 0.3,
+          hold: row * peel + Math.random() * 0.09, sq: true, size: step * 1.02, color,
+          vx: (Math.random() - 0.5) * 50 + ((x - cx) / r.width) * 40, vy: -(30 + Math.random() * 110),
+          turb: 45, drag: 1.1, wx: 0, wy: -38, life: 0.7 + Math.random() * 0.6, alpha: 1,
+        });
+      }
+    }
+    el.classList.remove("dust-sampling");
+    toHide.push(el);
+    kick();
+    return new Promise((res) => setTimeout(res, (peel + 0.1) * 1000));
+  },
+
+  /** The old edge-sweep dissolve, kept for reference. */
+  sweep(el, { duration = 720, dir = "right", density = 1, keep = false } = {}) {
     if (!el || !el.isConnected) return Promise.resolve();
     const r = el.getBoundingClientRect();
     if (!enabled || !r.width || !r.height) return Promise.resolve();
