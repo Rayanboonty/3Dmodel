@@ -9,7 +9,7 @@ plugins {
 // for it (they replace the shared file of the same path).
 def mc = project.findProperty('mc') ?: '1.21.4'
 def vp = new Properties()
-file("versions/${mc}.properties").withInputStream { vp.load(it) }
+file(file("versions/${mc}.properties").exists() ? "versions/${mc}.properties" : "versions/${mc}.properties.wip").withInputStream { vp.load(it) }
 def javaVersion = (vp.java ?: '21') as int
 
 version = "${project.mod_version}+${mc}"

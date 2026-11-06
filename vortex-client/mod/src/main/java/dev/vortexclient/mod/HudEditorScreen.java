@@ -7,7 +7,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
 /** Drag HUD elements around. They snap to the centre lines and edges. */
-public class HudEditorScreen extends Screen {
+public class HudEditorScreen extends ScreenBase {
     private final Screen parent;
     private Module dragging;
     private double grabX, grabY;
@@ -25,7 +25,7 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext c, int mouseX, int mouseY, float delta) {
+    protected void drawBackdrop(DrawContext c, int mouseX, int mouseY, float delta) {
         c.fill(0, 0, width, height, 0x30000000);
     }
 

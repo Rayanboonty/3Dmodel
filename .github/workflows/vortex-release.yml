@@ -104,7 +104,7 @@ jobs:
           New-Item -ItemType Directory -Force dist\Vortex | Out-Null
           Copy-Item target\release\vortex.exe dist\Vortex\Vortex.exe
           Copy-Item target\release\vortex-cli.exe dist\Vortex\vortex-cli.exe
-          Copy-Item crates\vortex-app\resources\vortex-mods.jar dist\Vortex\vortex-mods-1.0.0.jar
+          Copy-Item crates\vortex-app\resources\vortex-mods-*.jar dist\Vortex\ 
           Copy-Item crates\vortex-app\ui\fonts\OFL-*.txt dist\Vortex\
           Copy-Item README.md dist\Vortex\README.md
           $loader = Get-ChildItem -Recurse -Filter WebView2Loader.dll target\release -ErrorAction SilentlyContinue | Select-Object -First 1

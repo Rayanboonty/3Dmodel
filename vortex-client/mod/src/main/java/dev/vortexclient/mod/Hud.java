@@ -184,7 +184,7 @@ public final class Hud {
         ELEMENTS.put("pack", lines(m -> {
             String name = "Default";
             for (var p : mc.getResourcePackManager().getEnabledProfiles()) {
-                String id = p.getId();
+                String id = Compat.packId(p);
                 if (id.equals("vanilla") || id.startsWith("fabric")) continue;
                 name = p.getDisplayName().getString();
             }
@@ -451,16 +451,14 @@ public final class Hud {
         }
 
         String name(StatusEffectInstance e) {
-            Text n = e.getEffectType().value().getName();
+            Text n = Compat.effectName(e);
             String s = n.getString();
             if (e.getAmplifier() > 0) s += " " + Text.translatable("enchantment.level." + (e.getAmplifier() + 1)).getString();
             return s;
         }
 
         String time(StatusEffectInstance e) {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            float rate = mc.world != null ? mc.world.getTickManager().getTickRate() : 20f;
-            return StatusEffectUtil.getDurationText(e, 1.0f, rate).getString();
+            return Compat.durationText(e);
         }
 
         public int[] size(Module m) {
@@ -482,7 +480,7 @@ public final class Hud {
                 int tx = x + 4;
                 if (icons) {
                     Sprite sprite = MinecraftClient.getInstance().getStatusEffectSpriteManager().getSprite(e.getEffectType());
-                    c.drawSpriteStretched(RenderLayer::getGuiTextured, sprite, tx, ty + 1, 18, 18);
+                    Gfx.sprite(c, sprite, tx, ty + 1, 18, 18);
                     tx += 22;
                 }
                 c.drawText(Ui.font(), name(e), tx, ty + 1, textColor(m), shadow(m));
@@ -568,7 +566,7 @@ public final class Hud {
         frameDt = Math.min(0.1f, (now - lastFrame) / 1e9f);
         lastFrame = now;
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.options.hudHidden || mc.getDebugHud().shouldShowDebugHud()) return;
+        if (mc.options.hudHidden || Compat.debugShown()) return;
         if (mc.currentScreen instanceof HudEditorScreen) return;
         int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
         for (Map.Entry<Module, Rect> e : layout(sw, sh).entrySet()) {

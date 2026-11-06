@@ -921,11 +921,20 @@ fn progress_emitter(app: &AppHandle, instance: &str) -> ProgressFn {
     })
 }
 
-/// The Vortex in-game mod, built from `mod/` (see the README).
-const VORTEX_MOD: &[u8] = include_bytes!("../resources/vortex-mods.jar");
+/// The Vortex in-game mod, built from `mod/` for each Minecraft version it
+/// supports (`bash mod/build-all.sh`).
+const VORTEX_MODS: &[(&str, &[u8])] = &[
+    ("1.20.1", include_bytes!("../resources/vortex-mods-1.20.1.jar")),
+    ("1.20.4", include_bytes!("../resources/vortex-mods-1.20.4.jar")),
+    ("1.21.1", include_bytes!("../resources/vortex-mods-1.21.1.jar")),
+    ("1.21.4", include_bytes!("../resources/vortex-mods-1.21.4.jar")),
+];
 const VORTEX_MOD_FILE: &str = "vortex-mods.jar";
-/// Minecraft version the bundled mod is built for.
-const VORTEX_MOD_MC: &str = "1.21.4";
+
+/// The Vortex mod built for this Minecraft version, if there is one.
+fn vortex_mod_for(minecraft: &str) -> Option<&'static [u8]> {
+    VORTEX_MODS.iter().find(|(v, _)| *v == minecraft).map(|(_, jar)| *jar)
+}
 /// Modrinth project id of Fabric API, which the mod needs.
 const FABRIC_API: &str = "P7dR8mSH";
 
@@ -939,12 +948,13 @@ async fn setup_vortex_mod(
     progress: &ProgressFn,
 ) -> anyhow::Result<bool> {
     use anyhow::Context;
-    if !matches!(instance.loader, Loader::Fabric { .. }) || instance.minecraft_version != VORTEX_MOD_MC {
+    if !matches!(instance.loader, Loader::Fabric { .. }) {
         return Ok(false);
     }
+    let Some(vortex_mod) = vortex_mod_for(&instance.minecraft_version) else { return Ok(false) };
     let dir = mods::mods_dir(instance);
     let jar = dir.join(VORTEX_MOD_FILE);
-    if !settings.vortex_mods || VORTEX_MOD.is_empty() {
+    if !settings.vortex_mods || vortex_mod.is_empty() {
         let _ = std::fs::remove_file(&jar);
         return Ok(false);
     }
@@ -953,8 +963,8 @@ async fn setup_vortex_mod(
         return Ok(false);
     }
     std::fs::create_dir_all(&dir)?;
-    if std::fs::read(&jar).map(|b| b != VORTEX_MOD).unwrap_or(true) {
-        std::fs::write(&jar, VORTEX_MOD)?;
+    if std::fs::read(&jar).map(|b| b != vortex_mod).unwrap_or(true) {
+        std::fs::write(&jar, vortex_mod)?;
     }
     let has_api = modrinth::installed(instance).files.values().any(|e| e.project_id == FABRIC_API)
         || mods::list(&dir)?.iter().any(|m| m.name == "Fabric API");

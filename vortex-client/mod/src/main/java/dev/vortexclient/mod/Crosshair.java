@@ -12,7 +12,7 @@ public final class Crosshair {
         Module m = Module.get("crosshair");
         if (!VortexMods.config.enabled(m)) return false;
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getDebugHud().shouldShowDebugHud()) return false;
+        if (Compat.debugShown()) return false;
         if (!mc.options.getPerspective().isFirstPerson()) return true;
         Config cfg = VortexMods.config;
         int cx = c.getScaledWindowWidth() / 2, cy = c.getScaledWindowHeight() / 2;

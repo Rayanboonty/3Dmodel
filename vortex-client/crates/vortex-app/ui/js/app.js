@@ -86,6 +86,8 @@ addEventListener("resize", () => {
 });
 
 const $ = (sel, root = document) => root.querySelector(sel);
+/** Minecraft versions the Vortex in-game mod is built for (see mod/versions). */
+const VORTEX_MC = ["1.20.1", "1.20.4", "1.21.1", "1.21.4"];
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const anims = () => S.settings?.animations !== false;
@@ -1697,7 +1699,7 @@ function renderSkins() {
       <span>${CAPE_NAMES[c] || c}</span></button>`).join("");
   const where = lib.microsoft
     ? "Using a skin uploads it to your Microsoft account, so everyone sees it."
-    : "Offline accounts: Vortex mods show your skin and cape in-game on Fabric 1.21.4. Only you see them.";
+    : `Offline accounts: Vortex mods show your skin and cape in-game on Fabric ${VORTEX_MC.join(", ")}. Only you see them.`;
   return {
     html: sheet("Skins", acc ? `${esc(acc.username)} · ${acc.kind === "microsoft" ? "Microsoft account" : "Offline account"}` : "Add an account to use skins.", `<button class="btn lq" data-action="route" data-route="accounts">${icon("user", 14)} Accounts</button>
         <button class="btn lq" data-action="folder-skins">${icon("folder", 14)} Open folder</button>`, `
@@ -1910,7 +1912,7 @@ function settingsBody(d) {
   if (tab === "ingame") {
     return `<div class="settings-grid">
       <div class="card-pad wide"><h3>Vortex mods</h3>
-        ${swRow(d, "vortex_mods", "Add Vortex mods to the game", "On Fabric 1.21.4 instances. Fabric API is installed with them")}
+        ${swRow(d, "vortex_mods", "Add Vortex mods to the game", `On Fabric ${VORTEX_MC.join(", ")} instances. Fabric API is installed with them`)}
         ${swRow(d, "vortex_menu", "Vortex main menu", "Replaces Minecraft's title screen with your background and logo, and restyles buttons")}
         ${swRow(d, "performance_mods", "Performance mods", "Adds Sodium, Lithium, FerriteCore, EntityCulling and ImmediatelyFast to Fabric instances (ModernFix on Forge) for a much higher frame rate. Each is added once; remove one and it stays removed")}
         <div class="keys">
@@ -2335,7 +2337,7 @@ function logoCanvas() {
 /** Give the game the launcher's background and logo for the Vortex main menu. */
 async function exportMenuArt(inst) {
   const s = S.settings || {};
-  if (!inst || inst.loader !== "fabric" || inst.minecraftVersion !== "1.21.4" || s.vortex_mods === false || s.vortex_menu === false) return;
+  if (!inst || inst.loader !== "fabric" || !VORTEX_MC.includes(inst.minecraftVersion) || s.vortex_mods === false || s.vortex_menu === false) return;
   try {
     const custom = s.wall_custom && S.customWall;
     const sig = `${custom ? `custom:${S.customWall.naturalWidth}x${S.customWall.naturalHeight}:${S.customWallUrl?.length}` : "golden"}:${s.wall_dim ?? 12}:v3`;

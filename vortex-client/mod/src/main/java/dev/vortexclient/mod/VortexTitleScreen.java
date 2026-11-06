@@ -15,7 +15,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Util;
 
 /** Vortex's main menu: the launcher's background and logo, with glass buttons. */
-public class VortexTitleScreen extends Screen {
+public class VortexTitleScreen extends ScreenBase {
     private long openedAt;
     private int logoBottom;
 
@@ -77,7 +77,7 @@ public class VortexTitleScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext c, int mouseX, int mouseY, float delta) {
+    protected void drawBackdrop(DrawContext c, int mouseX, int mouseY, float delta) {
         VortexStyle.Art bg = VortexStyle.background();
         if (bg != null) {
             // Cover the screen, keeping the picture's shape; drift a little with the mouse.
@@ -85,9 +85,9 @@ public class VortexTitleScreen extends Screen {
             int dw = Math.round(bg.w() * s), dh = Math.round(bg.h() * s);
             int ox = (width - dw) / 2 - Math.round((mouseX / (float) Math.max(1, width) - 0.5f) * width * 0.02f);
             int oy = (height - dh) / 2;
-            c.drawTexture(RenderLayer::getGuiTextured, bg.id(), ox, oy, 0f, 0f, dw, dh, bg.w(), bg.h(), bg.w(), bg.h());
+            Gfx.texture(c, bg.id(), ox, oy, dw, dh, bg.w(), bg.h());
         } else {
-            renderPanoramaBackground(c, delta);
+            vanillaBackdrop(c, mouseX, mouseY, delta);
         }
         c.fillGradient(0, 0, width, height / 3, 0x55000000, 0x00000000);
         c.fillGradient(0, height / 2, width, height, 0x00000000, 0xB0050410);
@@ -99,7 +99,7 @@ public class VortexTitleScreen extends Screen {
         if (logo != null) {
             int lw = logoWidth(), lh = logoHeight();
             lw = lh * logo.w() / Math.max(1, logo.h());
-            c.drawTexture(RenderLayer::getGuiTextured, logo.id(), (width - lw) / 2, logoTop() - lift, 0f, 0f, lw, lh, logo.w(), logo.h(), logo.w(), logo.h());
+            Gfx.texture(c, logo.id(), (width - lw) / 2, logoTop() - lift, lw, lh, logo.w(), logo.h());
         } else {
             c.getMatrices().push();
             c.getMatrices().translate(width / 2f, logoTop() - lift, 0);

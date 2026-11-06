@@ -15,7 +15,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 
 /** The Vortex mod menu (Right Shift): a grid of cards, each with an options page. */
-public class ModMenuScreen extends Screen {
+public class ModMenuScreen extends ScreenBase {
     private interface Action {
         void run(double mx, double my);
     }
@@ -551,7 +551,7 @@ public class ModMenuScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double horizontal, double vertical) {
+    protected boolean onScroll(double mx, double my, double horizontal, double vertical) {
         if (selected != null) optScrollTarget -= (float) vertical * 24f;
         else scrollTarget -= (float) vertical * 30f;
         return true;
@@ -583,7 +583,7 @@ public class ModMenuScreen extends Screen {
 
     @Override
     public boolean charTyped(char chr, int mods) {
-        if (selected == null && StringHelper.isValidChar(chr) && search.length() < 24) {
+        if (selected == null && Compat.isValidChar(chr) && search.length() < 24) {
             searchFocused = true;
             search += chr;
             scrollTarget = 0;
