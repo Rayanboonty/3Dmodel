@@ -1982,3 +1982,123 @@ body.no-anim #dust { display: none; }
 /* No light sweeps anywhere: not on opening panels, not on Launch, not on
    accent buttons. */
 .lq-sheen, .play:not(.busy):not(.running)::after, .btn-accent::after { display: none !important; animation: none !important; }
+
+/* ================================================================ phone ===
+   The Android app (and any phone-narrow window): a frosted tab bar along
+   the bottom, the wallpaper card with Steve and Launch fixed at the top of
+   Home with the widgets scrolling under it, full-screen pages with large
+   titles, and dialogs that rise from the bottom like sheets. In landscape
+   the tabs become a slim rail on the left. */
+body.m { font-size: 14px; }
+body.m .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 54px minmax(0, 1fr) 78px; height: 100dvh; }
+body.m .topbar { padding: 0 12px 0 14px; gap: 8px; }
+body.m .brand-logo { height: 28px; }
+body.m .brand-name { font-size: 14px; }
+body.m .brand-name b { display: none; }
+body.m .top-right { gap: 6px; }
+body.m .top-chip { height: 36px; padding: 0 10px; }
+body.m #account-name { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.m #time-chip { display: none; }
+
+/* Bottom tab bar. */
+body.m .sidebar { grid-column: 1; grid-row: 3; flex-direction: row; align-items: stretch; gap: 2px; padding: 6px 12px 10px; }
+body.m .sidebar::before { inset: 2px 8px 8px; border-radius: 24px; }
+body.m .sidebar .tab { flex: 1 1 0; min-width: 0; padding: 9px 2px 7px; gap: 4px; font-size: 10.5px; letter-spacing: 0.04em; border-radius: 18px; }
+body.m .sidebar .tab .px-icon { width: 21px; height: 21px; }
+body.m .sidebar .tab.on .tab-label { letter-spacing: 0.05em; }
+body.m .side-version { display: none; }
+body.m .sidebar .drop {
+  top: 8px; bottom: 14px; height: auto; border-radius: 18px;
+  transition: left 0.52s var(--spring) var(--dl, 0s), right 0.52s var(--spring) var(--dr, 0s), scale 0.45s var(--spring), background 0.3s, box-shadow 0.3s, opacity 0.2s;
+}
+body.m .sidebar .drop.moving { scale: 1 0.86; }
+body.m .page { grid-column: 1; grid-row: 2; margin: 0 10px 0; }
+
+/* Home: the wallpaper card stays put, the widgets scroll under it. */
+body.m .page > .home {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 57%) minmax(0, 1fr); gap: 12px;
+}
+body.m .home .hero { grid-column: 1; grid-row: 1; min-height: 0; border-radius: 24px; }
+body.m .home .home-row { display: none; }
+body.m .home .home-side {
+  grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto; overscroll-behavior: contain; gap: 10px; padding-bottom: 8px;
+  scrollbar-width: none; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 14px), transparent);
+  mask-image: linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 14px), transparent);
+}
+body.m .home .home-side::-webkit-scrollbar { display: none; }
+body.m .home-side > .w-grow { flex: none; min-height: 0; }
+body.m .home-side .side-body.servers { max-height: none; overflow: visible; }
+body.m .hero-top { top: 12px; left: 12px; right: 12px; }
+body.m .hero-chip { height: 30px; font-size: 12px; }
+body.m .play-zone { gap: 10px; }
+body.m .play { width: min(280px, 70vw); height: 64px; }
+body.m .play-more { height: 64px; width: 52px; }
+body.m .play-label { font-size: 19px; }
+body.m .play-sub { font-size: 12px; }
+body.m .recent { flex-wrap: nowrap; overflow-x: auto; max-width: calc(100vw - 44px); scrollbar-width: none; padding: 2px 4px; justify-content: flex-start; }
+body.m .recent::-webkit-scrollbar { display: none; }
+body.m .recent-chip { flex: none; }
+body.m .quick-side .quick { padding: 6px; }
+
+/* Pages. */
+body.m .sheet { border-radius: 24px; }
+body.m .sheet-head { padding: 18px 16px 12px; gap: 12px; align-items: flex-start; }
+body.m .sheet-head > div:first-child { min-width: 0; }
+body.m .sheet-head h1 { font-size: 26px; }
+body.m .sheet-head p { font-size: 13px; }
+body.m .sheet-head .row { width: 100%; flex-wrap: wrap; gap: 8px; }
+body.m .sheet-head .row > .input, body.m .sheet-head .row > select { flex: 1 1 140px; width: auto !important; min-width: 0; }
+body.m .sheet-body { padding: 2px 12px 24px; }
+body.m .tabs:not(.sidebar) { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+body.m .tabs:not(.sidebar)::-webkit-scrollbar { display: none; }
+body.m .tabs:not(.sidebar) .tab { flex: none; }
+body.m .hit-title span { display: none; }
+body.m .hit { gap: 12px; }
+body.m .cards, body.m .cards.inst-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+body.m .inst-body { padding: 10px 11px 10px; gap: 8px; }
+body.m .inst-body .card-name { font-size: 14.5px; }
+body.m .inst-update { font-size: 9.5px; }
+body.m .inst-body .card-actions .card-sub { display: none; }
+body.m .hits { grid-template-columns: minmax(0, 1fr); }
+body.m .settings-grid, body.m .accounts-layout, body.m .loaders, body.m .wiz-pick, body.m .wz-zones, body.m .wz-add { grid-template-columns: minmax(0, 1fr); }
+body.m .accounts-layout > :first-child { display: none; }
+body.m .vrow { grid-template-columns: 64px minmax(0, 1fr) 76px; }
+body.m .vrow > :nth-child(4) { display: none; }
+body.m .vpreview { display: none; }
+body.m .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+body.m .mods-tools { flex-wrap: wrap; gap: 8px; }
+body.m .setting { gap: 12px; }
+
+/* Dialogs rise from the bottom; notifications drop from the top. */
+body.m .scrim { align-items: end; padding: 0 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+body.m .modal { width: 100% !important; max-width: none; max-height: 88dvh; overflow-y: auto; border-radius: 26px 26px 20px 20px; padding: 20px 18px; }
+body.m .toasts { left: 10px; right: 10px; top: 60px; bottom: auto; width: auto; flex-direction: column; }
+body.m .savebar { bottom: 12px; }
+body.m .log-dock { left: 8px; right: 8px; width: auto; bottom: 86px; transform: translate(0, 20px); }
+body.m .log-dock.open { transform: none; }
+body.m .switcher { max-width: calc(100vw - 24px); }
+
+/* Landscape phone: a slim rail on the left, Home side by side. */
+body.m.land .app { grid-template-columns: 74px minmax(0, 1fr); grid-template-rows: 46px minmax(0, 1fr); }
+body.m.land .sidebar { grid-column: 1; grid-row: 2; flex-direction: column; padding: 2px 8px 10px; gap: 2px; }
+body.m.land .sidebar::before { inset: 0 4px 8px; }
+body.m.land .sidebar .tab { flex: 1 1 0; padding: 4px 2px; gap: 2px; }
+body.m.land .sidebar .tab-label { display: none; }
+body.m.land .sidebar .drop { left: 10px; right: 10px; top: 4px; bottom: auto;
+  transition: top 0.56s var(--spring) var(--dt, 0s), bottom 0.56s var(--spring) var(--db, 0s), scale 0.45s var(--spring), background 0.3s, box-shadow 0.3s, opacity 0.2s; }
+body.m.land .page { grid-column: 2; grid-row: 2; margin: 0 10px 10px 0; }
+body.m.land .page > .home { grid-template-columns: minmax(0, 1fr) 260px; grid-template-rows: minmax(0, 1fr); }
+body.m.land .home .home-side { grid-column: 2; grid-row: 1; }
+body.m.land .play { height: 56px; }
+body.m.land .play-more { height: 56px; }
+body.m.land .sheet-head { padding: 12px 16px 8px; }
+body.m.land .sheet-head h1 { font-size: 22px; }
+body.m.land .cards, body.m.land .cards.inst-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+
+/* Touch: no hover-only reveals. */
+@media (hover: none) {
+  .inst-card .inst-play { opacity: 1; transform: none; }
+  .srv .srv-join { opacity: 1; scale: 1; pointer-events: auto; position: static; }
+  .srv .srv-count { display: none; }
+  .srv:hover { translate: none; }
+}

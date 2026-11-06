@@ -25,6 +25,8 @@ def edit(path, pairs, regex=False):
     p = pathlib.Path(path)
     s = p.read_text(encoding="utf-8")
     for a, b in pairs:
+        if b in s:  # already applied
+            continue
         if regex:
             s2 = re.sub(a, b, s, count=1, flags=re.S)
         else:
@@ -125,7 +127,44 @@ edit(JAVA / "net" / "kdt" / "pojavlaunch" / "prefs" / "LauncherPreferences.java"
      'PREF_BIG_CORE_AFFINITY = DEFAULT_PREF.getBoolean("bigCoreAffinity", isDevicePowerful);'),
 ])
 
-# 6. Credit where it's due (LGPL-3.0): keep Amethyst's licence and say so.
+# 6. The Vortex interface. The launcher screen becomes the same interface as
+#    the Windows app (served from the APK's assets into a WebView), talking to
+#    Amethyst through a native bridge. Amethyst's own screens stay for
+#    Microsoft sign-in, advanced settings, touch controls and installers.
+UI = HERE.parent / "crates" / "vortex-app" / "ui"
+assets = MAIN / "assets" / "vortex"
+if assets.exists():
+    shutil.rmtree(assets)
+shutil.copytree(UI, assets)
+shutil.copytree(HERE / "overlay" / "java", JAVA, dirs_exist_ok=True)
+launcher = JAVA / "net" / "kdt" / "pojavlaunch" / "LauncherActivity.java"
+V = "net.kdt.pojavlaunch.vortex.VortexWeb"
+if V not in launcher.read_text(encoding="utf-8"):
+    edit(launcher, [
+        ("        bindViews();\n", f"        bindViews();\n        {V}.attach(this);\n"),
+        ("        mInstallTracker.attach();\n", f"        mInstallTracker.attach();\n        {V}.onResume(this);\n"),
+        ("        mInstallTracker.detach();\n", f"        mInstallTracker.detach();\n        {V}.onPause(this);\n"),
+        ("        super.onDestroy();\n        mProgressLayout.cleanUpObservers();",
+         f"        super.onDestroy();\n        {V}.onDestroy(this);\n        mProgressLayout.cleanUpObservers();"),
+        ("    public void onBackPressed() {\n",
+         f"    public void onBackPressed() {{\n        if ({V}.onBack(this, this::finish)) return;\n"),
+    ])
+# Turning the phone shouldn't restart the launcher (and reload the interface).
+manifest = MAIN / "AndroidManifest.xml"
+m = manifest.read_text(encoding="utf-8")
+LA = '            android:name=".LauncherActivity"\n'
+if LA + "            android:configChanges" not in m:
+    m = m.replace(LA, LA + '            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode"\n', 1)
+    manifest.write_text(m, encoding="utf-8")
+
+# 7. No "Amethyst" left in the app's own text (crash screen, notifications);
+#    the credit stays in the About text below.
+for strings in RES.glob("values*/strings.xml"):
+    t = strings.read_text(encoding="utf-8")
+    if "Amethyst" in t:
+        strings.write_text(t.replace("Amethyst", "Vortex Client"), encoding="utf-8")
+
+# 8. Credit where it's due (LGPL-3.0): keep Amethyst's licence and say so.
 about = MAIN / "assets" / "about_en.txt"
 if about.exists():
     t = about.read_text(encoding="utf-8")

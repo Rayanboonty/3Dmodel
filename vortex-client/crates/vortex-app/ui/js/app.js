@@ -1,5 +1,5 @@
 // Vortex Client UI: routing, pages, liquid-glass interactions, live game state.
-import { call, on, onFileDrop, isTauri } from "./api.js";
+import { call, on, onFileDrop, isTauri, isAndroid } from "./api.js";
 import { icon, hydrateIcons, drawAvatar } from "./icons.js";
 import { World, SCENES, sceneThumb, sceneStill, setCustomPicture } from "./scene.js";
 import { initLiquid, setMotion, morphIn, morphOut, pressedSource, swipeToDismiss } from "./liquid.js";
@@ -60,6 +60,27 @@ const ROUTES = {
   settings: renderSettings,
 };
 const NAV_OF = { new: "instances" };
+
+// Android: no Skins page (offline skins need the Vortex in-game mod), and
+// the phone layout with a bottom tab bar.
+if (isAndroid) {
+  delete ROUTES.skins;
+  document.documentElement.classList.add("android");
+}
+const phone = () => isAndroid || matchMedia("(max-width: 760px)").matches;
+function applyPhone() {
+  const m = phone();
+  const land = m && innerWidth > innerHeight && innerHeight < 560;
+  document.body.classList.toggle("m", m);
+  document.body.classList.toggle("land", land);
+  const nav = document.getElementById("nav");
+  if (nav) nav.classList.toggle("vertical", !m || land);
+}
+addEventListener("resize", () => {
+  const before = document.body.className;
+  applyPhone();
+  if (document.body.className !== before) { const nav = document.getElementById("nav"); const d = nav?.querySelector(".drop"); if (d) { delete d.dataset.top; delete d.dataset.left; d.removeAttribute("style"); } }
+});
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -860,7 +881,7 @@ function widgetHtml(id, zone, inst, acc) {
   if (id === "quick") {
     const grid = `<div class="quick glass hl">
         <button class="qa" data-action="route" data-route="mods"><span class="qa-ico">${icon("puzzle", 16)}</span><span>Mods</span></button>
-        <button class="qa" data-action="route" data-route="skins"><span class="qa-ico">${icon("shirt", 16)}</span><span>Skins</span></button>
+        ${isAndroid ? `<button class="qa" data-action="native" data-what="controls"><span class="qa-ico">${icon("edit", 16)}</span><span>Controls</span></button>` : `<button class="qa" data-action="route" data-route="skins"><span class="qa-ico">${icon("shirt", 16)}</span><span>Skins</span></button>`}
         <button class="qa" data-action="route" data-route="new"><span class="qa-ico">${icon("plus", 16)}</span><span>New</span></button>
         <button class="qa" data-action="folder" data-name="${esc(inst?.name || "")}" ${inst ? "" : "disabled"}><span class="qa-ico">${icon("folder", 16)}</span><span>Folder</span></button></div>`;
     return zone === "row" ? `<div class="hblock quick-block"><div class="block-head"><h2>Quick actions</h2></div>${grid}</div>` : `<div class="quick-side">${grid}</div>`;
@@ -1675,7 +1696,7 @@ function renderAccounts() {
               <div class="card-pad"><h3>Microsoft</h3>
                 <p class="muted" style="margin:0">Use the account that owns Minecraft: Java Edition.</p>
                 <div><button class="btn lq" data-action="acc-ms">Sign in with Microsoft</button></div>
-                ${S.settings?.microsoft_client_id ? "" : `<span class="muted" style="font-size:13px">Add your Azure client ID in Settings first.</span>`}
+                ${S.settings?.microsoft_client_id || isAndroid ? "" : `<span class="muted" style="font-size:13px">Add your Azure client ID in Settings first.</span>`}
               </div>
             </div>
           </div>
@@ -1699,7 +1720,9 @@ function skyControls(d) {
     <div class="field" ${d.sky === "cycle" ? "" : "hidden"} id="daylen-field"><label class="label" for="s-day">Length of a day</label><div class="row"><input class="range grow" id="s-day" type="range" min="2" max="40" step="1" value="${d.day_length_min}" style="--fill:${((d.day_length_min - 2) / 38) * 100}%"><span class="value" id="s-day-v">${d.day_length_min} min</span></div></div>`;
 }
 
-const SETTINGS_TABS = [["general", "General"], ["appearance", "Appearance"], ["game", "Game"], ["ingame", "In-game"], ["data", "Account & data"]];
+const SETTINGS_TABS = isAndroid
+  ? [["general", "General"], ["appearance", "Appearance"], ["game", "Game"], ["data", "Storage"]]
+  : [["general", "General"], ["appearance", "Appearance"], ["game", "Game"], ["ingame", "In-game"], ["data", "Account & data"]];
 const WINDOW_SIZES = [["", "Minecraft default (854 × 480)"], ["1280x720", "1280 × 720"], ["1600x900", "1600 × 900"], ["1920x1080", "1920 × 1080"], ["2560x1440", "2560 × 1440"], ["custom", "Custom"]];
 
 const swRow = (d, key, title, desc) => `<div class="setting"><div><strong>${title}</strong>${desc ? `<span>${desc}</span>` : ""}</div><button class="switch" role="switch" aria-checked="${!!d[key]}" data-action="set-bool" data-key="${key}" aria-label="${title}"></button></div>`;
@@ -1744,6 +1767,35 @@ function settingsBody(d) {
         ${swRow(u, "side_labels", "Sidebar labels", "Off for a slim icon sidebar")}
         ${swRow(d, "show_player", "3D player", "Your skin, standing at the Launch button")}
         ${swRow(u, "intro", "Entrance", "He runs in and catches his breath when the launcher opens")}
+      </div>
+    </div>`;
+  }
+  if (tab === "game" && isAndroid) {
+    const hi = S.ramMax || 4096;
+    const max = Math.min(d.max_memory_mb, hi);
+    return `<div class="settings-grid">
+      <div class="card-pad"><h3>Memory</h3>
+        ${rangeRow("s-max", "Memory for the game", max, 1024, hi, 256, gb(max))}
+        <span class="muted small">This phone has ${gb(S.deviceRamMb || hi)}. Leave room for Android: about half is a good start.</span>
+      </div>
+      <div class="card-pad"><h3>Touch and graphics</h3>
+        <div class="setting"><div><strong>Touch controls</strong><span>Move, resize and add on-screen buttons</span></div><button class="btn btn-sm" data-action="native" data-what="controls">${icon("edit", 12)} Edit</button></div>
+        <div class="setting"><div><strong>Renderer, resolution and more</strong><span>Graphics backend, render scale, gyroscope, mouse and Java options</span></div><button class="btn btn-sm" data-action="native" data-what="settings">${icon("gear", 12)} Open</button></div>
+      </div>
+      <div class="card-pad"><h3>Mod downloads</h3>
+        ${swRow(d, "mods_with_dependencies", "Install required mods", "Adds the libraries a mod needs, like Fabric API")}
+        ${swRow(d, "mods_allow_unstable", "Prefer beta versions", "Otherwise betas are used only when there's nothing else")}
+      </div>
+    </div>`;
+  }
+  if (tab === "data" && isAndroid) {
+    return `<div class="settings-grid">
+      <div class="card-pad"><h3>Storage</h3>
+        <div class="field"><span class="label">Game folder</span><code class="path">${esc(S.dataDir)}</code></div>
+        <div class="row wrap"><button class="btn btn-sm lq" data-action="folder-data">${icon("folder", 12)} Open</button><button class="btn btn-sm lq" data-action="native" data-what="logs">${icon("log", 12)} Share logs</button></div>
+      </div>
+      <div class="card-pad"><h3>About</h3>
+        <div class="setting"><div><strong>Vortex Client ${esc(S.appVersion)}</strong><span>Built on Amethyst (LGPL-3.0), the successor of PojavLauncher, which runs Java Edition on Android</span></div></div>
       </div>
     </div>`;
   }
@@ -1861,7 +1913,7 @@ function mountSettings(root, d) {
       markDirty();
     });
   };
-  range("#s-max", "max_memory_mb", gb, 1024, 32768);
+  range("#s-max", "max_memory_mb", gb, 1024, isAndroid ? S.ramMax || 4096 : 32768);
   range("#s-min", "min_memory_mb", gb, 256, 8192);
   range("#s-dl", "download_concurrency", String, 1, 64);
   range("#s-day", "day_length_min", (v) => `${v} min`, 2, 40, (v) => world.setDayLength(v));
@@ -2299,6 +2351,7 @@ const actions = {
     call("open_path", { target: "instance", name: el.dataset.name }).catch((er) => toast("Couldn't open the folder", errText(er), "error"));
   },
   "folder-mods"() { call("open_path", { target: "mods", name: S.mods.instance }).catch((er) => toast("Couldn't open the folder", errText(er), "error")); },
+  native(el) { call("open_native", { what: el.dataset.what }).catch((er) => toast("Couldn't open it", errText(er), "error")); },
   "folder-data"() { call("open_path", { target: "data" }).catch((er) => toast("Couldn't open the folder", errText(er), "error")); },
   async delete(el, e) {
     e.stopPropagation();
@@ -2738,7 +2791,29 @@ function updateAccount() {
 function bindChrome() {
   hydrateIcons(document);
   bindLiquid();
+  if (isAndroid) $('#nav .tab[data-route="skins"]')?.remove();
+  applyPhone();
+  matchMedia("(max-width: 760px)").addEventListener?.("change", () => { applyPhone(); liquidTabs($("#nav"), true); requestAnimationFrame(placeHero); });
   $$("#nav .tab").forEach((b) => b.addEventListener("click", () => go(b.dataset.route)));
+  // Android's back button: close what's open, then go Home, then leave.
+  window.__vortexBack = () => {
+    if ($("#modal-root .scrim:not(.closing)")) { closeModal(); return true; }
+    if ($("#popover-root").children.length) { closePopover(); return true; }
+    if ($("#switcher")) { closeSwitcher(); return true; }
+    if (S.log.open) { toggleLog(); return true; }
+    if (S.route === "new") { go("instances"); return true; }
+    if (S.route !== "home") { go("home"); return true; }
+    return false;
+  };
+  if (isAndroid) on("android-resume", async () => {
+    try {
+      S.instances = await call("list_instances");
+      S.accounts = await call("bootstrap").then((b) => b.accounts);
+      if (!S.instances.some((i) => i.name === S.selected)) S.selected = S.instances[0]?.name || null;
+      updateAccount();
+      if (!$("#modal-root .scrim")) render();
+    } catch { /* keep what's shown */ }
+  });
   $("#account-chip").addEventListener("click", () => go("accounts"));
   $("#time-chip").addEventListener("click", openTimePopover);
   $("#log-toggle").addEventListener("click", toggleLog);
@@ -2819,6 +2894,9 @@ async function boot() {
     const b = await call("bootstrap");
     S.appVersion = b.appVersion;
     S.dataDir = b.dataDir;
+    S.platform = b.platform || (isTauri ? "windows" : "preview");
+    S.deviceRamMb = b.deviceRamMb || 0;
+    S.ramMax = b.deviceRamMb ? Math.max(1024, Math.floor((b.deviceRamMb * 0.75) / 256) * 256) : 0;
     S.settings = { sky: "cycle", day_length_min: 10, background: "golden", vortex_menu: true, fast_launch: true, tuned_jvm: true, ...b.settings };
     if (S.settings.wall_custom) await setWallImage(await wallStore.get());
     S.accounts = b.accounts;

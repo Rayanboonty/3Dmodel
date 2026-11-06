@@ -1,17 +1,21 @@
-// Bridge to the Rust backend. Inside the Vortex app this is Tauri IPC; in a
-// plain browser (design previews) it falls back to a demo backend.
+// Bridge to the backend. In the Windows app this is Tauri IPC to Rust; in
+// the Android app it's Amethyst through a native bridge; in a plain browser
+// (design previews) it falls back to a demo backend.
 import { mock } from "./mock.js";
+import { android, isAndroid } from "./android.js";
 
 const T = window.__TAURI__;
 export const isTauri = !!(T && T.core && T.core.invoke);
+export { isAndroid };
+const backend = isAndroid ? android : mock;
 
 export function call(cmd, args = {}) {
-  return isTauri ? T.core.invoke(cmd, args) : mock.invoke(cmd, args);
+  return isTauri ? T.core.invoke(cmd, args) : backend.invoke(cmd, args);
 }
 
 export function on(event, handler) {
   if (isTauri) return T.event.listen(event, (e) => handler(e.payload));
-  return mock.listen(event, handler);
+  return backend.listen(event, handler);
 }
 
 /** Files dropped on the window (Tauri only). */
