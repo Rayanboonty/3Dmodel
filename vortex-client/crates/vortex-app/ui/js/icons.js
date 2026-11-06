@@ -315,6 +315,22 @@ const BITMAPS = {
 
 const cache = new Map();
 
+// Some icons are drawn in separate parts so each part can move on its own
+// (the grid's tiles, the player's head, the puzzle piece's nubs). Each
+// function maps a filled pixel to its part number.
+const PARTS = {
+  grid: (x, y) => (x > 4 ? 1 : 0) + (y > 4 ? 2 : 0),
+  user: (x, y) => (y < 4 ? 1 : 0),
+  puzzle: (x, y) => (x >= 8 ? 1 : y <= 1 ? 2 : 0),
+  folder: (x, y) => (y < 2 ? 1 : 0),
+  trash: (x, y) => (y < 2 ? 1 : 0),
+  download: (x, y) => (y < 7 ? 1 : 0),
+};
+// Extra pixels drawn outside the icon that only show while it animates.
+const TRAILS = {
+  play: "M-3 2h2v1h-2zM-4 3h3v2h-3zM-3 5h2v1h-2z",
+};
+
 /** SVG markup for an icon. */
 export function icon(name, size = 18) {
   const key = `${name}:${size}`;
@@ -322,21 +338,25 @@ export function icon(name, size = 18) {
   const rows = BITMAPS[name] || BITMAPS.sparkle;
   const w = Math.max(...rows.map((r) => r.length));
   const h = rows.length;
-  let d = "";
+  const part = PARTS[name] || (() => 0);
+  const d = [];
   rows.forEach((row, y) => {
     let x = 0;
     while (x < row.length) {
       if (row[x] === "#") {
+        const p = part(x, y);
         let run = 1;
-        while (row[x + run] === "#") run++;
-        d += `M${x} ${y}h${run}v1h-${run}z`;
+        while (row[x + run] === "#" && part(x + run, y) === p) run++;
+        d[p] = (d[p] || "") + `M${x} ${y}h${run}v1h-${run}z`;
         x += run;
       } else x++;
     }
   });
   const svgW = (size * w) / Math.max(w, h);
   const svgH = (size * h) / Math.max(w, h);
-  const svg = `<svg class="px-icon" viewBox="0 0 ${w} ${h}" width="${svgW.toFixed(1)}" height="${svgH.toFixed(1)}" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="${d}"/></svg>`;
+  const paths = d.map((pd, i) => (pd ? `<path class="ip ip${i}" fill="currentColor" d="${pd}"/>` : "")).join("");
+  const trail = TRAILS[name] ? `<path class="ip-trail" fill="currentColor" d="${TRAILS[name]}"/>` : "";
+  const svg = `<svg class="px-icon ic-${name in BITMAPS ? name : "sparkle"}" viewBox="0 0 ${w} ${h}" width="${svgW.toFixed(1)}" height="${svgH.toFixed(1)}" aria-hidden="true" shape-rendering="crispEdges">${trail}${paths}</svg>`;
   cache.set(key, svg);
   return svg;
 }

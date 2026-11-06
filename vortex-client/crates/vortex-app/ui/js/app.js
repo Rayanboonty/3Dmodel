@@ -223,7 +223,21 @@ function applyLook(s = S.settings || {}) {
   document.documentElement.style.colorScheme = light ? "light" : "dark";
   setTimeout(tintGlass, 30);
   const tt = $("#theme-toggle");
-  if (tt) { tt.innerHTML = icon(light ? "moon" : "sun", 16); tt.setAttribute("aria-label", light ? "Switch to dark mode" : "Switch to light mode"); }
+  if (tt) {
+    const want = light ? "moon" : "sun";
+    if (tt.dataset.ic !== want) {
+      const first = !tt.dataset.ic;
+      tt.dataset.ic = want;
+      tt.innerHTML = icon(want, 16);
+      // The sun sets and the moon swings in (or the other way round).
+      if (!first && anims()) tt.firstElementChild.animate([
+        { rotate: light ? "-100deg" : "120deg", scale: 0.3, opacity: 0 },
+        { offset: 0.6, rotate: light ? "12deg" : "-10deg", scale: 1.15, opacity: 1 },
+        { rotate: "0deg", scale: 1, opacity: 1 },
+      ], { duration: 620, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    }
+    tt.setAttribute("aria-label", light ? "Switch to dark mode" : "Switch to light mode");
+  }
   for (const k of ["clear", "frosted", "smoke"]) b.toggle(`glass-${k}`, s.glass_style === k);
   for (const k of ["round", "soft", "sharp"]) b.toggle(`radius-${k}`, s.radius === k);
   b.toggle("compact-side", s.side_labels === false);
@@ -345,6 +359,14 @@ function bindLiquid() {
     if (!el || el.disabled) return;
     sound.click();
   });
+  document.addEventListener("click", (e) => {
+    const sw = e.target.closest(".switch");
+    if (!sw || !anims()) return;
+    sw.classList.remove("flick");
+    void sw.offsetWidth;
+    sw.classList.add("flick");
+    setTimeout(() => sw.classList.remove("flick"), 450);
+  });
   document.addEventListener("pointermove", (e) => {
     const el = e.target.closest(".hl");
     if (!el) return;
@@ -363,8 +385,11 @@ function go(route, opts = {}) {
   S.switcher = false;
   closePopover();
   const navRoute = NAV_OF[route] || route;
+  const wasOn = $("#nav .tab.on");
   $$("#nav .tab").forEach((b) => b.classList.toggle("on", b.dataset.route === navRoute));
   liquidTabs($("#nav"));
+  const nowOn = $("#nav .tab.on");
+  if (nowOn && nowOn !== wasOn && !opts.silent) popTab(nowOn);
   document.body.classList.toggle("sheet-open", route !== "home");
   if (route !== "home") document.body.classList.remove("hero-on");
   if (!same && !opts.silent) sound.nav();
@@ -376,14 +401,54 @@ function go(route, opts = {}) {
     page.style.setProperty("--ox", `${Math.round(tr.left + tr.width / 2 - pr.left)}px`);
     page.style.setProperty("--oy", `${Math.round(tr.top + tr.height / 2 - pr.top)}px`);
   }
+  // Clicking several tabs quickly renders only the last one, once.
+  const leaving = !!goTimer;
+  clearTimeout(goTimer);
+  goTimer = 0;
   const swap = () => {
+    goTimer = 0;
     page.classList.remove("leave");
-    render({ enter: !same });
+    render({ enter: true });
   };
-  if (!same && anims() && page.children.length) {
+  if ((!same || leaving) && anims() && page.children.length) {
     page.classList.add("leave");
-    setTimeout(swap, 170);
-  } else swap();
+    goTimer = setTimeout(swap, leaving ? 90 : 170);
+  } else {
+    page.classList.remove("leave");
+    render({ enter: !same || leaving });
+  }
+}
+let goTimer = 0;
+
+/** A sidebar tab just became active: its icon plays its own little move
+ *  and a few pixels spark off it. */
+function popTab(tab) {
+  if (!anims()) return;
+  tab.classList.remove("pop");
+  void tab.offsetWidth;
+  tab.classList.add("pop");
+  clearTimeout(tab._pop);
+  tab._pop = setTimeout(() => tab.classList.remove("pop"), 950);
+  const slot = tab.querySelector(".icon-slot");
+  if (!slot) return;
+  slot.querySelectorAll(".spark").forEach((o) => o.remove());
+  const colors = ["var(--accent)", "#fff3d6", "var(--accent-deep)"];
+  for (let i = 0; i < 7; i++) {
+    const sp = document.createElement("i");
+    sp.className = "spark";
+    const a = (i / 7) * Math.PI * 2 + Math.random() * 0.6;
+    const r = 16 + Math.random() * 9;
+    const sz = Math.random() > 0.6 ? 3 : 2;
+    sp.style.cssText = `width:${sz}px;height:${sz}px;background:${colors[i % 3]}`;
+    slot.appendChild(sp);
+    const done = () => sp.remove();
+    const at = (k) => `${(Math.cos(a) * k).toFixed(1)}px ${(Math.sin(a) * k).toFixed(1)}px`;
+    sp.animate([
+      { translate: at(9), opacity: 0, scale: 1 },
+      { offset: 0.25, opacity: 1 },
+      { translate: at(r), opacity: 0, scale: 0.4 },
+    ], { duration: 520 + Math.random() * 160, delay: 90, easing: "cubic-bezier(0.15, 0.8, 0.3, 1)", fill: "both" }).finished.then(done, done);
+  }
 }
 
 function render(opts = {}) {
@@ -535,8 +600,8 @@ function serverRow(sv) {
   const icon_ = st?.icon ? `<img class="srv-icon" src="${esc(st.icon)}" alt="">` : `<span class="srv-icon blank">${letter}</span>`;
   const status = !st ? `<span class="srv-count muted"><span class="spin"></span></span>`
     : st.error ? `<span class="srv-count off">Offline</span>`
-    : `<span class="srv-count"><i class="dot"></i>${fmtCount(st.online)}</span>`;
-  return `<div class="srv" title="${esc(st?.motd || sv.address)}">
+    : `<span class="srv-count"><i class="dot"></i><b class="n">${fmtCount(st.online)}</b></span>`;
+  return `<div class="srv" data-address="${esc(sv.address)}" title="${esc(st?.motd || sv.address)}">
     ${icon_}
     <span class="meta"><strong>${esc(sv.name || sv.address)}</strong><span>${esc(sv.address)}${st && !st.error && st.pingMs ? ` · ${st.pingMs} ms` : ""}</span></span>
     ${status}
@@ -556,11 +621,37 @@ function refreshServers(force = false) {
     call("server_status", { address: sv.address })
       .then((r) => { S.serverStatus[sv.address] = { ...r, at: Date.now() }; })
       .catch((e) => { S.serverStatus[sv.address] = { error: errText(e), at: Date.now() }; })
-      .finally(() => {
-        const body = $("#servers-body");
-        if (body) { body.innerHTML = serversBody(); hydrateIcons(body); }
-      });
+      .finally(() => updateServerRow(sv));
   }
+}
+
+const countedServers = new Set();
+
+/** Swap in one server's row (the others keep their hover state), and
+ *  count its players up the first time they arrive. */
+function updateServerRow(sv) {
+  const body = $("#servers-body");
+  if (!body) return;
+  const old = [...body.querySelectorAll(":scope > .srv")].find((r) => r.dataset.address === sv.address);
+  const tmp = document.createElement("div");
+  tmp.innerHTML = serverRow(sv);
+  const row = tmp.firstElementChild;
+  hydrateIcons(row);
+  if (old) old.replaceWith(row); else { body.innerHTML = serversBody(); hydrateIcons(body); return; }
+  const st = S.serverStatus[sv.address];
+  const n = row.querySelector(".srv-count .n");
+  if (!n || countedServers.has(sv.address)) return;
+  countedServers.add(sv.address);
+  if (!anims()) return;
+  row.querySelector(".srv-count").classList.add("arrive");
+  const t0 = performance.now(), total = st.online || 0;
+  const tick = (now) => {
+    if (!n.isConnected) return;
+    const k = Math.min(1, (now - t0) / 900);
+    n.textContent = fmtCount(Math.round(total * (1 - Math.pow(1 - k, 3))));
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 
 function addServerModal() {

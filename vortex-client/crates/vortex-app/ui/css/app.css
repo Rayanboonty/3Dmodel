@@ -1638,3 +1638,135 @@ body.theme-light .seg button.on { background: #fff; box-shadow: 0 1px 3px rgba(3
   color: #fff; opacity: 1; filter: none;
   text-shadow: calc(var(--u, 6px) * 0.25) calc(var(--u, 6px) * 0.25) 0 #3f3f3f;
 }
+
+/* ============================================================ motion details ===
+   Every sidebar icon has its own move when its tab opens (the grid's tiles
+   flip in one by one, the gear turns, the shirt swings on its hanger) and a
+   quieter one on hover. Icons in buttons get small hover moves too. */
+.px-icon { overflow: visible; transition: rotate 0.55s var(--spring), translate 0.45s var(--spring), scale 0.45s var(--spring), filter 0.3s; }
+.px-icon .ip, .px-icon .ip-trail { transform-box: fill-box; transform-origin: center; transition: translate 0.45s var(--spring), rotate 0.5s var(--spring), scale 0.45s var(--spring); }
+.px-icon .ip-trail { opacity: 0; }
+
+.sidebar .tab .icon-slot { position: relative; transition: scale 0.45s var(--spring), translate 0.45s var(--spring); }
+.sidebar .tab:hover .icon-slot { scale: 1.08; }
+.sidebar .tab:active .icon-slot { scale: 0.88; transition-duration: 0.12s; }
+.sidebar .tab .px-icon { filter: drop-shadow(0 0 0 rgba(var(--accent-rgb), 0)); }
+.sidebar .tab.on .px-icon { filter: drop-shadow(0 0 7px rgba(var(--accent-rgb), 0.55)); }
+.sidebar .tab .tab-label { transition: color 0.25s, letter-spacing 0.4s var(--ease); }
+.sidebar .tab.on .tab-label { letter-spacing: 0.1em; }
+.sidebar .tab.pop .tab-label { animation: labelIn 0.5s var(--liquid); }
+@keyframes labelIn { from { opacity: 0.3; translate: 0 4px; } }
+.spark { position: absolute; left: 50%; top: 50%; margin: -1px 0 0 -1px; pointer-events: none; image-rendering: pixelated; }
+
+/* Hover moves. */
+.tab:hover .ic-play, .btn:hover .ic-play, .qa:hover .ic-play { translate: 2px 0; }
+.tab:hover .ic-grid .ip0 { translate: -0.6px -0.6px; }
+.tab:hover .ic-grid .ip1 { translate: 0.6px -0.6px; }
+.tab:hover .ic-grid .ip2 { translate: -0.6px 0.6px; }
+.tab:hover .ic-grid .ip3 { translate: 0.6px 0.6px; }
+:is(.tab, .qa, .btn):hover .ic-puzzle { rotate: -10deg; }
+:is(.tab, .qa, .btn):hover .ic-puzzle .ip1 { translate: 0.7px 0; }
+:is(.tab, .qa, .btn):hover .ic-puzzle .ip2 { translate: 0 -0.7px; }
+.ic-shirt { transform-origin: 50% 0; }
+:is(.tab, .qa, .btn):hover .ic-shirt { rotate: -7deg; }
+:is(.tab, .btn, .top-chip):hover .ic-user .ip1 { translate: 0 -0.8px; }
+:is(.tab, .btn, .top-chip, .qa):hover .ic-gear { rotate: 90deg; }
+:is(.btn, .qa, .top-chip, .hero-edit):hover .ic-plus { rotate: 90deg; scale: 1.1; }
+:is(.btn, .top-chip):hover .ic-x { rotate: 90deg; }
+:is(.btn, .qa):hover .ic-folder .ip1 { translate: 0 -0.8px; rotate: -10deg; }
+:is(.btn, .qa):hover .ic-folder { rotate: -4deg; }
+:is(.btn, .tab):hover .ic-search { rotate: -12deg; scale: 1.1; }
+:is(.btn):hover .ic-download .ip1 { translate: 0 1px; }
+:is(.btn):hover .ic-trash .ip1 { translate: 0.4px -1px; rotate: 14deg; }
+:is(.btn, .hero-edit):hover .ic-edit { rotate: -14deg; translate: 0 -1px; }
+:is(.btn, .top-chip):hover .ic-copy, :is(.btn, .top-chip):hover .ic-log { translate: 0 -1.5px; }
+:is(.btn, .tab):hover .ic-check { scale: 1.2; }
+:is(.btn, .top-chip):hover .ic-sun { rotate: 45deg; }
+:is(.btn, .top-chip):hover .ic-moon { rotate: -18deg; }
+:is(.btn, .hit, .hero-chip):hover .ic-heart { animation: icBeat 0.7s var(--ease); }
+:is(.btn, .hero-chip, .tab):hover .ic-sparkle, :is(.btn, .hero-chip):hover .ic-bolt { rotate: 15deg; scale: 1.15; }
+:is(.btn):hover .ic-link { rotate: -12deg; }
+.play-more:hover .chev { translate: 0 2px; }
+.play-more[aria-expanded="true"]:hover .chev { translate: 0 -2px; }
+@keyframes icBeat { 25% { scale: 1.28; } 45% { scale: 0.96; } 65% { scale: 1.14; } }
+
+/* The moment a sidebar tab opens. */
+.tab.pop .ic-play { animation: icPlay 0.62s var(--ease); }
+.tab.pop .ic-play .ip-trail { animation: icTrail 0.62s var(--ease); }
+@keyframes icPlay { 22% { translate: -2px 0; scale: 0.82 1.12; } 52% { translate: 4px 0; scale: 1.16 0.9; } 78% { translate: -0.5px 0; scale: 0.98 1.02; } }
+@keyframes icTrail { 0% { opacity: 0; translate: 2px 0; } 45% { opacity: 0.85; translate: 0 0; } 100% { opacity: 0; translate: -3px 0; } }
+.tab.pop .ic-grid .ip { animation: icTile 0.5s var(--spring) backwards; }
+.tab.pop .ic-grid .ip1 { animation-delay: 0.07s; }
+.tab.pop .ic-grid .ip3 { animation-delay: 0.14s; }
+.tab.pop .ic-grid .ip2 { animation-delay: 0.21s; }
+@keyframes icTile { 0% { scale: 0.4; opacity: 0.35; rotate: -45deg; } 65% { scale: 1.22; opacity: 1; rotate: 4deg; } 100% { scale: 1; rotate: 0deg; } }
+.tab.pop .ic-puzzle { animation: icPuzzle 0.7s var(--ease); }
+.tab.pop .ic-puzzle .ip1 { animation: icNubX 0.7s var(--ease); }
+.tab.pop .ic-puzzle .ip2 { animation: icNubY 0.7s var(--ease); }
+@keyframes icPuzzle { 20% { rotate: -18deg; scale: 0.9; } 50% { rotate: 10deg; scale: 1.1; } 75% { rotate: -3deg; scale: 1; } }
+@keyframes icNubX { 30% { translate: 2.2px 0; } 60% { translate: -0.4px 0; } }
+@keyframes icNubY { 30% { translate: 0 -2.2px; } 60% { translate: 0 0.4px; } }
+.tab.pop .ic-shirt { animation: icSwing 0.95s var(--ease); }
+@keyframes icSwing { 15% { rotate: -16deg; } 38% { rotate: 12deg; } 58% { rotate: -7deg; } 76% { rotate: 3deg; } }
+.tab.pop .ic-user .ip1 { animation: icHead 0.6s var(--ease); }
+.tab.pop .ic-user .ip0 { transform-origin: 50% 100%; animation: icBody 0.6s var(--ease); }
+@keyframes icHead { 30% { translate: 0 -2.6px; } 55% { translate: 0 0.5px; } 75% { translate: 0 -0.4px; } }
+@keyframes icBody { 15% { scale: 1.12 0.78; } 40% { scale: 0.94 1.08; } 65% { scale: 1.02 0.98; } }
+.tab.pop .ic-gear { animation: icGear 0.8s var(--ease); }
+@keyframes icGear { 0% { rotate: 0deg; } 60% { rotate: 200deg; } 80% { rotate: 172deg; } 100% { rotate: 180deg; } }
+
+/* Live servers: the green dot breathes, and new counts land with a pop. */
+.srv-count .dot { position: relative; }
+.srv-count .dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--live); animation: livePing 2.6s var(--ease) infinite; }
+.srv:nth-child(2) .srv-count .dot::after { animation-delay: 0.5s; }
+.srv:nth-child(3) .srv-count .dot::after { animation-delay: 1s; }
+.srv:nth-child(4) .srv-count .dot::after { animation-delay: 1.5s; }
+.srv:nth-child(5) .srv-count .dot::after { animation-delay: 2s; }
+@keyframes livePing { 0% { scale: 1; opacity: 0.7; } 55%, 100% { scale: 2.8; opacity: 0; } }
+.srv-count .n { font-weight: inherit; }
+.srv-count.arrive { animation: countIn 0.55s var(--spring); }
+@keyframes countIn { from { opacity: 0; translate: 6px 0; scale: 0.85; } }
+.srv-icon { transition: scale 0.4s var(--spring), rotate 0.4s var(--spring); }
+.srv:hover .srv-icon { scale: 1.08; rotate: -4deg; }
+
+/* Launch: a slow light sweep now and then, so it feels ready. */
+.play:not(.busy):not(.running)::after {
+  content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 62%) no-repeat;
+  background-size: 260% 100%; background-position: 160% 0;
+  mix-blend-mode: soft-light;
+  animation: playSheen 7s 2.5s var(--ease) infinite;
+}
+@keyframes playSheen { 0% { background-position: 160% 0; } 16%, 100% { background-position: -60% 0; } }
+.play-label { transition: letter-spacing 0.5s var(--ease); }
+.play:not(.busy):not(.running):hover .play-label { letter-spacing: 0.07em; }
+
+/* Quick actions: the icon tile lifts and the icon moves. */
+.qa-ico { transition: translate 0.45s var(--spring), scale 0.45s var(--spring), background 0.25s, box-shadow 0.25s; }
+.qa:hover .qa-ico { translate: 0 -2px; scale: 1.06; background: rgba(var(--accent-rgb), 0.24); box-shadow: inset 0 0 0 0.5px rgba(var(--accent-rgb), 0.6), 0 6px 14px -6px rgba(var(--accent-rgb), 0.6); }
+.qa:active .qa-ico { scale: 0.92; transition-duration: 0.1s; }
+:is(.qa):hover .ic-shirt { animation: icSwing 0.9s var(--ease); rotate: 0deg; }
+
+/* Instance cards: the cover drifts in a little on hover. */
+.inst-cover { transform-origin: 50% 100%; transition: scale 0.7s var(--ease); }
+.inst-card:hover .inst-cover { scale: 1.045; }
+
+/* Top bar: the account face looks up, the log badge pops in and pulses. */
+#account-chip .avatar { transition: translate 0.4s var(--spring), rotate 0.4s var(--spring); }
+#account-chip:hover .avatar { translate: 0 -1.5px; rotate: -6deg; }
+.log-badge:not([hidden]) { animation: badgeIn 0.5s var(--spring), badgePulse 2.2s 0.5s var(--ease) infinite; }
+@keyframes badgeIn { from { scale: 0; } }
+@keyframes badgePulse { 50% { box-shadow: 0 0 0 4px rgba(255, 109, 94, 0.18), 0 0 12px var(--danger); } }
+.brand-logo { transition: rotate 0.5s var(--spring), scale 0.5s var(--spring); }
+.brand:hover .brand-logo { rotate: -6deg; scale: 1.06; }
+
+/* Toasts: the icon lands just after the card. */
+.toast-icon { animation: toastIcon 0.6s 0.18s var(--spring) backwards; }
+@keyframes toastIcon { from { scale: 0.2; rotate: -40deg; opacity: 0; } }
+
+/* Switches squash as the knob travels. */
+.switch::after { transition: left 0.46s var(--spring), width 0.22s var(--liquid), background 0.2s, box-shadow 0.2s, scale 0.3s var(--spring); }
+.switch.flick::after { animation: knob 0.42s var(--ease); }
+@keyframes knob { 30% { scale: 1.25 0.8; } 65% { scale: 0.95 1.05; } }
+
+body.no-anim .spark { display: none; }
