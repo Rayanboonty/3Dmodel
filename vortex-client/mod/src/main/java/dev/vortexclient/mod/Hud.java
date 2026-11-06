@@ -263,11 +263,11 @@ public final class Hud {
             Ui.round(c, x + 5, y + 16, 110, 5, 0x66000000);
             Ui.round(c, x + 5, y + 16, Math.max(2, Math.round(110 * f)), 5, col);
             String h = String.format(Locale.ROOT, "%.1f / %.0f ❤", hp, max);
-            c.getMatrices().push();
-            c.getMatrices().translate(x + 5, y + 23, 0);
-            c.getMatrices().scale(0.7f, 0.7f, 1);
+            Gfx.push(c);
+            Gfx.translate(c, x + 5, y + 23);
+            Gfx.scale(c, 0.7f, 0.7f);
             c.drawText(Ui.font(), h, 0, 0, 0xFFDDDDDD, false);
-            c.getMatrices().pop();
+            Gfx.pop(c);
         }
     }
 
@@ -348,11 +348,11 @@ public final class Hud {
                 c.drawText(Ui.font(), label, x + (w - Ui.width(label)) / 2 + 1, y + (h - 8) / 2 + 1, tc, sh);
             } else {
                 c.drawText(Ui.font(), label, x + (w - Ui.width(label)) / 2 + 1, y + 2, tc, sh);
-                c.getMatrices().push();
-                c.getMatrices().translate(x + w / 2f, y + h - 7, 0);
-                c.getMatrices().scale(0.6f, 0.6f, 1);
+                Gfx.push(c);
+                Gfx.translate(c, x + w / 2f, y + h - 7);
+                Gfx.scale(c, 0.6f, 0.6f);
                 c.drawText(Ui.font(), sub, -Ui.width(sub) / 2, 0, tc, false);
-                c.getMatrices().pop();
+                Gfx.pop(c);
             }
         }
 
@@ -479,8 +479,7 @@ public final class Hud {
             for (StatusEffectInstance e : es) {
                 int tx = x + 4;
                 if (icons) {
-                    Sprite sprite = MinecraftClient.getInstance().getStatusEffectSpriteManager().getSprite(e.getEffectType());
-                    Gfx.sprite(c, sprite, tx, ty + 1, 18, 18);
+                    Gfx.effectIcon(c, e, tx, ty + 1, 18);
                     tx += 22;
                 }
                 c.drawText(Ui.font(), name(e), tx, ty + 1, textColor(m), shadow(m));
@@ -504,11 +503,11 @@ public final class Hud {
     public static void drawAt(DrawContext c, Module m, int x, int y, float scale) {
         Element e = ELEMENTS.get(m.id);
         if (e == null) return;
-        c.getMatrices().push();
-        c.getMatrices().translate(x, y, 0);
-        c.getMatrices().scale(scale, scale, 1);
+        Gfx.push(c);
+        Gfx.translate(c, x, y);
+        Gfx.scale(c, scale, scale);
         e.draw(c, m, 0, 0);
-        c.getMatrices().pop();
+        Gfx.pop(c);
     }
 
     /** Where every enabled HUD element goes on a screen of this size. */

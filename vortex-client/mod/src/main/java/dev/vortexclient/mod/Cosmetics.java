@@ -27,7 +27,7 @@ public final class Cosmetics {
         try (InputStream in = Files.newInputStream(Path.of(path))) {
             NativeImage img = NativeImage.read(in);
             if (img.getWidth() == 64 && img.getHeight() == 32) img = legacy(img);
-            MinecraftClient.getInstance().getTextureManager().registerTexture(SKIN, new NativeImageBackedTexture(img));
+            MinecraftClient.getInstance().getTextureManager().registerTexture(SKIN, Gfx.newTexture(img));
             hasSkin = true;
         } catch (Exception e) {
             VortexMods.LOG.warn("Could not load the Vortex skin from {}", path, e);

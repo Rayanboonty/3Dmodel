@@ -35,4 +35,8 @@ public final class Compat {
         float rate = mc.world != null ? mc.world.getTickManager().getTickRate() : 20f;
         return net.minecraft.entity.effect.StatusEffectUtil.getDurationText(e, 1.0f, rate).getString();
     }
+
+    public static String gameVersionName() {
+        return net.minecraft.SharedConstants.getGameVersion().getName();
+    }
 }

@@ -281,11 +281,11 @@ public class ModMenuScreen extends ScreenBase {
 
         // Icon, drawn at 2× and lifted a little on hover.
         int iy = y + 19 - Math.round(hv * 2);
-        c.getMatrices().push();
-        c.getMatrices().translate(x + w / 2f - 16, iy, 0);
-        c.getMatrices().scale(2f, 2f, 1f);
+        Gfx.push(c);
+        Gfx.translate(c, x + w / 2f - 16, iy);
+        Gfx.scale(c, 2f, 2f);
         c.drawItem(new ItemStack(m.icon), 0, 0);
-        c.getMatrices().pop();
+        Gfx.pop(c);
 
         // Bottom row: options and the on/off bar.
         int by = y + h - 20;

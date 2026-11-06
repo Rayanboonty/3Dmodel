@@ -101,11 +101,11 @@ public class VortexTitleScreen extends ScreenBase {
             lw = lh * logo.w() / Math.max(1, logo.h());
             Gfx.texture(c, logo.id(), (width - lw) / 2, logoTop() - lift, lw, lh, logo.w(), logo.h());
         } else {
-            c.getMatrices().push();
-            c.getMatrices().translate(width / 2f, logoTop() - lift, 0);
-            c.getMatrices().scale(3f, 3f, 1);
+            Gfx.push(c);
+            Gfx.translate(c, width / 2f, logoTop() - lift);
+            Gfx.scale(c, 3f, 3f);
             Ui.centered(c, "VORTEX", 0, 0, VortexMods.accent());
-            c.getMatrices().pop();
+            Gfx.pop(c);
             Ui.centered(c, "CLIENT", width / 2, logoTop() + 28 - lift, 0xFFFFFFFF);
         }
     }
@@ -113,7 +113,7 @@ public class VortexTitleScreen extends ScreenBase {
     @Override
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         super.render(c, mouseX, mouseY, delta);
-        String version = "Vortex Client  ·  Minecraft " + SharedConstants.getGameVersion().getName();
+        String version = "Vortex Client  ·  Minecraft " + Compat.gameVersionName();
         c.drawTextWithShadow(textRenderer, version, 6, height - 12, 0xB0FFFFFF);
         String copy = "Copyright Mojang AB. Do not distribute!";
         c.drawTextWithShadow(textRenderer, copy, width - textRenderer.getWidth(copy) - 6, height - 12, 0x80FFFFFF);

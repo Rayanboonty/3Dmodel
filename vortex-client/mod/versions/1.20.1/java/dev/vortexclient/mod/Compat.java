@@ -28,4 +28,8 @@ public final class Compat {
     public static String durationText(StatusEffectInstance e) {
         return net.minecraft.entity.effect.StatusEffectUtil.getDurationText(e, 1.0f).getString();
     }
+
+    public static String gameVersionName() {
+        return net.minecraft.SharedConstants.getGameVersion().getName();
+    }
 }

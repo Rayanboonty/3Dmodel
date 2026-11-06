@@ -48,7 +48,7 @@ public final class VortexStyle {
             NativeImage img = NativeImage.read(in);
             Identifier id = Identifier.of("vortex", "menu/" + name);
             int w = img.getWidth(), h = img.getHeight();
-            MinecraftClient.getInstance().getTextureManager().registerTexture(id, new NativeImageBackedTexture(img));
+            MinecraftClient.getInstance().getTextureManager().registerTexture(id, Gfx.newTexture(img));
             return new Art(id, w, h);
         } catch (Exception e) {
             VortexMods.LOG.warn("Could not load the Vortex menu image {}", path, e);
