@@ -360,6 +360,16 @@ function bindLiquid() {
     sound.click();
   });
   document.addEventListener("click", (e) => {
+    const launch = e.target.closest('.play[data-action="play"]');
+    if (launch && anims()) shockwave(launch);
+  });
+  document.addEventListener("scroll", (e) => {
+    const t = e.target;
+    if (!(t instanceof Element) || !t.classList.contains("sheet-body")) return;
+    t.closest(".sheet")?.classList.toggle("scrolled", t.scrollTop > 6);
+  }, true);
+  bindTilt();
+  document.addEventListener("click", (e) => {
     const sw = e.target.closest(".switch");
     if (!sw || !anims()) return;
     sw.classList.remove("flick");
@@ -376,6 +386,59 @@ function bindLiquid() {
   });
 }
 
+/** Two rings of light burst out of the Launch button. */
+function shockwave(btn) {
+  const r = btn.getBoundingClientRect();
+  const rad = getComputedStyle(btn).borderTopLeftRadius;
+  for (const [i, k] of [[0, 1], [1, 1.6]]) {
+    const ring = document.createElement("span");
+    ring.className = "shock";
+    ring.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:${rad}`;
+    document.body.appendChild(ring);
+    const done = () => ring.remove();
+    ring.animate([
+      { opacity: 0.9, scale: "1 1", borderWidth: "3px" },
+      { opacity: 0, scale: `${1 + 0.16 * k} ${1 + 0.6 * k}`, borderWidth: "1px" },
+    ], { duration: 760 + i * 160, delay: i * 90, easing: "cubic-bezier(0.1, 0.7, 0.3, 1)", fill: "both" }).finished.then(done, done);
+  }
+}
+
+const TILT = { ".inst-card": 5, ".skin-card": 7, ".cape": 10, ".scene-tile": 6, ".news-card": 5, ".hit": 1.6, ".recent-chip": 6, ".loader": 6 };
+const TILT_SEL = Object.keys(TILT).join(", ");
+
+/** Cards lean toward the pointer in 3D and a soft light follows it. */
+function bindTilt() {
+  let cur = null;
+  const reset = (el) => {
+    el.classList.remove("tilting");
+    el.style.transform = "";
+    el.querySelector(":scope > .tilt-light")?.style.setProperty("opacity", "0");
+  };
+  document.addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "mouse") return;
+    const el = anims() ? e.target.closest(TILT_SEL) : null;
+    if (cur && cur !== el) { reset(cur); cur = null; }
+    if (!el || el.disabled) return;
+    cur = el;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+    const max = TILT[Object.keys(TILT).find((k) => el.matches(k))] || 4;
+    el.classList.add("tilting");
+    el.style.transform = `perspective(900px) translateY(-2px) rotateX(${(-py * max).toFixed(2)}deg) rotateY(${(px * max).toFixed(2)}deg)`;
+    let light = el.querySelector(":scope > .tilt-light");
+    if (!light) {
+      light = document.createElement("span");
+      light.className = "tilt-light";
+      if (getComputedStyle(el).position === "static") el.style.position = "relative";
+      el.appendChild(light);
+    }
+    light.style.opacity = "1";
+    light.style.setProperty("--lx", `${((px + 0.5) * 100).toFixed(1)}%`);
+    light.style.setProperty("--ly", `${((py + 0.5) * 100).toFixed(1)}%`);
+  }, { passive: true });
+  document.addEventListener("pointerleave", () => { if (cur) { reset(cur); cur = null; } });
+}
+
 // ---------------------------------------------------------------- routing --
 
 function go(route, opts = {}) {
@@ -390,6 +453,10 @@ function go(route, opts = {}) {
   liquidTabs($("#nav"));
   const nowOn = $("#nav .tab.on");
   if (nowOn && nowOn !== wasOn && !opts.silent) popTab(nowOn);
+  // Pages further down the sidebar rise from below; ones above drop in.
+  const tabs = $$("#nav .tab");
+  const dir = wasOn && nowOn ? Math.sign(tabs.indexOf(nowOn) - tabs.indexOf(wasOn)) : 0;
+  $("#page").style.setProperty("--dir", String(dir || 1));
   document.body.classList.toggle("sheet-open", route !== "home");
   if (route !== "home") document.body.classList.remove("hero-on");
   if (!same && !opts.silent) sound.nav();
@@ -472,6 +539,41 @@ function render(opts = {}) {
   $$("canvas[data-head]", page).forEach((c) => drawHead(c, S.skin?.dataUrl || defaultSkin()));
   $$(".tabs", page).forEach((g) => liquidTabs(g, true));
   mount?.(page);
+  if (opts.enter && anims()) cascade(page);
+}
+
+const CASCADE = ".sheet-head .row > *, .tabs.glass, .card, .hit, .skin-card, .cape, .scene-tile, .setting, .card-pad, .list-row, .srv, .qa, .w-account, .wcard, .recent-chip, .hero-chip, .loader, .vrow, .empty, .settings-pane > *, .skins-left, .acc-preview";
+
+/** The page's pieces arrive one after another, top to bottom, instead of
+ *  all at once: the title wipes up, then cards ripple in. */
+function cascade(page) {
+  const h1 = $(".sheet-head h1", page);
+  if (h1) {
+    h1.animate([{ clipPath: "inset(0 0 100% 0)", translate: "0 14px", opacity: 0 }, { clipPath: "inset(0 0 -20% 0)", translate: "0 0", opacity: 1 }],
+      { duration: 620, delay: 90, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "backwards" });
+    const sub = $(".sheet-head p", page);
+    sub?.animate([{ opacity: 0, translate: "0 6px", filter: "blur(4px)" }, { opacity: 1, translate: "0 0", filter: "blur(0px)" }],
+      { duration: 520, delay: 190, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "backwards" });
+  }
+  const vh = window.innerHeight;
+  const seen = new Set();
+  const items = $$(CASCADE, page).filter((el) => {
+    if ([...seen].some((p) => p.contains(el))) return false;
+    const r = el.getBoundingClientRect();
+    if (!r.width || r.top > vh || r.bottom < 0) return false;
+    seen.add(el);
+    return true;
+  }).sort((a, b) => {
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    return (ra.top - rb.top) * 2 + (ra.left - rb.left) * 0.6;
+  }).slice(0, 28);
+  items.forEach((el, i) => {
+    el.animate([
+      { opacity: 0, translate: "0 18px", scale: "0.96", filter: "blur(6px)" },
+      { offset: 0.6, opacity: 1, translate: "0 -2px", scale: "1.005", filter: "blur(0px)" },
+      { opacity: 1, translate: "0 0", scale: "1", filter: "blur(0px)" },
+    ], { duration: 640, delay: 150 + i * 32, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "backwards" });
+  });
 }
 
 const sheet = (title, sub, actions, body, extra = "") => `
@@ -852,10 +954,22 @@ function updateRunUI(name) {
         if (wasPhase === r.phase && r.phase === "preparing") {
           const pct = r.total ? Math.round((r.done / r.total) * 100) : 0;
           btn.querySelector(".play-fill").style.width = `${pct}%`;
-          btn.querySelector(".play-label").textContent = r.stage || "Preparing";
+          const lab = btn.querySelector(".play-label");
+          const stage = r.stage || "Preparing";
+          if (lab.textContent !== stage) {
+            lab.textContent = stage;
+            if (anims()) lab.animate([{ opacity: 0, translate: "0 10px", filter: "blur(3px)" }, { opacity: 1, translate: "0 0", filter: "blur(0px)" }], { duration: 360, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+          }
           btn.querySelector(".play-sub").textContent = `${r.total ? `${pct}% · ` : ""}Click to cancel`;
         } else {
           btn.outerHTML = playButton(inst);
+          const nb = $("#play");
+          if (nb && anims()) {
+            nb.animate([{ scale: "0.94 0.9" }, { offset: 0.45, scale: "1.03 1.05" }, { offset: 0.75, scale: "0.995 0.99" }, { scale: "1 1" }], { duration: 620, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+            for (const [i, el] of [...nb.querySelectorAll(".play-label, .play-sub")].entries()) {
+              el.animate([{ opacity: 0, translate: "0 14px", filter: "blur(4px)" }, { opacity: 1, translate: "0 0", filter: "blur(0px)" }], { duration: 460, delay: 40 + i * 60, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "backwards" });
+            }
+          }
         }
       }
     }
@@ -1889,6 +2003,8 @@ function closeModal(instant = false) {
   if (!scrim) return;
   scrim.classList.add("closing");
   const box = scrim.querySelector(".modal");
+  // Opened with the mouse: don't leave a focus ring on the card behind.
+  if (box?._source && document.activeElement && !document.activeElement.matches("input, textarea, select")) document.activeElement.blur();
   if (instant || !anims()) { scrim.remove(); return; }
   morphOut(box, box?._source).then(() => scrim.remove());
 }
@@ -2586,7 +2702,18 @@ function bindChrome() {
     const next = { ...S.settings, theme: cur === "light" ? "dark" : "light" };
     if (S.draft) S.draft.theme = next.theme;
     sound.toggle(next.theme === "light");
-    try { await saveSettings(next); } catch { S.settings = next; applyLook(); }
+    const btn = $("#theme-toggle").getBoundingClientRect();
+    const x = btn.left + btn.width / 2, y = btn.top + btn.height / 2;
+    const swap = () => { S.settings = next; applyLook(); };
+    if (document.startViewTransition && anims()) {
+      const vt = document.startViewTransition(swap);
+      vt.ready.then(() => {
+        const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+        document.documentElement.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
+          { duration: 720, easing: "cubic-bezier(0.55, 0.05, 0.25, 1)", pseudoElement: "::view-transition-new(root)" });
+      }, () => {});
+    } else swap();
+    try { await saveSettings(next); } catch { /* kept locally */ }
   });
   matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => applyLook());
   $("#log-close").addEventListener("click", toggleLog);
@@ -2679,7 +2806,9 @@ async function boot() {
   world.rise = 0;
   if (anims()) {
     bootEl.classList.add("out");
+    document.body.classList.add("intro");
     setTimeout(() => bootEl.remove(), 950);
+    setTimeout(() => document.body.classList.remove("intro"), 2200);
   } else bootEl.remove();
   placeHero();
   const u = { ...UI_DEFAULTS, ...S.settings };

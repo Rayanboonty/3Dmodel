@@ -1770,3 +1770,191 @@ body.theme-light .seg button.on { background: #fff; box-shadow: 0 1px 3px rgba(3
 @keyframes knob { 30% { scale: 1.25 0.8; } 65% { scale: 0.95 1.05; } }
 
 body.no-anim .spark { display: none; }
+
+/* ============================================================ frost v2 ===
+   Real frosted glass everywhere: the wallpaper glows through every panel
+   (the backdrop behind them is now bright enough to see), a heavy blur
+   with extra saturation, a fine frost grain, a hairline edge and a soft
+   light along the top. The sidebar sits on a frosted rail too. */
+body[class] {
+  --frost: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --g-fill: rgba(28, 19, 38, 0.4);
+  --g-panel: rgba(24, 16, 34, 0.56);
+  --g-blur: 34px;
+  --g-sat: 175%;
+  --rim: inset 0 0 0 1px rgba(255, 255, 255, 0.085), inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  --lift: 0 18px 42px -22px rgba(0, 0, 0, 0.6);
+}
+body.glass-clear { --g-fill: rgba(28, 19, 38, 0.24); --g-panel: rgba(24, 16, 34, 0.4); --g-blur: 22px; }
+body.glass-smoke { --g-fill: rgba(16, 11, 22, 0.62); --g-panel: rgba(14, 10, 20, 0.76); --g-sat: 120%; }
+body.theme-light {
+  --frost: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .25 0 0 0 0 .18 0 0 0 0 .3 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --g-fill: rgba(255, 255, 255, 0.5);
+  --g-panel: rgba(253, 250, 254, 0.66);
+  --g-sat: 150%;
+  --rim: inset 0 0 0 1px rgba(255, 255, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 0 0.5px rgba(34, 27, 41, 0.06);
+  --lift: 0 16px 40px -22px rgba(60, 30, 80, 0.32);
+}
+.glass, .glass.strong, .side.glass, .nav.glass, .top-chip.glass, .square.glass {
+  background: var(--frost), linear-gradient(var(--tint, var(--g-fill)), var(--tint, var(--g-fill)));
+  -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat)) brightness(1.06);
+  backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat)) brightness(1.06);
+  box-shadow: var(--rim), var(--lift);
+}
+.sheet.glass, .modal.glass, .log-dock.glass, .popover.glass, .switcher.glass, .savebar.glass, .toast {
+  background: var(--frost), linear-gradient(var(--g-panel), var(--g-panel));
+  -webkit-backdrop-filter: blur(calc(var(--g-blur) * 1.25)) saturate(var(--g-sat)) brightness(1.04);
+  backdrop-filter: blur(calc(var(--g-blur) * 1.25)) saturate(var(--g-sat)) brightness(1.04);
+  box-shadow: var(--rim), var(--lift);
+}
+/* The wallpaper behind the panels, bright enough to glow through them. */
+.backdrop { inset: -80px; filter: blur(22px) brightness(0.56) saturate(1.35); transition: filter 0.9s var(--ease); }
+body.hero-on .backdrop { filter: blur(30px) brightness(0.44) saturate(1.3); }
+body.theme-light .backdrop { opacity: 0.85; filter: blur(26px) brightness(1.18) saturate(1.15); }
+body.theme-light.hero-on .backdrop { filter: blur(32px) brightness(1.1) saturate(1.1); }
+
+/* The sidebar's frosted rail. */
+.sidebar::before {
+  content: ""; position: absolute; z-index: -1; inset: 0 6px 14px; border-radius: var(--r-l); pointer-events: none;
+  background: var(--frost), linear-gradient(var(--g-fill), var(--g-fill));
+  -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat)) brightness(1.06);
+  backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat)) brightness(1.06);
+  box-shadow: var(--rim), var(--lift);
+}
+.sidebar { padding-top: 10px; isolation: isolate; }
+.sidebar .drop { left: 13px; right: 13px; }
+.side-version { padding-bottom: 12px; }
+
+/* Things inside frosted panels are frosted layers too, a step lighter. */
+.card, .hit, .skin-card, .cape, .scene-tile, .srv, .qa, .cur-facts div, .setting-group, .card-pad, .loader, .vrow, .list-row {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.input, select.input, .search-field input {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: box-shadow 0.3s var(--ease), background 0.3s var(--ease);
+}
+.input:focus, select.input:focus, .search-field input:focus {
+  outline: none; background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.7), 0 0 0 4px rgba(var(--accent-rgb), 0.16), 0 0 22px -6px rgba(var(--accent-rgb), 0.5);
+}
+body.theme-light .input:focus, body.theme-light select.input:focus { background: #fff; }
+.scrim { -webkit-backdrop-filter: blur(10px) saturate(130%); backdrop-filter: blur(10px) saturate(130%); }
+
+/* ========================================================== motion v3 ===
+   Pages travel along the sidebar's axis: further down rises from below,
+   further up drops from above, with depth blur and a soft overshoot. */
+.page.leave > * { animation: pageOut2 0.2s cubic-bezier(0.4, 0, 1, 1) forwards; }
+@keyframes pageOut2 { to { opacity: 0; translate: 0 calc(var(--dir, 1) * -22px); scale: 0.97; filter: blur(10px); } }
+.page.enter > *, .page.enter > .home > :not(.hero) { animation: pageIn2 0.72s var(--liquid) backwards; transform-origin: var(--ox, 0px) var(--oy, 50%); }
+@keyframes pageIn2 {
+  0% { opacity: 0; translate: 0 calc(var(--dir, 1) * 46px); scale: 0.94; filter: blur(18px); }
+  50% { opacity: 1; filter: blur(0px); }
+  68% { translate: 0 calc(var(--dir, 1) * -4px); scale: 1.006; }
+  100% { opacity: 1; translate: 0 0; scale: 1; filter: blur(0px); }
+}
+.page.enter > .home { animation: none; }
+.page.enter > .home > .home-row { animation-delay: 0.05s; }
+.page.enter > .home > .home-side { animation-delay: 0.1s; }
+
+/* The page title shrinks into a compact header as you scroll. */
+.sheet-head { position: relative; z-index: 2; transition: padding 0.45s var(--ease), box-shadow 0.45s var(--ease), background 0.45s var(--ease); }
+.sheet-head h1 { transform-origin: 0 100%; transition: scale 0.5s var(--spring); }
+.sheet-head p { transition: opacity 0.3s var(--ease), max-height 0.45s var(--ease), margin 0.45s var(--ease); max-height: 3em; overflow: hidden; }
+.sheet.scrolled .sheet-head { padding-top: 16px; padding-bottom: 12px; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07), 0 16px 24px -20px rgba(0, 0, 0, 0.6); }
+.sheet.scrolled .sheet-head h1 { scale: 0.78; }
+.sheet.scrolled .sheet-head p { opacity: 0; max-height: 0; margin-top: 0; }
+body.theme-light .sheet.scrolled .sheet-head { box-shadow: 0 1px 0 rgba(34, 27, 41, 0.08), 0 16px 24px -20px rgba(60, 30, 80, 0.3); }
+
+/* Cards lean toward the pointer, with light following it. */
+:is(.inst-card, .skin-card, .cape, .scene-tile, .news-card, .hit, .recent-chip, .loader) {
+  transition: transform 0.7s var(--spring), background 0.25s, border-color 0.25s, box-shadow 0.35s var(--ease);
+  will-change: auto;
+}
+.tilting { transition: transform 0.14s ease-out, background 0.25s, border-color 0.25s, box-shadow 0.35s var(--ease) !important; box-shadow: 0 22px 40px -22px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.14); z-index: 2; }
+.tilt-light {
+  position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at var(--lx, 50%) var(--ly, 0%), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 35%, transparent 62%);
+  mix-blend-mode: soft-light; transition: opacity 0.45s var(--ease);
+}
+body.theme-light .tilt-light { mix-blend-mode: normal; background: radial-gradient(circle at var(--lx, 50%) var(--ly, 0%), rgba(255, 255, 255, 0.5), transparent 60%); }
+
+/* Launch: rings of light burst out. */
+.shock { position: fixed; z-index: 4; pointer-events: none; border: 3px solid rgba(var(--accent-rgb), 0.95); box-shadow: 0 0 24px rgba(var(--accent-rgb), 0.55), inset 0 0 18px rgba(var(--accent-rgb), 0.35); }
+
+/* Focus rings snap in from a wider halo. */
+:focus-visible { animation: focusIn 0.35s var(--ease); }
+@keyframes focusIn { from { outline-offset: 8px; outline-color: rgba(var(--accent-rgb), 0); } }
+
+/* Theme change: the new theme grows as a circle from the toggle. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }
+
+/* The entrance after the boot screen: the frame settles, the rail and
+   bar slide in, the widgets ripple in from the right. */
+body.intro .brand { animation: introDown 0.8s var(--liquid) 0.15s backwards; }
+body.intro .top-right > * { animation: introDown 0.8s var(--liquid) backwards; }
+body.intro .top-right > :nth-child(2) { animation-delay: 0.22s; }
+body.intro .top-right > :nth-child(3) { animation-delay: 0.28s; }
+body.intro .top-right > :nth-child(4) { animation-delay: 0.34s; }
+@keyframes introDown { from { opacity: 0; translate: 0 -18px; filter: blur(6px); } }
+body.intro .sidebar::before { animation: introRail 0.9s var(--liquid) 0.1s backwards; }
+@keyframes introRail { from { opacity: 0; translate: -24px 0; scale: 0.96 0.9; } }
+body.intro .sidebar .tab { animation: introLeft 0.75s var(--liquid) backwards; }
+body.intro .sidebar .tab:nth-of-type(1) { animation-delay: 0.22s; }
+body.intro .sidebar .tab:nth-of-type(2) { animation-delay: 0.27s; }
+body.intro .sidebar .tab:nth-of-type(3) { animation-delay: 0.32s; }
+body.intro .sidebar .tab:nth-of-type(4) { animation-delay: 0.37s; }
+body.intro .sidebar .tab:nth-of-type(5) { animation-delay: 0.42s; }
+body.intro .sidebar .tab:nth-of-type(6) { animation-delay: 0.47s; }
+body.intro .sidebar .drop, body.intro .side-version { animation: introFade 0.6s var(--ease) 0.55s backwards; }
+@keyframes introLeft { from { opacity: 0; translate: -16px 0; scale: 0.85; filter: blur(4px); } }
+@keyframes introFade { from { opacity: 0; } }
+body.intro .page > .home > .hero, body.intro #world { animation: introHero 1.1s var(--ease) 0.05s backwards; }
+@keyframes introHero { from { opacity: 0; filter: blur(16px) brightness(1.4); } }
+body.intro .page > .home > .home-side > * { animation: introRight 0.85s var(--liquid) backwards; }
+body.intro .page > .home > .home-side > :nth-child(1) { animation-delay: 0.3s; }
+body.intro .page > .home > .home-side > :nth-child(2) { animation-delay: 0.4s; }
+body.intro .page > .home > .home-side > :nth-child(3) { animation-delay: 0.5s; }
+body.intro .page > .home > .home-side > :nth-child(4) { animation-delay: 0.6s; }
+body.intro .page > .home > .home-side, body.intro .page > .home > .home-row { animation: none; }
+@keyframes introRight { from { opacity: 0; translate: 36px 0; scale: 0.96; filter: blur(8px); } }
+body.intro .play-zone > *, body.intro .hero-top > * { animation: introUp 0.9s var(--liquid) backwards; }
+body.intro .play-zone > :nth-child(1) { animation-delay: 0.55s; }
+body.intro .play-zone > :nth-child(2) { animation-delay: 0.68s; }
+body.intro .hero-top > * { animation-delay: 0.45s; }
+@keyframes introUp { from { opacity: 0; translate: 0 22px; scale: 0.92; filter: blur(8px); } }
+
+/* Lists: a row being hovered nudges, its neighbours stay put. */
+.srv { transition: background 0.25s, translate 0.45s var(--spring); }
+.srv:hover { translate: 3px 0; }
+.row-item { transition: background 0.25s, translate 0.45s var(--spring); }
+.row-item:hover { translate: 2px 0; }
+
+/* Buttons: accent buttons carry a light sweep on hover. */
+.btn-accent { position: relative; overflow: hidden; }
+.btn-accent::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%) no-repeat;
+  background-size: 250% 100%; background-position: 150% 0; mix-blend-mode: soft-light;
+}
+.btn-accent:hover::after { animation: btnSheen 0.8s var(--ease); }
+@keyframes btnSheen { to { background-position: -50% 0; } }
+
+/* Skeletons shimmer instead of pulsing. */
+.hit.skeleton .hit-main i, .hit.skeleton .proj-icon { background: linear-gradient(100deg, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.05) 70%) 0 0 / 300% 100%; animation: skel 1.4s linear infinite; }
+@keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* Toasts sit on frosted glass; the timer bar is accent-tinted. */
+.toast-timer { background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.9), rgba(var(--accent-rgb), 0.3)); height: 2px; }
+.toast-success .toast-timer { background: linear-gradient(90deg, var(--live), rgba(134, 220, 92, 0.3)); }
+.toast-error .toast-timer { background: linear-gradient(90deg, var(--danger), rgba(255, 109, 94, 0.3)); }
+
+body.no-anim .shock, body.no-anim .tilt-light { display: none; }
+
+/* Instance cards: the actions row always sits at the bottom, so cards
+   with more tags still line up. */
+.inst-card { display: flex; flex-direction: column; }
+.inst-body { flex: 1; }
+.inst-body .card-actions { margin-top: auto; padding-top: 2px; }
