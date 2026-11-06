@@ -258,10 +258,6 @@ export function morphIn(panel, source) {
     { duration: bouncy ? 560 : 420, easing: EASE_OUT },
   );
   a.finished.then(() => { panel.style.transformOrigin = ""; }, () => {});
-  const sheen = document.createElement("span");
-  sheen.className = "lq-sheen";
-  panel.appendChild(sheen);
-  setTimeout(() => sheen.remove(), 1300);
   // The content arrives just after the glass.
   for (const [i, child] of [...panel.children].entries()) {
     if (child.classList.contains("drop") || child.classList.contains("grabber") || child.classList.contains("lq-sheen")) continue;

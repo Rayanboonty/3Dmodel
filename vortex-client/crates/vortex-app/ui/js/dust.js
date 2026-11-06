@@ -32,9 +32,9 @@ function sprite(color) {
   s.width = s.height = 32;
   const g = s.getContext("2d");
   const grd = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-  grd.addColorStop(0, "rgba(255,255,255,1)");
-  grd.addColorStop(0.18, color);
-  grd.addColorStop(0.5, withAlpha(color, 0.35));
+  grd.addColorStop(0, color);
+  grd.addColorStop(0.3, withAlpha(color, 0.75));
+  grd.addColorStop(0.6, withAlpha(color, 0.18));
   grd.addColorStop(1, withAlpha(color, 0));
   g.fillStyle = grd;
   g.fillRect(0, 0, 32, 32);
@@ -60,7 +60,6 @@ function step(now) {
   const t = now / 1000;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
-  ctx.globalCompositeOperation = "lighter";
   let n = 0;
   for (const p of parts) {
     p.age += dt;
@@ -97,7 +96,6 @@ function step(now) {
   }
   parts.length = n;
   ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "source-over";
   raf = parts.length ? requestAnimationFrame(step) : 0;
   if (!raf) ctx.clearRect(0, 0, W, H);
 }
@@ -137,7 +135,7 @@ function sampleImage(url) {
 // Dust glows, so dark colours are lifted toward light.
 function brighten(r, g, b) {
   const m = Math.max(r, g, b, 1);
-  const k = Math.max(1, 170 / m);
+  const k = Math.max(1, 120 / m);
   return `rgba(${Math.min(255, r * k) | 0},${Math.min(255, g * k) | 0},${Math.min(255, b * k) | 0},1)`;
 }
 
@@ -163,14 +161,10 @@ function colorsOf(el) {
       }
     }
     if (n.tagName === "IMG" && n.src) set.push(...sampleImage(n.src));
-    if (n.childNodes.length && [...n.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim())) {
-      const fg = parseColor(cs.color);
-      if (fg) set.push(fg);
-    }
   }
   const acc = parseColor(hexToRgb(accent));
-  const base = ["rgba(255,236,205,1)", acc || "rgba(255,181,71,1)", "rgba(255,255,255,1)"];
-  return set.length ? [...set, ...base] : base;
+  const base = [acc || "rgba(255,181,71,1)", "rgba(240,143,34,1)"];
+  return set.length ? [...set, ...set, ...base] : base;
 }
 
 function hexToRgb(h) {
@@ -326,7 +320,7 @@ export const dust = {
   },
 
   /** A burst of dust from a point. */
-  burst(x, y, { count = 220, colors = ["rgba(255,210,140,1)", "rgba(255,181,71,1)", "rgba(255,255,255,1)"], speed = 1 } = {}) {
+  burst(x, y, { count = 220, colors = ["rgba(255,210,140,1)", "rgba(255,181,71,1)", "rgba(240,143,34,1)"], speed = 1 } = {}) {
     if (!enabled) return;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * 6.283, sp = (40 + Math.random() * 200) * speed;
@@ -352,7 +346,7 @@ export const dust = {
   },
 
   /** Sparkles along a growing circle (the theme reveal's edge). */
-  ring(x, y, radiusAt, { duration = 720, perFrame = 34, colors = ["rgba(255,236,205,1)", "rgba(255,181,71,1)", "rgba(255,255,255,1)"] } = {}) {
+  ring(x, y, radiusAt, { duration = 720, perFrame = 34, colors = ["rgba(255,210,140,1)", "rgba(255,181,71,1)", "rgba(240,143,34,1)"] } = {}) {
     if (!enabled) return;
     const t0 = performance.now();
     const frame = (now) => {

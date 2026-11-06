@@ -993,7 +993,7 @@ function updateRunUI(name) {
           const nb = $("#play");
           if (nb && r.phase === "running" && wasPhase !== "running") {
             const b = nb.getBoundingClientRect();
-            dust.burst(b.left + b.width / 2, b.top + b.height / 2, { count: 320, colors: ["rgba(180,242,143,1)", "rgba(134,220,92,1)", "rgba(255,236,205,1)", "rgba(255,181,71,1)"] });
+            dust.burst(b.left + b.width / 2, b.top + b.height / 2, { count: 320, colors: ["rgba(180,242,143,1)", "rgba(134,220,92,1)", "rgba(255,181,71,1)"] });
           }
           if (nb && anims()) {
             nb.animate([{ scale: "0.94 0.9" }, { offset: 0.45, scale: "1.03 1.05" }, { offset: 0.75, scale: "0.995 0.99" }, { scale: "1 1" }], { duration: 620, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });

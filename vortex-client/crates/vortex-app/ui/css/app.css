@@ -1978,3 +1978,7 @@ body.no-anim #dust { display: none; }
 .page.after-dust.enter > .home > .home-row { animation-delay: 0.22s; }
 .page.after-dust.enter > .home > .home-side { animation-delay: 0.28s; }
 .settings-pane.fresh { animation: none; }
+
+/* No light sweeps anywhere: not on opening panels, not on Launch, not on
+   accent buttons. */
+.lq-sheen, .play:not(.busy):not(.running)::after, .btn-accent::after { display: none !important; animation: none !important; }
