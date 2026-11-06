@@ -1,4 +1,4 @@
-**A tidier tab rail.** The tabs sit in a compact frosted rail, centred beside the page, instead of a bar that ran the full height of the window.
+**Everything lines up.** The wallpaper card now runs from the top of the account card to the bottom of the last widget, and the tabs sit in a compact rail, spaced like the widgets.
 
 **From 0.5.0:**
 - Updates install by themselves.

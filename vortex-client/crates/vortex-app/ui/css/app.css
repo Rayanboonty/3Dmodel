@@ -2144,3 +2144,9 @@ body:not(.m) .sidebar, body.m.land .sidebar {
 body:not(.m) .sidebar::before, body.m.land .sidebar::before { inset: 0 6px; }
 body:not(.m) .side-version { position: fixed; left: 0; width: 96px; bottom: 18px; padding: 0; text-align: center; }
 body.compact-side:not(.m) .side-version { width: 76px; }
+
+/* The wallpaper card runs from the top of the account card to the bottom
+   of the last widget, and the tabs are spaced like the widgets. */
+body:not(.m) .page > .home.no-row > .hero, body.m.land .page > .home.no-row > .hero { grid-row: 1 / -1 !important; }
+body:not(.m) .sidebar { gap: 14px; }
+body:not(.m) .page > .home.no-row > .home-side, body.m.land .page > .home.no-row > .home-side { grid-row: 1 / -1; }
