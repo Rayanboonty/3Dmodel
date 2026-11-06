@@ -1,4 +1,7 @@
-**Particles that look like the thing they come from.** When a dialog, a notification, a menu or a page closes, it now really breaks apart. It crumbles from the top, piece by piece, and each piece keeps its own look (its text, icons, buttons and glass), then floats away as fine grains in its own colours.
+**A new wallpaper.** A sunny birch forest with Alex, Steve and a beehive. It's on Home and behind every page, and on the Vortex main menu in the game.
+
+**From 0.5.6:**
+- Closing things breaks them into particles that keep their own look.
 
 **From 0.5.5:**
 - Much smoother on phones.

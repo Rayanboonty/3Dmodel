@@ -93,7 +93,8 @@ const DEFS = {
     image: "custom", sunAt: null, glowCol: [255, 230, 200], dust: [255, 240, 220], phase: "day",
   },
   golden: {
-    image: "golden", sunAt: [0.445, 0.33], glowCol: [255, 196, 120], dust: [255, 226, 150], phase: "dusk",
+    // A sunny birch forest; soft daylight from above, pale pollen drifting.
+    image: "golden", sunAt: [0.6, -0.04], glowCol: [255, 248, 220], dust: [255, 252, 222], phase: "day", vig: [6, 18, 16], focus: [0.66, 0.5],
     ground: { top: "cleanGrass", sub: "cleanDirt", deep: "cleanStone" },
     far: "none", hills: null, mid: { ridge: null, trees: [], density: 0 },
     fore: { tree: null }, water: "lake", fire: "campfire", flora: [],
@@ -1500,7 +1501,9 @@ export class World {
     const zoom = 1.08 + (1 - rise) * 0.06;
     const sc = Math.max(w / img.naturalWidth, h / img.naturalHeight) * zoom;
     const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
-    const ox = (w - dw) / 2 - this.parallax * w * 0.018, oy = (h - dh) / 2 - this.tilt * h * 0.02;
+    // Where the picture is cropped on narrow screens (its point of interest).
+    const [fx, fy] = D.focus || [0.5, 0.5];
+    const ox = (w - dw) * fx - this.parallax * w * 0.018, oy = (h - dh) * fy - this.tilt * h * 0.02;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, ox, oy, dw, dh);
@@ -1567,12 +1570,13 @@ export class World {
     // Depth: vignette, darker at the bottom so the interface sits on it.
     const vg = ctx.createRadialGradient(w / 2, h * 0.42, h * 0.3, w / 2, h * 0.5, Math.max(w, h) * 0.78);
     vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, `rgba(10,4,20,${(0.3 + (this.dim ?? 0.12)).toFixed(2)})`);
+    const vc = D.vig || [10, 4, 20];
+    vg.addColorStop(1, `rgba(${vc},${(0.3 + (this.dim ?? 0.12)).toFixed(2)})`);
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, w, h);
     const bottom = ctx.createLinearGradient(0, h * 0.62, 0, h);
-    bottom.addColorStop(0, "rgba(8,4,18,0)");
-    bottom.addColorStop(1, "rgba(8,4,18,0.38)");
+    bottom.addColorStop(0, `rgba(${vc},0)`);
+    bottom.addColorStop(1, `rgba(${vc},0.38)`);
     ctx.fillStyle = bottom;
     ctx.fillRect(0, h * 0.62, w, h * 0.38);
   }
@@ -2286,7 +2290,7 @@ export function setCustomPicture(img) {
   if (img) PICTURES.custom = img;
   else delete PICTURES.custom;
 }
-for (const [id, file] of [["golden", "meadow-sunset.jpg"], ["sunset", "sunset.jpg"], ["valley", "valley.webp"]]) {
+for (const [id, file] of [["golden", "birch-forest.jpg"], ["sunset", "sunset.jpg"], ["valley", "valley.webp"]]) {
   PICTURES[id] = new Image();
   PICTURES[id].src = new URL(`../img/${file}`, import.meta.url).href;
 }

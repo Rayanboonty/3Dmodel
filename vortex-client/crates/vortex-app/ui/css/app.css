@@ -858,7 +858,7 @@ body.picture .switcher { top: calc(var(--ay) - 74px); }
 body { background: #0c0a10; }
 .backdrop {
   position: fixed; inset: -60px; z-index: 0; pointer-events: none;
-  background: url("../img/meadow-sunset.jpg") center / cover no-repeat;
+  background: url("../img/birch-forest.jpg") center / cover no-repeat;
   filter: blur(56px) brightness(0.3) saturate(1.35);
 }
 #world { z-index: 1; inset: auto; border-radius: 22px; transition: opacity 0.35s var(--ease); }

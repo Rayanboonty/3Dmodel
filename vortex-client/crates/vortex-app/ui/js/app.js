@@ -254,7 +254,7 @@ function preblurBackdrop() {
       el.classList.add("pre");
     } catch { /* keep the live blur */ }
   };
-  img.src = "img/meadow-sunset.jpg";
+  img.src = "img/birch-forest.jpg";
 }
 
 /** Glass over the wallpaper reads its brightness and darkens to suit. */
@@ -1815,7 +1815,7 @@ function settingsBody(d) {
   const tab = S.settingsTab;
   if (tab === "appearance") {
     const u = { ...UI_DEFAULTS, ...d };
-    const wall = u.wall_custom && S.customWallUrl ? S.customWallUrl : "img/meadow-sunset.jpg";
+    const wall = u.wall_custom && S.customWallUrl ? S.customWallUrl : "img/birch-forest.jpg";
     return `<div class="settings-grid">
       <div class="card-pad"><h3>Feel</h3>
         ${segRow(u, "radius", "Corners", [["round", "Round"], ["soft", "Soft"], ["sharp", "Sharp"]])}
@@ -2324,7 +2324,7 @@ async function exportMenuArt(inst) {
   if (!inst || inst.loader !== "fabric" || inst.minecraftVersion !== "1.21.4" || s.vortex_mods === false || s.vortex_menu === false) return;
   try {
     const custom = s.wall_custom && S.customWall;
-    const sig = `${custom ? `custom:${S.customWall.naturalWidth}x${S.customWall.naturalHeight}:${S.customWallUrl?.length}` : "golden"}:${s.wall_dim ?? 12}:v2`;
+    const sig = `${custom ? `custom:${S.customWall.naturalWidth}x${S.customWall.naturalHeight}:${S.customWallUrl?.length}` : "golden"}:${s.wall_dim ?? 12}:v3`;
     if (store.get("vortex.menuArt") === sig) return; // already given to the game
     const bg = sceneStill(custom ? "custom" : "golden", 1600, 900, world.fixedTime ? undefined : world.hour());
     const logo = await logoCanvas();
@@ -2973,7 +2973,7 @@ async function boot() {
   }
   // Light streams along inside the loading bar while it loads.
   const stopFlow = matchMedia("(prefers-reduced-motion: reduce)").matches ? () => {} : dust.flow($("#boot .bar"));
-  dust.warm("img/meadow-sunset.jpg");
+  dust.warm("img/birch-forest.jpg");
   bindChrome();
   bindEvents();
   try {
@@ -3037,7 +3037,7 @@ async function boot() {
     stopFlow();
     const br = $(".bar", bootEl).getBoundingClientRect();
     const origin = { x: br.left + br.width / 2, y: br.top + br.height / 2 };
-    const wall = dust.colorsOfImage("img/meadow-sunset.jpg");
+    const wall = dust.colorsOfImage("img/birch-forest.jpg");
     const pieces = [
       ...$$(".topbar .brand, .top-right > :not([hidden])"),
       $("#nav"),
