@@ -10,6 +10,7 @@ const ctx = canvas.getContext("2d");
 let dpr = 1;
 let W = 0, H = 0;
 let parts = [];
+let rings = [];
 let raf = 0;
 let enabled = true;
 const MAX = 4200;
@@ -105,7 +106,23 @@ function step(now) {
   }
   parts.length = n;
   ctx.globalAlpha = 1;
-  raf = parts.length ? requestAnimationFrame(step) : 0;
+  // Soft glowing bands (the theme change's edge).
+  rings = rings.filter((g) => now - g.t0 < g.dur);
+  for (const g of rings) {
+    const k = (now - g.t0) / g.dur;
+    const rad = Math.max(1, g.radiusAt(k));
+    const inner = Math.max(0, rad - g.width), outer = rad + g.width * 0.18;
+    const fade = Math.sin(Math.PI * Math.min(1, k * 1.15));
+    const grd = ctx.createRadialGradient(g.x, g.y, inner, g.x, g.y, outer);
+    const c = g.light ? "255,214,150" : "150,130,255";
+    grd.addColorStop(0, `rgba(${c},0)`);
+    grd.addColorStop(0.62, `rgba(${c},${(0.16 * fade).toFixed(3)})`);
+    grd.addColorStop(0.86, `rgba(${c},${(0.34 * fade).toFixed(3)})`);
+    grd.addColorStop(1, `rgba(${c},0)`);
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+  }
+  raf = parts.length || rings.length ? requestAnimationFrame(step) : 0;
   if (!raf) ctx.clearRect(0, 0, W, H);
 }
 
@@ -424,6 +441,13 @@ export const dust = {
         color: pick(colors), size: 0.6 + Math.random() * 1.2, life: 0.5 + Math.random() * 0.6, alpha: 0.55, wy: -12, turb: 50, drag: 2,
       });
     }
+    kick();
+  },
+
+  /** A soft band of light riding a growing circle. */
+  glowRing(x, y, radiusAt, { duration = 1000, width = 200, light = true } = {}) {
+    if (!enabled) return;
+    rings.push({ x, y, radiusAt, dur: duration, width, light, t0: performance.now() });
     kick();
   },
 

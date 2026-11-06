@@ -1891,6 +1891,22 @@ body.theme-light .tilt-light { mix-blend-mode: normal; background: radial-gradie
 ::view-transition-old(root) { z-index: 1; }
 ::view-transition-new(root) { z-index: 2; }
 
+/* Theme change: the new look spreads from the button behind a wide,
+   feathered edge and settles in; the old one sinks back a little. */
+@property --vr { syntax: "<length>"; inherits: false; initial-value: 0px; }
+html.theme-vt::view-transition-new(root) {
+  -webkit-mask-image: radial-gradient(circle at var(--vx) var(--vy), #000 calc(var(--vr) - var(--vsoft)), transparent var(--vr));
+  mask-image: radial-gradient(circle at var(--vx) var(--vy), #000 calc(var(--vr) - var(--vsoft)), transparent var(--vr));
+  transform-origin: var(--vx) var(--vy);
+  animation: vtNew 1s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+html.theme-vt::view-transition-old(root) {
+  transform-origin: var(--vx) var(--vy);
+  animation: vtOld 1s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes vtNew { from { --vr: 0px; scale: 1.035; filter: brightness(1.12); } to { --vr: var(--vend); scale: 1; filter: brightness(1); } }
+@keyframes vtOld { to { scale: 0.975; filter: brightness(0.82) blur(2px); } }
+
 /* The entrance after the boot screen: the frame settles, the rail and
    bar slide in, the widgets ripple in from the right. */
 body.intro .brand { animation: introDown 0.8s var(--liquid) 0.15s backwards; }

@@ -2834,13 +2834,26 @@ function bindChrome() {
     const x = btn.left + btn.width / 2, y = btn.top + btn.height / 2;
     const swap = () => { S.settings = next; applyLook(); };
     if (document.startViewTransition && anims()) {
+      // The new theme floods out from the button with a soft edge, like
+      // light filling a room (a warm sunrise glow going light, a violet
+      // dusk going dark), while the old one sinks back behind it.
+      const root = document.documentElement;
+      const soft = 0.16 * Math.max(innerWidth, innerHeight);
+      const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + soft;
+      const toLight = next.theme === "light";
+      root.style.setProperty("--vx", `${x}px`);
+      root.style.setProperty("--vy", `${y}px`);
+      root.style.setProperty("--vend", `${Math.ceil(r)}px`);
+      root.style.setProperty("--vsoft", `${Math.round(soft)}px`);
+      root.classList.add("theme-vt");
       const vt = document.startViewTransition(swap);
       vt.ready.then(() => {
-        const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-        document.documentElement.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
-          { duration: 720, easing: "cubic-bezier(0.55, 0.05, 0.25, 1)", pseudoElement: "::view-transition-new(root)" });
-        dust.ring(x, y, (k) => r * (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2), { duration: 720 });
+        const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+        dust.glowRing(x, y, (k) => r * ease(k) - soft * 0.35, { duration: 1000, width: soft, light: toLight });
+        dust.ring(x, y, (k) => r * ease(k) - soft * 0.4, { duration: 1000, perFrame: 14,
+          colors: toLight ? ["rgba(255,226,170,1)", "rgba(255,196,110,1)", "rgba(255,244,222,1)"] : ["rgba(170,150,255,1)", "rgba(120,110,230,1)", "rgba(210,200,255,1)"] });
       }, () => {});
+      vt.finished.finally(() => root.classList.remove("theme-vt"));
     } else swap();
     try { await saveSettings(next); } catch { /* kept locally */ }
   });
