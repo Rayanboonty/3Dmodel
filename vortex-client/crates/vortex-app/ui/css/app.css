@@ -1958,3 +1958,17 @@ body.no-anim .shock, body.no-anim .tilt-light { display: none; }
 .inst-card { display: flex; flex-direction: column; }
 .inst-body { flex: 1; }
 .inst-body .card-actions { margin-top: auto; padding-top: 2px; }
+
+/* ============================================================== dust ===
+   One canvas over everything for the particle dust. It keeps drawing on
+   top during the theme reveal too. */
+#dust { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 130; pointer-events: none; view-transition-name: dust; }
+::view-transition-group(dust) { animation: none; z-index: 10; }
+::view-transition-old(dust) { display: none; }
+::view-transition-new(dust) { animation: none; }
+body.no-anim #dust { display: none; }
+
+/* A closing dialog dissolves into dust, so its scrim only clears behind
+   it instead of fading the dialog away first. */
+.scrim.closing { animation: scrimClear 0.55s var(--ease) forwards; }
+@keyframes scrimClear { to { background: rgba(8, 5, 20, 0); -webkit-backdrop-filter: blur(0px); backdrop-filter: blur(0px); } }

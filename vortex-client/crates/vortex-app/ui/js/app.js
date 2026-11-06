@@ -6,6 +6,7 @@ import { initLiquid, setMotion, morphIn, morphOut, pressedSource, swipeToDismiss
 import { Player, defaultSkin } from "./player.js";
 import { sound } from "./sound.js";
 import { fx, toast } from "./fx.js";
+import { dust } from "./dust.js";
 import { STYLES, renderBrand, renderStyle, mount as mountLogo } from "./logo.js";
 import { coverFor, updateName } from "./versions.js";
 
@@ -250,6 +251,7 @@ function applyLook(s = S.settings || {}) {
   world.setLife(s.world_life !== false);
   sound.setEnabled(s.ui_sounds !== false);
   fx.setEnabled(s.animations !== false);
+  dust.setEnabled(s.animations !== false);
   document.body.classList.toggle("no-anim", s.animations === false);
   document.body.classList.toggle("no-player", s.show_player === false);
   const root = document.documentElement.style;
@@ -361,7 +363,7 @@ function bindLiquid() {
   });
   document.addEventListener("click", (e) => {
     const launch = e.target.closest('.play[data-action="play"]');
-    if (launch && anims()) shockwave(launch);
+    if (launch && anims()) { shockwave(launch); dust.charge(launch, { duration: 1100 }); }
   });
   document.addEventListener("scroll", (e) => {
     const t = e.target;
@@ -384,6 +386,12 @@ function bindLiquid() {
     el.style.setProperty("--mx", `${e.clientX - r.left}px`);
     el.style.setProperty("--my", `${e.clientY - r.top}px`);
   });
+}
+
+/** Dissolve the card or row a control belongs to into dust. */
+function vanish(el) {
+  const card = el?.closest(".inst-card, .list-row, .skin-card, .card, .wz-item");
+  return anims() && card ? dust.dissolve(card, { duration: 700, dir: "right" }) : Promise.resolve();
 }
 
 /** Two rings of light burst out of the Launch button. */
@@ -478,6 +486,7 @@ function go(route, opts = {}) {
     render({ enter: true });
   };
   if ((!same || leaving) && anims() && page.children.length) {
+    if (!leaving) dust.shed(page.firstElementChild, { count: 150 });
     page.classList.add("leave");
     goTimer = setTimeout(swap, leaving ? 90 : 170);
   } else {
@@ -661,7 +670,7 @@ function closeSwitcher(instant = false, then) {
   panel.id = "";
   const done = () => { panel.remove(); then?.(); };
   if (instant || !anims()) done();
-  else morphOut(panel, $("[data-action='toggle-switcher']")).then(done);
+  else dust.dissolve(panel, { duration: 460, dir: "up", density: 0.8 }).then(done);
 }
 
 const newsVersion = (n) => n.version || (String(n.title || "").match(/(\d+(?:\.\d+)+(?:[-\s]?(?:snapshot|pre|rc)[-\s]?\d+)?|\d\dw\d\d[a-z])/i)?.[1] || "").replace(/\s+/g, "-").toLowerCase();
@@ -964,6 +973,10 @@ function updateRunUI(name) {
         } else {
           btn.outerHTML = playButton(inst);
           const nb = $("#play");
+          if (nb && r.phase === "running" && wasPhase !== "running") {
+            const b = nb.getBoundingClientRect();
+            dust.burst(b.left + b.width / 2, b.top + b.height / 2, { count: 320, colors: ["rgba(180,242,143,1)", "rgba(134,220,92,1)", "rgba(255,236,205,1)", "rgba(255,181,71,1)"] });
+          }
           if (nb && anims()) {
             nb.animate([{ scale: "0.94 0.9" }, { offset: 0.45, scale: "1.03 1.05" }, { offset: 0.75, scale: "0.995 0.99" }, { scale: "1 1" }], { duration: 620, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
             for (const [i, el] of [...nb.querySelectorAll(".play-label, .play-sub")].entries()) {
@@ -2006,7 +2019,7 @@ function closeModal(instant = false) {
   // Opened with the mouse: don't leave a focus ring on the card behind.
   if (box?._source && document.activeElement && !document.activeElement.matches("input, textarea, select")) document.activeElement.blur();
   if (instant || !anims()) { scrim.remove(); return; }
-  morphOut(box, box?._source).then(() => scrim.remove());
+  dust.dissolve(box, { duration: 620, dir: "right" }).then(() => scrim.remove());
 }
 
 function confirmModal(title, text, okLabel = "Delete") {
@@ -2271,7 +2284,9 @@ const actions = {
     const name = el.dataset.name;
     if (!(await confirmModal(`Delete ${name}?`, "Its worlds, mods and settings are removed from this computer. This can't be undone."))) return;
     try {
+      const gone = vanish(el);
       S.instances = await call("delete_instance", { name });
+      await gone;
       if (S.selected === name) S.selected = S.instances[0]?.name || null;
       sound.pop();
       toast("Deleted", name, "info");
@@ -2350,7 +2365,9 @@ const actions = {
   async "mod-delete"(el) {
     if (!(await confirmModal("Delete this mod?", el.dataset.file))) return;
     try {
+      const gone = vanish(el);
       S.mods.list = await call("delete_mod", { name: S.mods.instance, file: el.dataset.file, kind: S.mods.kind });
+      await gone;
       sound.pop();
       render();
     } catch (e) {
@@ -2401,7 +2418,9 @@ const actions = {
   async "skin-remove"(el) {
     const k = S.skins?.skins.find((x) => x.id === el.dataset.id);
     if (!(await confirmModal(`Delete ${k?.name || "this skin"}?`, "It's removed from your skins on this computer.", "Delete"))) return;
+    const gone = vanish(el);
     S.skins = await call("skin_remove", { id: el.dataset.id });
+    await gone;
     await loadSkin();
     render();
   },
@@ -2458,7 +2477,9 @@ const actions = {
   async "acc-remove"(el) {
     const acc = S.accounts.find((a) => a.uuid === el.dataset.uuid);
     if (!(await confirmModal(`Remove ${acc?.username}?`, "You can add it again later.", "Remove"))) return;
+    const gone = vanish(el);
     S.accounts = await call("remove_account", { uuid: el.dataset.uuid });
+    await gone;
     updateAccount();
     await loadSkin();
     render();
@@ -2711,6 +2732,7 @@ function bindChrome() {
         const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
         document.documentElement.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
           { duration: 720, easing: "cubic-bezier(0.55, 0.05, 0.25, 1)", pseudoElement: "::view-transition-new(root)" });
+        dust.ring(x, y, (k) => r * (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2), { duration: 720 });
       }, () => {});
     } else swap();
     try { await saveSettings(next); } catch { /* kept locally */ }
@@ -2761,6 +2783,11 @@ function bindChrome() {
 
 async function boot() {
   const hint = $("#boot-hint");
+  const logo = $("#boot-logo");
+  if (logo && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const go = () => dust.gather(logo, { duration: 1000, density: 1.2, spread: 1.4 });
+    if (logo.complete) go(); else logo.addEventListener("load", go, { once: true });
+  }
   bindChrome();
   bindEvents();
   try {
@@ -2805,6 +2832,7 @@ async function boot() {
   const bootEl = $("#boot");
   world.rise = 0;
   if (anims()) {
+    dust.dissolve($(".boot-inner", bootEl), { duration: 800, dir: "up", density: 1.3 });
     bootEl.classList.add("out");
     document.body.classList.add("intro");
     setTimeout(() => bootEl.remove(), 950);

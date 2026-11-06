@@ -1,5 +1,6 @@
 // Visual effects: pixel particle bursts, block confetti and toasts.
 import { icon } from "./icons.js";
+import { dust } from "./dust.js";
 
 const canvas = document.getElementById("fx");
 const ctx = canvas.getContext("2d");
@@ -101,7 +102,12 @@ export function toast(title, text = "", kind = "info", ms = 4200) {
   el.querySelector(".toast-body span").textContent = text;
   el.querySelector(".toast-timer").style.animationDuration = `${ms}ms`;
   root.appendChild(el);
+  let closing = false;
   const close = () => {
+    if (closing || !el.isConnected) return;
+    closing = true;
+    // The toast breaks up into dust that drifts off to the right.
+    if (dust.enabled) { el.style.animation = "none"; dust.dissolve(el, { duration: 560, dir: "right", density: 0.9 }).then(() => el.remove()); return; }
     el.classList.add("out");
     setTimeout(() => el.remove(), 260);
   };
