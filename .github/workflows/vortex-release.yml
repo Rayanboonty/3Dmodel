@@ -7,6 +7,8 @@ name: Vortex Client release
 #
 # This builds Windows x64, attaches Vortex-windows-x64.zip to a GitHub
 # release, and every installed launcher offers the update on its next start.
+# The release text (shown in the launcher's update pop-up) comes from
+# vortex-client/RELEASE_NOTES.md.
 
 on:
   push:
@@ -70,5 +72,5 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: Vortex Client ${{ github.event.inputs.tag || github.ref_name }}
-          generate_release_notes: true
+          body_path: vortex-client/RELEASE_NOTES.md
           files: vortex-client/dist/Vortex-windows-x64.zip
