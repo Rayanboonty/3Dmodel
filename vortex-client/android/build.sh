@@ -38,7 +38,8 @@ SKIP=(); [ "$V" = Release ] && SKIP=(-x lintVitalAnalyzeRelease -x lintVitalRepo
 
 mkdir -p "$HERE/out"
 # One APK per CPU type plus a universal one.
-SUF="$( [ "$KIND" = debug ] && echo -debug )"
+SUF=""
+if [ "$KIND" = debug ]; then SUF="-debug"; fi
 for apk in "$SRC"/app_pojavlauncher/build/outputs/apk/"$KIND"/*.apk; do
   case "$apk" in
     *arm64*) n=arm64 ;; *armeabi*) n=armv7 ;; *x86_64*) n=x86_64 ;; *universal*) n=universal ;; *) n=universal ;;

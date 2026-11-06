@@ -18,6 +18,8 @@ on:
       - vortex-client/Cargo.toml
       - vortex-client/RELEASE_NOTES.md
       - .github/workflows/vortex-release.yml
+      - vortex-client/android/build.sh
+      - vortex-client/android/apply.py
     tags:
       - "vortex-v*"
   workflow_dispatch:
