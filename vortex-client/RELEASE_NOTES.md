@@ -1,8 +1,9 @@
-**Vortex mods on more Minecraft versions.** The in-game Vortex mods now work on Fabric 1.20.1, 1.20.4, 1.21.1 and 1.21.4, not just 1.21.4. That includes the HUD (keystrokes, CPS, FPS, coordinates, armor, potions and more), zoom, freelook, the mod menu, the Vortex main menu, and your skin and cape. More versions are coming, including the newest ones and 1.8.9.
+**Vortex mods on the newest 1.21 versions.** The in-game Vortex mods now also work on Fabric 1.21.8 and 1.21.11. They run on 1.20.1, 1.20.4, 1.21.1, 1.21.4, 1.21.8 and 1.21.11, with the same HUD, mod menu, main menu, skin and cape. Next up: Minecraft 26.x and 1.8.9.
 
-**Much higher FPS.** Fabric instances now get Sodium, Lithium, FerriteCore, EntityCulling and ImmediatelyFast added automatically (on Forge: FerriteCore, EntityCulling, ImmediatelyFast and ModernFix). Each is added once. If you remove one, it stays removed. You can turn this off in Settings, In-Game.
-
-**Fewer crashes.** Every Vortex hook is now checked against each Minecraft version before release. This found and fixed a zoom bug that would have crashed 1.21.1 as soon as you joined a world.
+**From 0.6.0:**
+- Vortex mods on 1.20.1 to 1.21.4.
+- Performance mods (Sodium and friends) for much higher FPS.
+- Crash checks for every version.
 
 **From 0.5.8:**
 - Steve moves naturally.

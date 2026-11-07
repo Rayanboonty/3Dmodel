@@ -928,6 +928,8 @@ const VORTEX_MODS: &[(&str, &[u8])] = &[
     ("1.20.4", include_bytes!("../resources/vortex-mods-1.20.4.jar")),
     ("1.21.1", include_bytes!("../resources/vortex-mods-1.21.1.jar")),
     ("1.21.4", include_bytes!("../resources/vortex-mods-1.21.4.jar")),
+    ("1.21.8", include_bytes!("../resources/vortex-mods-1.21.8.jar")),
+    ("1.21.11", include_bytes!("../resources/vortex-mods-1.21.11.jar")),
 ];
 const VORTEX_MOD_FILE: &str = "vortex-mods.jar";
 

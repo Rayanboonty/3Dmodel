@@ -87,7 +87,7 @@ addEventListener("resize", () => {
 
 const $ = (sel, root = document) => root.querySelector(sel);
 /** Minecraft versions the Vortex in-game mod is built for (see mod/versions). */
-const VORTEX_MC = ["1.20.1", "1.20.4", "1.21.1", "1.21.4"];
+const VORTEX_MC = ["1.20.1", "1.20.4", "1.21.1", "1.21.4", "1.21.8", "1.21.11"];
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const anims = () => S.settings?.animations !== false;
