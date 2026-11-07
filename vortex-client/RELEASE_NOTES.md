@@ -1,3 +1,7 @@
+**One file for Windows.** Vortex now comes as a single **Vortex.exe**: no zip, nothing to unpack. Put it anywhere and open it. Updates replace that one file too.
+
+**From 0.7.7:**
+
 **A much faster launcher.** It was slow because of the glass effects. Measured on the Home screen, on a computer with no graphics card:
 - **Before:** liquid glass and blur everywhere, 83 ms a frame (about 12 FPS).
 - **Now, with the new Default:** 16.7 ms a frame (a smooth 60 FPS).

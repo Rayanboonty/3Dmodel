@@ -202,16 +202,18 @@ or Microsoft.
 
 The launcher checks GitHub Releases each time it opens (Settings → Account & data →
 Updates can turn that off, or check now). When there's a newer version it shows a pop-up
-with the release notes; **Update and restart** downloads the zip, swaps the files next to
-`Vortex.exe` (the old ones are kept as `*.old` until the next start), and opens the new
-version. Instances, accounts and settings are untouched.
+with the release notes; **Update and restart** downloads the new `Vortex.exe` (older
+launchers download the zip), swaps it in place (the old one is kept as `Vortex.exe.old`
+until the next start), and opens the new version. Instances, accounts and settings are
+untouched.
 
 To publish an update:
 
 1. Bump `version` in `vortex-client/Cargo.toml` and `vortex-client/crates/vortex-app/tauri.conf.json`.
 2. Commit and push, then tag the commit: `git tag vortex-v0.3.1 && git push origin vortex-v0.3.1`.
-3. The **Vortex Client release** workflow builds Windows x64 and attaches
-   `Vortex-windows-x64.zip` to a GitHub release named after the tag. Edit the release text
+3. The **Vortex Client release** workflow builds Windows x64 and attaches `Vortex.exe`
+   (the whole launcher in one file) and `Vortex-windows-x64.zip` to a GitHub release
+   named after the tag. Edit the release text
    to change the notes players see.
 
 Releases are read from `Rayanboonty/3Dmodel` (set `VORTEX_UPDATE_REPO=owner/name` to use

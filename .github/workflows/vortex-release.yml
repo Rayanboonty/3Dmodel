@@ -110,6 +110,9 @@ jobs:
           $loader = Get-ChildItem -Recurse -Filter WebView2Loader.dll target\release -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($loader) { Copy-Item $loader.FullName dist\Vortex\ }
           Compress-Archive -Path dist\Vortex -DestinationPath dist\Vortex-windows-x64.zip -Force
+          # The launcher on its own: the WebView2 loader is linked in (MSVC)
+          # and the Vortex mods are built in, so it's a single file.
+          Copy-Item target\release\vortex.exe dist\Vortex.exe
 
       - uses: softprops/action-gh-release@v2
         with:
@@ -118,7 +121,9 @@ jobs:
           name: Vortex Client ${{ needs.plan.outputs.tag }}
           body_path: vortex-client/RELEASE_NOTES.md
           make_latest: true
-          files: vortex-client/dist/Vortex-windows-x64.zip
+          files: |
+            vortex-client/dist/Vortex.exe
+            vortex-client/dist/Vortex-windows-x64.zip
 
   android:
     name: Android APKs

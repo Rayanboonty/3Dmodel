@@ -455,7 +455,7 @@ async fn install_update(app: AppHandle, state: State<'_, AppState>, url: String,
     }
     let (dir, exe) = updater::current_exe().map_err(fail)?;
     let safe: String = version.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '-').collect();
-    let dest = state.launcher.paths().cache().join("update").join(format!("Vortex-{safe}.zip"));
+    let dest = state.launcher.paths().cache().join("update").join(format!("Vortex-{safe}.download"));
     let emitter = app.clone();
     let mut last = Instant::now() - Duration::from_secs(1);
     updater::download(state.launcher.http(), &url, &dest, |done, total| {

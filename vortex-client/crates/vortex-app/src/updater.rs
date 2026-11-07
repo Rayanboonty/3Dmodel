@@ -1,10 +1,11 @@
 //! Launcher updates from GitHub Releases.
 //!
 //! Each release of the launcher is a GitHub release in the project's repo
-//! tagged `vortex-v<version>` (e.g. `vortex-v0.3.0`) with the Windows zip
-//! attached. The launcher compares the newest one with its own version,
-//! downloads the zip, swaps its files in place (a running .exe can be
-//! renamed on Windows), starts the new version and quits.
+//! tagged `vortex-v<version>` (e.g. `vortex-v0.3.0`) with the launcher as a
+//! single `Vortex.exe` (and, for older launchers, a Windows zip) attached.
+//! The launcher compares the newest one with its own version, downloads
+//! the exe (or the zip), swaps it in place (a running .exe can be renamed
+//! on Windows), starts the new version and quits.
 
 use std::path::{Path, PathBuf};
 
@@ -16,6 +17,8 @@ use vortex_core::{reqwest, zip};
 pub const DEFAULT_REPO: &str = "Rayanboonty/3Dmodel";
 pub const TAG_PREFIX: &str = "vortex-v";
 const ASSET_NAME: &str = "Vortex-windows-x64.zip";
+/// The whole launcher in one file (everything it needs is built in).
+const EXE_ASSET: &str = "Vortex.exe";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -109,7 +112,9 @@ pub async fn check(http: &reqwest::Client, current: &str) -> Result<UpdateInfo> 
     };
     let Some(r) = best else { return Ok(none) };
     let version = r.tag_name[TAG_PREFIX.len()..].to_string();
-    let asset = r.assets.iter().find(|a| a.name.eq_ignore_ascii_case(ASSET_NAME)).or_else(|| r.assets.iter().find(|a| a.name.to_ascii_lowercase().ends_with(".zip")));
+    let asset = r.assets.iter().find(|a| a.name.eq_ignore_ascii_case(EXE_ASSET))
+        .or_else(|| r.assets.iter().find(|a| a.name.eq_ignore_ascii_case(ASSET_NAME)))
+        .or_else(|| r.assets.iter().find(|a| a.name.to_ascii_lowercase().ends_with(".zip")));
     Ok(UpdateInfo {
         available: is_newer(&version, current) && asset.is_some(),
         current: current.to_string(),
@@ -154,6 +159,24 @@ fn wanted(name: &str) -> bool {
 /// renamed to `*.old` first (allowed on Windows for running programs) and
 /// removed on the next start. Returns the new launcher executable.
 pub fn apply(zip_path: &Path, install_dir: &Path, exe_name: &str) -> Result<PathBuf> {
+    // A single-file update: the new launcher itself.
+    let mut head = [0u8; 2];
+    {
+        use std::io::Read;
+        let _ = std::fs::File::open(zip_path)?.read(&mut head)?;
+    }
+    if &head == b"MZ" {
+        let target = install_dir.join(exe_name);
+        let tmp = target.with_extension("exe.new");
+        std::fs::copy(zip_path, &tmp).with_context(|| format!("can't write {}", tmp.display()))?;
+        if target.exists() {
+            let old = target.with_extension("exe.old");
+            let _ = std::fs::remove_file(&old);
+            std::fs::rename(&target, &old).with_context(|| format!("can't replace {}", target.display()))?;
+        }
+        std::fs::rename(&tmp, &target)?;
+        return Ok(target);
+    }
     let file = std::fs::File::open(zip_path)?;
     let mut zip = zip::ZipArchive::new(file).context("the update isn't a valid zip")?;
     let mut staged: Vec<(PathBuf, PathBuf)> = Vec::new();
@@ -213,6 +236,20 @@ pub fn current_exe() -> Result<(PathBuf, String)> {
 mod tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn applies_a_single_exe() {
+        let dir = std::env::temp_dir().join(format!("vortex-upd-exe-{}", std::process::id()));
+        let install = dir.join("install");
+        std::fs::create_dir_all(&install).unwrap();
+        std::fs::write(install.join("Vortex.exe"), b"MZold").unwrap();
+        let new = dir.join("Vortex-0.9.0.bin");
+        std::fs::write(&new, b"MZnew launcher").unwrap();
+        let exe = apply(&new, &install, "Vortex.exe").unwrap();
+        assert_eq!(std::fs::read(&exe).unwrap(), b"MZnew launcher");
+        assert_eq!(std::fs::read(install.join("Vortex.exe.old")).unwrap(), b"MZold");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn versions() {
