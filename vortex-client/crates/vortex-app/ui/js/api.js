@@ -1,13 +1,10 @@
 // Bridge to the backend. In the Windows app this is Tauri IPC to Rust; in
-// the Android app it's Amethyst through a native bridge; in a plain browser
-// (design previews) it falls back to a demo backend.
+// a plain browser (design previews) it falls back to a demo backend.
 import { mock } from "./mock.js";
-import { android, isAndroid } from "./android.js";
 
 const T = window.__TAURI__;
 export const isTauri = !!(T && T.core && T.core.invoke);
-export { isAndroid };
-const backend = isAndroid ? android : mock;
+const backend = mock;
 
 export function call(cmd, args = {}) {
   return isTauri ? T.core.invoke(cmd, args) : backend.invoke(cmd, args);

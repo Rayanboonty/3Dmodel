@@ -18,6 +18,14 @@ import net.minecraft.text.Text;
 public abstract class PlayerListHudMixin {
     @Inject(method = "getPlayerName", at = @At("RETURN"), cancellable = true)
     private void vortex$badge(PlayerListEntry entry, CallbackInfoReturnable<Text> cir) {
+        Module tp = Module.get("tabping");
+        if (VortexMods.config.enabled(tp)) {
+            int ms = entry.getLatency();
+            net.minecraft.util.Formatting col = !VortexMods.config.bool(tp, "color") ? net.minecraft.util.Formatting.GRAY
+                    : ms < 80 ? net.minecraft.util.Formatting.GREEN : ms < 150 ? net.minecraft.util.Formatting.YELLOW
+                    : ms < 250 ? net.minecraft.util.Formatting.GOLD : net.minecraft.util.Formatting.RED;
+            cir.setReturnValue(cir.getReturnValue().copy().append(Text.literal(" " + ms + "ms").formatted(col)));
+        }
         Module m = Module.get("badge");
         if (!VortexMods.config.enabled(m) || !VortexMods.config.bool(m, "tab")) return;
         if (VortexPlayers.isVortex(Compat.profileId(entry))) cir.setReturnValue(VortexPlayers.badge(cir.getReturnValue()));

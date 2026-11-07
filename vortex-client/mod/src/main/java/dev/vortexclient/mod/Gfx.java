@@ -48,6 +48,11 @@ public final class Gfx {
     }
 
     /** A status effect's icon, size x size. */
+    /** The count and durability bar Minecraft draws over an item in a slot. */
+    public static void itemOverlay(DrawContext c, net.minecraft.item.ItemStack st, int x, int y) {
+        c.drawStackOverlay(MinecraftClient.getInstance().textRenderer, st, x, y);
+    }
+
     public static void effectIcon(DrawContext c, StatusEffectInstance e, int x, int y, int size) {
         Sprite sprite = MinecraftClient.getInstance().getStatusEffectSpriteManager().getSprite(e.getEffectType());
         sprite(c, sprite, x, y, size, size);

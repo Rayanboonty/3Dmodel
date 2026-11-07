@@ -22,8 +22,15 @@ public final class Crosshair {
             case "Green" -> 0xFF55FF55;
             case "Red" -> 0xFFFF5555;
             case "Aqua" -> 0xFF55FFFF;
+            case "Yellow" -> 0xFFFFFF55;
+            case "Pink" -> 0xFFFF77CC;
+            case "Rainbow" -> Hud.rainbow(0);
             default -> 0xFFFFFFFF;
         };
+        // A hit just landed: a short red flash.
+        if (cfg.bool(m, "hitcolor") && System.currentTimeMillis() - Stats.lastHitAt < 180) color = 0xFFFF3B3B;
+        // Spread when moving: the gap opens with your speed.
+        if (cfg.bool(m, "dynamic")) gap += (int) Math.min(6, Math.round(Stats.speed / 1.5));
         boolean outline = cfg.bool(m, "outline");
         String style = cfg.str(m, "style");
         int lo = t / 2, hi = t - lo;
@@ -42,6 +49,32 @@ public final class Crosshair {
                 rect(c, cx - size, cy - lo, cx + size + 1, cy + hi, color, outline);
                 rect(c, cx - lo, cy - size, cx + hi, cy + size + 1, color, outline);
             }
+            case "T" -> {
+                rect(c, cx - gap - size, cy - lo, cx - gap, cy + hi, color, outline);
+                rect(c, cx + gap + 1, cy - lo, cx + gap + size + 1, cy + hi, color, outline);
+                rect(c, cx - lo, cy + gap + 1, cx + hi, cy + gap + size + 1, color, outline);
+            }
+            case "X" -> {
+                for (int i = gap; i < gap + size; i++) {
+                    rect(c, cx - i - 1, cy - i - 1, cx - i - 1 + t, cy - i - 1 + t, color, outline);
+                    rect(c, cx + i, cy - i - 1, cx + i + t, cy - i - 1 + t, color, outline);
+                    rect(c, cx - i - 1, cy + i, cx - i - 1 + t, cy + i + t, color, outline);
+                    rect(c, cx + i, cy + i, cx + i + t, cy + i + t, color, outline);
+                }
+            }
+            case "Square" -> {
+                int r = Math.max(2, size);
+                rect(c, cx - r, cy - r, cx + r + 1, cy - r + t, color, outline);
+                rect(c, cx - r, cy + r + 1 - t, cx + r + 1, cy + r + 1, color, outline);
+                rect(c, cx - r, cy - r, cx - r + t, cy + r + 1, color, outline);
+                rect(c, cx + r + 1 - t, cy - r, cx + r + 1, cy + r + 1, color, outline);
+            }
+            case "Arrow" -> {
+                for (int i = 0; i < size; i++) {
+                    rect(c, cx - i - 1, cy + gap + i, cx - i - 1 + t, cy + gap + i + t, color, outline);
+                    rect(c, cx + i, cy + gap + i, cx + i + t, cy + gap + i + t, color, outline);
+                }
+            }
             default -> {
                 rect(c, cx - gap - size, cy - lo, cx - gap, cy + hi, color, outline);
                 rect(c, cx + gap + 1, cy - lo, cx + gap + size + 1, cy + hi, color, outline);
@@ -49,6 +82,7 @@ public final class Crosshair {
                 rect(c, cx - lo, cy + gap + 1, cx + hi, cy + gap + size + 1, color, outline);
             }
         }
+        if (cfg.bool(m, "center") && !style.equals("Dot")) rect(c, cx - lo, cy - lo, cx + hi, cy + hi, color, outline);
         return true;
     }
 

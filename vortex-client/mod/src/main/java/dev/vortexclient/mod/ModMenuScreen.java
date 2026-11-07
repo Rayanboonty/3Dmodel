@@ -32,7 +32,16 @@ public class ModMenuScreen extends ScreenBase {
     private static final int ON_BG = 0xFF1C5229;
     private static final int ON_TEXT = 0xFF86E596;
 
-    private static final String[] CATEGORIES = {"All", "HUD", "PvP", "Utility", "Favorites"};
+    private static final String[] CATEGORIES = {"All", "New", "HUD", "PvP", "Utility", "Favorites"};
+    private static final String[] PRESETS = {"PvP", "Minimal", "Info", "Streamer"};
+    private static final String[] SORTS = {"Default", "A-Z", "On first"};
+    /** Which HUD elements each preset shows (every other HUD element is hidden). */
+    private static final java.util.Map<String, java.util.List<String>> PRESET_MODULES = java.util.Map.of(
+            "PvP", java.util.List.of("keystrokes", "cps", "fps", "ping", "armor", "potions", "reach", "combo", "target", "items", "sprint", "attack", "armorpts", "crosshair", "hitmarker", "lowhp"),
+            "Minimal", java.util.List.of("fps", "coords", "armor", "potions"),
+            "Info", java.util.List.of("fps", "ping", "coords", "clock", "biome", "light", "worldtime", "day", "direction", "lookat", "memory", "server", "dimension"),
+            "Streamer", java.util.List.of("fps", "keystrokes", "armor", "potions", "cps", "clock"));
+    private int sort;
 
     private final Screen parent;
     private final List<Hit> hits = new ArrayList<>();
@@ -209,11 +218,60 @@ public class ModMenuScreen extends ScreenBase {
                 case "PvP" -> m.category == Module.Category.PVP;
                 case "Utility" -> m.category == Module.Category.UTILITY;
                 case "Favorites" -> VortexMods.config.favorites.contains(m.id);
+                case "New" -> Module.NEW.contains(m.id);
                 default -> true;
             };
             if (cat && (q.isEmpty() || m.name.toLowerCase(Locale.ROOT).contains(q) || m.description.toLowerCase(Locale.ROOT).contains(q))) out.add(m);
         }
+        if (sort == 1) out.sort(java.util.Comparator.comparing(mod -> mod.name.toLowerCase(Locale.ROOT)));
+        else if (sort == 2) out.sort(java.util.Comparator.comparing(mod -> !VortexMods.config.enabled(mod)));
         return out;
+    }
+
+    /** A category tab's text: its name and how many of its modules are on. */
+    private String catLabel(String cat) {
+        if (cat.equals("All") || cat.equals("Favorites")) return cat;
+        int on = 0;
+        for (Module m : Module.ALL) {
+            boolean in = switch (cat) {
+                case "HUD" -> m.category == Module.Category.HUD;
+                case "PvP" -> m.category == Module.Category.PVP;
+                case "Utility" -> m.category == Module.Category.UTILITY;
+                default -> Module.NEW.contains(m.id);
+            };
+            if (in && VortexMods.config.enabled(m)) on++;
+        }
+        return cat + " " + on;
+    }
+
+    /** A small rounded button on the toolbar. */
+    private int chip(DrawContext c, int mx, int my, int x, int y, String label, boolean active, int accent, Runnable onClick) {
+        int w = Ui.width(label) + 12, h = 14;
+        boolean hot = Ui.inside(mx, my, x, y, w, h);
+        Ui.rounded(c, x, y, w, h, 7, active ? accent : hot ? 0x40FFFFFF : 0x1EFFFFFF);
+        Ui.centered(c, label, x + w / 2, y + 3, active ? 0xFF16110A : hot ? TEXT : DIM);
+        hit(x, y, w, h, (a, b) -> onClick.run());
+        return x + w;
+    }
+
+    /** Turn every module in the current tab on or off. */
+    private void setAll(boolean on) {
+        for (Module m : visible()) VortexMods.config.state(m).enabled = on;
+        VortexMods.config.save();
+        VortexMods.applyToggles();
+        flash(on ? "Turned on " + visible().size() + " mods" : "Turned off " + visible().size() + " mods");
+    }
+
+    /** A preset: these HUD elements on, every other HUD element off. */
+    private void applyPreset(String name) {
+        java.util.List<String> ids = PRESET_MODULES.get(name);
+        for (Module m : Module.ALL) {
+            if (ids.contains(m.id)) VortexMods.config.state(m).enabled = true;
+            else if (m.hud) VortexMods.config.state(m).enabled = false;
+        }
+        VortexMods.config.save();
+        VortexMods.applyToggles();
+        flash(name + " preset applied");
     }
 
     private void renderGrid(DrawContext c, int mx, int my, int px, int py, int pw, int ph, int accent) {
@@ -224,15 +282,16 @@ public class ModMenuScreen extends ScreenBase {
         Gfx.texture(c, logo.id(), px + pad, py + 4, lw, lh, logo.w(), logo.h());
         int x = px + pad + lw + 12, y = py + 6;
         int trackW = 4;
-        for (String cat : CATEGORIES) trackW += Ui.width(cat) + 18;
+        for (String cat : CATEGORIES) trackW += Ui.width(catLabel(cat)) + 18;
         Ui.rounded(c, x - 2, y - 2, trackW, 18, 9, 0x50000000);
         for (String cat : CATEGORIES) {
-            int w = Ui.width(cat) + 18;
+            String label = catLabel(cat);
+            int w = Ui.width(label) + 18;
             boolean on = cat.equals(category);
             boolean hot = Ui.inside(mx, my, x, y, w, 14);
             if (on) Ui.rounded(c, x, y, w, 14, 7, accent);
             else if (hot) Ui.rounded(c, x, y, w, 14, 7, 0x22FFFFFF);
-            Ui.centered(c, cat, x + w / 2, y + 3, on ? 0xFF16110A : (hot ? TEXT : DIM));
+            Ui.centered(c, label, x + w / 2, y + 3, on ? 0xFF16110A : (hot ? TEXT : DIM));
             hit(x, y, w, 14, (a, b) -> {
                 category = cat;
                 scrollTarget = 0;
@@ -256,8 +315,33 @@ public class ModMenuScreen extends ScreenBase {
             hit(sx, y, sw, 16, (a, b) -> searchFocused = true);
         }
 
+        // Toolbar: presets on the left; sort and all on / all off on the right.
+        int barY = y + 18;
+        int tx = px + pad;
+        // Room left of the right-hand chips: drop the label, then presets, when narrow.
+        int rightW = Ui.width("Sort: " + SORTS[sort]) + Ui.width("All off") + Ui.width("All on") + 12 * 3 + 6;
+        int room = px + pw - pad - rightW - 6 - tx;
+        int presetsW = 0;
+        for (String p : PRESETS) presetsW += Ui.width(p) + 12 + 3;
+        if (presetsW + Ui.width("Presets") + 6 <= room) {
+            Ui.text(c, "Presets", tx, barY + 3, DIM);
+            tx += Ui.width("Presets") + 6;
+        }
+        for (String p : PRESETS) {
+            if (tx + Ui.width(p) + 12 > px + pad + room) break;
+            tx = chip(c, mx, my, tx, barY, p, false, accent, () -> applyPreset(p)) + 3;
+        }
+        int rx = px + pw - pad;
+        String sortLabel = "Sort: " + SORTS[sort];
+        rx -= Ui.width(sortLabel) + 12;
+        chip(c, mx, my, rx, barY, sortLabel, false, accent, () -> { sort = (sort + 1) % SORTS.length; scrollTarget = 0; });
+        rx -= Ui.width("All off") + 12 + 3;
+        chip(c, mx, my, rx, barY, "All off", false, accent, () -> setAll(false));
+        rx -= Ui.width("All on") + 12 + 3;
+        chip(c, mx, my, rx, barY, "All on", false, accent, () -> setAll(true));
+
         // Cards.
-        int gx = px + pad, gy = y + 16 + pad, gw = pw - pad * 2, gh = py + ph - pad - gy;
+        int gx = px + pad, gy = barY + 14 + 6, gw = pw - pad * 2, gh = py + ph - pad - gy;
         int cols = gw >= 430 ? 4 : gw >= 300 ? 3 : 2;
         int gap = 7;
         int cw = (gw - gap * (cols - 1) - 4) / cols, ch = 78;
@@ -347,6 +431,15 @@ public class ModMenuScreen extends ScreenBase {
                 VortexMods.config.save();
                 VortexMods.applyToggles();
             });
+        }
+        if (Module.NEW.contains(m.id)) {
+            int nw = Ui.width("NEW") + 6;
+            Ui.rounded(c, x + 26, y + h - 14, nw, 9, 4, Ui.alpha(accent, 0.9f));
+            Gfx.push(c);
+            Gfx.translate(c, x + 29, y + h - 12);
+            Gfx.scale(c, 0.75f, 0.75f);
+            c.drawText(Ui.font(), "NEW", 0, 0, 0xFF16110A, false);
+            Gfx.pop(c);
         }
     }
 

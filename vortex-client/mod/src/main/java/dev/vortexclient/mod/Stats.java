@@ -25,12 +25,50 @@ public final class Stats {
     private static int pendingTarget = -1;
     private static int pendingHurt;
     private static long pendingAt;
-    private static long lastHitAt;
+    static long lastHitAt;
     private static int lastOwnHurt;
     private static Vec3d lastPos;
 
+    // ---- 0.9: session numbers and history for the new HUD elements.
+    public static int kills, deaths, bestCombo, peakCps;
+    public static double distance, vspeed;
+    /** When the last kill happened (Hit Marker turns red, Kill Sound plays). */
+    public static long lastKillAt;
+    private static int countedKill = -1;
+    /** FPS every quarter second and ping every second, newest last. */
+    public static final int[] FPS_HISTORY = new int[80];
+    public static final int[] PING_HISTORY = new int[60];
+    public static int fpsCount, pingCount;
+    private static long lastFpsSample, lastPingSample;
+    /** Last time you moved, looked around or clicked (AFK Timer). */
+    public static long lastActive = System.currentTimeMillis();
+    private static float lastYaw, lastPitch;
+
+    static void push(int[] ring, int count, int value) {
+        if (count < ring.length) ring[count] = value;
+        else {
+            System.arraycopy(ring, 1, ring, 0, ring.length - 1);
+            ring[ring.length - 1] = value;
+        }
+    }
+
+    /** The values in a history ring, oldest first. */
+    public static int[] history(int[] ring, int count) {
+        return java.util.Arrays.copyOf(ring, Math.min(count, ring.length));
+    }
+
+    public static void reset() {
+        kills = 0;
+        deaths = 0;
+        bestCombo = 0;
+        peakCps = 0;
+        distance = 0;
+        countedKill = -1;
+    }
+
     public static void click(int button) {
         long now = System.currentTimeMillis();
+        lastActive = now;
         if (button == 0) LEFT.addLast(now);
         else if (button == 1) RIGHT.addLast(now);
     }
@@ -39,6 +77,7 @@ public final class Stats {
         Deque<Long> q = button == 0 ? LEFT : RIGHT;
         long cutoff = System.currentTimeMillis() - 1000;
         while (!q.isEmpty() && q.peekFirst() < cutoff) q.removeFirst();
+        if (q.size() > peakCps) peakCps = q.size();
         return q.size();
     }
 
@@ -75,6 +114,7 @@ public final class Stats {
             Entity e = client.world.getEntityById(pendingTarget);
             if (e instanceof LivingEntity le && le.hurtTime > pendingHurt) {
                 combo++;
+                if (combo > bestCombo) bestCombo = combo;
                 lastHitAt = now;
                 pendingTarget = -1;
             } else if (now - pendingAt > 500) {
@@ -83,12 +123,39 @@ public final class Stats {
         }
         if (now - lastHitAt > 2500) combo = 0;
 
+        // A kill: what you last hit died soon after.
+        if (lastTarget != null && lastTarget.getId() != countedKill && (lastTarget.isDead() || lastTarget.getHealth() <= 0)
+                && now - lastReachAt < 3000) {
+            countedKill = lastTarget.getId();
+            kills++;
+            lastKillAt = now;
+            VortexMods.onKill(client);
+        }
+
         Vec3d pos = Compat.pos(client.player);
         if (lastPos != null) {
-            double dx = pos.x - lastPos.x, dz = pos.z - lastPos.z;
-            double perSecond = Math.sqrt(dx * dx + dz * dz) * 20.0;
+            double dx = pos.x - lastPos.x, dz = pos.z - lastPos.z, dy = pos.y - lastPos.y;
+            double step = Math.sqrt(dx * dx + dz * dz);
+            double perSecond = step * 20.0;
             speed += (perSecond - speed) * 0.35;
+            vspeed += (dy * 20.0 - vspeed) * 0.35;
+            // Teleports and respawns don't count as travelling.
+            if (step < 10) distance += step;
+            if (step > 0.01 || Math.abs(dy) > 0.01) lastActive = now;
         }
         lastPos = pos;
+        float yaw = client.player.getYaw(), pitch = client.player.getPitch();
+        if (Math.abs(yaw - lastYaw) > 0.5f || Math.abs(pitch - lastPitch) > 0.5f) lastActive = now;
+        lastYaw = yaw;
+        lastPitch = pitch;
+
+        if (now - lastFpsSample >= 250) {
+            lastFpsSample = now;
+            push(FPS_HISTORY, fpsCount++, client.getCurrentFps());
+        }
+        if (now - lastPingSample >= 1000) {
+            lastPingSample = now;
+            push(PING_HISTORY, pingCount++, Hud.ping(client));
+        }
     }
 }

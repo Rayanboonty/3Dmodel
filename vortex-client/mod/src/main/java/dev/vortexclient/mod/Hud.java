@@ -40,9 +40,13 @@ public final class Hud {
         void draw(DrawContext c, Module m, int x, int y);
     }
 
-    private static final Map<String, Element> ELEMENTS = new LinkedHashMap<>();
+    static final Map<String, Element> ELEMENTS = new LinkedHashMap<>();
     /** Elements that stack down the left edge by default, in order. */
-    private static final List<String> LEFT = List.of("fps", "cps", "ping", "memory", "server", "players", "speed", "reach", "combo", "clock", "worldtime", "day", "saturation", "health", "xp", "light", "biome", "rotation", "chunk", "entities", "forecast", "moon", "fall", "bow", "session", "pack", "coords", "deathpos", "durability", "sprint");
+    private static final List<String> LEFT = List.of("fps", "cps", "ping", "memory", "server", "players", "speed", "reach", "combo", "clock", "worldtime", "day", "saturation", "health", "xp", "light", "biome", "rotation", "chunk", "entities", "forecast", "moon", "fall", "bow", "session", "pack",
+            "kills", "deaths", "distance", "difficulty", "gamemode", "dimension", "afk", "velocity", "version", "armorpts", "fire", "air", "attack", "hunger", "elytra", "mount", "lookat", "helditem",
+            "coords", "deathpos", "durability", "sprint");
+    /** Graphs and lists, under the right-hand stack by default. */
+    private static final List<String> BOTTOM_LEFT = List.of("fpsgraph", "pinggraph", "nearby");
     /** Elements that stack down the right edge by default, in order. */
     private static final List<String> RIGHT = List.of("keystrokes", "potions");
 
@@ -59,9 +63,66 @@ public final class Hud {
             case "Gold" -> 0xFFFFAA00;
             case "Green" -> 0xFF55FF55;
             case "Pink" -> 0xFFFF77CC;
-            case "Rainbow" -> 0xFF000000 | java.awt.Color.HSBtoRGB((System.currentTimeMillis() % 4000L) / 4000f, 0.65f, 1f);
+            case "Rainbow" -> rainbow(0);
+            case "Custom" -> 0xFF000000 | java.awt.Color.HSBtoRGB((float) (VortexMods.config.num(m, "hue") / 360.0), 0.6f, 1f);
             default -> 0xFFFFFFFF;
         };
+    }
+
+    // ---- HUD Style (0.9): one look for every element.
+    static Module style() {
+        return Module.get("hudstyle");
+    }
+
+    static boolean styled() {
+        return VortexMods.config.enabled(style());
+    }
+
+    static String theme() {
+        return styled() ? VortexMods.config.str(style(), "theme") : "Glass";
+    }
+
+    static int rainbow(long offsetMs) {
+        double speed = styled() ? VortexMods.config.num(style(), "rainbow") : 4;
+        long period = Math.round(16000 / Math.max(1, speed));
+        return 0xFF000000 | java.awt.Color.HSBtoRGB(((System.currentTimeMillis() + offsetMs) % period) / (float) period, 0.65f, 1f);
+    }
+
+    static int labelColor(Module m) {
+        if (!styled()) return VortexMods.accent();
+        return switch (VortexMods.config.str(style(), "labelcolor")) {
+            case "White" -> 0xFFFFFFFF;
+            case "Gray" -> 0xFFAAAAAA;
+            case "Same as text" -> textColor(m);
+            default -> VortexMods.accent();
+        };
+    }
+
+    /** Text as the style wants it (UPPER, lower). */
+    static String tc(String s) {
+        if (!styled()) return s;
+        return switch (VortexMods.config.str(style(), "textcase")) {
+            case "UPPER" -> s.toUpperCase(Locale.ROOT);
+            case "lower" -> s.toLowerCase(Locale.ROOT);
+            default -> s;
+        };
+    }
+
+    static boolean bold() {
+        return styled() && VortexMods.config.bool(style(), "bold");
+    }
+
+    static int tw(String s) {
+        return bold() ? Ui.font().getWidth(Text.literal(s).formatted(net.minecraft.util.Formatting.BOLD)) : Ui.width(s);
+    }
+
+    static void str(DrawContext c, String s, int x, int y, int color, boolean shadow) {
+        if (bold()) c.drawText(Ui.font(), Text.literal(s).formatted(net.minecraft.util.Formatting.BOLD), x, y, color, shadow);
+        else c.drawText(Ui.font(), s, x, y, color, shadow);
+    }
+
+    static String lab(Module m, String label) {
+        return VortexMods.config.bool(m, "labels") || m.option("labels") == null ? tc(label) : "";
     }
 
     /** The world's time of day as a clock (6:00 at sunrise). */
@@ -78,14 +139,38 @@ public final class Hud {
     }
 
     static void panel(DrawContext c, Module m, int x, int y, int w, int h) {
-        // Rounded glass, like the launcher's panels.
+        int accent = VortexMods.accent();
+        int want = styled() ? (int) VortexMods.config.num(style(), "radius") : 4;
+        int r = Math.max(0, Math.min(want, Math.min(w, h) / 3));
         if (VortexMods.config.bool(m, "background")) {
-            int r = Math.min(4, Math.min(w, h) / 3);
             double op = VortexMods.config.num(m, "opacity");
-            int a = (int) Math.round(Math.max(0, Math.min(1, Double.isNaN(op) ? 0.45 : op)) * 255);
-            Ui.rounded(c, x, y, w, h, r, a << 24);
-            c.fill(x + r, y, x + w - r, y + 1, 0x30FFFFFF);
+            float k = (float) Math.max(0, Math.min(1, Double.isNaN(op) ? 0.45 : op));
+            int a = Math.round(k * 255);
+            switch (theme()) {
+                case "Solid" -> {
+                    Ui.rounded(c, x, y, w, h, r, (Math.max(a, 200) << 24) | 0x14171D);
+                    c.fill(x + r, y + h - 1, x + w - r, y + h, Ui.alpha(accent, 0.9f));
+                }
+                case "Minimal" -> c.fill(x, y + h - 1, x + w, y + h, Ui.alpha(accent, 0.6f + 0.4f * k));
+                case "Outline" -> {
+                    Ui.rounded(c, x, y, w, h, r, Math.round(a * 0.35f) << 24);
+                    Ui.roundedOutline(c, x, y, w, h, r, 0x90FFFFFF);
+                }
+                case "Neon" -> {
+                    Ui.rounded(c, x, y, w, h, r, (a << 24) | 0x0A0612);
+                    Ui.roundedOutline(c, x - 1, y - 1, w + 2, h + 2, r + 1, Ui.alpha(accent, 0.25f));
+                    Ui.roundedOutline(c, x, y, w, h, r, Ui.alpha(accent, 0.95f));
+                }
+                case "Clear" -> { }
+                default -> {
+                    // Rounded glass, like the launcher's panels.
+                    Ui.rounded(c, x, y, w, h, r, a << 24);
+                    c.fill(x + r, y, x + w - r, y + 1, 0x30FFFFFF);
+                }
+            }
         }
+        if (VortexMods.config.bool(m, "border")) Ui.roundedOutline(c, x, y, w, h, r, Ui.alpha(accent, 0.85f));
+        if (styled() && VortexMods.config.bool(style(), "accentbar")) c.fill(x, y + Math.min(2, h / 4), x + 2, y + h - Math.min(2, h / 4), accent);
     }
 
     static void line(DrawContext c, Module m, String label, String value, int x, int y) {
@@ -102,9 +187,10 @@ public final class Hud {
     }
 
     static void line(DrawContext c, Module m, String label, String value, int x, int y, int color) {
-        int lw = Ui.width(label);
-        c.drawText(Ui.font(), label, x, y, VortexMods.accent(), shadow(m));
-        c.drawText(Ui.font(), value, x + lw, y, color, shadow(m));
+        String l = lab(m, label), v = tc(value);
+        int lw = tw(l);
+        if (!l.isEmpty()) str(c, l, x, y, labelColor(m), shadow(m));
+        str(c, v, x + lw, y, color, shadow(m));
     }
 
     /** A simple element made of label/value lines. */
@@ -113,8 +199,8 @@ public final class Hud {
             public int[] size(Module m) {
                 List<String[]> ls = content.apply(m);
                 int w = 0;
-                for (String[] l : ls) w = Math.max(w, Ui.width(l[0] + bracket(m, l[1])));
-                return new int[] {w + 8, ls.size() * 10 + 5};
+                for (String[] l : ls) w = Math.max(w, tw(lab(m, l[0])) + tw(tc(bracket(m, l[1]))));
+                return new int[] {w + 8 + (styled() && VortexMods.config.bool(style(), "accentbar") ? 2 : 0), ls.size() * 10 + 5};
             }
 
             public void draw(DrawContext c, Module m, int x, int y) {
@@ -122,9 +208,10 @@ public final class Hud {
                 int[] s = size(m);
                 panel(c, m, x, y, s[0], s[1]);
                 int ty = y + 4;
+                int tx = x + 4 + (styled() && VortexMods.config.bool(style(), "accentbar") ? 2 : 0);
                 for (String[] l : ls) {
                     int col = l.length > 2 ? (int) Long.parseLong(l[2], 16) : textColor(m);
-                    line(c, m, l[0], bracket(m, l[1]), x + 4, ty, col);
+                    line(c, m, l[0], bracket(m, l[1]), tx, ty, col);
                     ty += 10;
                 }
             }
@@ -134,12 +221,24 @@ public final class Hud {
     static {
         MinecraftClient mc = MinecraftClient.getInstance();
         ELEMENTS.put("fps", lines(m -> {
-            String v = mc.getCurrentFps() + " FPS";
-            if (VortexMods.config.bool(m, "frametime")) v += String.format(Locale.ROOT, " %.1f ms", 1000.0 / Math.max(1, mc.getCurrentFps()));
-            return List.<String[]>of(new String[] {"", v});
+            int fps = mc.getCurrentFps();
+            String v = fps + " FPS";
+            if (VortexMods.config.bool(m, "frametime")) v += String.format(Locale.ROOT, " %.1f ms", 1000.0 / Math.max(1, fps));
+            List<String[]> out = new ArrayList<>();
+            String col = fps >= 120 ? "FF55FF55" : fps >= 60 ? "FFB6F36B" : fps >= 30 ? "FFFFFF55" : "FFFF5555";
+            out.add(VortexMods.config.bool(m, "fpscolor") ? new String[] {"", v, col} : new String[] {"", v});
+            if (VortexMods.config.bool(m, "minmax")) {
+                int[] h = Stats.history(Stats.FPS_HISTORY, Stats.fpsCount);
+                int lo = Integer.MAX_VALUE, hi = 0;
+                for (int f : h) { lo = Math.min(lo, f); hi = Math.max(hi, f); }
+                if (h.length == 0) { lo = fps; hi = fps; }
+                out.add(new String[] {"Low ", lo + "  High " + hi});
+            }
+            return out;
         }));
         ELEMENTS.put("cps", lines(m -> {
             String v = VortexMods.config.bool(m, "right") ? Stats.cps(0) + " | " + Stats.cps(1) : String.valueOf(Stats.cps(0));
+            if (VortexMods.config.bool(m, "peak")) return List.<String[]>of(new String[] {"", v + " CPS"}, new String[] {"Best ", String.valueOf(Stats.peakCps)});
             return List.<String[]>of(new String[] {"", v + " CPS"});
         }));
         ELEMENTS.put("ping", lines(m -> {
@@ -149,26 +248,36 @@ public final class Hud {
             return List.<String[]>of(new String[] {"", p + " ms", col});
         }));
         ELEMENTS.put("speed", lines(m -> {
-            boolean kmh = VortexMods.config.str(m, "unit").equals("km/h");
-            double v = kmh ? Stats.speed * 3.6 : Stats.speed;
-            return List.<String[]>of(new String[] {"", String.format(Locale.ROOT, "%.2f %s", v, kmh ? "km/h" : "m/s")});
+            String unit = VortexMods.config.str(m, "unit");
+            boolean kmh = unit.equals("km/h");
+            double base = Stats.speed;
+            if (VortexMods.config.bool(m, "vertical")) base = Math.sqrt(base * base + Stats.vspeed * Stats.vspeed);
+            double v = kmh ? base * 3.6 : base;
+            return List.<String[]>of(new String[] {"", String.format(Locale.ROOT, "%.2f %s", v, unit)});
         }));
         ELEMENTS.put("reach", lines(m -> {
             boolean recent = Stats.lastReach >= 0 && System.currentTimeMillis() - Stats.lastReachAt < 3000;
             String fmt = "%." + VortexMods.config.str(m, "decimals") + "f blocks";
             String v = recent ? String.format(Locale.ROOT, fmt, Stats.lastReach) : (mc.player == null ? String.format(Locale.ROOT, fmt, 3.0) : "Hit something");
+            if (recent && VortexMods.config.bool(m, "rangecolor")) {
+                String col = Stats.lastReach >= 2.9 ? "FFFF5555" : Stats.lastReach >= 2.5 ? "FFFFAA00" : "FF55FF55";
+                return List.<String[]>of(new String[] {"", v, col});
+            }
             return List.<String[]>of(new String[] {"", v});
         }));
         ELEMENTS.put("combo", lines(m -> {
             int n = mc.player == null ? 3 : Stats.combo;
             if (n == 0 && VortexMods.config.bool(m, "hidezero")) return List.<String[]>of();
-            return List.<String[]>of(new String[] {"", n == 0 ? "No combo" : n + " combo"});
+            String v = n == 0 ? "No combo" : n + " combo";
+            if (VortexMods.config.bool(m, "best")) return List.<String[]>of(new String[] {"", v}, new String[] {"Best ", String.valueOf(Math.max(Stats.bestCombo, mc.player == null ? 5 : 0))});
+            return List.<String[]>of(new String[] {"", v});
         }));
         ELEMENTS.put("clock", lines(m -> {
             boolean sec = VortexMods.config.bool(m, "seconds");
             String f = VortexMods.config.bool(m, "h24") ? (sec ? "HH:mm:ss" : "HH:mm") : (sec ? "h:mm:ss a" : "h:mm a");
             String v = LocalTime.now().format(DateTimeFormatter.ofPattern(f, Locale.ROOT));
             if (VortexMods.config.bool(m, "date")) v = java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM", Locale.ROOT)) + " " + v;
+            if (VortexMods.config.bool(m, "weekday")) v = java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("EEE", Locale.ROOT)) + " " + v;
             return List.<String[]>of(new String[] {"", v});
         }));
         ELEMENTS.put("coords", lines(m -> {
@@ -189,6 +298,7 @@ public final class Hud {
                 String dir = mc.player != null ? cap(mc.player.getHorizontalFacing().asString()) : "North";
                 out.add(new String[] {"F ", dir});
             }
+            if (VortexMods.config.bool(m, "dimension")) out.add(new String[] {"D ", HudPlus.dimension(mc)});
             if (VortexMods.config.bool(m, "biome")) {
                 String biome = "Plains";
                 if (mc.player != null && mc.world != null) {
@@ -215,8 +325,9 @@ public final class Hud {
             Runtime rt = Runtime.getRuntime();
             long used = (rt.totalMemory() - rt.freeMemory()) >> 20, max = rt.maxMemory() >> 20;
             long pct = used * 100 / Math.max(1, max);
-            if (VortexMods.config.bool(m, "percent")) return List.<String[]>of(new String[] {"Mem ", pct + "%"});
-            return List.<String[]>of(new String[] {"Mem ", String.format(Locale.ROOT, "%d%% %d/%d MB", pct, used, max)});
+            String col = !VortexMods.config.bool(m, "usagecolor") ? null : pct >= 85 ? "FFFF5555" : pct >= 65 ? "FFFFAA00" : "FF55FF55";
+            String v = VortexMods.config.bool(m, "percent") ? pct + "%" : String.format(Locale.ROOT, "%d%% %d/%d MB", pct, used, max);
+            return List.<String[]>of(col == null ? new String[] {"Mem ", v} : new String[] {"Mem ", v, col});
         }));
         ELEMENTS.put("server", lines(m -> {
             String s = mc.getCurrentServerEntry() != null ? mc.getCurrentServerEntry().address : (mc.isInSingleplayer() || mc.player == null ? "Singleplayer" : "LAN");
@@ -303,18 +414,22 @@ public final class Hud {
         ELEMENTS.put("deathpos", lines(m -> {
             if (VortexMods.deathPos == null) return mc.player == null ? List.<String[]>of(new String[] {"Died at ", "120, 64, -32"}) : List.<String[]>of();
             BlockPos d = VortexMods.deathPos;
-            return List.<String[]>of(new String[] {"Died at ", d.getX() + ", " + d.getY() + ", " + d.getZ()});
+            String v = d.getX() + ", " + d.getY() + ", " + d.getZ();
+            if (VortexMods.config.bool(m, "distance") && mc.player != null) v += String.format(Locale.ROOT, " (%.0fm)", Math.sqrt(mc.player.getBlockPos().getSquaredDistance(d)));
+            return List.<String[]>of(new String[] {"Died at ", v});
         }));
         ELEMENTS.put("bow", lines(m -> {
             if (mc.player == null) return List.<String[]>of(new String[] {"Bow ", "100%"});
             if (!mc.player.isUsingItem() || !(mc.player.getActiveItem().getItem() instanceof net.minecraft.item.BowItem)) return List.<String[]>of();
             float k = net.minecraft.item.BowItem.getPullProgress(mc.player.getItemUseTime());
-            return List.<String[]>of(new String[] {"Bow ", Math.round(k * 100) + "%", k >= 1f ? "FF55FF55" : "FFFFFF55"});
+            String v = Math.round(k * 100) + "%";
+            if (VortexMods.config.bool(m, "arrows")) v += "  " + HudPlus.count(mc, Items.ARROW, Items.SPECTRAL_ARROW, Items.TIPPED_ARROW) + " arrows";
+            return List.<String[]>of(new String[] {"Bow ", v, k >= 1f ? "FF55FF55" : "FFFFFF55"});
         }));
         ELEMENTS.put("fall", lines(m -> {
             double f = mc.player != null ? (double) mc.player.fallDistance : 0;
             if (mc.player != null && f < 0.5) return List.<String[]>of();
-            return List.<String[]>of(new String[] {"Falling ", String.format(Locale.ROOT, "%.1f blocks", f), f > 3 ? "FFFF5555" : "FFFFFFFF"});
+            return List.<String[]>of(new String[] {"Falling ", String.format(Locale.ROOT, "%.1f blocks", f), f >= VortexMods.config.num(m, "warn") ? "FFFF5555" : "FFFFFFFF"});
         }));
         ELEMENTS.put("health", lines(m -> {
             float hp = mc.player != null ? mc.player.getHealth() : 20f, max = mc.player != null ? mc.player.getMaxHealth() : 20f;
@@ -328,6 +443,7 @@ public final class Hud {
         ELEMENTS.put("xp", lines(m -> {
             int lvl = mc.player != null ? mc.player.experienceLevel : 30;
             float k = mc.player != null ? mc.player.experienceProgress : 0.5f;
+            if (VortexMods.config.bool(m, "points")) return List.<String[]>of(new String[] {"Level ", lvl + " (" + Math.round(k * 100) + "%)"}, new String[] {"Points ", String.valueOf(mc.player != null ? mc.player.totalExperience : 1395)});
             return List.<String[]>of(new String[] {"Level ", lvl + " (" + Math.round(k * 100) + "%)"});
         }));
         ELEMENTS.put("forecast", lines(m -> {
@@ -341,45 +457,52 @@ public final class Hud {
         }));
         ELEMENTS.put("target", new Target());
         ELEMENTS.put("items", new ItemCounter());
+        HudPlus.register(mc);
     }
 
     /** A compass strip that slides as you turn. */
     static final class Direction implements Element {
         static final String[] MARKS = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
 
+        int w(Module m) {
+            int w = (int) VortexMods.config.num(m, "width");
+            return w < 100 ? 150 : w;
+        }
+
         public int[] size(Module m) {
-            return new int[] {150, 16};
+            return new int[] {w(m), 16};
         }
 
         public void draw(DrawContext c, Module m, int x, int y) {
             MinecraftClient mc = MinecraftClient.getInstance();
             float yaw = mc.player != null ? mc.player.getYaw() : 180f;
             yaw = ((yaw % 360) + 360) % 360;
-            panel(c, m, x, y, 150, 16);
-            c.enableScissor(x + 2, y, x + 148, y + 16);
+            int W = w(m), half = W / 2;
+            panel(c, m, x, y, W, 16);
+            c.enableScissor(x + 2, y, x + W - 2, y + 16);
             float pxPerDeg = 1.2f;
             for (int i = -2; i < 10; i++) {
                 float deg = i * 45f;
                 float rel = deg - yaw;
                 while (rel < -180) rel += 360;
                 while (rel > 180) rel -= 360;
-                int px = x + 75 + Math.round(rel * pxPerDeg);
-                if (px < x - 20 || px > x + 170) continue;
+                int px = x + half + Math.round(rel * pxPerDeg);
+                if (px < x - 20 || px > x + W + 20) continue;
                 String s = MARKS[((i % 8) + 8) % 8];
                 int col = s.length() == 1 ? (s.equals("N") ? 0xFFFF5555 : textColor(m)) : 0xFFAAAAAA;
                 c.drawText(Ui.font(), s, px - Ui.width(s) / 2, y + 4, col, shadow(m));
             }
             for (int k = -60; k <= 60; k += 15) {
                 float rel = (float) ((Math.round(yaw / 15f) * 15 + k) - yaw);
-                int px = x + 75 + Math.round(rel * pxPerDeg);
-                if (px > x + 2 && px < x + 148) c.fill(px, y + 13, px + 1, y + 15, 0x66FFFFFF);
+                int px = x + half + Math.round(rel * pxPerDeg);
+                if (px > x + 2 && px < x + W - 2) c.fill(px, y + 13, px + 1, y + 15, 0x66FFFFFF);
             }
             c.disableScissor();
             if (VortexMods.config.bool(m, "degrees")) {
                 String deg = Math.round(yaw) + "\u00b0";
-                c.drawText(Ui.font(), deg, x + 75 - Ui.width(deg) / 2, y + 17, textColor(m), shadow(m));
+                c.drawText(Ui.font(), deg, x + half - Ui.width(deg) / 2, y + 17, textColor(m), shadow(m));
             }
-            c.fill(x + 74, y, x + 76, y + 3, VortexMods.accent());
+            c.fill(x + half - 1, y, x + half + 1, y + 3, VortexMods.accent());
         }
     }
 
@@ -396,7 +519,7 @@ public final class Hud {
         public int[] size(Module m) {
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc.player != null && target() == null) return new int[] {0, 0};
-            return new int[] {120, 32};
+            return new int[] {120, VortexMods.config.bool(m, "armor") ? 50 : 32};
         }
 
         public void draw(DrawContext c, Module m, int x, int y) {
@@ -405,7 +528,7 @@ public final class Hud {
             String name = t != null ? t.getName().getString() : "Steve";
             float hp = t != null ? t.getHealth() : 14f, max = t != null ? t.getMaxHealth() : 20f;
             double dist = t != null && mc.player != null ? mc.player.distanceTo(t) : 3.1;
-            panel(c, m, x, y, 120, 32);
+            panel(c, m, x, y, 120, size(m)[1]);
             if (name.length() > 16) name = name.substring(0, 15) + "…";
             c.drawText(Ui.font(), name, x + 5, y + 4, textColor(m), shadow(m));
             String d = String.format(Locale.ROOT, "%.1fm", dist);
@@ -414,12 +537,27 @@ public final class Hud {
             int col = f > 0.6f ? 0xFF55DD55 : f > 0.3f ? 0xFFFFAA33 : 0xFFFF5555;
             Ui.round(c, x + 5, y + 16, 110, 5, 0x66000000);
             Ui.round(c, x + 5, y + 16, Math.max(2, Math.round(110 * f)), 5, col);
-            String h = String.format(Locale.ROOT, "%.1f / %.0f ❤", hp, max);
+            String h = VortexMods.config.bool(m, "hearts") ? String.format(Locale.ROOT, "%.1f / %.0f hearts", hp / 2f, max / 2f) : String.format(Locale.ROOT, "%.1f / %.0f ❤", hp, max);
             Gfx.push(c);
             Gfx.translate(c, x + 5, y + 23);
             Gfx.scale(c, 0.7f, 0.7f);
             c.drawText(Ui.font(), h, 0, 0, 0xFFDDDDDD, false);
             Gfx.pop(c);
+            if (VortexMods.config.bool(m, "armor")) {
+                int ax = x + 5;
+                if (t == null) {
+                    for (net.minecraft.item.Item it : new net.minecraft.item.Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS, Items.DIAMOND_SWORD}) {
+                        c.drawItem(new ItemStack(it), ax, y + 31);
+                        ax += 18;
+                    }
+                } else {
+                    for (EquipmentSlot sl : Armor.SLOTS) {
+                        ItemStack st = t.getEquippedStack(sl);
+                        if (!st.isEmpty()) { c.drawItem(st, ax, y + 31); ax += 18; }
+                    }
+                    if (!t.getMainHandStack().isEmpty()) c.drawItem(t.getMainHandStack(), ax, y + 31);
+                }
+            }
         }
     }
 
@@ -440,12 +578,15 @@ public final class Hud {
                         if (st.isOf(TRACKED[i])) n += st.getCount();
                     }
                 }
-                if (n > 0) out.add(new int[] {i, n});
+                if (n > 0 || !hideZero) out.add(new int[] {i, n});
             }
             return out;
         }
 
+        boolean hideZero = true;
+
         public int[] size(Module m) {
+            hideZero = VortexMods.config.bool(m, "hidezero");
             List<int[]> cs = counts();
             if (cs.isEmpty()) return new int[] {0, 0};
             int w = 0;
@@ -459,7 +600,7 @@ public final class Hud {
             int ty = y + 3;
             for (int[] e : counts()) {
                 c.drawItem(new ItemStack(TRACKED[e[0]]), x + 3, ty);
-                c.drawText(Ui.font(), String.valueOf(e[1]), x + 22, ty + 4, textColor(m), shadow(m));
+                c.drawText(Ui.font(), String.valueOf(e[1]), x + 22, ty + 4, e[1] == 0 ? 0xFFFF5555 : textColor(m), shadow(m));
                 ty += 17;
             }
         }
@@ -566,8 +707,17 @@ public final class Hud {
             return String.valueOf(left);
         }
 
+        boolean horizontal(Module m) {
+            return VortexMods.config.str(m, "layout").equals("Horizontal");
+        }
+
         public int[] size(Module m) {
             List<ItemStack> it = items(m);
+            if (horizontal(m)) {
+                int w = 4;
+                for (ItemStack st : it) w += 16 + 3 + Ui.width(label(m, st)) + 4;
+                return new int[] {w + 2, 22};
+            }
             int w = 16;
             for (ItemStack st : it) w = Math.max(w, 16 + 3 + Ui.width(label(m, st)));
             return new int[] {w + 6, Math.max(1, it.size()) * 17 + 5};
@@ -576,6 +726,22 @@ public final class Hud {
         public void draw(DrawContext c, Module m, int x, int y) {
             int[] s = size(m);
             panel(c, m, x, y, s[0], s[1]);
+            if (horizontal(m)) {
+                int tx = x + 3;
+                for (ItemStack st : items(m)) {
+                    c.drawItem(st, tx, y + 3);
+                    String l = label(m, st);
+                    int color = textColor(m);
+                    if (st.isDamageable() && st.getMaxDamage() > 0) {
+                        float f = (st.getMaxDamage() - st.getDamage()) / (float) st.getMaxDamage();
+                        if (f < 0.25f) color = 0xFFFF5555;
+                        else if (f < 0.5f) color = 0xFFFFAA00;
+                    }
+                    c.drawText(Ui.font(), l, tx + 19, y + 7, color, shadow(m));
+                    tx += 16 + 3 + Ui.width(l) + 4;
+                }
+                return;
+            }
             int ty = y + 3;
             for (ItemStack st : items(m)) {
                 c.drawItem(st, x + 3, ty);
@@ -634,8 +800,12 @@ public final class Hud {
                     Gfx.effectIcon(c, e, tx, ty + 1, 18);
                     tx += 22;
                 }
-                c.drawText(Ui.font(), name(e), tx, ty + 1, textColor(m), shadow(m));
-                c.drawText(Ui.font(), time(e), tx, ty + 11, 0xFFAAAAAA, shadow(m));
+                int nameColor = VortexMods.config.bool(m, "kind") ? (Compat.beneficial(e) ? 0xFF66EE77 : 0xFFFF6666) : textColor(m);
+                int timeColor = 0xFFAAAAAA;
+                // Ending soon: the time blinks.
+                if (VortexMods.config.bool(m, "blink") && e.getDuration() > 0 && e.getDuration() < 200 && (System.currentTimeMillis() / 350) % 2 == 0) timeColor = 0xFFFF5555;
+                c.drawText(Ui.font(), name(e), tx, ty + 1, nameColor, shadow(m));
+                c.drawText(Ui.font(), time(e), tx, ty + 11, timeColor, shadow(m));
                 ty += 22;
             }
         }
@@ -667,31 +837,45 @@ public final class Hud {
             || net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("xaerominimapfair")
             || net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("journeymap");
 
+    /** Whether the next left-hand element still fits on the left third. */
+    private static boolean fitsLeft(int leftX, int colW, int leftY, int leftTop, int leftBottom, int w, int h, int margin, int sw) {
+        int x = leftY + h > leftBottom && leftY > leftTop ? leftX + colW + 4 : leftX;
+        return x <= margin || x + w <= sw * 0.36f;
+    }
+
     public static Map<Module, Rect> layout(int sw, int sh) {
         Map<Module, Rect> out = new LinkedHashMap<>();
         // A minimap mod sits in the top-left corner: start the left column
         // under it (elements you placed yourself stay where you put them).
-        int leftTop = MINIMAP ? Math.max(4, Math.round(sh * 0.40f)) : 4;
+        int margin = styled() ? (int) VortexMods.config.num(style(), "margin") : 4;
+        int gapY = styled() ? (int) VortexMods.config.num(style(), "spacing") : 3;
+        float global = styled() ? (float) VortexMods.config.num(style(), "globalscale") : 1f;
+        int leftTop = MINIMAP ? Math.max(margin, Math.round(sh * 0.40f)) : margin;
         int leftY = leftTop, rightY = Math.max(30, sh / 4);
         // The left column wraps into a second (and third) one when it would
         // run past the hotbar, instead of piling up off the screen.
-        int leftX = 4, colW = 0, leftBottom = sh - 30;
+        int leftX = margin, colW = 0, leftBottom = sh - 30;
+        // The right-hand stack wraps leftwards too, above the armor corner.
+        int rightTop = rightY, rightX = sw - margin, rightColW = 0, rightBottom = sh - 70;
+
         List<Module> order = new ArrayList<>();
-        for (String id : LEFT) order.add(Module.get(id));
         for (String id : RIGHT) order.add(Module.get(id));
+        for (String id : BOTTOM_LEFT) order.add(Module.get(id));
+        for (String id : LEFT) order.add(Module.get(id));
         for (Module m : Module.ALL) if (!order.contains(m)) order.add(m);
         for (Module m : order) {
             if (!m.hud || !has(m) || !VortexMods.config.enabled(m)) continue;
             int[] s = size(m);
-            if (s[0] <= 0 || s[1] <= 0 || (m.id.equals("sprint") && s[1] <= 5)) continue;
-            float scale = (float) VortexMods.config.num(m, "scale");
+            // Nothing to show right now (no target, not burning...): no empty box.
+            if (s[0] <= 0 || s[1] <= 5) continue;
+            float scale = (float) VortexMods.config.num(m, "scale") * global;
             int w = Math.round(s[0] * scale), h = Math.round(s[1] * scale);
             Config.ModState st = VortexMods.config.state(m);
             int x, y;
             if (st.x >= 0 && st.y >= 0) {
                 x = (int) Math.round(st.x * sw - w / 2.0);
                 y = (int) Math.round(st.y * sh - h / 2.0);
-            } else if (LEFT.contains(m.id)) {
+            } else if (LEFT.contains(m.id) && fitsLeft(leftX, colW, leftY, leftTop, leftBottom, w, h, margin, sw)) {
                 if (leftY + h > leftBottom && leftY > leftTop) {
                     leftX += colW + 4;
                     // Later columns start under the compass strip at the top.
@@ -700,12 +884,23 @@ public final class Hud {
                 }
                 x = leftX;
                 y = leftY;
-                leftY += h + 3;
+                leftY += h + gapY;
                 colW = Math.max(colW, w);
-            } else if (RIGHT.contains(m.id)) {
-                x = sw - w - 4;
+            } else if (RIGHT.contains(m.id) || BOTTOM_LEFT.contains(m.id) || LEFT.contains(m.id)) {
+                // The right-hand stack, and anything the left side has no room for.
+                if (rightY + h > rightBottom && rightY > rightTop) {
+                    rightX -= rightColW + 4;
+                    rightY = rightTop;
+                    rightColW = 0;
+                }
+                x = rightX - w;
                 y = rightY;
-                rightY += h + 3;
+                rightY += h + gapY;
+                rightColW = Math.max(rightColW, w);
+            } else if (m.id.equals("invhud")) {
+                // Centred above the hotbar, health and hunger.
+                x = (sw - w) / 2;
+                y = sh - h - 62;
             } else if (m.id.equals("direction")) {
                 x = (sw - w) / 2;
                 y = 3;
@@ -737,6 +932,10 @@ public final class Hud {
         if (mc.options.hudHidden || Compat.debugShown()) return;
         if (mc.currentScreen instanceof HudEditorScreen) return;
         int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
+        HudPlus.overlays(c, mc, sw, sh);
+        if (VortexMods.hudOff) return;
+        if (styled() && VortexMods.config.bool(style(), "hidechat") && mc.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen) return;
+        if (VortexMods.zoomHidesHud()) return;
         for (Map.Entry<Module, Rect> e : layout(sw, sh).entrySet()) {
             Rect r = e.getValue();
             drawAt(c, e.getKey(), r.x(), r.y(), r.scale());

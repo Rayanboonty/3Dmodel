@@ -7,7 +7,7 @@
 // specular maps) is adapted from "Liquid Glass" by Archis Vaze
 // (https://github.com/archisvaze/liquid-glass), MIT License.
 // It needs SVG filters in backdrop-filter, which Chromium has (WebView2 on
-// Windows, the Android WebView); elsewhere panels keep their frosted blur.
+// Windows); elsewhere panels keep their frosted blur.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 let defs = null;

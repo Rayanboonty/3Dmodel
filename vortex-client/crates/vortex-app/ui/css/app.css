@@ -2000,7 +2000,7 @@ body.no-anim #dust { display: none; }
 .lq-sheen, .play:not(.busy):not(.running)::after, .btn-accent::after { display: none !important; animation: none !important; }
 
 /* ================================================================ phone ===
-   The Android app (and any phone-narrow window): a frosted tab bar along
+   Any phone-narrow window (the demo on a phone): a frosted tab bar along
    the bottom, the wallpaper card with Steve and Launch fixed at the top of
    Home with the widgets scrolling under it, full-screen pages with large
    titles, and dialogs that rise from the bottom like sheets. In landscape

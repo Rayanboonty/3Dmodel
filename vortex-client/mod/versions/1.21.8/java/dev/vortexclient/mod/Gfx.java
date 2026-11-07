@@ -1,5 +1,7 @@
 package dev.vortexclient.mod;
 
+import net.minecraft.client.MinecraftClient;
+
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
@@ -39,6 +41,11 @@ public final class Gfx {
 
     public static NativeImageBackedTexture newTexture(NativeImage img) {
         return new NativeImageBackedTexture(() -> "vortex", img);
+    }
+
+    /** The count and durability bar Minecraft draws over an item in a slot. */
+    public static void itemOverlay(DrawContext c, net.minecraft.item.ItemStack st, int x, int y) {
+        c.drawStackOverlay(MinecraftClient.getInstance().textRenderer, st, x, y);
     }
 
     public static void effectIcon(DrawContext c, StatusEffectInstance e, int x, int y, int size) {

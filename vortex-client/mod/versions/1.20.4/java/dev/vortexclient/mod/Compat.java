@@ -17,6 +17,11 @@ public final class Compat {
         return p.getName();
     }
 
+    /** Potion Effects: green for good effects, red for bad. */
+    public static boolean beneficial(StatusEffectInstance e) {
+        return e.getEffectType().isBeneficial();
+    }
+
     public static Text effectName(StatusEffectInstance e) {
         return e.getEffectType().getName();
     }

@@ -46,6 +46,8 @@ public class VortexMods implements ClientModInitializer {
         zoomKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.zoom", GLFW.GLFW_KEY_C));
         freelookKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.freelook", GLFW.GLFW_KEY_LEFT_ALT));
         snapKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.snaplook", GLFW.GLFW_KEY_V));
+        hudKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.hud", GLFW.GLFW_KEY_F6));
+        copyKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.copycoords", GLFW.GLFW_KEY_F7));
         NetClient.init();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
             if (hintShown) return;
@@ -54,7 +56,7 @@ public class VortexMods implements ClientModInitializer {
                     Text.literal("Vortex Client"), Text.literal("Press Right Shift for the mod menu"));
         }));
 
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> { sessionStart = System.currentTimeMillis(); deathPos = null; });
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> { sessionStart = System.currentTimeMillis(); deathPos = null; Stats.reset(); });
         net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
             if (Compat.isClient(world)) hitParticles(entity);
             return net.minecraft.util.ActionResult.PASS;
@@ -66,6 +68,15 @@ public class VortexMods implements ClientModInitializer {
             if (screen instanceof TitleScreen) {
                 Screens.getButtons(screen).add(ButtonWidget.builder(Text.literal("Vortex Mods"), b -> client.setScreen(new ModMenuScreen(screen)))
                         .dimensions(w - 92, 6, 86, 20)
+                        .build());
+            }
+            // The pause menu gets the button too (and Edit HUD next to it).
+            if (screen instanceof net.minecraft.client.gui.screen.GameMenuScreen) {
+                Screens.getButtons(screen).add(ButtonWidget.builder(Text.literal("Vortex Mods"), b -> client.setScreen(new ModMenuScreen(screen)))
+                        .dimensions(6, 6, 86, 20)
+                        .build());
+                Screens.getButtons(screen).add(ButtonWidget.builder(Text.literal("Edit HUD"), b -> client.setScreen(new HudEditorScreen(screen)))
+                        .dimensions(96, 6, 64, 20)
                         .build());
             }
         });
@@ -82,6 +93,26 @@ public class VortexMods implements ClientModInitializer {
         while (menuKey.wasPressed()) {
             if (client.currentScreen == null) client.setScreen(new ModMenuScreen(null));
         }
+        // HUD Toggle Key (F6): the Vortex HUD only, F1 still hides everything.
+        while (hudKey.wasPressed()) {
+            if (on("hudkey")) hudOff = !hudOff;
+        }
+        // Copy Coordinates (F7).
+        while (copyKey.wasPressed()) {
+            Module cc = Module.get("copycoords");
+            if (config.enabled(cc) && client.player != null) {
+                var p = client.player.getBlockPos();
+                String text = p.getX() + " " + p.getY() + " " + p.getZ();
+                client.keyboard.setClipboard(text);
+                if (config.bool(cc, "chat")) client.inGameHud.getChatHud().addMessage(Text.literal("[Vortex] Copied " + text).formatted(Formatting.AQUA));
+            }
+        }
+        // Auto Respawn.
+        if (on("autorespawn") && client.player != null && client.currentScreen instanceof net.minecraft.client.gui.screen.DeathScreen) {
+            client.player.requestRespawn();
+            client.setScreen(null);
+        }
+        durabilityAlert(client);
         Module zoom = Module.get("zoom");
         boolean zoomHeld = zoomKey.isPressed();
         if (config.bool(zoom, "toggle")) {
@@ -136,6 +167,7 @@ public class VortexMods implements ClientModInitializer {
             boolean dead = client.player.isDead() || client.player.getHealth() <= 0;
             if (dead && !wasDead) {
                 deathPos = client.player.getBlockPos();
+                Stats.deaths++;
                 Module dp = Module.get("deathpos");
                 if (config.enabled(dp) && config.bool(dp, "chat")) {
                     client.inGameHud.getChatHud().addMessage(Text.literal("[Vortex] You died at " + deathPos.getX() + ", " + deathPos.getY() + ", " + deathPos.getZ()).formatted(Formatting.GOLD));
@@ -150,6 +182,46 @@ public class VortexMods implements ClientModInitializer {
     }
 
     private static boolean zoomWasHeld, zoomToggled, flWasHeld, flToggled, snapping, wasDead;
+    public static KeyBinding hudKey, copyKey;
+    /** The Vortex HUD hidden with F6. */
+    public static boolean hudOff;
+    private static boolean lowWarned;
+
+    /** Zoom's "Hide HUD while zooming". */
+    public static boolean zoomHidesHud() {
+        return zooming && config.bool(Module.get("zoom"), "hidehud");
+    }
+
+    /** Kill Sound (Stats spots the kill). */
+    static void onKill(MinecraftClient client) {
+        Module m = Module.get("killsound");
+        if (!config.enabled(m) || client.player == null) return;
+        switch (config.str(m, "sound")) {
+            case "Level up" -> client.player.playSound(net.minecraft.sound.SoundEvents.ENTITY_PLAYER_LEVELUP, 0.7f, 1.2f);
+            case "Orb" -> client.player.playSound(net.minecraft.sound.SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.0f);
+            default -> client.player.playSound(net.minecraft.sound.SoundEvents.ENTITY_ARROW_HIT_PLAYER, 0.8f, 1.0f);
+        }
+    }
+
+    /** Durability Warning's sound, once each time something gets low. */
+    private static void durabilityAlert(MinecraftClient client) {
+        Module m = Module.get("durability");
+        if (client.player == null || !config.enabled(m) || !config.bool(m, "sound")) {
+            lowWarned = false;
+            return;
+        }
+        double limit = config.num(m, "threshold") / 100.0;
+        boolean low = false;
+        java.util.List<net.minecraft.item.ItemStack> stacks = new java.util.ArrayList<>();
+        stacks.add(client.player.getMainHandStack());
+        for (net.minecraft.entity.EquipmentSlot s : Hud.Armor.SLOTS) stacks.add(client.player.getEquippedStack(s));
+        for (net.minecraft.item.ItemStack st : stacks) {
+            if (st.isEmpty() || !st.isDamageable() || st.getMaxDamage() <= 0) continue;
+            if (1.0 - (double) st.getDamage() / st.getMaxDamage() <= limit) low = true;
+        }
+        if (low && !lowWarned) client.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 0.4f, 1.6f);
+        lowWarned = low;
+    }
     private static Perspective snapSaved;
     public static KeyBinding snapKey;
     /** Where you last died (Death Coordinates). */
@@ -167,8 +239,9 @@ public class VortexMods implements ClientModInitializer {
         MinecraftClient mc = MinecraftClient.getInstance();
         String msg = config.str(m, "msg");
         // A moment later, like a person would.
+        long delay = Math.round(config.num(m, "delay") * 1000);
         new Thread(() -> {
-            try { Thread.sleep(900); } catch (InterruptedException ignored) {}
+            try { Thread.sleep(delay); } catch (InterruptedException ignored) {}
             mc.execute(() -> { if (mc.getNetworkHandler() != null) mc.getNetworkHandler().sendChatMessage(msg); });
         }, "vortex-autogg").start();
     }
@@ -200,7 +273,9 @@ public class VortexMods implements ClientModInitializer {
             case "Rainbow" -> java.awt.Color.HSBtoRGB((System.currentTimeMillis() % 4000L) / 4000f, 0.75f, 1f) & 0xFFFFFF;
             default -> accent() & 0xFFFFFF;
         };
-        int a = Math.round((float) config.num(m, "opacity") * 255f);
+        float op = (float) config.num(m, "opacity");
+        if (config.bool(m, "pulse")) op *= 0.55f + 0.45f * (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 300.0));
+        int a = Math.round(op * 255f);
         return (Math.max(0, Math.min(255, a)) << 24) | rgb;
     }
 
@@ -231,19 +306,40 @@ public class VortexMods implements ClientModInitializer {
         return switch (config.str(m, "time")) {
             case "Sunrise" -> 23200L;
             case "Sunset" -> 12500L;
-            case "Night" -> 18000L;
+            case "Night" -> 14500L;
+            case "Midnight" -> 18000L;
+            // Hour 6 is sunrise in ticks 0; hour 12 is noon (6000).
+            case "Custom" -> (((long) config.num(m, "hour") - 6 + 24) % 24) * 1000L;
             default -> 6000L;
         };
     }
 
     public static Text stampChat(Text message) {
         watchChat(message);
+        message = mention(message);
         Module m = Module.get("timestamps");
         if (!config.enabled(m)) return message;
         boolean sec = config.bool(m, "seconds");
         String f = config.bool(m, "h24") ? (sec ? "HH:mm:ss" : "HH:mm") : (sec ? "h:mm:ss" : "h:mm");
         String time = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern(f, Locale.ROOT));
         return Text.literal("[" + time + "] ").formatted(Formatting.GRAY).append(message);
+    }
+
+    /** Chat Mentions: your name in someone else's message. */
+    static Text mention(Text message) {
+        Module m = Module.get("mentions");
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (!config.enabled(m) || mc.player == null) return message;
+        String name = mc.player.getName().getString();
+        String s = message.getString();
+        String lower = s.toLowerCase(Locale.ROOT), me = name.toLowerCase(Locale.ROOT);
+        int at = lower.indexOf(me);
+        if (at < 0 || name.length() < 3) return message;
+        // Your own chat line ("<Name> ..." or "Name: ...") isn't a mention.
+        if (lower.startsWith("<" + me + ">") || lower.startsWith(me + ":") || lower.startsWith("[vortex]")) return message;
+        if (config.bool(m, "sound")) mc.player.playSound(net.minecraft.sound.SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, 1.4f);
+        if (!config.bool(m, "highlight")) return message;
+        return Text.literal("» ").formatted(Formatting.GOLD, Formatting.BOLD).append(message.copy().formatted(Formatting.YELLOW));
     }
 
     /** Applies modules that change vanilla options (toggle sprint and sneak). */
@@ -276,7 +372,7 @@ public class VortexMods implements ClientModInitializer {
         float dt = Math.min(0.1f, (now - lastZoomFrame) / 1e9f);
         lastZoomFrame = now;
         float target = zooming ? (float) (1.0 / zoomLevel) : 1f;
-        zoomAmount = Ui.approach(zoomAmount, target, 16f, dt);
+        zoomAmount = config.bool(Module.get("zoom"), "animate") ? Ui.approach(zoomAmount, target, 16f, dt) : target;
         if (Math.abs(zoomAmount - 1f) < 0.001f) zoomAmount = 1f;
         return fov * zoomAmount;
     }
