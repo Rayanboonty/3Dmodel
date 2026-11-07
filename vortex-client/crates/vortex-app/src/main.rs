@@ -1120,10 +1120,13 @@ const PVP_FORGE: &[(&str, &str)] = &[
 /// remove stays removed.
 const PERF_MARK: &str = ".vortex-performance.json";
 
+/// A pack list: (Modrinth project id, display name).
+type ModList = &'static [(&'static str, &'static str)];
+
 /// The mods an instance's pack adds, for its loader.
 fn pack_mods(pack: &str, loader: &Loader) -> Vec<(&'static str, &'static str)> {
     let fabric = matches!(loader, Loader::Fabric { .. });
-    let (perf, extra): (&[(&str, &str)], &[(&str, &str)]) = match (pack, fabric) {
+    let (perf, extra): (ModList, ModList) = match (pack, fabric) {
         ("performance", true) => (PERF_FABRIC, &[]),
         ("performance", false) => (PERF_FORGE, &[]),
         ("normal", true) => (PERF_FABRIC, NORMAL_FABRIC),
