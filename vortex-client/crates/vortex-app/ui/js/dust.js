@@ -573,7 +573,8 @@ export const dust = {
     const tick = () => {
       if (!on || !bar.isConnected || !enabled) return;
       const r = bar.getBoundingClientRect();
-      const l = light ? light.getBoundingClientRect() : r;
+      const lr = light ? light.getBoundingClientRect() : null;
+      const l = lr && lr.width > 2 ? lr : r; // no fill yet: along the whole bar
       if (r.width) {
         for (let i = 0; i < 7; i++) {
           const near = Math.random() < 0.75;

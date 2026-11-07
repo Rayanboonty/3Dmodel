@@ -1,3 +1,11 @@
+**A liquid glass Play button while the game gets ready.** After you press Play, the button turns into liquid glass:
+- A glowing liquid fill shows the download, with a bright wobbling edge and dust streaming along it.
+- Sparks rise off the edge as it moves. Steps without a percentage show a sweep of light instead.
+- Pressing Play charges the button with dust, and it bursts with a ring of light when the game starts.
+- It works on phones too.
+
+**From 0.7.3:**
+
 **A new look for pack installs.** The first launch of a PvP, Normal or Performance instance now opens a liquid glass sheet that shows every mod arriving:
 - Each mod lights up while it downloads, with dust streaming into it and a fill showing the download.
 - It bursts into sparks and gets a check mark when it lands. Mods with no build for your version are crossed out.

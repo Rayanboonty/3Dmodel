@@ -745,8 +745,8 @@ function playButton(inst) {
   const label = esc(parts.join(" · "));
   if (r.phase === "preparing") {
     const pct = r.total ? Math.round((r.done / r.total) * 100) : 0;
-    return `<button class="play busy lq" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Cancel launch">
-      <span class="play-fill" style="width:${pct}%"></span>
+    return `<button class="play busy glass lq ${r.total ? "" : "indet"}" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Cancel launch">
+      <span class="play-track" aria-hidden="true"><span class="play-fill" style="width:${pct}%"><i class="play-edge"></i></span><span class="play-scan"></span></span>
       <span class="play-label">${esc(r.stage || "Preparing")}</span>
       <span class="play-sub">${r.total ? `${pct}% · ` : ""}Click to cancel</span></button>`;
   }
@@ -1099,6 +1099,7 @@ function updateRunUI(name) {
         if (wasPhase === r.phase && r.phase === "preparing") {
           const pct = r.total ? Math.round((r.done / r.total) * 100) : 0;
           btn.querySelector(".play-fill").style.width = `${pct}%`;
+          btn.classList.toggle("indet", !r.total);
           const lab = btn.querySelector(".play-label");
           const stage = r.stage || "Preparing";
           if (lab.textContent !== stage) {
@@ -1109,7 +1110,13 @@ function updateRunUI(name) {
         } else {
           btn.outerHTML = playButton(inst);
           const nb = $("#play");
+          if (nb && r.phase === "preparing" && wasPhase === "idle") {
+            dust.charge(nb, { duration: 800, count: 300, colors: ["rgba(255,226,170,1)", "rgba(255,181,71,1)", "rgba(240,143,34,1)"] });
+            if (anims()) nb.animate([{ filter: "brightness(1.8) blur(4px)", scale: "1.04" }, { filter: "brightness(1) blur(0px)", scale: "1" }], { duration: 620, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+          }
           if (nb && r.phase === "running" && wasPhase !== "running") {
+            const g = nb.getBoundingClientRect();
+            dust.glowRing(g.left + g.width / 2, g.top + g.height / 2, (k) => 30 + k * 240, { duration: 900, width: 110 });
             const b = nb.getBoundingClientRect();
             dust.burst(b.left + b.width / 2, b.top + b.height / 2, { count: 320, colors: ["rgba(180,242,143,1)", "rgba(134,220,92,1)", "rgba(255,181,71,1)"] });
           }
@@ -2874,6 +2881,24 @@ function toggleLog() {
   else openLog();
 }
 
+// ------------------------------------------------------------ play button --
+
+/** While the Play button is busy, dust streams along its fill and sparks rise off the edge. */
+function playParticles() {
+  let tick = 0;
+  setInterval(() => {
+    const btn = document.querySelector("#play.busy");
+    if (!btn || !anims() || document.hidden) return;
+    const track = btn.querySelector(".play-track");
+    if (!btn._flow) { btn._flow = true; dust.flow(track); }
+    if (++tick % 2 || btn.classList.contains("indet")) return;
+    const edge = btn.querySelector(".play-edge")?.getBoundingClientRect();
+    const t = track.getBoundingClientRect();
+    if (!edge || edge.right <= t.left + 2) return;
+    dust.burst(Math.min(edge.right, t.right - 4), t.top + t.height * (0.2 + Math.random() * 0.6), { count: 5, speed: 0.28 });
+  }, 110);
+}
+
 // ------------------------------------------------------------ live events --
 
 function bindEvents() {
@@ -3110,6 +3135,7 @@ async function boot() {
   dust.warm("img/birch-forest.jpg");
   bindChrome();
   bindEvents();
+  playParticles();
   try {
     hint.textContent = "Reading your instances";
     const b = await call("bootstrap");
