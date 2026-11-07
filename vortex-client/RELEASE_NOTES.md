@@ -1,4 +1,21 @@
-**Vortex mods on the newest 1.21 versions.** The in-game Vortex mods now also work on Fabric 1.21.8 and 1.21.11. They run on 1.20.1, 1.20.4, 1.21.1, 1.21.4, 1.21.8 and 1.21.11, with the same HUD, mod menu, main menu, skin and cape. Next up: Minecraft 26.x and 1.8.9.
+**Choose how you play.** When you create an instance, Vortex asks what it's for:
+- **PvP:** the Vortex PvP mods, every performance mod, 3D skin layers, wavey capes, better ping and more.
+- **Normal:** shaders (Iris), Xaero's minimap and world map, JEI, Jade, AppleSkin, connected textures, dynamic lights and more, plus every performance mod.
+- **Performance:** every optimisation mod that works together: Sodium, Lithium, FerriteCore, ModernFix, ImmediatelyFast, EntityCulling, More Culling, C2ME, ScalableLux, Krypton, Dynamic FPS, BadOptimizations and more.
+- **Vanilla:** no mods.
+
+The mods are added on the first launch, for your exact Minecraft version.
+
+**New in-game look.** The mod menu, the HUD and the buttons match the launcher: rounded glass, real on/off switches, and a dock at the bottom. This applies on every supported version.
+
+**30+ new options:**
+- **Game defaults:** max FPS, render and simulation distance, FOV, GUI scale, VSync, raw mouse input, shadows, particles, clouds, auto-jump, pause when you tab out, no tutorial pop-ups, narrator off, and skip the multiplayer warning.
+- **Launching:** pick the garbage collector, rejoin your last server, run commands before or after playing, and use a wrapper command and environment variables.
+- **Mods and safety:** update mods before playing, back up worlds automatically, delete old logs, and a crash helper that tells you why the game crashed.
+- **Launcher:** start page, size, reduced transparency, particle effects, lite mode, and flash when the game closes.
+
+**From 0.6.1:**
+- Vortex mods on 1.20.1, 1.20.4, 1.21.1, 1.21.4, 1.21.8 and 1.21.11.
 
 **From 0.6.0:**
 - Vortex mods on 1.20.1 to 1.21.4.

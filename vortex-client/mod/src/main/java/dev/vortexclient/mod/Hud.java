@@ -524,7 +524,7 @@ public final class Hud {
         Map<Module, Rect> out = new LinkedHashMap<>();
         // A minimap mod sits in the top-left corner: start the left column
         // under it (elements you placed yourself stay where you put them).
-        int leftY = MINIMAP ? Math.max(4, Math.round(sh * 0.32f)) : 4, rightY = Math.max(30, sh / 4);
+        int leftY = MINIMAP ? Math.max(4, Math.round(sh * 0.40f)) : 4, rightY = Math.max(30, sh / 4);
         List<Module> order = new ArrayList<>();
         for (String id : LEFT) order.add(Module.get(id));
         for (String id : RIGHT) order.add(Module.get(id));
