@@ -1,0 +1,35 @@
+// The Vortex mod for Minecraft 26.x, which ships unobfuscated: the sources
+// here use Mojang's names (they were remapped from the shared Yarn sources
+// with Loom's migrateMappings). Needs Gradle 9 and JDK 25:
+//   gradle build -Pmc=26.3
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.19.4'
+}
+
+def mc = project.findProperty('mc') ?: '26.3'
+def vp = new Properties()
+file("versions/${mc}.properties").withInputStream { vp.load(it) }
+
+version = "1.0.0+${mc}"
+group = 'dev.vortexclient'
+base { archivesName = 'vortex-mods' }
+
+dependencies {
+    minecraft "com.mojang:minecraft:${vp.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${vp.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${vp.fabric_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'mc', mc
+    filesMatching('fabric.mod.json') { expand 'version': project.version, 'mc': mc }
+    filesMatching('vortex.mixins.json') { expand 'java': 25 }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.withType(JavaCompile).configureEach { it.options.release = 25; it.options.encoding = 'UTF-8' }

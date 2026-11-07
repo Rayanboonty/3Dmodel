@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "vortex",
+  "version": "${version}",
+  "name": "Vortex Mods",
+  "description": "HUD and PvP mods for Vortex Client. Right Shift opens the mod menu.",
+  "authors": ["Vortex Client"],
+  "license": "MIT",
+  "icon": "assets/vortex/icon.png",
+  "environment": "client",
+  "entrypoints": { "client": ["dev.vortexclient.mod.VortexMods"] },
+  "mixins": ["vortex.mixins.json"],
+  "depends": { "fabricloader": ">=0.16.0", "minecraft": "${mc}", "fabric-api": "*" }
+}

@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.vortexclient.mod.mixin",
+  "compatibilityLevel": "JAVA_${java}",
+  "client": [
+    "MouseMixin", "GameRendererMixin", "LightmapMixin", "InteractionManagerMixin", "PlayerSkinMixin",
+    "CameraMixin", "EntityMixin", "InGameHudMixin", "ChatHudMixin", "WorldTimeMixin", "FireOverlayMixin",
+    "PressableWidgetMixin", "MinecraftClientMixin", "MoreMixins",
+    "OutlineMixin", "HudHideMixins", "NametagMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}
