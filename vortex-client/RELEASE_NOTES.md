@@ -1,3 +1,18 @@
+**Max FPS mode.** A new switch in Settings > Game: fast graphics, no clouds or shadows, minimal particles, render distance 8. Anything you set yourself still wins.
+
+We measured it in the same world and spot, on a test machine with no graphics card:
+- Normal Minecraft: 11.6 FPS.
+- With the Performance pack: 14.6 FPS.
+- Performance pack plus Max FPS mode: 38.0 FPS, about 3.3x normal Minecraft.
+
+On a real graphics card the Performance pack alone usually gives about 2-4x.
+
+**In-game fixes.** The Vortex look now applies only to Minecraft's own text buttons. Other mods' buttons, item list arrows and tabs, the recipe book and lock icons, and checkboxes look the way they were made again.
+
+**Play button.** The button and its arrow are one piece of liquid glass, with no curve or line where they meet.
+
+**From 0.7.5:**
+
 **The Play button, remade.**
 - **Liquid glass everywhere:** LAUNCH GAME is orange liquid glass, PLAYING is green liquid glass, and the button turns into dark glass while the game gets ready.
 - **Particle loading:** the progress is a river of glowing particles inside the button, thickest at its moving front. Steps without a percentage show a sweeping swarm.

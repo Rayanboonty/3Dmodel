@@ -746,18 +746,18 @@ function playButton(inst) {
   const label = esc(parts.join(" · "));
   if (r.phase === "preparing") {
     const pct = r.total ? Math.round((r.done / r.total) * 100) : 0;
-    return `<button class="play busy glass lq ${r.total ? "" : "indet"}" id="play" data-action="stop" data-name="${esc(inst.name)}" data-pct="${pct}" aria-label="Cancel launch">
+    return `<button class="play busy lq ${r.total ? "" : "indet"}" id="play" data-action="stop" data-name="${esc(inst.name)}" data-pct="${pct}" aria-label="Cancel launch">
       <span class="play-track" aria-hidden="true"><span class="play-fill" style="width:${pct}%"><i class="play-edge"></i></span><span class="play-scan"></span></span>
       <span class="play-label">${esc(r.stage || "Preparing")}</span>
       <span class="play-sub">${r.total ? `${pct}% · ` : ""}Click to cancel</span></button>`;
   }
   if (r.phase === "running") {
     const t = S.started[inst.name] ? clock(Date.now() - S.started[inst.name]) : "";
-    return `<button class="play running glass lq" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Stop the game">
+    return `<button class="play running lq" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Stop the game">
       <span class="play-label"><span class="run-text"><span class="live-dot" aria-hidden="true"></span>PLAYING</span><span class="stop-text"><span class="stop-glyph" aria-hidden="true"></span>STOP GAME</span></span>
       <span class="play-sub">${esc(inst.name)}${t ? ` · ${t}` : ""}</span></button>`;
   }
-  return `<button class="play glass lq" id="play" data-action="play" data-name="${esc(inst.name)}">
+  return `<button class="play lq" id="play" data-action="play" data-name="${esc(inst.name)}">
     <span class="play-label">LAUNCH GAME</span>
     <span class="play-sub">${label}</span></button>`;
 }
@@ -1054,7 +1054,7 @@ function renderHome() {
   S.switcher = false;
   const recent = [...S.instances].filter((i) => !inst || i.name !== inst.name).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).slice(0, 3);
   const cluster = inst
-    ? `<div class="play-cluster split">${playButton(inst)}<button class="play-more glass" data-action="toggle-switcher" aria-label="Choose instance" aria-haspopup="menu" aria-expanded="false"><span class="chev">${icon("chev", 12)}</span></button></div>`
+    ? `<div class="play-cluster split glass">${playButton(inst)}<button class="play-more" data-action="toggle-switcher" aria-label="Choose instance" aria-haspopup="menu" aria-expanded="false"><span class="chev">${icon("chev", 12)}</span></button></div>`
     : `<div class="play-cluster"><button class="play" id="play" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
   const chips = u.home_recent ? recent.map((i) => `<button class="recent-chip glass glassy hl" data-action="play" data-name="${esc(i.name)}" title="Play ${esc(i.name)}">
       ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(chipSub(i))}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("") : "";
@@ -1982,6 +1982,7 @@ function settingsBody(d) {
       </div>
       <div class="card-pad wide"><h3>Game defaults</h3>
         <p class="muted small">Set once here, applied to every instance when it starts. Auto leaves the game's own setting alone.</p>
+        ${swRow(d, "max_fps_mode", "Max FPS mode", "Fast graphics, no clouds or shadows, minimal particles, render distance 8. With the Performance pack it gave about 3x the FPS of normal Minecraft in our test. Anything you set below still wins.")}
         <div class="settings-2col">
           ${selRow(d, "max_fps", "Max FPS", [AUTO, ["60", "60"], ["120", "120"], ["144", "144"], ["165", "165"], ["240", "240"], ["260", "Unlimited"]], "", "num")}
           ${selRow(d, "render_distance", "Render distance", [AUTO, ...[4, 6, 8, 10, 12, 16, 20, 24, 32].map((n) => [String(n), `${n} chunks`])], "", "num")}

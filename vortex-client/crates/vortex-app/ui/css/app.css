@@ -2480,15 +2480,11 @@ body.theme-light .play.busy, body.theme-light .play.busy + .play-more { backgrou
 body.no-anim .play.busy, body.no-anim .play.busy .play-fill, body.no-anim .play-edge, body.no-anim .play.busy.indet .play-scan { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .play.busy, .play.busy .play-fill, .play-edge, .play.busy.indet .play-scan { animation: none !important; } }
 /* Liquid glass with a deeper tint where text sits on it: the busy Play button and the pack sheet. */
-html.liquid .lg-on.glass.play.busy:not(.sheet):not(.modal):not(.log-dock) {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 45%), linear-gradient(180deg, rgba(30, 20, 52, 0.42), rgba(10, 6, 22, 0.66)) !important;
-  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.35), inset 0 1.5px 0 rgba(255, 255, 255, 0.4), 0 18px 44px -16px rgba(var(--accent-rgb), 0.75) !important;
-}
 html.liquid .lg-on.glass.pk:not(.sheet):not(.modal):not(.log-dock) {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 40%), rgba(16, 11, 28, 0.56) !important;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 1.5px 0 rgba(255, 255, 255, 0.32), 0 0 0 1px rgba(var(--accent-rgb), 0.12), 0 40px 90px -30px rgba(6, 3, 20, 0.85) !important;
 }
-html.liquid body.theme-light .lg-on.glass.play.busy:not(.sheet):not(.modal):not(.log-dock), html.liquid body.theme-light .lg-on.glass.pk:not(.sheet):not(.modal):not(.log-dock) { background: rgba(253, 250, 254, 0.66) !important; }
+html.liquid body.theme-light .lg-on.glass.pk:not(.sheet):not(.modal):not(.log-dock) { background: rgba(253, 250, 254, 0.66) !important; }
 .play.busy .play-fill { transition: width 0.55s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.35s ease; }
 .play.busy.indet .play-fill { opacity: 0; transition: opacity 0.35s ease, width 0s 0.35s; }
 
@@ -2502,24 +2498,41 @@ html.liquid body.theme-light .lg-on.glass.play.busy:not(.sheet):not(.modal):not(
 .play.busy + .play-more { border-color: rgba(var(--accent-rgb), 0.45); }
 .play.busy + .play-more::before { background: rgba(255, 255, 255, 0.12); box-shadow: none; }
 .play.running + .play-more { border-color: rgba(200, 255, 170, 0.6); }
-html.liquid .lg-on.glass.play:not(.busy):not(.running):not(.sheet):not(.modal):not(.log-dock),
-html.liquid .play:not(.busy):not(.running) + .lg-on.glass.play-more:not(.sheet):not(.modal):not(.log-dock) {
+
+/* ---------------------------------------------------------------- Play button: one piece of liquid glass -- */
+/* The button and its arrow sit on one glass capsule (the cluster), so the
+   glass bends as one shape with no seam; each part only adds its tint. */
+.play-cluster.split.glass {
+  border-radius: calc(var(--r-l) - 4px); border: 1px solid rgba(255, 225, 170, 0.55); padding: 0; overflow: hidden;
+  background: transparent; box-shadow: 0 18px 40px -16px rgba(var(--accent-rgb), 0.85);
+  transition: box-shadow 0.4s, border-color 0.4s;
+}
+.play-cluster.split.glass:has(.play.busy) { border-color: rgba(var(--accent-rgb), 0.45); box-shadow: 0 18px 44px -16px rgba(var(--accent-rgb), 0.75); }
+.play-cluster.split.glass:has(.play.running) { border-color: rgba(200, 255, 170, 0.6); box-shadow: 0 18px 40px -16px rgba(120, 220, 80, 0.8); }
+.play-cluster.split.glass > .play, .play-cluster.split.glass > .play-more { border: 0 !important; border-radius: 0; box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(0, 0, 0, 0.12) !important; }
+.play-cluster.split.glass > .play.busy { box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.35) !important; }
+html.liquid .play-cluster.split.lg-on.glass:not(.sheet):not(.modal):not(.log-dock) {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 18px 40px -16px rgba(var(--accent-rgb), 0.85) !important;
+}
+html.liquid .play-cluster.split.lg-on.glass:not(.sheet):not(.modal):not(.log-dock):has(.play.busy) { box-shadow: 0 18px 44px -16px rgba(var(--accent-rgb), 0.75) !important; }
+html.liquid .play-cluster.split.lg-on.glass:not(.sheet):not(.modal):not(.log-dock):has(.play.running) { box-shadow: 0 18px 40px -16px rgba(120, 220, 80, 0.8) !important; }
+/* Tints over the glass: orange to launch, green while playing, dark while it gets ready. */
+html.liquid .play-cluster.lg-on > .play:not(.busy):not(.running),
+html.liquid .play-cluster.lg-on > .play:not(.busy):not(.running) + .play-more {
   background: linear-gradient(180deg, rgba(255, 222, 160, 0.66), rgba(var(--accent-rgb), 0.62) 48%, rgba(240, 143, 34, 0.74)) !important;
-  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.75), inset 0 -10px 22px -14px rgba(255, 255, 255, 0.45), inset 0 -3px 0 rgba(150, 70, 0, 0.22), 0 18px 40px -16px rgba(var(--accent-rgb), 0.85) !important;
 }
-html.liquid .lg-on.glass.play:not(.busy):not(.running):not(.sheet):not(.modal):not(.log-dock):hover,
-html.liquid .play:not(.busy):not(.running) + .lg-on.glass.play-more:not(.sheet):not(.modal):not(.log-dock):hover {
-  background: linear-gradient(180deg, rgba(255, 232, 185, 0.74), rgba(var(--accent-rgb), 0.7) 48%, rgba(240, 143, 34, 0.8)) !important;
+html.liquid .play-cluster.lg-on > .play:not(.busy):not(.running):hover,
+html.liquid .play-cluster.lg-on > .play:not(.busy):not(.running) + .play-more:hover {
+  background: linear-gradient(180deg, rgba(255, 232, 185, 0.76), rgba(var(--accent-rgb), 0.72) 48%, rgba(240, 143, 34, 0.82)) !important;
 }
-html.liquid .lg-on.glass.play.running:not(.sheet):not(.modal):not(.log-dock),
-html.liquid .play.running + .lg-on.glass.play-more:not(.sheet):not(.modal):not(.log-dock) {
+html.liquid .play-cluster.lg-on > .play.running, html.liquid .play-cluster.lg-on > .play.running + .play-more {
   background: linear-gradient(180deg, rgba(196, 246, 160, 0.66), rgba(134, 220, 92, 0.62) 50%, rgba(92, 180, 58, 0.74)) !important;
-  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.7), inset 0 -3px 0 rgba(20, 70, 0, 0.2), 0 18px 40px -16px rgba(120, 220, 80, 0.8) !important;
 }
-html.liquid .lg-on.glass.play.running:not(.sheet):not(.modal):not(.log-dock):hover {
+html.liquid .play-cluster.lg-on > .play.running:hover {
   background: linear-gradient(180deg, rgba(255, 160, 145, 0.72), rgba(255, 98, 82, 0.68) 50%, rgba(226, 68, 58, 0.8)) !important;
 }
-html.liquid .play.busy + .lg-on.glass.play-more:not(.sheet):not(.modal):not(.log-dock) {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 45%), linear-gradient(180deg, rgba(30, 20, 52, 0.42), rgba(10, 6, 22, 0.66)) !important;
-  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.4), 0 18px 44px -16px rgba(var(--accent-rgb), 0.75) !important;
+html.liquid .play-cluster.lg-on > .play.busy, html.liquid .play-cluster.lg-on > .play.busy + .play-more {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02) 45%), linear-gradient(180deg, rgba(30, 20, 52, 0.42), rgba(10, 6, 22, 0.66)) !important;
 }
+html.liquid body.theme-light .play-cluster.lg-on > .play.busy, html.liquid body.theme-light .play-cluster.lg-on > .play.busy + .play-more { background: rgba(253, 250, 254, 0.66) !important; }

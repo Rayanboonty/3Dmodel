@@ -99,6 +99,9 @@ pub struct Settings {
     pub pause_on_lost_focus: Option<bool>,
     /// Skip the "Move with WASD" tutorial pop-ups.
     pub hide_tutorial: bool,
+    /// Max FPS mode: draw less for a much higher frame rate (fast graphics,
+    /// no clouds or shadows, minimal particles, render distance 8...).
+    pub max_fps_mode: bool,
 
     // ---- Launching.
     /// Garbage collector: `auto`, `g1`, `zgc`, `shenandoah` or `parallel`.
@@ -179,6 +182,7 @@ impl Default for Settings {
             clouds: None,
             pause_on_lost_focus: None,
             hide_tutorial: true,
+            max_fps_mode: false,
             gc: "auto".to_string(),
             pre_launch_command: String::new(),
             post_exit_command: String::new(),

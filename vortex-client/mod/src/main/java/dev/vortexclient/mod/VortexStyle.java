@@ -6,7 +6,12 @@ import java.nio.file.Path;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.CyclingButtonWidget;
+import net.minecraft.client.gui.widget.LockButtonWidget;
 import net.minecraft.client.gui.widget.PressableWidget;
+import net.minecraft.client.gui.widget.TexturedButtonWidget;
+import net.minecraft.client.gui.widget.PageTurnWidget;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
@@ -17,6 +22,21 @@ public final class VortexStyle {
 
     public static boolean enabled() {
         return Boolean.parseBoolean(System.getProperty("vortex.menu", "true"));
+    }
+
+    /**
+     * Only Minecraft's own text buttons get the Vortex look. Other mods'
+     * buttons (item lists, tabs, tiny arrows), icon buttons (recipe book,
+     * lock, book pages), checkboxes and buttons too small for a label keep
+     * the look they were made with.
+     */
+    public static boolean styles(PressableWidget w) {
+        if (!enabled()) return false;
+        if (!w.getClass().getName().startsWith("net.minecraft.")) return false;
+        if (!(w instanceof ButtonWidget) && !(w instanceof CyclingButtonWidget)) return false;
+        if (w instanceof TexturedButtonWidget || w instanceof LockButtonWidget || w instanceof PageTurnWidget) return false;
+        if (w.getWidth() < 30 || w.getHeight() < 14) return false;
+        return !w.getMessage().getString().isEmpty();
     }
 
     /** A dark glass button with an accent edge on hover. */

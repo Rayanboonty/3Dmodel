@@ -70,7 +70,12 @@ public class VortexMods implements ClientModInitializer {
         LOG.info("Vortex mods ready: Right Shift opens the menu");
     }
 
+    /** -Dvortex.bench=true logs the frame rate once a second in a world (for FPS tests). */
+    private static final boolean BENCH = Boolean.getBoolean("vortex.bench");
+    private static int benchTicks;
+
     private static void tick(MinecraftClient client) {
+        if (BENCH && client.world != null && ++benchTicks % 20 == 0) LOG.info("Vortex bench fps={}", client.getCurrentFps());
         Stats.tick(client);
         while (menuKey.wasPressed()) {
             if (client.currentScreen == null) client.setScreen(new ModMenuScreen(null));

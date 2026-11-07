@@ -16,11 +16,36 @@ fn quotes_strings(minecraft: &str) -> bool {
     major >= 26 || (major == 1 && minor >= 19)
 }
 
+/// What Max FPS mode writes to options.txt (`graphicsMode` from 1.16 on,
+/// `fancyGraphics` before; the game ignores the one it doesn't know).
+const MAX_FPS_MODE: &[(&str, &str)] = &[
+    ("graphicsMode", "0"),
+    ("fancyGraphics", "false"),
+    ("entityShadows", "false"),
+    ("biomeBlendRadius", "0"),
+    ("mipmapLevels", "0"),
+    ("particles", "2"),
+    ("renderDistance", "8"),
+    ("simulationDistance", "8"),
+    ("entityDistanceScaling", "0.5"),
+    ("enableVsync", "false"),
+    ("maxFps", "260"),
+];
+
 /// Write the launcher's game defaults into an instance's options.txt.
 /// Only options the player set are touched; "Auto" leaves the game's own.
 pub fn apply_game_defaults(game_dir: &Path, minecraft: &str, s: &Settings) {
     let set = |k: &str, v: String| crate::launcher::set_game_option(game_dir, k, &v);
     let q = |v: &str| if quotes_strings(minecraft) { format!("\"{v}\"") } else { v.to_string() };
+    if s.max_fps_mode {
+        // Draw less. With the Performance pack this took a test world from
+        // 11.6 to 38 FPS. Options set below still win over it.
+        for (k, v) in MAX_FPS_MODE {
+            set(k, v.to_string());
+        }
+        set("renderClouds", q("false"));
+        set("ao", if quotes_strings(minecraft) { "false" } else { "0" }.into());
+    }
     if let Some(v) = s.max_fps {
         set("maxFps", v.clamp(10, 260).to_string());
     }
@@ -325,6 +350,19 @@ mod tests {
         assert!(t.contains("maxFps:144") && t.contains("fov:0.5000") && t.contains("renderClouds:\"fast\"") && t.contains("tutorialStep:none"));
         apply_game_defaults(&dir, "1.8.9", &Settings { clouds: Some("off".into()), ..Settings::default() });
         assert!(std::fs::read_to_string(dir.join("options.txt")).unwrap().contains("renderClouds:false"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn max_fps_mode_draws_less_but_choices_win() {
+        let dir = std::env::temp_dir().join(format!("vortex-maxfps-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let s = Settings { max_fps_mode: true, render_distance: Some(12), ..Settings::default() };
+        apply_game_defaults(&dir, "1.21.4", &s);
+        let t = std::fs::read_to_string(dir.join("options.txt")).unwrap();
+        assert!(t.contains("graphicsMode:0") && t.contains("renderClouds:\"false\"") && t.contains("ao:false") && t.contains("particles:2"));
+        // A render distance the player picked beats the mode's 8.
+        assert!(t.contains("renderDistance:12") && !t.contains("renderDistance:8"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
