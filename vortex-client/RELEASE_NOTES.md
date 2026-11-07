@@ -1,3 +1,7 @@
+**VC cape.** The Vortex cape now shows the VC logo instead of the old V, in-game and in the launcher.
+
+**From 0.7.1:**
+
 **Your VC logo everywhere.** The old "VORTEX CLIENT" logo is gone:
 - **In-game:** the Vortex main menu and the mod menu now show the VC logo on every supported version (1.20.1 to 1.21.11).
 - **App icon:** Vortex.exe and the Mod Menu entry use the VC icon.
