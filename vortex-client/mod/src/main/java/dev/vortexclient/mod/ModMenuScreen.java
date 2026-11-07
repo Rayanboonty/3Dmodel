@@ -219,9 +219,10 @@ public class ModMenuScreen extends ScreenBase {
     private void renderGrid(DrawContext c, int mx, int my, int px, int py, int pw, int ph, int accent) {
         int pad = 10;
         // Title, then the category tabs in a segmented track.
-        Ui.text(c, "VORTEX", px + pad, py + 9, accent);
-        Ui.text(c, "CLIENT", px + pad + Ui.width("VORTEX ") , py + 9, DIM);
-        int x = px + pad + Ui.width("VORTEX CLIENT") + 14, y = py + 6;
+        VortexStyle.Art logo = VortexStyle.logoSmall();
+        int lh = 16, lw = lh * logo.w() / logo.h();
+        Gfx.texture(c, logo.id(), px + pad, py + 4, lw, lh, logo.w(), logo.h());
+        int x = px + pad + lw + 12, y = py + 6;
         int trackW = 4;
         for (String cat : CATEGORIES) trackW += Ui.width(cat) + 18;
         Ui.rounded(c, x - 2, y - 2, trackW, 18, 9, 0x50000000);

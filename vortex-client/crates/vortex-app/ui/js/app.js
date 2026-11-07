@@ -8,7 +8,6 @@ import { sound } from "./sound.js";
 import { fx, toast } from "./fx.js";
 import { dust } from "./dust.js";
 import { watch as watchGlass, setEnabled as setLiquid, liquifyRail } from "./lglass.js";
-import { STYLES, renderBrand, renderStyle, mount as mountLogo } from "./logo.js";
 import { coverFor, updateName } from "./versions.js";
 
 // ------------------------------------------------------------------ state --
@@ -384,10 +383,6 @@ function applyLook(s = S.settings || {}) {
   const glass = Number.isFinite(s.glass) ? s.glass : 60;
   root.setProperty("--blur", `${Math.round(6 + glass * 0.32)}px`);
   root.setProperty("--gk", (0.55 + (glass / 100) * 0.9).toFixed(2));
-  const style = Math.min(STYLES.length - 1, Math.max(0, s.logo_style || 0));
-  if (S.brandStyle !== style) {
-    S.brandStyle = style;
-  }
   tick();
 }
 
@@ -2116,7 +2111,6 @@ function mountSettings(root, d) {
     else { const [w, h] = v.split("x").map(Number); d.game_width = w; d.game_height = h; }
     markDirty();
   });
-  $$("[data-logo]", root).forEach((el) => mountLogo(el, renderStyle(Number(el.dataset.logo), 2.1)));
   $$("[data-scene]", root).forEach((el) => {
     const url = sceneThumb(el.dataset.scene, 176, 99);
     el.style.backgroundImage = `url('${url}')`;

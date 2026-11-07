@@ -41,7 +41,7 @@ public final class VortexStyle {
 
     public record Art(Identifier id, int w, int h) {}
 
-    private static Art bg, logo;
+    private static Art bg;
     private static boolean loaded;
 
     private static Art load(String prop, String name) {
@@ -63,7 +63,6 @@ public final class VortexStyle {
         if (loaded) return;
         loaded = true;
         bg = load("vortex.menuBg", "background");
-        logo = load("vortex.menuLogo", "logo");
     }
 
     public static Art background() {
@@ -71,8 +70,16 @@ public final class VortexStyle {
         return bg;
     }
 
+    /** The VC logo, bundled with the mod so every launcher (and Android) shows the same one. */
+    private static final Art LOGO = new Art(Identifier.of("vortex", "textures/gui/logo.png"), 354, 252);
+    private static final Art LOGO_SMALL = new Art(Identifier.of("vortex", "textures/gui/logo_small.png"), 135, 96);
+
     public static Art logo() {
-        ensure();
-        return logo;
+        return LOGO;
+    }
+
+    /** A pre-shrunk copy for small spots like the mod menu header. */
+    public static Art logoSmall() {
+        return LOGO_SMALL;
     }
 }

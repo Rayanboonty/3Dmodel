@@ -72,8 +72,7 @@ public class VortexTitleScreen extends ScreenBase {
     private int logoHeight() {
         VortexStyle.Art logo = VortexStyle.logo();
         int room = height - logoTop() - 12 - (22 * 4 + 6 * 3 + 6) - 36;
-        if (logo == null) return Math.max(20, Math.min(40, room));
-        return Math.max(24, Math.min(Math.min(height / 3, room), logoWidth() * logo.h() / Math.max(1, logo.w())));
+        return Math.max(24, Math.min(Math.min(Math.min(height / 4, 96), room), logoWidth() * logo.h() / Math.max(1, logo.w())));
     }
 
     @Override
@@ -96,18 +95,8 @@ public class VortexTitleScreen extends ScreenBase {
         float ease = 1f - (float) Math.pow(1 - t, 3);
         int lift = Math.round((1 - ease) * 12);
         VortexStyle.Art logo = VortexStyle.logo();
-        if (logo != null) {
-            int lw = logoWidth(), lh = logoHeight();
-            lw = lh * logo.w() / Math.max(1, logo.h());
-            Gfx.texture(c, logo.id(), (width - lw) / 2, logoTop() - lift, lw, lh, logo.w(), logo.h());
-        } else {
-            Gfx.push(c);
-            Gfx.translate(c, width / 2f, logoTop() - lift);
-            Gfx.scale(c, 3f, 3f);
-            Ui.centered(c, "VORTEX", 0, 0, VortexMods.accent());
-            Gfx.pop(c);
-            Ui.centered(c, "CLIENT", width / 2, logoTop() + 28 - lift, 0xFFFFFFFF);
-        }
+        int lh = logoHeight(), lw = lh * logo.w() / Math.max(1, logo.h());
+        Gfx.texture(c, logo.id(), (width - lw) / 2, logoTop() - lift, lw, lh, logo.w(), logo.h());
     }
 
     @Override

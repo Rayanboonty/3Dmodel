@@ -1,3 +1,9 @@
+**Your VC logo everywhere.** The old "VORTEX CLIENT" logo is gone:
+- **In-game:** the Vortex main menu and the mod menu now show the VC logo on every supported version (1.20.1 to 1.21.11).
+- **App icon:** Vortex.exe and the Mod Menu entry use the VC icon.
+
+**From 0.7.0:**
+
 **Choose how you play.** When you create an instance, Vortex asks what it's for:
 - **PvP:** the Vortex PvP mods, every performance mod, 3D skin layers, wavey capes, better ping and more.
 - **Normal:** shaders (Iris), Xaero's minimap and world map, JEI, Jade, AppleSkin, connected textures, dynamic lights and more, plus every performance mod.
