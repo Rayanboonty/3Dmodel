@@ -1,3 +1,9 @@
+**Vortex 0.8.1: a quicker start.** The particle animation when the launcher opens is gone (it lagged on many computers). The launcher now appears straight away with a short fade.
+
+The Android app is no longer made.
+
+**From 0.8.0:**
+
 **Vortex 0.8.0: the big one.** Over 130 new options and mods, a real installer, texture packs, a badge for Vortex players and faster everything.
 
 **Starts on low-end PCs.** Minecraft could be very slow to start on low-end PCs, or not start at all. Fixed:

@@ -3535,7 +3535,7 @@ async function boot() {
   const logo = $("#boot-logo");
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   // The VC logo builds itself out of its own pixels.
-  if (logo && !still) {
+  if (false && logo && !still) {
     logo.style.animation = "none";
     const go = () => dust.assembleImage(logo, { duration: 1300, spread: 1.7, budget: lite ? 1400 : 3200 });
     if (logo.complete && logo.naturalWidth) go(); else logo.addEventListener("load", go, { once: true });
@@ -3545,7 +3545,7 @@ async function boot() {
   const progress = (pct, text) => { if (barFill) barFill.style.width = `${pct}%`; if (text) hint.textContent = text; };
   progress(8);
   // Light streams along inside the loading bar while it loads.
-  const stopFlow = matchMedia("(prefers-reduced-motion: reduce)").matches ? () => {} : dust.flow($("#boot .bar"));
+  // No particles while loading: they made the first start laggy.
   dust.warm("img/birch-forest.jpg");
   bindChrome();
   bindEvents();
@@ -3612,11 +3612,13 @@ async function boot() {
   if (lite) preblurBackdrop();
   progress(100, "Ready");
   // Let the logo finish building and the bar fill before the burst.
-  const shown = performance.now() - bootT0;
-  if (anims() && shown < 1700) await new Promise((r) => setTimeout(r, 1700 - shown));
   const bootEl = $("#boot");
   world.rise = 0;
-  if (anims() && dust.enabled) {
+  // A quick fade instead of the particle build (it lagged on first start).
+  bootEl.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-out", fill: "forwards" });
+  setTimeout(() => bootEl.remove(), 230);
+  if (false) {
+    const stopFlow = () => {};
     // The logo bursts, and its grains fly out and build the launcher: every
     // panel forms out of its own pixels, nearest first.
     stopFlow();
@@ -3647,7 +3649,7 @@ async function boot() {
     setTimeout(() => bootEl.remove(), 950);
     // Nothing stays hidden if a piece can't be drawn.
     Promise.all(builds).finally(() => behind.forEach((b) => { b.style.opacity = ""; }));
-  } else bootEl.remove();
+  }
   placeHero();
   const u = { ...UI_DEFAULTS, ...S.settings };
   if (world.picture && anims() && u.intro !== false) { placeHero(); player.intro(0.45); }
