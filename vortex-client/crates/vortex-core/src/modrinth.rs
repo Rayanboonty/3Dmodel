@@ -740,6 +740,198 @@ pub async fn install(
     })
 }
 
+/// How one entry of a pack install went.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackState {
+    /// Added (or already on its way as another mod's dependency).
+    Added,
+    /// None of its alternatives has a build for this Minecraft and loader.
+    NoBuild,
+    /// Modrinth couldn't be reached or a download failed: try again later.
+    Failed,
+}
+
+/// Required dependencies of a version: (project id, version id).
+fn required(v: &RawVersion) -> Vec<(Option<String>, Option<String>)> {
+    v.dependencies.iter().filter(|d| d.dependency_type == "required").map(|d| (d.project_id.clone(), d.version_id.clone())).collect()
+}
+
+/// Projects that are installed or being installed by a pack entry.
+struct Claims(std::sync::Mutex<HashSet<String>>);
+
+impl Claims {
+    /// True the first time a project is claimed.
+    fn claim(&self, id: &str) -> bool {
+        self.0.lock().map(|mut c| c.insert(id.to_string())).unwrap_or(false)
+    }
+}
+
+/// Runs one pack entry and reports it.
+#[allow(clippy::too_many_arguments)]
+async fn pack_task<S, D>(
+    i: usize,
+    alts: &[String],
+    launcher: &Launcher,
+    target: &Target,
+    claims: &Claims,
+    mods_dir: &Path,
+    quiet: &ProgressFn,
+    fetched: &std::sync::Mutex<Vec<RawVersion>>,
+    on_start: &S,
+    on_done: &D,
+) where
+    S: Fn(usize) + Sync,
+    D: Fn(usize, PackState, Option<usize>) + Sync,
+{
+    on_start(i);
+    let (state, winner, plan) = pack_entry(launcher, target, alts, claims, mods_dir, quiet).await;
+    if state == PackState::Added {
+        if let Ok(mut f) = fetched.lock() {
+            f.extend(plan);
+        }
+    }
+    on_done(i, state, winner);
+}
+
+/// One pack entry: pick the first alternative with a build, resolve its
+/// unclaimed required dependencies, download them. Returns what to record.
+async fn pack_entry(
+    launcher: &Launcher,
+    target: &Target,
+    alts: &[String],
+    claims: &Claims,
+    mods_dir: &Path,
+    quiet: &ProgressFn,
+) -> (PackState, Option<usize>, Vec<RawVersion>) {
+    let mut chosen = None;
+    for (ai, id) in alts.iter().enumerate() {
+        match raw_versions(launcher, id, target).await {
+            Ok(list) => {
+                if let Some(v) = pick(&list, false) {
+                    chosen = Some((ai, v.clone()));
+                    break;
+                }
+            }
+            Err(_) => return (PackState::Failed, None, Vec::new()),
+        }
+    }
+    let Some((ai, version)) = chosen else { return (PackState::NoBuild, None, Vec::new()) };
+    // The mod and its required dependencies nobody else has claimed.
+    let mut plan = Vec::new();
+    let mut queue: VecDeque<(Option<String>, Option<String>)> = VecDeque::new();
+    if claims.claim(&version.project_id) {
+        queue.extend(required(&version));
+        plan.push(version);
+    }
+    while let Some((pid, vid)) = queue.pop_front() {
+        if let Some(p) = &pid {
+            if !claims.claim(p) {
+                continue;
+            }
+        }
+        let dep = match (&pid, &vid) {
+            (_, Some(v)) => match checked_id(v) {
+                Ok(v) => launcher.downloader().get_json::<RawVersion>(&format!("{API}/version/{v}")).await.ok(),
+                Err(_) => None,
+            },
+            (Some(p), None) => match raw_versions(launcher, p, target).await {
+                Ok(list) => pick(&list, false).cloned(),
+                Err(_) => None,
+            },
+            (None, None) => None,
+        };
+        let Some(dep) = dep else { continue };
+        if pid.is_none() && !claims.claim(&dep.project_id) {
+            continue;
+        }
+        queue.extend(required(&dep));
+        plan.push(dep);
+    }
+    let mut tasks = Vec::new();
+    for v in &plan {
+        let Some(file) = v.primary_file() else { continue };
+        if file.filename.contains(['/', '\\']) || file.filename.starts_with('.') {
+            continue;
+        }
+        tasks.push(DownloadTask::new(file.url.clone(), mods_dir.join(&file.filename)).sha1(file.hashes.get("sha1").cloned()).size(file.size));
+    }
+    match launcher.downloader().run(tasks, "Downloading", Verify::Hash, quiet).await {
+        Ok(_) => (PackState::Added, Some(ai), plan),
+        Err(_) => (PackState::Failed, None, Vec::new()),
+    }
+}
+
+/// How many pack mods are looked up and downloaded at the same time.
+const PACK_PARALLEL: usize = 8;
+
+/// Whether Modrinth answers within a few seconds (no point waiting on
+/// every mod's timeout when the network is down or blocks it).
+pub async fn reachable(launcher: &Launcher) -> bool {
+    let req = launcher.http().get(format!("{API}/tag/loader")).timeout(std::time::Duration::from_secs(6));
+    matches!(req.send().await, Ok(r) if r.status().is_success())
+}
+
+/// Install many mods at once, `PACK_PARALLEL` at a time. Each entry is a list
+/// of alternatives in order (the first with a build for the instance wins)
+/// and brings its required dependencies; a dependency several mods share is
+/// fetched once. `on_start(i)` runs when entry `i` begins and
+/// `on_done(i, state, winner)` when it's finished (`winner` indexes its
+/// alternatives). The index is written once at the end.
+pub async fn install_pack<S, D>(launcher: &Launcher, instance: &Instance, entries: &[Vec<String>], on_start: S, on_done: D) -> Result<()>
+where
+    S: Fn(usize) + Sync,
+    D: Fn(usize, PackState, Option<usize>) + Sync,
+{
+    use futures::StreamExt;
+    use std::sync::Mutex;
+
+    if loader_name(instance).is_none() {
+        bail!("'{}' is a vanilla instance. Mods need Fabric or Forge", instance.name);
+    }
+    let target = Target::for_instance(instance, ProjectKind::Mod);
+    let mut index = installed(instance);
+    // Projects that are installed or being installed by another entry.
+    let claims = Claims(Mutex::new(index.files.values().filter(|e| e.kind == ProjectKind::Mod).map(|e| e.project_id.clone()).collect()));
+    let fetched: Mutex<Vec<RawVersion>> = Mutex::new(Vec::new());
+    let quiet: ProgressFn = std::sync::Arc::new(|_| {});
+    let mods_dir = ProjectKind::Mod.dir(instance);
+
+    // Built in a loop (not a closure) so the futures stay Send.
+    let mut tasks = Vec::with_capacity(entries.len());
+    for (i, alts) in entries.iter().enumerate() {
+        tasks.push(pack_task(i, alts, launcher, &target, &claims, &mods_dir, &quiet, &fetched, &on_start, &on_done));
+    }
+    futures::stream::iter(tasks).buffer_unordered(PACK_PARALLEL).collect::<Vec<()>>().await;
+
+    // Record everything in one go, with titles and icons from one request per 100.
+    let plan = fetched.into_inner().unwrap_or_default();
+    let mut projects: Vec<RawProject> = Vec::new();
+    for chunk in plan.chunks(100) {
+        let ids: Vec<&str> = chunk.iter().map(|v| v.project_id.as_str()).collect();
+        let list = serde_json::to_string(&ids)?;
+        if let Ok(resp) = launcher.http().get(format!("{API}/projects")).query(&[("ids", list.as_str())]).send().await {
+            projects.extend(resp.json::<Vec<RawProject>>().await.unwrap_or_default());
+        }
+    }
+    for v in &plan {
+        let Some(file) = v.primary_file() else { continue };
+        let project = projects.iter().find(|p| p.id == v.project_id);
+        let _ = std::fs::remove_file(mods_dir.join(format!("{}.disabled", file.filename)));
+        index.files.insert(
+            key(ProjectKind::Mod, &file.filename),
+            IndexEntry {
+                project_id: v.project_id.clone(),
+                version_id: v.id.clone(),
+                title: project.map(|p| p.title.clone()).unwrap_or_else(|| v.project_id.clone()),
+                icon_url: project.and_then(|p| p.icon_url.clone()),
+                kind: ProjectKind::Mod,
+            },
+        );
+    }
+    index.save(instance)?;
+    Ok(())
+}
+
 /// Update everything installed from Modrinth to its newest version for the
 /// instance (mods you turned off are left as they are). Returns the titles
 /// that were updated.

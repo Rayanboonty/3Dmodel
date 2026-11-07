@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 pub struct Settings {
     pub min_memory_mb: u32,
     pub max_memory_mb: u32,
+    /// Pick the maximum memory from the PC's RAM (instead of `max_memory_mb`).
+    pub auto_memory: bool,
     /// Force a specific Java for every instance (normally automatic).
     pub java_path: Option<PathBuf>,
     pub extra_jvm_args: Vec<String>,
@@ -126,6 +128,17 @@ pub struct Settings {
     pub auto_update_mods: bool,
     /// Pressing Play rejoins the server you last joined from the launcher.
     pub rejoin_last_server: bool,
+    /// More options.txt settings the launcher writes on every start (key ->
+    /// value as the game stores it), from Settings > Game > More options.
+    pub game_options: std::collections::BTreeMap<String, String>,
+    /// Windows: ask for the fast graphics card for Java (laptops with two).
+    pub gpu_high_performance: bool,
+    /// Game priority: `normal`, `above` or `high` (Windows).
+    pub process_priority: String,
+    /// Java prefers IPv4 (some servers fail on broken IPv6 networks).
+    pub prefer_ipv4: bool,
+    /// Count the time played in each instance.
+    pub track_playtime: bool,
 
     /// Interface preferences the launcher UI keeps (layout, wallpaper,
     /// glass style…); stored as-is.
@@ -133,11 +146,23 @@ pub struct Settings {
     pub ui: serde_json::Map<String, serde_json::Value>,
 }
 
+impl Settings {
+    /// The maximum memory a launch gets when the instance doesn't set its own.
+    pub fn max_memory_for(&self, modded: bool) -> u32 {
+        if self.auto_memory {
+            crate::os::recommended_memory_mb(crate::os::total_ram_mb(), modded)
+        } else {
+            self.max_memory_mb
+        }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
             min_memory_mb: 512,
             max_memory_mb: 4096,
+            auto_memory: true,
             java_path: None,
             extra_jvm_args: Vec::new(),
             microsoft_client_id: None,
@@ -194,6 +219,11 @@ impl Default for Settings {
             log_retention_days: 30,
             auto_update_mods: false,
             rejoin_last_server: false,
+            game_options: std::collections::BTreeMap::new(),
+            gpu_high_performance: false,
+            process_priority: "normal".to_string(),
+            prefer_ipv4: false,
+            track_playtime: true,
             ui: serde_json::Map::new(),
         }
     }

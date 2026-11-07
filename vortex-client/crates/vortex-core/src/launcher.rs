@@ -284,15 +284,31 @@ impl Launcher {
 
         let mut extra_jvm_args = settings.extra_jvm_args.clone();
         extra_jvm_args.extend(instance.jvm_args.iter().cloned());
+        let modded = !matches!(instance.loader, crate::instance::Loader::Vanilla);
+        let max_memory_mb = instance.memory_mb.unwrap_or_else(|| settings.max_memory_for(modded)).max(512);
         if settings.tuned_jvm {
             let (_, major) = installed.version.java_requirement();
-            let cds = self.paths.cache().join("cds").join(format!("{}-{}.jsa", installed.id.replace(['/', '\\', ':'], "_"), crate::LAUNCHER_VERSION));
-            // The game's own archive needs the JDK's base one under it.
-            let base = settings.fast_launch && {
+            if settings.fast_launch {
+                // Java's own class archive (made once, in the background).
                 let j = java.clone();
-                tokio::task::spawn_blocking(move || fastlaunch::ensure_base_cds(&j, major)).await.unwrap_or(false)
+                let cache = self.paths.cache();
+                let _ = tokio::task::spawn_blocking(move || {
+                    fastlaunch::remove_old_archives(&cache);
+                    fastlaunch::ensure_base_cds(&j, major)
+                })
+                .await;
+            }
+            let mut tuned = fastlaunch::tuned_jvm_args(major, &extra_jvm_args);
+            // Big G1 regions suit big heaps; a small heap (low-end PCs)
+            // needs small ones or it collects far too often.
+            let region = match max_memory_mb {
+                0..=3071 => "8M",
+                3072..=6143 => "16M",
+                _ => "32M",
             };
-            let tuned = fastlaunch::tuned_jvm_args(major, &extra_jvm_args, base.then_some(cds.as_path()));
+            for a in tuned.iter_mut().filter(|a| a.starts_with("-XX:G1HeapRegionSize=")) {
+                *a = format!("-XX:G1HeapRegionSize={region}");
+            }
             extra_jvm_args.splice(0..0, tuned);
         }
         // A chosen garbage collector replaces the tuned G1 flags.
@@ -306,7 +322,7 @@ impl Launcher {
             java,
             game_dir,
             min_memory_mb: settings.min_memory_mb,
-            max_memory_mb: instance.memory_mb.unwrap_or(settings.max_memory_mb),
+            max_memory_mb,
             extra_jvm_args,
             resolution: instance.resolution.or_else(|| settings.resolution()),
             fullscreen: settings.fullscreen,
@@ -320,6 +336,17 @@ impl Launcher {
         let mut cmd = launch::build_command(&installed, &self.paths, session, &opts)?;
         cmd.wrapper = crate::extras::split_command(&settings.wrapper_command);
         cmd.env = crate::extras::parse_env(&settings.game_env);
+        cmd.priority = match settings.process_priority.as_str() {
+            "above" => 0x0000_8000, // ABOVE_NORMAL_PRIORITY_CLASS
+            "high" => 0x0000_0080,  // HIGH_PRIORITY_CLASS
+            _ => 0,
+        };
+        if settings.prefer_ipv4 {
+            cmd.args.insert(0, "-Djava.net.preferIPv4Stack=true".into());
+        }
+        if settings.gpu_high_performance {
+            crate::extras::prefer_fast_gpu(&cmd.java);
+        }
         Ok(cmd)
     }
 
@@ -371,9 +398,58 @@ pub fn set_game_option(game_dir: &std::path::Path, key: &str, value: &str) {
     let _ = std::fs::write(&path, lines.join("\n") + "\n");
 }
 
+/// Resource packs Minecraft has turned on, from options.txt's
+/// `resourcePacks` (["vanilla","fabric","file/Faithful.zip"]): the
+/// `file/...` ones, lowest priority first.
+pub fn active_resource_packs(game_dir: &std::path::Path) -> Vec<String> {
+    resource_pack_list(game_dir).into_iter().filter_map(|p| p.strip_prefix("file/").map(String::from)).collect()
+}
+
+fn resource_pack_list(game_dir: &std::path::Path) -> Vec<String> {
+    let text = std::fs::read_to_string(game_dir.join("options.txt")).unwrap_or_default();
+    text.lines()
+        .find_map(|l| l.strip_prefix("resourcePacks:"))
+        .and_then(|v| serde_json::from_str::<Vec<String>>(v.trim()).ok())
+        .unwrap_or_default()
+}
+
+/// Turn on exactly these resource packs (file names in resourcepacks/,
+/// lowest priority first), keeping Minecraft's own built-in ones.
+pub fn set_active_resource_packs(game_dir: &std::path::Path, files: &[String], fabric: bool) {
+    let mut list: Vec<String> = resource_pack_list(game_dir).into_iter().filter(|p| !p.starts_with("file/")).collect();
+    if list.is_empty() {
+        list.push("vanilla".into());
+        if fabric {
+            list.push("fabric".into());
+        }
+    }
+    list.extend(files.iter().map(|f| format!("file/{f}")));
+    let json = serde_json::to_string(&list).unwrap_or_else(|_| "[]".into());
+    set_game_option(game_dir, "resourcePacks", &json);
+    // Packs made for another version would otherwise ask to be confirmed.
+    let incompatible: Vec<String> = files.iter().map(|f| format!("file/{f}")).collect();
+    set_game_option(game_dir, "incompatibleResourcePacks", &serde_json::to_string(&incompatible).unwrap_or_else(|_| "[]".into()));
+}
+
 #[cfg(test)]
 mod option_tests {
-    use super::set_game_option;
+    use super::{active_resource_packs, set_active_resource_packs, set_game_option};
+
+    #[test]
+    fn turns_resource_packs_on_and_off() {
+        let dir = std::env::temp_dir().join(format!("vortex-packs-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("options.txt"), "fov:0.0\nresourcePacks:[\"vanilla\",\"fabric\",\"file/Old.zip\"]\n").unwrap();
+        assert_eq!(active_resource_packs(&dir), vec!["Old.zip"]);
+        set_active_resource_packs(&dir, &["Faithful 32x.zip".into(), "Dark.zip".into()], true);
+        let t = std::fs::read_to_string(dir.join("options.txt")).unwrap();
+        assert!(t.contains("resourcePacks:[\"vanilla\",\"fabric\",\"file/Faithful 32x.zip\",\"file/Dark.zip\"]"), "{t}");
+        assert!(t.contains("fov:0.0"));
+        assert_eq!(active_resource_packs(&dir), vec!["Faithful 32x.zip", "Dark.zip"]);
+        set_active_resource_packs(&dir, &[], true);
+        assert!(active_resource_packs(&dir).is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn writes_and_replaces_an_option() {

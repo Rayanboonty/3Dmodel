@@ -7,7 +7,7 @@
     "MouseMixin", "GameRendererMixin", "LightmapMixin", "InteractionManagerMixin", "PlayerSkinMixin",
     "CameraMixin", "EntityMixin", "InGameHudMixin", "ChatHudMixin", "WorldTimeMixin", "FireOverlayMixin",
     "PressableWidgetMixin", "MinecraftClientMixin", "MoreMixins",
-    "OutlineMixin", "HudHideMixins", "NametagMixin"
+    "OutlineMixin", "HudHideMixins", "NametagMixin", "PlayerListHudMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

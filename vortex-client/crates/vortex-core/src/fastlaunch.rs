@@ -199,7 +199,7 @@ pub fn ensure_base_cds(java: &Path, java_major: u32) -> bool {
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x0800_0000 | 0x0000_4000); // CREATE_NO_WINDOW, BELOW_NORMAL_PRIORITY_CLASS
+            cmd.creation_flags(0x0800_0000 | 0x0000_0040); // CREATE_NO_WINDOW, IDLE_PRIORITY_CLASS
         }
         let _ = cmd.status();
     });
@@ -208,7 +208,14 @@ pub fn ensure_base_cds(java: &Path, java_major: u32) -> bool {
 
 /// JVM flags that make start-up and play smoother, for Java 17 and newer.
 /// Skipped when the user already chose a garbage collector.
-pub fn tuned_jvm_args(java_major: u32, user_args: &[String], cds_archive: Option<&Path>) -> Vec<String> {
+///
+/// No per-game class archive (`-XX:+AutoCreateSharedArchive`): the run that
+/// records it is several times slower (170 s instead of 21 s to the title
+/// screen with 71 mods on 2 cores), it's recorded again after every
+/// launcher update, and never saved when the game is closed by force (Stop,
+/// Task Manager), so low-end PCs could stay on the slow path. Java's own
+/// base archive (`ensure_base_cds`) is kept; it costs nothing to use.
+pub fn tuned_jvm_args(java_major: u32, user_args: &[String]) -> Vec<String> {
     let mut out = Vec::new();
     if java_major < 17 {
         return out;
@@ -229,20 +236,25 @@ pub fn tuned_jvm_args(java_major: u32, user_args: &[String], cds_archive: Option
             .map(String::from),
         );
     }
-    // Class data sharing: Java 19+ writes an archive of the game's loaded
-    // classes on the first run and maps it on later runs (faster start-up).
-    if java_major >= 19 && !user_args.iter().any(|a| a.contains("SharedArchiveFile")) {
-        if let Some(path) = cds_archive {
-            if let Some(parent) = path.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            out.push("-XX:+AutoCreateSharedArchive".to_string());
-            out.push(format!("-XX:SharedArchiveFile={}", path.display()));
-            out.push("-Xlog:cds=off".to_string());
-            out.push("-Xlog:cds+dynamic=off".to_string());
-        }
-    }
     out
+}
+
+/// Delete per-game class archives earlier versions made (100+ MB each, one
+/// per launcher version). They're read-only, which Windows won't delete.
+pub fn remove_old_archives(cache: &Path) {
+    let dir = cache.join("cds");
+    let Ok(entries) = std::fs::read_dir(&dir) else { return };
+    for e in entries.flatten() {
+        let p = e.path();
+        if let Ok(meta) = std::fs::metadata(&p) {
+            let mut perm = meta.permissions();
+            #[allow(clippy::permissions_set_readonly_false)]
+            perm.set_readonly(false);
+            let _ = std::fs::set_permissions(&p, perm);
+        }
+        let _ = std::fs::remove_file(&p);
+    }
+    let _ = std::fs::remove_dir(&dir);
 }
 
 #[cfg(test)]
@@ -251,14 +263,28 @@ mod tests {
 
     #[test]
     fn tuned_args_respect_user_gc() {
-        assert!(tuned_jvm_args(8, &[], None).is_empty());
-        let a = tuned_jvm_args(21, &[], None);
+        assert!(tuned_jvm_args(8, &[]).is_empty());
+        let a = tuned_jvm_args(21, &[]);
         assert!(a.iter().any(|x| x == "-XX:+UseG1GC"));
-        let b = tuned_jvm_args(21, &["-XX:+UseZGC".to_string()], None);
+        // No per-game archive: recording it made cold starts several times slower.
+        assert!(!a.iter().any(|x| x.contains("SharedArchive")));
+        let b = tuned_jvm_args(21, &["-XX:+UseZGC".to_string()]);
         assert!(!b.iter().any(|x| x == "-XX:+UseG1GC"));
-        let c = tuned_jvm_args(21, &[], Some(Path::new("/tmp/x.jsa")));
-        assert!(c.iter().any(|x| x.starts_with("-XX:SharedArchiveFile=")));
-        assert!(!tuned_jvm_args(17, &[], Some(Path::new("/tmp/x.jsa"))).iter().any(|x| x.contains("Shared")));
+    }
+
+    #[test]
+    fn old_archives_are_removed_even_read_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let cds = dir.path().join("cds");
+        std::fs::create_dir_all(&cds).unwrap();
+        let f = cds.join("fabric-loader-0.20.1-1.21.4-0.7.8.jsa");
+        std::fs::write(&f, b"jsa").unwrap();
+        let mut perm = std::fs::metadata(&f).unwrap().permissions();
+        perm.set_readonly(true);
+        std::fs::set_permissions(&f, perm).unwrap();
+        remove_old_archives(dir.path());
+        assert!(!cds.exists());
+        remove_old_archives(dir.path());
     }
 
     #[test]

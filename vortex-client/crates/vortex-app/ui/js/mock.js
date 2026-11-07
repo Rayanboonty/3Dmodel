@@ -18,11 +18,11 @@ const ART = [{"version": "26.3", "image": "https://launchercontent.mojang.com/v2
 
 const state = {
   settings: {
-    min_memory_mb: 512, max_memory_mb: 4096, java_path: null, extra_jvm_args: [],
+    min_memory_mb: 512, max_memory_mb: 4096, auto_memory: true, java_path: null, extra_jvm_args: [],
     microsoft_client_id: null, download_concurrency: 32, show_snapshots: false,
     show_old_versions: false, sky: "cycle", day_length_min: 10, ui_sounds: true, animations: true,
     game_width: null, game_height: null, fullscreen: false, after_launch: "keep", vortex_mods: true, performance_mods: true, open_log_on_launch: false,
-    narrator_off: true, skip_multiplayer_warning: true, hide_tutorial: true, max_fps_mode: false, gc: "auto", backups_keep: 5, crash_helper: true, log_retention_days: 30,
+    narrator_off: true, skip_multiplayer_warning: true, hide_tutorial: true, max_fps_mode: false, game_options: {}, gpu_high_performance: false, process_priority: "normal", prefer_ipv4: false, track_playtime: true, gc: "auto", backups_keep: 5, crash_helper: true, log_retention_days: 30,
     backup_worlds: false, auto_update_mods: false, rejoin_last_server: false, pre_launch_command: "", post_exit_command: "", wrapper_command: "", game_env: "",
     accent: "amber", glass: 60, logo_style: 0, background: "golden", theme: "dark", vortex_menu: true, show_player: true, world_life: true, clock_12h: false,
     mods_allow_unstable: false, mods_with_dependencies: true, fast_launch: true, tuned_jvm: true,
@@ -156,7 +156,7 @@ export const mock = {
     await wait(60 + Math.random() * 120);
     switch (cmd) {
       case "bootstrap":
-        return { appVersion: "0.7.8", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
+        return { appVersion: "0.8.0", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view), systemRamMb: 8192, cpuCount: 4, autoMemoryMb: 2560, autoMemoryModdedMb: 3072 };
       case "list_versions":
         return versionList();
       case "loader_versions": {
@@ -206,9 +206,9 @@ export const mock = {
       }
       case "check_update":
         return location.search.includes("update")
-          ? { available: true, current: "0.7.8", version: "0.7.9", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.7.9/Vortex.exe",
+          ? { available: true, current: "0.8.0", version: "0.8.1", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.8.1/Vortex.exe",
               notes: "## What's new\n- Faster instance switching\n- New Servers panel on Home\n- Smoother pop-up animations\n- Fixed the Stop Game button" }
-          : { available: false, current: "0.7.8", version: "0.7.8" };
+          : { available: false, current: "0.8.0", version: "0.8.0" };
       case "install_update":
         for (let i = 0; i <= 20; i++) { emit("update-progress", { stage: "download", done: i * 535000, total: 10_700_000 }); await wait(90); }
         emit("update-progress", { stage: "install", done: 1, total: 1 });
@@ -249,7 +249,14 @@ export const mock = {
           { title: "Minecraft 26.2", version: "26.2", kind: "release", image_url: null, date: "2026-06-16", summary: "Another update for Java Edition." },
         ];
       case "list_mods":
+        if (args.kind === "resourcepack") return ((state.packs ||= {})[args.name] || []);
         return (args.kind && args.kind !== "mod") ? [] : (state.mods[args.name] || []);
+      case "active_packs":
+        return ((state.activePacks ||= {})[args.name] || []);
+      case "set_active_packs": {
+        const have = ((state.packs ||= {})[args.name] || []).map((p) => p.file);
+        return ((state.activePacks ||= {})[args.name] = args.files.filter((f) => have.includes(f)));
+      }
       case "toggle_mod": {
         const m = (state.mods[args.name] || []).find((x) => x.file === args.file);
         if (m) {
@@ -259,6 +266,7 @@ export const mock = {
         return state.mods[args.name] || [];
       }
       case "delete_mod":
+        if (args.kind === "resourcepack") return ((state.packs ||= {})[args.name] = (state.packs[args.name] || []).filter((x) => x.file !== args.file));
         state.mods[args.name] = (state.mods[args.name] || []).filter((x) => x.file !== args.file);
         return state.mods[args.name];
       case "player_skin": {
@@ -289,6 +297,9 @@ export const mock = {
         const per = (state.installed[args.instance] ||= {});
         (per[args.kind] ||= []).push(args.projectId);
         const h = Object.values(MODRINTH).flat().find((x) => x.id === args.projectId);
+        if (args.kind === "resourcepack" && h) {
+          ((state.packs ||= {})[args.instance] ||= []).push({ file: `${h.slug}.zip`, enabled: true, size: 4000000, name: h.title, version: null, description: h.description, loader: "unknown", iconUrl: h.iconUrl, projectId: h.id });
+        }
         if (args.kind === "mod" && h) {
           (state.mods[args.instance] ||= []).push({ file: `${h.slug}.jar`, enabled: true, size: 900000, name: h.title, version: "1.0.0", description: h.description, loader: "fabric", iconUrl: h.iconUrl, projectId: h.id });
         }
@@ -325,6 +336,18 @@ export const mock = {
         return libView();
       case "import_mods":
         return state.mods[args.name] || [];
+      case "install_status":
+        return { supported: true, installed: !!state.installed, elsewhere: false, installDir: "C:\\Users\\You\\AppData\\Local\\Programs\\Vortex Client", runningFrom: "C:\\Users\\You\\Downloads\\Vortex.exe", autostart: !!state.autostart };
+      case "install_app":
+        await wait(1200);
+        state.installed = true;
+        return null;
+      case "uninstall_app":
+        state.installed = false;
+        return null;
+      case "set_autostart":
+        state.autostart = !!args.on;
+        return state.autostart;
       case "save_menu_art":
       case "open_path":
       case "open_url":

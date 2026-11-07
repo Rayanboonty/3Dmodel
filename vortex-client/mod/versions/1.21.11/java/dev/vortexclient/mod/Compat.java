@@ -58,4 +58,9 @@ public final class Compat {
     public static net.minecraft.util.math.Vec3d pos(net.minecraft.entity.Entity e) {
         return e.getEntityPos();
     }
+
+    /** A Tab list entry's player id. */
+    public static java.util.UUID profileId(net.minecraft.client.network.PlayerListEntry e) {
+        return e.getProfile().id();
+    }
 }

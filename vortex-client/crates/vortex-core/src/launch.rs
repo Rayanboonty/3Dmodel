@@ -64,6 +64,8 @@ pub struct LaunchCommand {
     pub wrapper: Vec<String>,
     /// Extra environment variables for the game.
     pub env: Vec<(String, String)>,
+    /// Windows process priority flag (0 = normal).
+    pub priority: u32,
 }
 
 impl LaunchCommand {
@@ -283,6 +285,7 @@ pub fn build_command(
         secrets: vec![session.access_token.clone()],
         wrapper: Vec::new(),
         env: Vec::new(),
+        priority: 0,
     })
 }
 
@@ -325,7 +328,7 @@ pub fn spawn(cmd: &LaunchCommand) -> Result<GameProcess> {
     #[cfg(windows)]
     {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
+        command.creation_flags(CREATE_NO_WINDOW | cmd.priority);
     }
     let mut child = command
         .spawn()

@@ -16,6 +16,29 @@ fn quotes_strings(minecraft: &str) -> bool {
     major >= 26 || (major == 1 && minor >= 19)
 }
 
+/// Windows: run this Java on the fast graphics card (the same switch as
+/// Settings > System > Display > Graphics in Windows).
+pub fn prefer_fast_gpu(java: &Path) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // javaw.exe draws the window; set both.
+        let mut paths = vec![java.to_path_buf()];
+        if let Some(name) = java.file_name().and_then(|n| n.to_str()) {
+            let other = if name.eq_ignore_ascii_case("java.exe") { "javaw.exe" } else { "java.exe" };
+            paths.push(java.with_file_name(other));
+        }
+        for p in paths {
+            let _ = std::process::Command::new("reg")
+                .args(["add", r"HKCU\Software\Microsoft\DirectX\UserGpuPreferences", "/v", &p.display().to_string(), "/t", "REG_SZ", "/d", "GpuPreference=2;", "/f"])
+                .creation_flags(0x0800_0000)
+                .status();
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = java;
+}
+
 /// What Max FPS mode writes to options.txt (`graphicsMode` from 1.16 on,
 /// `fancyGraphics` before; the game ignores the one it doesn't know).
 const MAX_FPS_MODE: &[(&str, &str)] = &[
@@ -92,6 +115,13 @@ pub fn apply_game_defaults(game_dir: &Path, minecraft: &str, s: &Settings) {
     if let Some(v) = s.pause_on_lost_focus {
         set("pauseOnLostFocus", v.to_string());
     }
+    // More options: written as the game stores them (only sane keys).
+    for (k, v) in &s.game_options {
+        let key_ok = !k.is_empty() && k.len() < 64 && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.');
+        if key_ok && !v.contains(['\n', '\r']) && v.len() < 256 {
+            set(k, v.clone());
+        }
+    }
     if s.hide_tutorial {
         set("tutorialStep", "none".into());
     }
@@ -163,7 +193,7 @@ pub async fn run_hook(command: &str, game_dir: &Path, timeout: Duration) -> Resu
     let mut cmd = {
         let mut c = tokio::process::Command::new("cmd");
         c.arg("/C").arg(command);
-        use std::os::windows::process::CommandExt;
+        // No console window flashing up (tokio's Command has this built in).
         c.creation_flags(0x0800_0000);
         c
     };

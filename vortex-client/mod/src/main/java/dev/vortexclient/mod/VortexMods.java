@@ -45,6 +45,8 @@ public class VortexMods implements ClientModInitializer {
         menuKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.menu", GLFW.GLFW_KEY_RIGHT_SHIFT));
         zoomKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.zoom", GLFW.GLFW_KEY_C));
         freelookKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.freelook", GLFW.GLFW_KEY_LEFT_ALT));
+        snapKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.snaplook", GLFW.GLFW_KEY_V));
+        NetClient.init();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
             if (hintShown) return;
             hintShown = true;
@@ -52,7 +54,7 @@ public class VortexMods implements ClientModInitializer {
                     Text.literal("Vortex Client"), Text.literal("Press Right Shift for the mod menu"));
         }));
 
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> sessionStart = System.currentTimeMillis());
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> { sessionStart = System.currentTimeMillis(); deathPos = null; });
         net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
             if (Compat.isClient(world)) hitParticles(entity);
             return net.minecraft.util.ActionResult.PASS;
@@ -81,7 +83,13 @@ public class VortexMods implements ClientModInitializer {
             if (client.currentScreen == null) client.setScreen(new ModMenuScreen(null));
         }
         Module zoom = Module.get("zoom");
-        boolean want = config.enabled(zoom) && zoomKey.isPressed() && client.currentScreen == null;
+        boolean zoomHeld = zoomKey.isPressed();
+        if (config.bool(zoom, "toggle")) {
+            if (zoomHeld && !zoomWasHeld) zoomToggled = !zoomToggled;
+            zoomHeld = zoomToggled;
+        }
+        zoomWasHeld = zoomKey.isPressed();
+        boolean want = config.enabled(zoom) && zoomHeld && client.currentScreen == null;
         if (want && !zooming) {
             zoomLevel = config.num(zoom, "level");
             if (config.bool(zoom, "smooth")) {
@@ -94,7 +102,13 @@ public class VortexMods implements ClientModInitializer {
         zooming = want;
 
         Module fl = Module.get("freelook");
-        boolean free = config.enabled(fl) && freelookKey.isPressed() && client.currentScreen == null && client.player != null;
+        boolean flHeld = freelookKey.isPressed();
+        if (config.bool(fl, "toggle")) {
+            if (flHeld && !flWasHeld) flToggled = !flToggled;
+            flHeld = flToggled;
+        }
+        flWasHeld = freelookKey.isPressed();
+        boolean free = config.enabled(fl) && flHeld && client.currentScreen == null && client.player != null;
         if (free && !freelook) {
             freeYaw = client.player.getYaw();
             freePitch = client.player.getPitch();
@@ -105,6 +119,58 @@ public class VortexMods implements ClientModInitializer {
             freelook = false;
             if (savedPerspective != null) client.options.setPerspective(savedPerspective);
         }
+
+        // Snaplook: hold to see yourself from the front.
+        boolean snap = config.enabled(Module.get("snaplook")) && snapKey.isPressed() && client.currentScreen == null && client.player != null && !freelook;
+        if (snap && !snapping) {
+            snapSaved = client.options.getPerspective();
+            client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+            snapping = true;
+        } else if (!snap && snapping) {
+            snapping = false;
+            if (snapSaved != null) client.options.setPerspective(snapSaved);
+        }
+
+        // Death coordinates: remember where you died.
+        if (client.player != null) {
+            boolean dead = client.player.isDead() || client.player.getHealth() <= 0;
+            if (dead && !wasDead) {
+                deathPos = client.player.getBlockPos();
+                Module dp = Module.get("deathpos");
+                if (config.enabled(dp) && config.bool(dp, "chat")) {
+                    client.inGameHud.getChatHud().addMessage(Text.literal("[Vortex] You died at " + deathPos.getX() + ", " + deathPos.getY() + ", " + deathPos.getZ()).formatted(Formatting.GOLD));
+                }
+            }
+            wasDead = dead;
+            // Back at the spot (items picked up): the reminder goes.
+            if (deathPos != null && !dead && client.player.getBlockPos().getSquaredDistance(deathPos) < 9) deathPos = null;
+        } else {
+            wasDead = false;
+        }
+    }
+
+    private static boolean zoomWasHeld, zoomToggled, flWasHeld, flToggled, snapping, wasDead;
+    private static Perspective snapSaved;
+    public static KeyBinding snapKey;
+    /** Where you last died (Death Coordinates). */
+    public static net.minecraft.util.math.BlockPos deathPos;
+    private static long lastGg;
+
+    /** Auto GG: the end of a game on a minigame server. */
+    static void watchChat(Text message) {
+        Module m = Module.get("autogg");
+        if (!config.enabled(m)) return;
+        String s = message.getString();
+        boolean over = s.contains("1st Killer") || s.contains("Winner:") || s.contains("Winners:") || s.contains("won the game") || s.contains("VICTORY!") || s.contains("#1 Victory Royale") || s.contains("Game Over!") || s.contains("WINNER!");
+        if (!over || System.currentTimeMillis() - lastGg < 20000) return;
+        lastGg = System.currentTimeMillis();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        String msg = config.str(m, "msg");
+        // A moment later, like a person would.
+        new Thread(() -> {
+            try { Thread.sleep(900); } catch (InterruptedException ignored) {}
+            mc.execute(() -> { if (mc.getNetworkHandler() != null) mc.getNetworkHandler().sendChatMessage(msg); });
+        }, "vortex-autogg").start();
     }
 
     // Freelook state, read by the camera and entity mixins.
@@ -171,9 +237,11 @@ public class VortexMods implements ClientModInitializer {
     }
 
     public static Text stampChat(Text message) {
+        watchChat(message);
         Module m = Module.get("timestamps");
         if (!config.enabled(m)) return message;
-        String f = config.bool(m, "h24") ? "HH:mm" : "h:mm";
+        boolean sec = config.bool(m, "seconds");
+        String f = config.bool(m, "h24") ? (sec ? "HH:mm:ss" : "HH:mm") : (sec ? "h:mm:ss" : "h:mm");
         String time = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern(f, Locale.ROOT));
         return Text.literal("[" + time + "] ").formatted(Formatting.GRAY).append(message);
     }

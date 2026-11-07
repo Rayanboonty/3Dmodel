@@ -46,6 +46,7 @@ const S = {
   modsTab: store.get("vortex.modsTab") || "browse",
   browse: { query: "", sort: "relevance", hits: [], total: 0, offset: 0, loading: false, key: "", installed: {}, busy: {} },
   skins: null,
+  custTab: "skins",
   settingsTab: store.get("vortex.settingsTab") || "general",
   fast: {},
   customWall: null,
@@ -102,6 +103,7 @@ const block = (loader, cls = "") => `<span class="block ${loader} ${cls}">${load
 
 const cover = (id) => coverFor(id, S.art);
 const coverThumb = (inst, cls = "") => `<span class="cover-thumb ${cls}" style="background-image:url('${esc(cover(inst.minecraftVersion))}')">${inst.loader !== "vanilla" ? `<span class="loader-badge ${inst.loader}">${icon(loaderIcon(inst.loader), 10)}</span>` : ""}</span>`;
+const playtime = (s) => (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m` : `${Math.max(1, Math.floor(s / 60))}m`);
 const fmtCount = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(n >= 1e4 ? 0 : 1)}k` : String(n));
 const ACCENTS = {
   amber: ["#ffb547", "#f08f22", "#2b1600"],
@@ -316,7 +318,8 @@ function placeAnchor() {
 }
 
 const UI_DEFAULTS = {
-  glass_effect: "default", glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
+  glass_effect: "default", streamer_mode: false, high_contrast: false, ui_volume: 100, shortcuts: true, confirm_close: true, default_pack: "performance", show_playtime: true,
+  glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
   home_news: true, home_quick: true, home_recent: true, side_labels: true, intro: true,
   auto_update: true, servers: null, widgets: null, theme: "dark",
   reduce_transparency: false, launcher_particles: true, ui_scale: 100, lite_mode: "auto", start_page: "home", flash_on_exit: true,
@@ -395,6 +398,9 @@ function applyLook(s = S.settings || {}) {
   fx.setEnabled(s.animations !== false);
   dust.setEnabled(s.animations !== false && s.launcher_particles !== false);
   applyGlassEffect(s);
+  document.body.classList.toggle("streamer", s.streamer_mode === true);
+  document.body.classList.toggle("hc", s.high_contrast === true);
+  sound.setVolume((Number.isFinite(Number(s.ui_volume)) ? Number(s.ui_volume) : 100) / 100);
   document.body.style.zoom = String((Number(s.ui_scale) || 100) / 100);
   document.body.classList.toggle("no-anim", s.animations === false);
   document.body.classList.toggle("no-player", s.show_player === false);
@@ -983,7 +989,7 @@ function widgetHtml(id, zone, inst, acc) {
       <div class="side-body" id="side-body">${(S.side = "instances", sideBody())}</div></div>`;
   if (id === "current") {
     const body = inst ? `<div class="cur-top">${coverThumb(inst)}<div class="meta"><strong>${esc(inst.name)}</strong><span>${esc(inst.minecraftVersion)}${updateName(inst.minecraftVersion) ? ` · ${esc(updateName(inst.minecraftVersion))}` : ""}</span></div></div>
-        <dl class="cur-facts"><div><dt>Loader</dt><dd>${esc(inst.loaderLabel)}</dd></div><div><dt>Mods</dt><dd>${inst.loader === "vanilla" ? "None" : esc(String(inst.modCount ?? 0))}</dd></div><div><dt>Memory</dt><dd>${gb(inst.memoryMb || S.settings?.max_memory_mb || 4096)}</dd></div><div><dt>Played</dt><dd>${esc(ago(inst.lastPlayed).replace(/^Played /, ""))}</dd></div></dl>
+        <dl class="cur-facts"><div><dt>Loader</dt><dd>${esc(inst.loaderLabel)}</dd></div><div><dt>Mods</dt><dd>${inst.loader === "vanilla" ? "None" : esc(String(inst.modCount ?? 0))}</dd></div><div><dt>Memory</dt><dd>${gb(inst.memoryMb || defaultMem(inst))}</dd></div><div><dt>Played</dt><dd>${esc(ago(inst.lastPlayed).replace(/^Played /, ""))}</dd></div></dl>
         <div class="row"><button class="btn btn-sm" data-action="route" data-route="mods">${icon("puzzle", 12)} Mods</button><button class="btn btn-sm" data-action="folder" data-name="${esc(inst.name)}">${icon("folder", 12)} Folder</button></div>`
       : `<p class="muted small">No instance yet.</p>`;
     return zone === "row"
@@ -1192,6 +1198,7 @@ function renderInstances() {
   if (S.instSort === "recent") list.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
   if (S.instSort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
   if (S.instSort === "version") list.sort((a, b) => b.minecraftVersion.localeCompare(a.minecraftVersion, undefined, { numeric: true }));
+  if (S.instSort === "played") list.sort((a, b) => (b.playtimeSecs || 0) - (a.playtimeSecs || 0));
   const cards = list.map((i) => {
     const r = runOf(i.name);
     const kind = S.versions?.versions.find((v) => v.id === i.minecraftVersion)?.kind || "release";
@@ -1207,6 +1214,7 @@ function renderInstances() {
           <span class="chip"><span class="kind ${kind}">${esc(i.minecraftVersion)}</span></span>
           <span class="chip">${i.loader !== "vanilla" ? icon(loaderIcon(i.loader), 11) : ""}${esc(i.loaderLabel)}</span>
           ${i.modCount ? `<span class="chip">${i.modCount} mods</span>` : ""}
+          ${i.playtimeSecs && { ...UI_DEFAULTS, ...S.settings }.show_playtime !== false ? `<span class="chip" title="Time played">${icon("play", 9)} ${playtime(i.playtimeSecs)}</span>` : ""}
         </div>
         <div class="card-actions">
           <span class="card-sub">${esc(ago(i.lastPlayed))}</span>
@@ -1221,9 +1229,11 @@ function renderInstances() {
       "Instances",
       "Each instance has its own worlds, mods and settings.",
       `<input class="input" id="inst-search" type="search" placeholder="Search" value="${esc(S.instSearch)}" aria-label="Search instances" style="width:200px">
-       <div class="tabs sm glass"><span class="drop" aria-hidden="true"></span>${["recent", "name", "version"].map((s) => `<button class="tab ${S.instSort === s ? "on" : ""}" data-action="inst-sort" data-sort="${s}">${s}</button>`).join("")}</div>
+       <div class="tabs sm glass"><span class="drop" aria-hidden="true"></span>${["recent", "name", "version", "played"].map((s) => `<button class="tab ${S.instSort === s ? "on" : ""}" data-action="inst-sort" data-sort="${s}">${s}</button>`).join("")}</div>
        <button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New instance</button>`,
-      list.length ? `<div class="cards">${cards}</div>` : `<div class="empty"><h3>No instances found</h3><p>Try another search, or create a new instance.</p></div>`,
+      list.length ? `<div class="cards">${cards}</div>`
+        : S.instances.length ? `<div class="empty"><h3>No instances found</h3><p>Nothing matches "${esc(S.instSearch)}".</p></div>`
+        : `<div class="empty"><h3>No instances yet</h3><p>Pick a Minecraft version and Vortex sets it up. It shows here once it's made.</p><button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New instance</button></div>`,
     ),
     mount(root) {
       const input = $("#inst-search", root);
@@ -1248,12 +1258,13 @@ function newWizard() {
     search: "",
     version: S.versions?.latestRelease || null,
     loader: "vanilla",
-    pack: "pvp",
+    pack: ["pvp", "normal", "performance", "vanilla"].includes({ ...UI_DEFAULTS, ...S.settings }.default_pack) ? { ...UI_DEFAULTS, ...S.settings }.default_pack : "performance",
     loaderVersions: {},
     loaderVersion: null,
     name: "",
     nameTouched: false,
-    memory: S.settings?.max_memory_mb || 4096,
+    memory: defaultMem({ loader: "fabric" }),
+    memoryTouched: false,
   };
 }
 
@@ -1371,6 +1382,7 @@ function renderWizard() {
       const mem = $("#wiz-mem", root);
       if (mem) mem.addEventListener("input", () => {
         w.memory = Number(mem.value);
+        w.memoryTouched = true;
         mem.style.setProperty("--fill", `${((w.memory - 1024) / (16384 - 1024)) * 100}%`);
         $("#wiz-mem-v").textContent = gb(w.memory);
       });
@@ -1786,8 +1798,10 @@ function renderSkins() {
   const where = lib.microsoft
     ? "Using a skin uploads it to your Microsoft account, so everyone sees it."
     : `Offline accounts: Vortex mods show your skin and cape in-game on Fabric ${VORTEX_MC.join(", ")}. Only you see them.`;
+  const custTabs = `<div class="tabs glass" id="cust-tabs"><span class="drop" aria-hidden="true"></span>${[["skins", "Skin & cape"], ["packs", "Texture packs"]].map(([k, l]) => `<button class="tab ${S.custTab === k ? "on" : ""}" data-action="cust-tab" data-tab="${k}">${l}</button>`).join("")}</div>`;
+  if (S.custTab === "packs") return renderTexturePacks(custTabs);
   return {
-    html: sheet("Skins", acc ? `${esc(acc.username)} · ${acc.kind === "microsoft" ? "Microsoft account" : "Offline account"}` : "Add an account to use skins.", `<button class="btn lq" data-action="route" data-route="accounts">${icon("user", 14)} Accounts</button>
+    html: sheet("Customize", acc ? `${esc(acc.username)} · ${acc.kind === "microsoft" ? "Microsoft account" : "Offline account"}` : "Add an account to use skins.", `${custTabs}<button class="btn lq" data-action="route" data-route="accounts">${icon("user", 14)} Accounts</button>
         <button class="btn lq" data-action="folder-skins">${icon("folder", 14)} Open folder</button>`, `
       <div class="skins-layout">
         <div class="pedestal" id="pedestal"><div class="who">${esc(acc?.username || "No account")}</div><div class="hint">Drag to turn</div></div>
@@ -1823,6 +1837,105 @@ function renderSkins() {
       $("#skin-player", root).addEventListener("keydown", (e) => { if (e.key === "Enter") actions["skin-player"](); });
     },
   };
+}
+
+// ------------------------------------------------------------ texture packs --
+
+const TP_CATS = [["", "Popular"], ["pvp", "PvP"], ["faithful", "Faithful"], ["dark", "Dark"], ["animations", "Animated"], ["fancy", "Fancy"], ["clear", "Clear"]];
+
+/** Customize > Texture packs: turn packs on for an instance, and find new ones. */
+function renderTexturePacks(tabs) {
+  const tp = (S.tp ||= { instance: null, cat: "", installed: [], active: [], hits: [], loading: true });
+  if (!S.instances.some((i) => i.name === tp.instance)) tp.instance = S.selected || S.instances[0]?.name || null;
+  const options = S.instances.map((i) => `<option value="${esc(i.name)}" ${i.name === tp.instance ? "selected" : ""}>${esc(i.name)}</option>`).join("");
+  return {
+    html: sheet("Customize", "Texture packs change how blocks, items and the sky look. Turn them on here and they load the next time you play.", `${tabs}
+        <button class="btn lq" data-action="folder-packs-tp" ${tp.instance ? "" : "disabled"}>${icon("folder", 14)} Open folder</button>`, tp.instance ? `
+      <div class="tp-layout">
+        <div class="section"><div class="section-head"><h2>In this instance</h2>
+          <select class="input sel" id="tp-inst" aria-label="Instance">${options}</select></div>
+          <p class="muted small">Higher in the list wins when two packs change the same thing.</p>
+          <div class="tp-list" id="tp-list"><div class="side-note">Loading</div></div>
+        </div>
+        <div class="section"><div class="section-head"><h2>Find texture packs</h2>
+          <div class="seg" id="tp-cats" role="group" aria-label="Kind">${TP_CATS.map(([q, l]) => `<button class="${tp.cat === q ? "on" : ""}" data-action="tp-cat" data-q="${q}">${l}</button>`).join("")}</div></div>
+          <div class="tp-grid" id="tp-grid"><div class="side-note">Loading</div></div>
+        </div>
+      </div>` : `<div class="empty"><h3>No instances yet</h3><p>Texture packs go into an instance. Create one first.</p><button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New instance</button></div>`),
+    mount(root) {
+      $("#tp-inst", root)?.addEventListener("change", (e) => { tp.instance = e.target.value; loadTexturePacks(); });
+      if (tp.instance) loadTexturePacks();
+    },
+  };
+}
+
+async function loadTexturePacks({ search = true } = {}) {
+  const tp = S.tp;
+  if (!tp?.instance) return;
+  const name = tp.instance;
+  try {
+    const [installed, active] = await Promise.all([
+      call("list_mods", { name, kind: "resourcepack" }),
+      call("active_packs", { name }).catch(() => []),
+    ]);
+    if (S.tp.instance !== name) return;
+    tp.installed = installed;
+    tp.active = active;
+    drawTpList();
+  } catch (e) {
+    const el = $("#tp-list");
+    if (el) el.innerHTML = `<div class="side-note">Couldn't read the packs: ${esc(errText(e))}</div>`;
+  }
+  if (!search) return;
+  try {
+    const page = await call("modrinth_search", { query: tp.cat, kind: "resourcepack", instance: name, sort: "downloads", offset: 0 });
+    if (S.tp.instance !== name) return;
+    tp.hits = page.hits || [];
+    drawTpGrid();
+  } catch (e) {
+    const el = $("#tp-grid");
+    if (el) el.innerHTML = `<div class="side-note">Modrinth couldn't be reached: ${esc(errText(e))}</div>`;
+  }
+}
+
+function drawTpList() {
+  const tp = S.tp, el = $("#tp-list");
+  if (!el) return;
+  const files = tp.installed.map((m) => m.file.replace(/\.disabled$/, ""));
+  // Turned on first, highest priority first; then the rest.
+  const on = [...tp.active].reverse().filter((f) => files.includes(f));
+  const off = files.filter((f) => !tp.active.includes(f));
+  const row = (file) => {
+    const m = tp.installed.find((x) => x.file.replace(/\.disabled$/, "") === file) || { name: file };
+    const active = tp.active.includes(file);
+    return `<div class="tp-row ${active ? "on" : ""}">
+      <span class="tp-icon" ${m.iconUrl ? `style="background-image:url('${esc(m.iconUrl)}')"` : ""}>${m.iconUrl ? "" : icon("image", 14)}</span>
+      <span class="meta"><strong title="${esc(m.name || file)}">${esc(m.name || file)}</strong><span>${esc(file)}</span></span>
+      <button class="switch" role="switch" aria-checked="${active}" data-action="tp-toggle" data-file="${esc(file)}" aria-label="Use ${esc(m.name || file)}"></button>
+      <button class="btn btn-sm btn-icon btn-ghost btn-danger lq" data-action="tp-remove" data-file="${esc(m.file || file)}" aria-label="Delete ${esc(m.name || file)}">${icon("trash", 12)}</button>
+    </div>`;
+  };
+  el.innerHTML = files.length ? [...on, ...off].map(row).join("") : `<div class="side-note">No texture packs in ${esc(tp.instance)} yet. Pick one on the right, or drop .zip packs into its folder.</div>`;
+}
+
+function drawTpGrid() {
+  const tp = S.tp, el = $("#tp-grid");
+  if (!el) return;
+  const have = new Set(tp.installed.map((m) => m.projectId).filter(Boolean));
+  el.innerHTML = tp.hits.length ? tp.hits.map((h) => `<div class="tp-card">
+      <span class="tp-cover" style="${h.gallery ? `background-image:url('${esc(h.gallery)}')` : h.color ? `background:${esc(h.color)}` : ""}"></span>
+      <span class="tp-icon lg" ${h.iconUrl ? `style="background-image:url('${esc(h.iconUrl)}')"` : ""}></span>
+      <div class="tp-body"><strong title="${esc(h.title)}">${esc(h.title)}</strong><span class="muted small">${esc(h.description || "")}</span>
+        <span class="tp-foot"><span class="muted small">${icon("download", 10)} ${fmtCount(h.downloads)}</span>
+        ${have.has(h.id) ? `<span class="chip accent">Installed</span>` : `<button class="btn btn-sm btn-accent lq" data-action="tp-install" data-id="${esc(h.id)}" data-title="${esc(h.title)}">${icon("download", 11)} Get</button>`}</span></div>
+    </div>`).join("") : `<div class="side-note">Nothing found for this version.</div>`;
+}
+
+
+async function setActivePacks(files) {
+  const tp = S.tp;
+  tp.active = await call("set_active_packs", { name: tp.instance, files });
+  drawTpList();
 }
 
 async function addSkin(dataUrl, name) {
@@ -1918,6 +2031,120 @@ const txtRow = (d, key, title, placeholder, desc = "", lines = 1) => `<div class
   ? `<textarea class="input" id="t-${key}" data-text="${key}" rows="${lines}" placeholder="${esc(placeholder)}" spellcheck="false">${esc(d[key] || "")}</textarea>`
   : `<input class="input" id="t-${key}" data-text="${key}" placeholder="${esc(placeholder)}" value="${esc(d[key] || "")}" spellcheck="false">`}${desc ? `<span class="muted small">${desc}</span>` : ""}</div>`;
 const AUTO = ["", "Auto (the game's own)"];
+
+/** More game options (written to options.txt on every start). [key, label, [[value, label]...], desc] */
+const BOOL = [["true", "On"], ["false", "Off"]];
+const PCT = (vals) => vals.map((v) => [String(v), `${Math.round(v * 100)}%`]);
+const GAME_OPTS = [
+  ["Graphics", [
+    ["graphicsMode", "Graphics", [["0", "Fast"], ["1", "Fancy"], ["2", "Fabulous"]], "Fabulous needs a strong graphics card"],
+    ["ao", "Smooth lighting", BOOL],
+    ["biomeBlendRadius", "Biome blend", [["0", "Off"], ["1", "3×3"], ["2", "5×5"], ["3", "7×7"], ["5", "11×11"], ["7", "15×15"]], "Off is fastest"],
+    ["mipmapLevels", "Mipmap levels", [["0", "Off"], ["1", "1"], ["2", "2"], ["4", "4"]]],
+    ["entityDistanceScaling", "Entity distance", PCT([0.5, 0.75, 1, 1.5, 2, 3])],
+    ["prioritizeChunkUpdates", "Chunk updates", [["0", "Threaded"], ["1", "Semi-blocking"], ["2", "Fully blocking"]]],
+    ["gamma", "Brightness", [["0.0", "Moody"], ["0.5", "Normal"], ["1.0", "Bright"]]],
+    ["glintStrength", "Enchantment glint", PCT([0, 0.25, 0.5, 0.75, 1])],
+    ["menuBackgroundBlurriness", "Menu background blur", [["0", "Off"], ["5", "Normal"], ["10", "Strong"]], "1.20.5 and newer"],
+    ["glintSpeed", "Glint speed", PCT([0, 0.25, 0.5, 0.75, 1])],
+    ["inactivityFpsLimit", "Save power when away", [['"afk"', "When AFK"], ['"minimized"', "Only when minimized"]], "1.21 and newer"],
+    ["darkMojangStudiosBackground", "Dark loading screen", BOOL],
+    ["hideSplashTexts", "Hide splash texts", BOOL],
+    ["panoramaScrollSpeed", "Title screen panorama speed", PCT([0, 0.5, 1, 2])],
+  ]],
+  ["Camera and effects", [
+    ["bobView", "View bobbing", BOOL],
+    ["fovEffectScale", "FOV effects", PCT([0, 0.25, 0.5, 1])],
+    ["screenEffectScale", "Distortion effects", PCT([0, 0.25, 0.5, 1])],
+    ["damageTiltStrength", "Damage tilt", PCT([0, 0.5, 1])],
+    ["darknessEffectScale", "Darkness pulsing", PCT([0, 0.5, 1])],
+    ["hideLightningFlashes", "Hide lightning flashes", BOOL],
+    ["attackIndicator", "Attack indicator", [["0", "Off"], ["1", "Crosshair"], ["2", "Hotbar"]]],
+  ]],
+  ["Controls", [
+    ["mouseSensitivity", "Mouse sensitivity", [["0.3", "Slow"], ["0.5", "Normal"], ["0.7", "Fast"], ["0.85", "Very fast"]]],
+    ["toggleSprint", "Sprint", [["false", "Hold"], ["true", "Toggle"]]],
+    ["toggleCrouch", "Sneak", [["false", "Hold"], ["true", "Toggle"]]],
+    ["mainHand", "Main hand", [['"right"', "Right"], ['"left"', "Left"]]],
+    ["autoSuggestions", "Command suggestions", BOOL],
+    ["invertYMouse", "Invert mouse", BOOL],
+    ["mouseWheelSensitivity", "Scroll sensitivity", [["0.5", "Slow"], ["1.0", "Normal"], ["2.0", "Fast"]]],
+    ["discrete_mouse_scroll", "Discrete scrolling", BOOL, "One hotbar slot per wheel click"],
+    ["rotateWithMinecart", "Turn with minecarts", BOOL, "1.21.2 and newer"],
+    ["advancedItemTooltips", "Advanced tooltips", BOOL, "Item IDs and durability (F3+H)"],
+    ["operatorItemsTab", "Operator items tab", BOOL],
+  ]],
+  ["Chat", [
+    ["chatOpacity", "Chat text opacity", PCT([0.5, 0.75, 1])],
+    ["textBackgroundOpacity", "Chat background", PCT([0, 0.25, 0.5, 0.75])],
+    ["chatScale", "Chat size", PCT([0.75, 1])],
+    ["chatLinks", "Web links in chat", BOOL],
+    ["reducedDebugInfo", "Reduced F3 info", BOOL],
+    ["chatVisibility", "Chat", [["0", "Shown"], ["1", "Commands only"], ["2", "Hidden"]]],
+    ["chatColors", "Chat colours", BOOL],
+    ["chatLinksPrompt", "Ask before opening links", BOOL],
+    ["chatWidth", "Chat width", PCT([0.5, 0.75, 1])],
+    ["chatHeightFocused", "Chat height (open)", PCT([0.5, 0.75, 1])],
+    ["chatHeightUnfocused", "Chat height (closed)", PCT([0.25, 0.4375, 0.75, 1])],
+    ["chatLineSpacing", "Line spacing", PCT([0, 0.25, 0.5])],
+    ["chatDelay", "Chat delay", [["0.0", "None"], ["0.5", "0.5 s"], ["1.0", "1 s"], ["2.0", "2 s"]]],
+    ["backgroundForChatOnly", "Text background only in chat", BOOL],
+    ["notificationDisplayTime", "Toast time", [["0.5", "Short"], ["1.0", "Normal"], ["2.0", "Long"], ["5.0", "Very long"]]],
+    ["hideMatchedNames", "Hide blocked players' messages", BOOL],
+    ["onlyShowSecureChat", "Only signed chat", BOOL],
+  ]],
+  ["Sound", [
+    ["soundCategory_master", "Master volume", PCT([0, 0.25, 0.5, 0.75, 1])],
+    ["soundCategory_music", "Music", PCT([0, 0.25, 0.5, 1])],
+    ["showSubtitles", "Subtitles", BOOL],
+    ["soundCategory_player", "Players", PCT([0, 0.25, 0.5, 1])],
+    ["soundCategory_hostile", "Hostile creatures", PCT([0, 0.25, 0.5, 1])],
+    ["soundCategory_neutral", "Friendly creatures", PCT([0, 0.25, 0.5, 1])],
+    ["soundCategory_block", "Blocks", PCT([0, 0.25, 0.5, 1])],
+    ["soundCategory_weather", "Weather", PCT([0, 0.25, 0.5, 1])],
+    ["soundCategory_ambient", "Ambient", PCT([0, 0.25, 0.5, 1])],
+    ["soundCategory_record", "Jukebox and note blocks", PCT([0, 0.25, 0.5, 1])],
+    ["soundCategory_voice", "Voice", PCT([0, 0.25, 0.5, 1])],
+    ["directionalAudio", "Directional audio", BOOL, "3D sound for headphones"],
+  ]],
+  ["Skin and multiplayer", [
+    ["modelPart_cape", "Show cape", BOOL],
+    ["modelPart_hat", "Show hat layer", BOOL],
+    ["modelPart_jacket", "Show jacket", BOOL],
+    ["modelPart_left_sleeve", "Show left sleeve", BOOL],
+    ["modelPart_right_sleeve", "Show right sleeve", BOOL],
+    ["modelPart_left_pants_leg", "Show left trouser leg", BOOL],
+    ["modelPart_right_pants_leg", "Show right trouser leg", BOOL],
+    ["hideServerAddress", "Hide server addresses", BOOL, "Good for streaming"],
+    ["allowServerListing", "Appear in server player lists", BOOL],
+    ["showAutosaveIndicator", "Autosave indicator", BOOL],
+  ]],
+  ["Language and accessibility", [
+    ["lang", "Game language", [["en_us", "English (US)"], ["en_gb", "English (UK)"], ["ar_sa", "العربية"], ["de_de", "Deutsch"], ["es_es", "Español"], ["fr_fr", "Français"], ["it_it", "Italiano"], ["nl_nl", "Nederlands"], ["pl_pl", "Polski"], ["pt_br", "Português (BR)"], ["ru_ru", "Русский"], ["tr_tr", "Türkçe"], ["ja_jp", "日本語"], ["ko_kr", "한국어"], ["zh_cn", "简体中文"]]],
+    ["forceUnicodeFont", "Unicode font", BOOL],
+    ["highContrast", "High contrast", BOOL, "1.20 and newer"],
+    ["highContrastBlockOutline", "Thick block outline", BOOL, "1.21.4 and newer"],
+    ["narratorHotkey", "Narrator shortcut (Ctrl+B)", BOOL],
+    ["japaneseGlyphVariants", "Japanese glyph variants", BOOL],
+    ["onboardAccessibility", "Accessibility screen on first start", BOOL],
+    ["realmsNotifications", "Realms notifications", BOOL],
+    ["telemetryOptInExtra", "Optional telemetry", BOOL],
+  ]],
+];
+const goptRow = (d, [key, label, options, desc]) => `<div class="setting"><div><strong>${label}</strong>${desc ? `<span>${desc}</span>` : ""}</div>
+  <select class="input sel" data-gopt="${key}" aria-label="${label}"><option value="">${AUTO[1]}</option>${options.map(([v, l]) => `<option value="${esc(v)}" ${(d.game_options || {})[key] === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>`;
+
+/** What's new in this version (shown once after updating). */
+const WHATS_NEW = [
+  "Starts faster and more reliably on low-end PCs: memory now fits your PC",
+  "No pre-made instances: yours appear as soon as you make them",
+  "Installs itself as an app: Start menu, Desktop and Settings > Apps",
+  "Packs install about 3.6x faster (all mods at once)",
+  "A VC badge next to Vortex players in the Tab list",
+  "Texture packs in Customize, turned on with one switch",
+  "A new loading screen that builds the launcher out of its own pixels",
+  "18 new in-game mods and 100+ new options",
+];
 const rangeRow = (id, label, value, lo, hi, step, text) => `<div class="field"><label class="label" for="${id}">${label}</label><div class="row"><input class="range grow" id="${id}" type="range" min="${lo}" max="${hi}" step="${step}" value="${value}" style="--fill:${((value - lo) / (hi - lo)) * 100}%"><span class="value" id="${id}-v">${text}</span></div></div>`;
 
 function settingsBody(d) {
@@ -1974,11 +2201,13 @@ function settingsBody(d) {
     </div>`;
   }
   if (tab === "game") {
+    const more = GAME_OPTS.map(([title, rows]) => `<div class="card-pad wide"><h3>More options: ${title}</h3><div class="settings-2col">${rows.map((r) => goptRow(d, r)).join("")}</div></div>`).join("");
     const size = d.game_width && d.game_height ? `${d.game_width}x${d.game_height}` : "";
     const preset = WINDOW_SIZES.some(([v]) => v === size) ? size : "custom";
     return `<div class="settings-grid">
       <div class="card-pad"><h3>Memory</h3>
-        ${rangeRow("s-max", "Maximum memory", d.max_memory_mb, 1024, 32768, 512, gb(d.max_memory_mb))}
+        ${swRow(d, "auto_memory", "Automatic", S.autoMemMb ? `Right for this PC${S.systemRamMb ? ` (${gb(S.systemRamMb)} of RAM)` : ""}: ${gb(S.autoMemMb)}, or ${gb(S.autoMemModdedMb)} with mods. Leaves room for Windows, so low-end PCs don't slow down` : "Picks the right amount for this PC")}
+        <div id="mem-manual" ${d.auto_memory !== false ? "hidden" : ""}>${rangeRow("s-max", "Maximum memory", d.max_memory_mb, 1024, 32768, 512, gb(d.max_memory_mb))}</div>
         ${rangeRow("s-min", "Minimum memory", d.min_memory_mb, 256, 8192, 256, gb(d.min_memory_mb))}
         <span class="muted small">Instances can set their own maximum.</span>
       </div>
@@ -2034,6 +2263,12 @@ function settingsBody(d) {
         ${txtRow(d, "pre_launch_command", "Before the game starts", "e.g. a script that syncs your worlds", "Runs in the instance folder; the launch waits up to 2 minutes")}
         ${txtRow(d, "post_exit_command", "After the game closes", "e.g. back up screenshots")}
       </div>
+      <div class="card-pad"><h3>System</h3>
+        ${S.platform === "windows" ? swRow(d, "gpu_high_performance", "Use the fast graphics card", "For laptops with two: runs Java on the strong one") : ""}
+        ${selRow(d, "process_priority", "Game priority", [["normal", "Normal"], ["above", "Above normal"], ["high", "High"]], "Higher can smooth out stutters when other apps run")}
+        ${swRow(d, "prefer_ipv4", "Prefer IPv4", "Helps when servers time out on some home networks")}
+      </div>
+      ${more}
     </div>`;
   }
   if (tab === "ingame") {
@@ -2078,7 +2313,7 @@ function settingsBody(d) {
       </div>
       <div class="card-pad"><h3>Updates</h3>
         <div class="setting"><div><strong>Vortex Client ${esc(S.appVersion)}</strong><span>New versions install in a few seconds and keep your instances and settings</span></div><button class="btn btn-sm" data-action="check-update">Check now</button></div>
-        ${swRow({ ...UI_DEFAULTS, ...d }, "auto_update", "Check automatically", "Looks for a new version each time the launcher opens")}
+        ${swRow({ ...UI_DEFAULTS, ...d }, "auto_update", "Check automatically", "Looks for a new version when the launcher opens and every 30 minutes, and installs it (after the game closes if one is running)")}
       </div>
     </div>`;
   }
@@ -2089,6 +2324,19 @@ function settingsBody(d) {
       ${swRow(g, "launcher_particles", "Particle effects", "Things break into particles as they close")}
       ${swRow(d, "ui_sounds", "Sounds", "Clicks, launch sounds and alerts")}
     </div>
+    ${S.install?.supported ? appCard() : ""}
+    <div class="card-pad"><h3>Privacy and access</h3>
+      ${swRow(g, "streamer_mode", "Streamer mode", "Blurs account names and server addresses in the launcher")}
+      ${swRow(g, "high_contrast", "High contrast", "Brighter text and stronger edges")}
+      ${swRow(g, "shortcuts", "Keyboard shortcuts", "Ctrl+Enter plays, Ctrl+L opens the log, Alt+1 to 5 switch pages")}
+      ${swRow(g, "confirm_close", "Ask before closing while playing", "The game keeps running, but its log stops in the launcher")}
+      ${rangeRow("s-vol", "Sound volume", g.ui_volume, 0, 100, 5, `${g.ui_volume}%`)}
+    </div>
+    <div class="card-pad"><h3>New instances</h3>
+      ${selRow(g, "default_pack", "Starts with", [["performance", "Performance"], ["pvp", "PvP"], ["normal", "Normal"], ["vanilla", "Vanilla"]], "The setup picked first in the New instance window")}
+      ${swRow(g, "show_playtime", "Show time played", "On each instance card")}
+      ${swRow(d, "track_playtime", "Count time played", "Adds up how long you play each instance")}
+    </div>
     <div class="card-pad"><h3>Launcher</h3>
       ${selRow(g, "start_page", "Opens on", [["home", "Play"], ["instances", "Instances"], ["mods", "Mods"], ["skins", "Skins"]])}
       ${selRow(g, "ui_scale", "Size", [["90", "Compact (90%)"], ["100", "Normal"], ["110", "Large (110%)"], ["125", "Larger (125%)"]], "", "num")}
@@ -2096,6 +2344,65 @@ function settingsBody(d) {
       ${swRow(g, "flash_on_exit", "Flash when the game closes", "The taskbar icon lights up so you notice")}
     </div>
   </div>`;
+}
+
+/** Settings > General: installed as an app or not, start with Windows. */
+function appCard() {
+  const st = S.install;
+  return `<div class="card-pad"><h3>Vortex app</h3>
+      ${st.installed
+        ? `<div class="setting"><div><strong>Installed</strong><span>${esc(st.installDir)}. In the Start menu and Settings &gt; Apps</span></div><button class="btn btn-sm lq" data-action="app-uninstall">Uninstall</button></div>`
+        : `<div class="setting"><div><strong>Not installed</strong><span>Running from ${esc(st.runningFrom)}</span></div><button class="btn btn-sm btn-accent lq" data-action="app-install">${icon("download", 12)} Install</button></div>`}
+      <div class="setting"><div><strong>Start with Windows</strong><span>Opens in the taskbar when you sign in</span></div><button class="switch" role="switch" aria-checked="${!!st.autostart}" data-action="app-autostart" aria-label="Start with Windows"></button></div>
+    </div>`;
+}
+
+/** After an update: what changed, once. */
+function showWhatsNew() {
+  if ($("#modal-root .scrim")) { setTimeout(showWhatsNew, 2000); return; }
+  modal(`<div class="upd"><div class="upd-head"><img class="upd-logo" src="img/logo.png" alt=""><div><span class="upd-kicker">Updated</span><h3>What's new in Vortex ${esc(S.appVersion)}</h3></div></div>
+      <ul class="upd-notes">${WHATS_NEW.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>
+      <div class="modal-actions"><button class="btn btn-accent" id="wn-ok">${icon("check", 12)} Nice</button></div></div>`, (root) => {
+    $("#wn-ok", root).onclick = () => closeModal();
+  });
+}
+
+/** The first time Vortex.exe opens outside its install folder: install it as an app. */
+function showInstaller() {
+  const st = S.install;
+  if (!st?.supported || st.installed) return;
+  if ($("#modal-root .scrim")) { setTimeout(showInstaller, 1500); return; }
+  modal(`<div class="installer">
+      <div class="inst-head"><img class="inst-logo" src="img/logo.png" alt=""><div><span class="upd-kicker">Welcome</span><h3>Install Vortex Client</h3><p class="muted small">Put Vortex on this PC like any other app.</p></div></div>
+      <div class="inst-opts">
+        <label class="inst-opt"><input type="checkbox" id="inst-desktop" checked><span><strong>Desktop shortcut</strong><em>Double-click to play</em></span></label>
+        <label class="inst-opt"><input type="checkbox" id="inst-start" checked><span><strong>Start menu</strong><em>Search for Vortex in Windows</em></span></label>
+        <label class="inst-opt"><input type="checkbox" id="inst-auto"><span><strong>Start with Windows</strong><em>Opens in the taskbar when you sign in</em></span></label>
+      </div>
+      <p class="muted small inst-where">Installs to <code>${esc(st.installDir)}</code>. No admin rights needed. Uninstall any time from Settings &gt; Apps; your instances, worlds and accounts are kept.</p>
+      <div class="upd-progress" id="inst-progress" hidden><div class="upd-bar"><i id="inst-fill"></i></div><span id="inst-text">Installing</span></div>
+      <div class="modal-actions" id="inst-actions"><button class="btn" id="inst-later">Not now</button><button class="btn btn-accent" id="inst-go">${icon("download", 12)} Install</button></div>
+    </div>`, (root) => {
+    $("#inst-later", root).onclick = () => { store.set("vortex.noInstall", "1"); closeModal(); };
+    $("#inst-go", root).onclick = async () => {
+      $("#inst-actions", root).hidden = true;
+      $("#inst-progress", root).hidden = false;
+      const fill = $("#inst-fill", root);
+      fill.style.width = "35%";
+      try {
+        if ($("#inst-auto", root).checked) await call("set_autostart", { on: true }).catch(() => {});
+        fill.style.width = "70%";
+        await call("install_app", { desktop: $("#inst-desktop", root).checked, startMenu: $("#inst-start", root).checked });
+        fill.style.width = "100%";
+        $("#inst-text", root).textContent = "Installed. Opening Vortex from its new home";
+        sound.success();
+      } catch (e) {
+        $("#inst-actions", root).hidden = false;
+        $("#inst-text", root).textContent = `Couldn't install: ${errText(e)}`;
+        sound.error();
+      }
+    };
+  });
 }
 
 const INGAME_FEATURES = [
@@ -2138,6 +2445,13 @@ function mountSettings(root, d) {
   range("#s-dl", "download_concurrency", String, 1, 64);
   range("#s-day", "day_length_min", (v) => `${v} min`, 2, 40, (v) => world.setDayLength(v));
   range("#s-glass", "glass", glassLabel, 0, 100, () => applyLook(d));
+  range("#s-vol", "ui_volume", (v) => `${v}%`, 0, 100, () => { applyLook(d); sound.click(); });
+  $$("select[data-gopt]", root).forEach((sel) => sel.addEventListener("change", () => {
+    const opts = { ...(d.game_options || {}) };
+    if (sel.value === "") delete opts[sel.dataset.gopt]; else opts[sel.dataset.gopt] = sel.value;
+    d.game_options = opts;
+    markDirty();
+  }));
   range("#s-wblur", "wall_blur", (v) => `${v} px`, 0, 40, (v) => { applyLook(d); $(".wall-corners", root)?.style.setProperty("--wb", `${v}px`); });
   range("#s-wdim", "wall_dim", (v) => `${v}%`, 0, 60, () => applyLook(d));
   $("#wall-file", root)?.addEventListener("change", (e) => { const f = e.target.files?.[0]; if (f) useWallpaper(f); });
@@ -2332,10 +2646,16 @@ function confirmModal(title, text, okLabel = "Delete") {
   });
 }
 
+/** The memory an instance gets when it doesn't set its own. */
+function defaultMem(inst) {
+  if (S.settings?.auto_memory !== false && S.autoMemMb) return inst && inst.loader && inst.loader !== "vanilla" ? S.autoMemModdedMb : S.autoMemMb;
+  return S.settings?.max_memory_mb || 4096;
+}
+
 function editModal(inst) {
-  const mem = inst.memoryMb || S.settings.max_memory_mb;
+  const mem = inst.memoryMb || defaultMem(inst);
   modal(`<h3>${esc(inst.name)}</h3>
-    <div class="setting"><div><strong>Custom memory</strong><span>Otherwise ${gb(S.settings.max_memory_mb)} from Settings</span></div><button class="switch" role="switch" id="e-on" aria-checked="${!!inst.memoryMb}" aria-label="Custom memory"></button></div>
+    <div class="setting"><div><strong>Custom memory</strong><span>Otherwise ${gb(defaultMem(inst))} from Settings${S.settings?.auto_memory !== false && S.autoMemMb ? " (automatic)" : ""}</span></div><button class="switch" role="switch" id="e-on" aria-checked="${!!inst.memoryMb}" aria-label="Custom memory"></button></div>
     <div class="row" id="e-row"><input class="range grow" id="e-mem" type="range" min="1024" max="32768" step="512" value="${mem}" style="--fill:${((mem - 1024) / 31744) * 100}%"><span class="value" id="e-mem-v">${gb(mem)}</span></div>
     <div class="field"><label class="label" for="e-server">Join a server on start</label><input class="input" id="e-server" placeholder="host or host:port" value="${esc(inst.joinServer || "")}"></div>
     <div class="field"><label class="label" for="e-jvm">JVM arguments</label><input class="input" id="e-jvm" placeholder="Optional" value="${esc(inst.jvmArgs || "")}"></div>
@@ -2400,9 +2720,14 @@ function warmSelected() {
 // ---------------------------------------------------------------- updates --
 
 let updateOffered = false;
+let updateWaiting = null; // found while a game runs: installed when it closes
+let lastUpdateCheck = 0;
+
+const gameBusy = () => Object.values(S.runs).some((r) => r.phase !== "idle");
 
 /** Look for a newer launcher; offer it in a pop-up. */
 async function checkForUpdate(manual = false) {
+  lastUpdateCheck = Date.now();
   try {
     const u = await call("check_update");
     if (!u.available) {
@@ -2410,14 +2735,35 @@ async function checkForUpdate(manual = false) {
       return;
     }
     if (updateOffered && !manual) return;
+    // Found on its own: install straight away, so every player gets the
+    // new version. While a game runs it waits and installs when it closes.
+    if (!manual && gameBusy()) {
+      if (!updateWaiting) toast(`Vortex ${u.version} is ready`, "It installs when you close the game.", "info", 6000);
+      updateWaiting = u;
+      return;
+    }
     updateOffered = true;
-    // Found on its own at start: install straight away (unless a game is
-    // running), so every player gets the new version without a choice.
-    const busy = Object.values(S.runs).some((r) => r.phase !== "idle");
-    showUpdate(u, { auto: !manual && !busy });
+    showUpdate(u, { auto: !manual && !gameBusy() });
   } catch (e) {
     if (manual) toast("Couldn't check for updates", errText(e), "warn");
   }
+}
+
+/** Keep looking while the launcher stays open: every 30 minutes, and on
+ *  coming back to the window (at most every 10 minutes). */
+function watchForUpdates() {
+  const auto = () => ({ ...UI_DEFAULTS, ...S.settings }.auto_update !== false);
+  setInterval(() => { if (auto()) checkForUpdate(false); }, 30 * 60 * 1000);
+  window.addEventListener("focus", () => { if (auto() && Date.now() - lastUpdateCheck > 10 * 60 * 1000) checkForUpdate(false); });
+}
+
+/** The game closed: an update that waited for it goes in now. */
+function installWaitingUpdate() {
+  if (!updateWaiting || gameBusy() || updateOffered) return;
+  const u = updateWaiting;
+  updateWaiting = null;
+  updateOffered = true;
+  setTimeout(() => showUpdate(u, { auto: true }), 1500);
 }
 
 function showUpdate(u, { auto = false } = {}) {
@@ -2644,7 +2990,7 @@ const actions = {
         version: w.version,
         loader: w.loader,
         loaderVersion: w.loader === "vanilla" ? null : w.loaderVersion,
-        memoryMb: w.memory !== S.settings.max_memory_mb ? w.memory : null,
+        memoryMb: w.memoryTouched ? w.memory : null,
         pack: w.loader === "vanilla" ? "vanilla" : w.pack,
       });
       await refreshInstances();
@@ -2768,6 +3114,70 @@ const actions = {
     else if (pane && anims()) paneIn(pane);
   },
   "settings-noop"() {},
+  "app-install"() { showInstaller(); },
+  "cust-tab"(el) { S.custTab = el.dataset.tab; sound.nav(); render(); },
+  "tp-cat"(el) {
+    S.tp.cat = el.dataset.q;
+    $$('#tp-cats button').forEach((b) => b.classList.toggle("on", b === el));
+    const g = $("#tp-grid");
+    if (g) g.innerHTML = `<div class="side-note">Loading</div>`;
+    loadTexturePacks();
+  },
+  async "tp-toggle"(el) {
+    const file = el.dataset.file, tp = S.tp;
+    const on = !tp.active.includes(file);
+    try {
+      await setActivePacks(on ? [...tp.active.filter((f) => f !== file), file] : tp.active.filter((f) => f !== file));
+      sound.toggle(on);
+    } catch (e) { toast("Couldn't change that", errText(e), "error"); }
+  },
+  async "tp-remove"(el) {
+    const tp = S.tp;
+    try {
+      const plain = el.dataset.file.replace(/\.disabled$/, "");
+      if (tp.active.includes(plain)) await setActivePacks(tp.active.filter((f) => f !== plain));
+      tp.installed = await call("delete_mod", { name: tp.instance, file: el.dataset.file, kind: "resourcepack" });
+      drawTpList(); drawTpGrid();
+    } catch (e) { toast("Couldn't delete it", errText(e), "error"); }
+  },
+  async "tp-install"(el) {
+    const tp = S.tp, id = el.dataset.id;
+    el.disabled = true;
+    el.textContent = "Getting";
+    try {
+      await call("modrinth_install", { instance: tp.instance, projectId: id, kind: "resourcepack" });
+      tp.installed = await call("list_mods", { name: tp.instance, kind: "resourcepack" });
+      const got = tp.installed.find((m) => m.projectId === id);
+      if (got) await setActivePacks([...tp.active, got.file.replace(/\.disabled$/, "")]);
+      drawTpList(); drawTpGrid();
+      sound.success();
+      toast(`${el.dataset.title} is on`, `It loads the next time you play ${tp.instance}.`, "success");
+    } catch (e) {
+      el.disabled = false;
+      el.textContent = "Get";
+      toast("Couldn't get that pack", errText(e), "error");
+    }
+  },
+  "folder-packs-tp"() { call("open_path", { target: "resourcepacks", name: S.tp?.instance }).catch((er) => toast("Couldn't open the folder", errText(er), "error")); },
+  "app-uninstall"(el) {
+    if (el.dataset.sure !== "1") {
+      el.dataset.sure = "1";
+      el.textContent = "Sure? Uninstall";
+      el.classList.add("btn-danger");
+      setTimeout(() => { if (el.isConnected) { el.dataset.sure = ""; el.textContent = "Uninstall"; el.classList.remove("btn-danger"); } }, 4000);
+      return;
+    }
+    call("uninstall_app").catch((e) => toast("Couldn't uninstall", errText(e), "error"));
+  },
+  async "app-autostart"(el) {
+    const on = el.getAttribute("aria-checked") !== "true";
+    try {
+      const now = await call("set_autostart", { on });
+      S.install.autostart = !!now;
+      el.setAttribute("aria-checked", String(!!now));
+      sound.toggle(!!now);
+    } catch (e) { toast("Couldn't change that", errText(e), "warn"); }
+  },
   "set-choice"(el) {
     const key = el.dataset.key;
     const v = el.dataset.num ? Number(el.dataset.value) : el.dataset.value;
@@ -2854,6 +3264,7 @@ const actions = {
     S.draft[key] = !cur;
     sound.toggle(S.draft[key]);
     el.setAttribute("aria-checked", S.draft[key]);
+    if (key === "auto_memory") { const m = $("#mem-manual"); if (m) m.hidden = !!S.draft[key]; }
     applyLook(S.draft);
     markDirty();
   },
@@ -2939,6 +3350,13 @@ function playParticles() {
 
 function bindEvents() {
   const packMeta = {};
+  on("confirm-close", () => {
+    modal(`<div class="upd"><div class="upd-head"><div><span class="upd-kicker">Minecraft is running</span><h3>Close Vortex?</h3><p class="muted small">The game keeps running, but its log stops showing here.</p></div></div>
+      <div class="modal-actions"><button class="btn" id="cc-stay">Keep Vortex open</button><button class="btn btn-accent" id="cc-quit">Close Vortex</button></div></div>`, (root) => {
+      $("#cc-stay", root).onclick = () => closeModal();
+      $("#cc-quit", root).onclick = () => call("quit_app").catch(() => {});
+    });
+  });
   on("pack-install", (ev) => {
     if (ev.phase === "start") {
       packMeta[ev.instance] = PACKS[ev.pack] || { title: "Mod", icon: "download" };
@@ -2983,6 +3401,7 @@ function bindEvents() {
         if (ev.state !== "failed") openLog(name);
       } else if (wasRunning) toast("Game closed", name, "info", 2500);
       refreshInstances().then(() => { if (S.route === "instances") render(); else updateRunUI(name); });
+      installWaitingUpdate();
     }
     updateRunUI(name);
   });
@@ -3146,6 +3565,7 @@ function bindChrome() {
       else if ($("#switcher")) closeSwitcher();
       else if (S.log.open) toggleLog();
     }
+    if ({ ...UI_DEFAULTS, ...S.settings }.shortcuts === false) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") { e.preventDefault(); toggleLog(); }
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { const inst = selectedInstance(); if (inst) play(inst.name); }
     if (e.altKey && /^[1-5]$/.test(e.key)) go(["home", "instances", "mods", "skins", "settings"][Number(e.key) - 1]);
@@ -3162,10 +3582,17 @@ const bootT0 = performance.now();
 async function boot() {
   const hint = $("#boot-hint");
   const logo = $("#boot-logo");
-  if (logo && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    const go = () => dust.gather(logo, { duration: 1000, density: 1.2, spread: 1.4 });
-    if (logo.complete) go(); else logo.addEventListener("load", go, { once: true });
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // The VC logo builds itself out of its own pixels.
+  if (logo && !still) {
+    logo.style.animation = "none";
+    const go = () => dust.assembleImage(logo, { duration: 1300, spread: 1.7, budget: lite ? 1400 : 3200 });
+    if (logo.complete && logo.naturalWidth) go(); else logo.addEventListener("load", go, { once: true });
   }
+  // The bar shows how far loading really is.
+  const barFill = $("#boot .bar i");
+  const progress = (pct, text) => { if (barFill) barFill.style.width = `${pct}%`; if (text) hint.textContent = text; };
+  progress(8);
   // Light streams along inside the loading bar while it loads.
   const stopFlow = matchMedia("(prefers-reduced-motion: reduce)").matches ? () => {} : dust.flow($("#boot .bar"));
   dust.warm("img/birch-forest.jpg");
@@ -3173,12 +3600,16 @@ async function boot() {
   bindEvents();
   playParticles();
   try {
-    hint.textContent = "Reading your instances";
+    progress(18, "Reading your instances");
     const b = await call("bootstrap");
+    progress(48, "Loading your look");
     S.appVersion = b.appVersion;
     S.dataDir = b.dataDir;
     S.platform = b.platform || (isTauri ? "windows" : "preview");
     S.deviceRamMb = b.deviceRamMb || 0;
+    S.systemRamMb = b.systemRamMb || 0;
+    S.autoMemMb = b.autoMemoryMb || 0;
+    S.autoMemModdedMb = b.autoMemoryModdedMb || 0;
     S.ramMax = b.deviceRamMb ? Math.max(1024, Math.floor((b.deviceRamMb * 0.75) / 256) * 256) : 0;
     S.settings = { sky: "cycle", day_length_min: 10, background: "golden", vortex_menu: true, fast_launch: true, tuned_jvm: true, ...b.settings };
     if (S.settings.wall_custom) await setWallImage(await wallStore.get());
@@ -3195,6 +3626,7 @@ async function boot() {
   // The skin can come from the network: don't hold the window for it.
   const skin = loadSkin();
   await Promise.race([skin, new Promise((r) => setTimeout(r, 350))]);
+  progress(68, "Getting the launcher ready");
   call("version_art")
     .then((list) => {
       for (const a of list) S.art[a.version] ||= a.image;
@@ -3209,6 +3641,14 @@ async function boot() {
     .catch(() => { S.news = []; refreshNews(); });
   warmSelected();
   if ({ ...UI_DEFAULTS, ...S.settings }.auto_update !== false) setTimeout(() => checkForUpdate(false), 2500);
+  watchForUpdates();
+  const seen = store.get("vortex.seenVersion");
+  if (seen && seen !== S.appVersion) setTimeout(() => showWhatsNew(), 3200);
+  store.set("vortex.seenVersion", S.appVersion);
+  call("install_status").then((st) => {
+    S.install = st;
+    if (st?.supported && !st.installed && !store.get("vortex.noInstall")) setTimeout(showInstaller, 2600);
+  }).catch(() => {});
 
   tick();
   $("#side-version").textContent = `v${S.appVersion}`;
@@ -3221,30 +3661,43 @@ async function boot() {
   // wallpaper costs too much there).
   applyGlassEffect({ ...UI_DEFAULTS, ...(S.settings || {}) });
   if (lite) preblurBackdrop();
-  // Let the loading bar's light run for a moment before the burst.
+  progress(100, "Ready");
+  // Let the logo finish building and the bar fill before the burst.
   const shown = performance.now() - bootT0;
-  if (anims() && shown < 1400) await new Promise((r) => setTimeout(r, 1400 - shown));
+  if (anims() && shown < 1700) await new Promise((r) => setTimeout(r, 1700 - shown));
   const bootEl = $("#boot");
   world.rise = 0;
-  if (anims()) {
-    // The bar bursts, and the grains fly out and build the launcher: each
-    // piece forms where its grains land.
+  if (anims() && dust.enabled) {
+    // The logo bursts, and its grains fly out and build the launcher: every
+    // panel forms out of its own pixels, nearest first.
     stopFlow();
-    const br = $(".bar", bootEl).getBoundingClientRect();
-    const origin = { x: br.left + br.width / 2, y: br.top + br.height / 2 };
-    const wall = dust.colorsOfImage("img/birch-forest.jpg");
+    const lr = (logo || $(".bar", bootEl)).getBoundingClientRect();
+    const origin = { x: lr.left + lr.width / 2, y: lr.top + lr.height / 2 };
+    const fire = ["rgba(255,236,200,1)", "rgba(255,190,90,1)", "rgba(255,130,40,1)", "rgba(230,70,30,1)"];
     const pieces = [
       ...$$(".topbar .brand, .top-right > :not([hidden])"),
       $("#nav"),
       ...$$("#page .home > .hero"),
-      ...$$("#page .home-side > *, #page .home-row > *"),
-    ].filter(Boolean).map((el) => ({ el }));
-    if ($("#page .hero")) pieces.push({ el: $("#world"), colors: wall.length ? wall : undefined });
-    $(".boot-inner", bootEl).animate([{ opacity: 1, scale: 1 }, { opacity: 0, scale: 1.08, filter: "blur(6px)" }], { duration: 380, easing: "ease-out", fill: "forwards" });
-    dust.burst(origin.x, origin.y, { count: 260, speed: 1.4 });
-    requestAnimationFrame(() => dust.form(origin, pieces));
+      ...$$("#page .home-side > *, #page .home-row > *, #page .play-zone > *"),
+    ].filter((el) => el && el.getBoundingClientRect().width > 0);
+    const area = (el) => { const r = el.getBoundingClientRect(); return r.width * r.height; };
+    const total = pieces.reduce((n, el) => n + area(el), 0) || 1;
+    const budget = lite ? 2600 : 8000;
+    // The wallpaper is a window behind the hero card: it builds with it.
+    const behind = [$("#world"), $("#player-layer")].filter(Boolean);
+    behind.forEach((el) => { el.style.opacity = "0"; });
+    const builds = pieces.map((el) => {
+      const done = dust.assemble(el, { from: origin, duration: 1050, budget: Math.max(140, (budget * area(el)) / total) });
+      if (el.classList.contains("hero")) done.then(() => behind.forEach((b) => { b.style.opacity = ""; b.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260 }); }));
+      return done;
+    });
+    $(".boot-inner", bootEl).animate([{ opacity: 1, scale: 1 }, { opacity: 0, scale: 1.12, filter: "blur(6px)" }], { duration: 300, easing: "ease-out", fill: "forwards" });
+    dust.burst(origin.x, origin.y, { count: 520, colors: fire, speed: 1.8 });
+    dust.glowRing(origin.x, origin.y, (k) => 30 + (1 - Math.pow(1 - k, 3)) * Math.hypot(innerWidth, innerHeight) * 0.6, { duration: 1100, width: 220 });
     bootEl.classList.add("out");
     setTimeout(() => bootEl.remove(), 950);
+    // Nothing stays hidden if a piece can't be drawn.
+    Promise.all(builds).finally(() => behind.forEach((b) => { b.style.opacity = ""; }));
   } else bootEl.remove();
   placeHero();
   const u = { ...UI_DEFAULTS, ...S.settings };

@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 
 mod updater;
+mod installer;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{oneshot, Mutex};
 use vortex_core::accounts::{Account, AccountKind, AccountStore};
@@ -69,6 +70,7 @@ struct InstanceView {
     running: bool,
     mod_count: usize,
     pack: Option<String>,
+    playtime_secs: u64,
 }
 
 #[derive(Serialize)]
@@ -95,6 +97,11 @@ struct Bootstrap {
     settings: Settings,
     accounts: Vec<AccountView>,
     instances: Vec<InstanceView>,
+    /// The PC's memory and cores, for automatic memory.
+    system_ram_mb: Option<u64>,
+    cpu_count: usize,
+    auto_memory_mb: u32,
+    auto_memory_modded_mb: u32,
 }
 
 #[derive(Clone, Serialize)]
@@ -217,6 +224,7 @@ fn instance_view(inst: &Instance, running: &HashMap<String, oneshot::Sender<()>>
         running: running.contains_key(&inst.name),
         mod_count: count_mods(inst),
         pack: inst.pack.clone(),
+        playtime_secs: inst.playtime_secs,
     }
 }
 
@@ -257,6 +265,10 @@ async fn bootstrap(state: State<'_, AppState>) -> CmdResult<Bootstrap> {
         settings,
         accounts,
         instances: instance_views(&state).await?,
+        system_ram_mb: vortex_core::os::total_ram_mb(),
+        cpu_count: vortex_core::os::cpu_count(),
+        auto_memory_mb: vortex_core::os::recommended_memory_mb(vortex_core::os::total_ram_mb(), false),
+        auto_memory_modded_mb: vortex_core::os::recommended_memory_mb(vortex_core::os::total_ram_mb(), true),
     })
 }
 
@@ -381,7 +393,16 @@ async fn launch_instance(app: AppHandle, state: State<'_, AppState>, name: Strin
     tauri::async_runtime::spawn(async move {
         let started = std::time::Instant::now();
         let plain = instance.clone();
+        let track = settings.track_playtime;
         let result = run_game(&app, launcher.clone(), instance, account, settings, kill_rx).await;
+        // Time played, added to the instance (it may have been renamed or
+        // changed meanwhile: reload it first).
+        if track && started.elapsed() > Duration::from_secs(20) {
+            if let Ok(Some(mut inst)) = launcher.instances().find(&plain.name) {
+                inst.playtime_secs += started.elapsed().as_secs();
+                let _ = inst.save();
+            }
+        }
         // A start-up failure: check every file on the next launch.
         let quick_crash = matches!(&result, Ok(Some(c)) if *c != 0) && started.elapsed() < Duration::from_secs(25);
         if result.is_err() || quick_crash {
@@ -444,7 +465,53 @@ struct UpdateProgress {
     total: u64,
 }
 
-/// Download the new launcher, swap it in, start it and quit.
+/// Whether the launcher is installed as an app, and where.
+#[tauri::command]
+fn install_status() -> installer::InstallStatus {
+    installer::status()
+}
+
+/// Install the launcher as an app, start the installed copy, quit this one.
+#[tauri::command]
+async fn install_app(app: AppHandle, desktop: bool, start_menu: bool) -> CmdResult<()> {
+    let exe = tokio::task::spawn_blocking(move || installer::install(LAUNCHER_VERSION, desktop, start_menu))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(fail)?;
+    installer::start(&exe).map_err(|e| format!("installed, but couldn't start it: {e}"))?;
+    let quit = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        quit.exit(0);
+    });
+    Ok(())
+}
+
+/// Remove the installed app (shortcuts, Apps entry, files) and quit.
+#[tauri::command]
+async fn uninstall_app(app: AppHandle) -> CmdResult<()> {
+    tokio::task::spawn_blocking(installer::uninstall).await.map_err(|e| e.to_string())?.map_err(fail)?;
+    let quit = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        quit.exit(0);
+    });
+    Ok(())
+}
+
+/// Quit the launcher (after the player confirmed closing while playing).
+#[tauri::command]
+fn quit_app(app: AppHandle) {
+    app.exit(0);
+}
+
+/// Start the launcher with Windows, or stop doing so.
+#[tauri::command]
+fn set_autostart(on: bool) -> CmdResult<bool> {
+    installer::set_autostart(on).map_err(fail)?;
+    Ok(installer::autostart_enabled())
+}
+
 #[tauri::command]
 async fn install_update(app: AppHandle, state: State<'_, AppState>, url: String, version: String) -> CmdResult<()> {
     if !state.running.lock().await.is_empty() {
@@ -599,6 +666,24 @@ async fn toggle_mod(state: State<'_, AppState>, name: String, file: String, enab
     let (kind, dir) = content_dir(&inst, kind.as_deref())?;
     mods::set_enabled(&dir, &file, enabled).map_err(fail)?;
     content_views(&inst, kind, &dir)
+}
+
+/// Texture packs Minecraft will use in an instance (file names, lowest
+/// priority first).
+#[tauri::command]
+async fn active_packs(state: State<'_, AppState>, name: String) -> CmdResult<Vec<String>> {
+    let inst = find_instance(&state, &name)?;
+    Ok(vortex_core::active_resource_packs(&inst.game_dir()))
+}
+
+/// Turn on exactly these texture packs for the next launch.
+#[tauri::command]
+async fn set_active_packs(state: State<'_, AppState>, name: String, files: Vec<String>) -> CmdResult<Vec<String>> {
+    let inst = find_instance(&state, &name)?;
+    let dir = inst.game_dir();
+    let present: Vec<String> = files.into_iter().filter(|f| !f.contains(['/', '\\']) && dir.join("resourcepacks").join(f).exists()).collect();
+    vortex_core::set_active_resource_packs(&dir, &present, matches!(inst.loader, Loader::Fabric { .. }));
+    Ok(vortex_core::active_resource_packs(&dir))
 }
 
 #[tauri::command]
@@ -1253,6 +1338,8 @@ async fn setup_pack(
         return Vec::new();
     }
     let mark = instance.dir.join(PERF_MARK);
+    // Already set up once: anything left is a retry of mods that failed.
+    let retry = mark.exists();
     let mut done: Vec<String> = std::fs::read(&mark).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
     let dir = mods::mods_dir(instance);
     let present = mods::list(&dir).unwrap_or_default();
@@ -1280,6 +1367,11 @@ async fn setup_pack(
     if todo.is_empty() {
         return Vec::new();
     }
+    report(progress, "Checking Modrinth", 0, 0);
+    if !modrinth::reachable(launcher).await {
+        emit_lines(app, &instance.name, vec![LogLineView { level: "warn", text: "Modrinth can't be reached, so the pack's mods are added next time. Starting the game now.".into() }]);
+        return Vec::new();
+    }
 
     let name = &instance.name;
     let send = |ev: PackEvent| {
@@ -1291,45 +1383,64 @@ async fn setup_pack(
     start.mods = todo.iter().map(|(id, o)| PackModView { id: id.to_string(), name: o[0].1.to_string() }).collect();
     send(start);
 
-    let mut added = Vec::new();
-    let (mut skipped, mut failed) = (0, 0);
-    for (key, options) in todo {
-        let mut ev = PackEvent::new(name, "mod");
-        ev.id = Some(key.to_string());
-        ev.state = Some("active");
-        send(ev.clone());
-        // The first alternative with a build for this version wins.
-        let mut outcome = "skipped";
-        for (id, mod_name) in &options {
-            report(progress, &format!("Adding {mod_name}"), 0, 0);
-            match modrinth::install(launcher, instance, ProjectKind::Mod, id, None, false, true, progress).await {
-                Ok(_) => {
-                    added.push(mod_name.to_string());
+    // Every mod at once (8 at a time), shared dependencies fetched once.
+    let entries: Vec<Vec<String>> = todo.iter().map(|(_, o)| o.iter().map(|(id, _)| id.to_string()).collect()).collect();
+    let total = todo.len() as u64;
+    let finished = std::sync::atomic::AtomicU64::new(0);
+    let tally = StdMutex::new((Vec::<String>::new(), 0usize, 0usize, done));
+    report(progress, &format!("Adding mods (0/{total})"), 0, total);
+    let install = modrinth::install_pack(
+        launcher,
+        instance,
+        &entries,
+        |i| {
+            let mut ev = PackEvent::new(name, "mod");
+            ev.id = Some(todo[i].0.to_string());
+            ev.state = Some("active");
+            send(ev);
+        },
+        |i, state, winner| {
+            let (key, options) = &todo[i];
+            let n = finished.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            report(progress, &format!("Adding mods ({n}/{total})"), n, total);
+            let mut ev = PackEvent::new(name, "mod");
+            ev.id = Some(key.to_string());
+            let mut t = tally.lock().unwrap();
+            ev.state = Some(match state {
+                modrinth::PackState::Added => {
+                    let mod_name = options[winner.unwrap_or(0).min(options.len() - 1)].1;
+                    t.0.push(mod_name.to_string());
                     ev.name = Some(mod_name.to_string());
-                    outcome = "added";
-                    break;
+                    t.3.push(key.to_string());
+                    "added"
                 }
-                // None for this version: try the next one.
-                Err(e) if format!("{e:#}").contains("no version") => {}
+                // None for this version: don't keep asking.
+                modrinth::PackState::NoBuild => {
+                    t.1 += 1;
+                    t.3.push(key.to_string());
+                    "skipped"
+                }
                 // Offline or Modrinth down: try again next launch.
-                Err(_) => {
-                    outcome = "failed";
-                    break;
+                modrinth::PackState::Failed => {
+                    t.2 += 1;
+                    "failed"
                 }
-            }
+            });
+            drop(t);
+            send(ev);
+        },
+    );
+    // A first install shows its progress and may take a while; retrying a
+    // few failed mods never holds the game up for more than 45 seconds.
+    if retry {
+        if tokio::time::timeout(Duration::from_secs(45), install).await.is_err() {
+            emit_lines(app, &instance.name, vec![LogLineView { level: "warn", text: "Adding the pack's missing mods took too long; they're tried again next time.".into() }]);
         }
-        match outcome {
-            "added" => done.push(key.to_string()),
-            "skipped" => {
-                done.push(key.to_string());
-                skipped += 1;
-            }
-            _ => failed += 1,
-        }
-        ev.state = Some(outcome);
-        send(ev);
-        let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
+    } else {
+        let _ = install.await;
     }
+    let (added, skipped, failed, done) = tally.into_inner().unwrap_or_else(|e| e.into_inner());
+    let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
     let mut end = PackEvent::new(name, "done");
     end.added = added.len();
     end.skipped = skipped;
@@ -1369,7 +1480,24 @@ async fn run_game(
     let _ = app.emit("game-state", state("preparing"));
 
     let before = account.clone();
-    let session = launcher.session_for(&mut account, &settings).await?;
+    let session = match launcher.session_for(&mut account, &settings).await {
+        Ok(s) => s,
+        // Couldn't refresh the sign-in (offline, Microsoft down): play with
+        // the saved one. Singleplayer works; servers may ask to sign in again.
+        Err(e) => match &account.kind {
+            AccountKind::Microsoft(t) if !t.minecraft_token.is_empty() => {
+                emit_lines(app, &name, vec![LogLineView { level: "warn", text: format!("Couldn't refresh the Microsoft sign-in ({e:#}); starting with the saved one.") }]);
+                vortex_core::launch::LaunchSession {
+                    username: account.username.clone(),
+                    uuid: account.uuid.clone(),
+                    access_token: t.minecraft_token.clone(),
+                    user_type: "msa".to_string(),
+                    xuid: "0".to_string(),
+                }
+            }
+            _ => return Err(e),
+        },
+    };
     if account != before {
         let st = app.state::<AppState>();
         let mut store = st.accounts.lock().await;
@@ -1622,6 +1750,12 @@ fn load_accounts(path: &Path) -> AccountStore {
 }
 
 fn main() {
+    // Settings > Apps > Uninstall runs `Vortex.exe --uninstall`.
+    if std::env::args().any(|a| a == "--uninstall") {
+        let _ = installer::uninstall();
+        return;
+    }
+    let start_minimized = std::env::args().any(|a| a == "--minimized");
     if let Ok((dir, _)) = updater::current_exe() {
         updater::cleanup(&dir);
     }
@@ -1653,6 +1787,13 @@ fn main() {
             server_status,
             check_update,
             install_update,
+            install_status,
+            quit_app,
+            active_packs,
+            set_active_packs,
+            install_app,
+            uninstall_app,
+            set_autostart,
             add_offline_account,
             remove_account,
             select_account,
@@ -1681,6 +1822,27 @@ fn main() {
             open_path,
             open_url,
         ])
+        .on_window_event(|window, event| {
+            // Closing while a game runs: ask first (Settings > General).
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let state = window.state::<AppState>();
+                let busy = state.running.try_lock().map(|r| !r.is_empty()).unwrap_or(false);
+                let ask = state.settings.try_lock().map(|s| s.ui.get("confirm_close").and_then(|v| v.as_bool()).unwrap_or(true)).unwrap_or(true);
+                if busy && ask {
+                    api.prevent_close();
+                    let _ = window.emit("confirm-close", ());
+                }
+            }
+        })
+        .setup(move |app| {
+            // Started with Windows: open quietly in the taskbar.
+            if start_minimized {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.minimize();
+                }
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running Vortex");
 }

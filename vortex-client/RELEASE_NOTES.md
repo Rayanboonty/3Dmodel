@@ -1,3 +1,65 @@
+**Vortex 0.8.0: the big one.** Over 130 new options and mods, a real installer, texture packs, a badge for Vortex players and faster everything.
+
+**Starts on low-end PCs.** Minecraft could be very slow to start on low-end PCs, or not start at all. Fixed:
+- **Automatic memory** (on by default, Settings > Game > Memory): Vortex gives Minecraft the right amount for your PC's RAM, such as 2 GB with mods on a 4 GB laptop. Before, every PC gave it 4 GB, so PCs with 4-6 GB ran out and swapped to disk, or the game failed to start.
+- Java's garbage collector is now set up for small amounts of memory too.
+- If Modrinth can't be reached, the game starts straight away instead of waiting on every mod; the missing mods are added next time. Retrying them never holds up a launch for more than 45 seconds.
+- With no internet, a Microsoft account still starts the game with its saved sign-in, instead of failing.
+- **The big one:** the first launch after each update (and the next launch whenever the game was closed with Stop or Task Manager) recorded a Java class archive, which made it many times slower. We measured a 71-mod pack on a 2-core PC: 170 s to the title screen while recording, 21 s once recorded. That archive is gone, and every launch now takes about 23 s on the same PC. Old archives (100+ MB each) are deleted.
+- Java's own one-time speed-up job now runs at idle priority, so it never slows the game starting.
+
+**Zero instances.** Vortex starts with no instances, and yours appear as soon as you make them. On Android, the profiles that Amethyst and the Forge and OptiFine installers add on their own are no longer shown.
+
+**Vortex installs itself.** The first time you open Vortex.exe, it offers to install as a real app:
+- It goes in your user's Programs folder, with Start menu and Desktop shortcuts.
+- It shows in Settings > Apps, where you can uninstall it.
+- It can start with Windows (minimized), from Settings > General > Vortex app.
+- Closing it while Minecraft runs asks first.
+
+**A badge for Vortex players.** A VC badge appears next to the name of everyone playing with Vortex in the Tab list (hold Tab):
+- It works in singleplayer, LAN worlds and on servers running the Vortex mod.
+- On normal servers like Hypixel, only you see your own badge, because the server doesn't pass the signal on.
+- Turn it off in the in-game menu (Right Shift > Vortex Badge).
+
+**Texture packs in Customize.** A new Texture packs tab next to Skins:
+- Browse and install packs from Modrinth for the instance's Minecraft version, by style.
+- Turn them on and off with one switch, and remove them.
+
+**Faster.**
+- Packs install about 3.6x faster: every mod downloads at once. We timed a 61-mod pack at 6.4 s, down from 23.1 s.
+- If a mod has no build for your version, a similar mod stands in for it.
+- New System options: use the fast graphics card for Minecraft on laptops with two, higher game priority, and a fix for servers that fail over IPv6.
+
+**Updates reach everyone.** If GitHub's update check is busy (it limits how often each network can ask), Vortex reads the release page instead. It also checks every 30 minutes and when you come back to the window, and installs a waiting update after you close the game.
+
+**A new loading screen.** The launcher now builds itself out of particles: the logo, then each panel, land grain by grain on their exact pixels, with a real progress bar.
+
+**18 new in-game mods** in Right Shift: Vortex Badge, Light Level, Player Count, World Time, Biome, Yaw and Pitch, Chunk Position, Entity Count, Durability Warning, Death Coordinates, Auto GG, Snaplook (hold V), Bow Charge, Fall Distance, Health, Experience, Weather and Moon Phase.
+
+**24 new in-game options**, including:
+- Rainbow text, background opacity and brackets for the HUD.
+- Frame time on the FPS counter, and coloured ping.
+- Nether position and decimals for coordinates, and decimals for reach.
+- Press-to-toggle zoom and freelook, and seconds and date for the clock.
+
+The HUD's left column now wraps instead of running off the screen.
+
+**80 Minecraft options in the launcher** (Settings > Game > More options), set before the game starts. They cover graphics, camera, controls, chat, every sound channel, skin layers, language and accessibility.
+
+**New launcher options:**
+- Streamer mode (hides names and addresses) and high contrast.
+- Interface sound volume and keyboard shortcuts.
+- Confirm before closing, and the default pack for new instances.
+- Time played on each instance, and sorting by it.
+- A What's new card after each update.
+
+**Fixes.**
+- Mods that had no build for the chosen version no longer crash the game (Cull Leaves was removed from the packs).
+- The in-game HUD no longer runs off the bottom of small screens.
+- Death coordinates clear once you get back to them.
+
+**From 0.7.8:**
+
 **One file for Windows.** Vortex now comes as a single **Vortex.exe**: no zip, nothing to unpack. Put it anywhere and open it. Updates replace that one file too.
 
 **From 0.7.7:**

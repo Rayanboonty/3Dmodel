@@ -83,7 +83,45 @@ pub fn is_newer(candidate: &str, current: &str) -> bool {
 }
 
 /// The newest published launcher release, compared with `current`.
+/// GitHub's API allows 60 unsigned requests an hour per connection, which
+/// shared Wi-Fi (schools, dorms) runs out of; then the release page is read
+/// instead (it has no such limit), so every player still finds updates.
 pub async fn check(http: &reqwest::Client, current: &str) -> Result<UpdateInfo> {
+    match check_api(http, current).await {
+        Ok(info) => Ok(info),
+        Err(api_err) => check_page(http, current).await.map_err(|_| api_err),
+    }
+}
+
+/// The newest release from github.com/<repo>/releases/latest, which
+/// redirects to .../releases/tag/vortex-v<version>.
+async fn check_page(http: &reqwest::Client, current: &str) -> Result<UpdateInfo> {
+    let repo = repo();
+    let resp = http
+        .get(format!("https://github.com/{repo}/releases/latest"))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .context("couldn't reach GitHub")?
+        .error_for_status()?;
+    let tag = resp.url().path().rsplit('/').next().unwrap_or("").to_string();
+    let Some(version) = tag.strip_prefix(TAG_PREFIX).map(str::to_string) else {
+        bail!("no launcher release found");
+    };
+    let available = is_newer(&version, current);
+    Ok(UpdateInfo {
+        available,
+        current: current.to_string(),
+        notes: String::new(),
+        published: String::new(),
+        url: available.then(|| format!("https://github.com/{repo}/releases/download/{tag}/{EXE_ASSET}")),
+        size: 0,
+        page: Some(format!("https://github.com/{repo}/releases/tag/{tag}")),
+        version,
+    })
+}
+
+async fn check_api(http: &reqwest::Client, current: &str) -> Result<UpdateInfo> {
     let url = format!("https://api.github.com/repos/{}/releases?per_page=30", repo());
     let resp = http
         .get(&url)

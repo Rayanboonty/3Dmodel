@@ -7,8 +7,8 @@
   "authors": ["Vortex Client"],
   "license": "MIT",
   "icon": "assets/vortex/icon.png",
-  "environment": "client",
-  "entrypoints": { "client": ["dev.vortexclient.mod.VortexMods"] },
+  "environment": "*",
+  "entrypoints": { "main": ["dev.vortexclient.mod.VortexCommon"], "client": ["dev.vortexclient.mod.VortexMods"] },
   "mixins": ["vortex.mixins.json"],
   "depends": { "fabricloader": ">=0.16.0", "minecraft": "${mc}", "fabric-api": "*" }
 }

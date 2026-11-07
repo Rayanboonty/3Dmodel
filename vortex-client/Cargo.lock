@@ -4203,10 +4203,11 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vortex-app"
-version = "0.7.8"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "dirs 6.0.0",
  "serde",
  "serde_json",
  "tauri",
@@ -4217,7 +4218,7 @@ dependencies = [
 
 [[package]]
 name = "vortex-cli"
-version = "0.7.8"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4227,7 +4228,7 @@ dependencies = [
 
 [[package]]
 name = "vortex-core"
-version = "0.7.8"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

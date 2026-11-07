@@ -62,6 +62,9 @@ pub struct Instance {
     /// The server last joined from the launcher (for "rejoin last server").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_server: Option<String>,
+    /// Seconds played in this instance.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub playtime_secs: u64,
     /// Directory containing `instance.json`. Set when loading.
     #[serde(skip)]
     pub dir: PathBuf,
@@ -81,6 +84,7 @@ impl Instance {
             last_played: None,
             pack: None,
             last_server: None,
+            playtime_secs: 0,
             dir: PathBuf::new(),
         }
     }
@@ -203,6 +207,10 @@ impl InstanceStore {
         std::fs::remove_dir_all(dir)?;
         Ok(())
     }
+}
+
+fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 #[cfg(test)]

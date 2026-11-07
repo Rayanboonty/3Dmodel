@@ -2536,3 +2536,52 @@ html.liquid .play-cluster.lg-on > .play.busy, html.liquid .play-cluster.lg-on > 
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02) 45%), linear-gradient(180deg, rgba(30, 20, 52, 0.42), rgba(10, 6, 22, 0.66)) !important;
 }
 html.liquid body.theme-light .play-cluster.lg-on > .play.busy, html.liquid body.theme-light .play-cluster.lg-on > .play.busy + .play-more { background: rgba(253, 250, 254, 0.66) !important; }
+
+/* Boot: the bar fills with real progress (no fake sliding light). */
+.boot .bar { height: 8px; overflow: hidden; }
+.boot .bar i { width: 4%; animation: none; transition: width 0.55s cubic-bezier(0.2, 0.9, 0.25, 1); background: linear-gradient(90deg, var(--accent-deep), var(--accent) 70%, #ffe1a8); box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.8); }
+.boot-hint { transition: opacity 0.3s; font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- installer -- */
+.installer { display: flex; flex-direction: column; gap: 14px; max-width: 460px; }
+.inst-head { display: flex; align-items: center; gap: 14px; }
+.inst-logo { width: 64px; height: auto; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4)); }
+.inst-head h3 { margin: 2px 0; font-size: 22px; }
+.inst-opts { display: flex; flex-direction: column; gap: 8px; }
+.inst-opt { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer; }
+.inst-opt:hover { background: rgba(255, 255, 255, 0.08); }
+.inst-opt input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.inst-opt span { display: flex; flex-direction: column; }
+.inst-opt em { font-style: normal; font-size: 12px; color: var(--ink-3); }
+.inst-where code { font-size: 11.5px; word-break: break-all; }
+body.theme-light .inst-opt { background: rgba(255, 255, 255, 0.6); border-color: rgba(50, 25, 70, 0.1); }
+
+/* ---------------------------------------------------------------- texture packs -- */
+.tp-layout { display: grid; grid-template-columns: minmax(280px, 0.9fr) 1.4fr; gap: 18px; align-items: start; }
+.tp-layout .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tp-list { display: flex; flex-direction: column; gap: 8px; }
+.tp-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07); }
+.tp-row.on { background: rgba(var(--accent-rgb), 0.1); border-color: rgba(var(--accent-rgb), 0.35); }
+.tp-row .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tp-row .meta strong, .tp-row .meta span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-row .meta span { font-size: 11.5px; color: var(--ink-3); }
+.tp-icon { flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.08) center / cover no-repeat; image-rendering: pixelated; color: var(--ink-3); }
+.tp-icon.lg { position: absolute; left: 12px; top: 70px; width: 46px; height: 46px; border-radius: 12px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); }
+.tp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.tp-card { position: relative; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+.tp-cover { height: 96px; background: rgba(255, 255, 255, 0.06) center / cover no-repeat; }
+.tp-body { display: flex; flex-direction: column; gap: 4px; padding: 26px 12px 12px; min-height: 110px; }
+.tp-body > .muted { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tp-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 6px; }
+#cust-tabs { margin-right: 6px; }
+body.m .tp-layout { grid-template-columns: 1fr; }
+body.theme-light .tp-row, body.theme-light .tp-card { background: rgba(255, 255, 255, 0.6); border-color: rgba(50, 25, 70, 0.1); }
+
+/* ---------------------------------------------------------------- streamer mode, high contrast -- */
+body.streamer #account-name, body.streamer .srv .meta span, body.streamer .acc-name, body.streamer .who,
+body.streamer .w-account strong, body.streamer .account-card strong { filter: blur(5px); transition: filter 0.2s; }
+body.streamer #account-name:hover, body.streamer .srv .meta span:hover { filter: none; }
+body.hc { --ink-2: rgba(255, 255, 255, 0.92); --ink-3: rgba(255, 255, 255, 0.78); }
+body.hc .glass, body.hc .card, body.hc .card-pad { border-color: rgba(255, 255, 255, 0.32) !important; }
+body.hc.theme-light { --ink-2: rgba(20, 14, 26, 0.92); --ink-3: rgba(20, 14, 26, 0.78); }
+body.hc.theme-light .glass, body.hc.theme-light .card, body.hc.theme-light .card-pad { border-color: rgba(20, 14, 26, 0.35) !important; }

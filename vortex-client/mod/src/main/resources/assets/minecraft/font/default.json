@@ -1,0 +1,5 @@
+{
+  "providers": [
+    { "type": "bitmap", "file": "vortex:font/vc.png", "height": 8, "ascent": 7, "chars": [""] }
+  ]
+}

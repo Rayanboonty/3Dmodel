@@ -72,6 +72,37 @@ function step(now) {
   ctx.clearRect(0, 0, W, H);
   let n = 0;
   for (const p of parts) {
+    if (p.asm) {
+      // Building a picture: fly in along a curve and land on its own spot,
+      // then show its own piece of the picture until the element appears.
+      p.age += dt;
+      if (p.age < 0) { parts[n++] = p; continue; }
+      const k = Math.min(1, p.age / p.life);
+      if (k < 1) {
+        const e = 1 - Math.pow(1 - k, 3);
+        const u = 1 - e;
+        const x = u * u * p.ox + 2 * u * e * p.cx + e * e * (p.tx + p.cw / 2);
+        const y = u * u * p.oy + 2 * u * e * p.cy + e * e * (p.ty + p.ch / 2);
+        const q = Math.max(1.2, Math.max(p.cw, p.ch) * (0.45 + 0.55 * e));
+        if (e < 0.7) {
+          // A glowing grain in flight.
+          ctx.globalAlpha = Math.min(1, k * 5) * 0.55;
+          ctx.drawImage(sprite(p.color), x - q * 1.6, y - q * 1.6, q * 3.2, q * 3.2);
+        }
+        ctx.globalAlpha = Math.min(1, k * 5) * p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(x - q / 2, y - q / 2, q, q);
+      } else {
+        const f = now > p.until ? (now - p.until) / 240 : 0;
+        if (f >= 1) continue;
+        ctx.globalAlpha = 1 - f;
+        const s2 = p.src;
+        if (s2) ctx.drawImage(s2.c, Math.max(0, (p.tx - s2.x) * s2.k), Math.max(0, (p.ty - s2.y) * s2.k), p.cw * s2.k, p.ch * s2.k, p.tx, p.ty, p.cw + 0.6, p.ch + 0.6);
+        else { ctx.fillStyle = p.color; ctx.fillRect(p.tx, p.ty, p.cw + 0.6, p.ch + 0.6); }
+      }
+      parts[n++] = p;
+      continue;
+    }
     if (p.breakAt !== undefined && now < p.breakAt) {
       // Still part of the element. Below the break line the element itself
       // shows; just above it, its grains hang on for a moment, so the edge
@@ -660,6 +691,97 @@ export const dust = {
     this.burst(x, y, { count: 1100 * power, colors, speed: 2.8 * power });
     setTimeout(() => this.burst(x, y, { count: 380 * power, colors: ["rgba(255,255,255,1)", ...colors], speed: 1.2 * power }), 90);
     return done;
+  },
+
+  /**
+   * Build an element out of its own pixels: grains of its real picture fly
+   * in (from a point, or from all around when there's none) and land exactly
+   * where they belong, then the element itself shows through. Resolves when
+   * it has appeared.
+   */
+  assemble(el, { from = null, duration = 1000, delay = 0, budget = 2400, spread = 1 } = {}) {
+    if (!el || !el.isConnected) return Promise.resolve();
+    const r = el.getBoundingClientRect();
+    if (!enabled || !r.width || !r.height) return Promise.resolve();
+    const n = Math.max(120, Math.min(MAX - parts.length, budget * LK()));
+    const cell = Math.max(2.2, Math.min(16, Math.sqrt((r.width * r.height) / n)));
+    const cols = Math.max(1, Math.round(r.width / cell)), rows = Math.max(1, Math.round(r.height / cell));
+    let shot;
+    try { shot = snapshot(el, cols, rows, { budget: lite ? 500 : 1400, scale: dpr }); } catch { return Promise.resolve(); }
+    return this._assemble(el, r, cols, rows, shot.data, { c: shot.canvas, k: shot.k, x: r.left, y: r.top }, { from, duration, delay, spread });
+  },
+
+  /** The same for a picture (an <img>): only its own opaque pixels. */
+  assembleImage(img, { from = null, duration = 1000, delay = 0, budget = 2600, spread = 1 } = {}) {
+    if (!img || !img.isConnected || !img.naturalWidth) return Promise.resolve();
+    const r = img.getBoundingClientRect();
+    if (!enabled || !r.width || !r.height) return Promise.resolve();
+    const n = Math.max(120, Math.min(MAX - parts.length, budget * LK()));
+    const cell = Math.max(1.8, Math.min(12, Math.sqrt((r.width * r.height) / n)));
+    const cols = Math.max(1, Math.round(r.width / cell)), rows = Math.max(1, Math.round(r.height / cell));
+    const k = Math.min(dpr, 1600 / Math.max(r.width, r.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(r.width * k); c.height = Math.round(r.height * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const sc = document.createElement("canvas");
+    sc.width = cols; sc.height = rows;
+    const sg = sc.getContext("2d", { willReadFrequently: true });
+    sg.drawImage(c, 0, 0, cols, rows);
+    let data;
+    try { data = sg.getImageData(0, 0, cols, rows).data; } catch { return Promise.resolve(); }
+    return this._assemble(img, r, cols, rows, data, { c, k, x: r.left, y: r.top }, { from, duration, delay, spread });
+  },
+
+  _assemble(el, r, cols, rows, data, src, { from, duration, delay, spread }) {
+    const cw = r.width / cols, ch = r.height / rows;
+    const t0 = performance.now();
+    const far = Math.hypot(W, H);
+    const reach = Math.max(r.width, r.height) * 0.9 * spread + 120;
+    let last = 0;
+    const grains = [];
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const q = (j * cols + i) * 4;
+        if (data[q + 3] < 40) continue;
+        const tx = r.left + i * cw, ty = r.top + j * ch;
+        let ox, oy, wait;
+        if (from) {
+          ox = from.x + (Math.random() - 0.5) * 24; oy = from.y + (Math.random() - 0.5) * 12;
+          // Nearer pieces fill first, so the build sweeps out from the burst.
+          wait = (Math.hypot(tx - from.x, ty - from.y) / far) * 0.45 + Math.random() * 0.16;
+        } else {
+          const a = Math.random() * 6.283, d = reach * (0.45 + Math.random() * 0.8);
+          ox = tx + Math.cos(a) * d; oy = ty + Math.sin(a) * d;
+          wait = Math.random() * 0.3;
+        }
+        // A curve: out past the line, then in.
+        const mx = (ox + tx) / 2, my = (oy + ty) / 2;
+        const bend = (Math.random() - 0.5) * Math.hypot(tx - ox, ty - oy) * 0.7;
+        const nx = -(ty - oy), ny = tx - ox, nl = Math.hypot(nx, ny) || 1;
+        const life = (duration / 1000) * (0.55 + Math.random() * 0.35);
+        const startAt = delay / 1000 + wait * (duration / 1000);
+        last = Math.max(last, startAt + life);
+        let R = data[q], G = data[q + 1], B = data[q + 2];
+        const L = (0.2126 * R + 0.7152 * G + 0.0722 * B) / 255;
+        if (L < 0.25) { const m = 0.3 * (1 - L / 0.25); R += (255 - R) * m; G += (255 - G) * m; B += (255 - B) * m; }
+        grains.push({
+          asm: true, ox, oy, cx: mx + (nx / nl) * bend, cy: my + (ny / nl) * bend, tx, ty, cw, ch, src,
+          color: `rgb(${R | 0},${G | 0},${B | 0})`, alpha: Math.min(1, data[q + 3] / 255),
+          age: -startAt, life, until: 0, x: ox, y: oy,
+        });
+      }
+    }
+    const until = t0 + (last * 1000) + 60;
+    for (const g of grains) { g.until = until; add(g); }
+    el.style.opacity = "0";
+    kick();
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        el.style.opacity = "";
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: "ease-out" });
+        resolve();
+      }, Math.max(0, until - performance.now()));
+    });
   },
 
   /** A burst of dust from a point. */

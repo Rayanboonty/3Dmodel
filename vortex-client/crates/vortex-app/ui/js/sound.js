@@ -26,16 +26,22 @@ function tone(freq, start, dur, { type = "square", vol = 0.06, slide = 0 } = {})
   osc.frequency.setValueAtTime(freq, t0);
   if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t0 + dur);
   gain.gain.setValueAtTime(0.0001, t0);
-  gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.008);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * volume), t0 + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   osc.connect(gain).connect(a.destination);
   osc.start(t0);
   osc.stop(t0 + dur + 0.02);
 }
 
+let volume = 1;
+
 export const sound = {
   setEnabled(on) {
     enabled = !!on;
+  },
+  /** 0 to 1. */
+  setVolume(v) {
+    volume = Math.max(0, Math.min(1, Number(v) || 0));
   },
   click() {
     tone(660 + Math.random() * 60, 0, 0.05, { vol: 0.045 });
