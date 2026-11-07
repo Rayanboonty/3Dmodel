@@ -123,6 +123,9 @@ struct PackEvent {
     id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     state: Option<&'static str>,
+    /// The mod actually added, when an alternative stood in.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
     added: usize,
     skipped: usize,
     failed: usize,
@@ -136,7 +139,7 @@ struct PackModView {
 
 impl PackEvent {
     fn new(instance: &str, phase: &'static str) -> Self {
-        PackEvent { instance: instance.to_string(), phase, pack: None, version: None, mods: Vec::new(), id: None, state: None, added: 0, skipped: 0, failed: 0 }
+        PackEvent { instance: instance.to_string(), phase, pack: None, version: None, mods: Vec::new(), id: None, state: None, name: None, added: 0, skipped: 0, failed: 0 }
     }
 }
 
@@ -1040,6 +1043,10 @@ async fn setup_vortex_mod(
 
 /// Mod sets by Modrinth project id. Each mod is added only when it has a
 /// build for the instance's Minecraft and loader; the rest are skipped.
+/// `a|b` entries are alternatives in order: the first with a build for the
+/// version wins (newer mods first, their older-version counterparts after).
+/// Only mods that run on the client: server-only ones (Radium, VMP, C2ME)
+/// are left out.
 /// Performance: every mainstream optimisation mod that works alongside the
 /// others (the Fabulously Optimized idea, and a bit further).
 const PERF_FABRIC: &[(&str, &str)] = &[
@@ -1053,9 +1060,7 @@ const PERF_FABRIC: &[(&str, &str)] = &[
     ("LQ3K71Q1", "Dynamic FPS"),
     ("g96Z4WVZ", "BadOptimizations"),
     ("fQEb0iXm", "Krypton"),
-    ("VSNURh3q", "C2ME"),
-    ("Ps1zyz6x", "ScalableLux"),
-    ("wnEe9KBa", "Very Many Players"),
+    ("Ps1zyz6x|H8CaAYZC", "ScalableLux|Starlight"),
     ("NRjRiSSD", "Memory Leak Fix"),
     ("9mtu0sUO", "Fast IP Ping"),
     ("QwxR6Gcd", "Debugify"),
@@ -1065,9 +1070,12 @@ const PERF_FABRIC: &[(&str, &str)] = &[
     ("x1hIzbuY", "FastQuit"),
     ("Wnxd13zP", "Clumps"),
     ("vSEH1ERy", "ThreadTweak"),
+    ("uLbm7CG6", "Language Reload"),
 ];
+
+/// The same idea on Forge (Embeddium, or Rubidium on older versions).
 const PERF_FORGE: &[(&str, &str)] = &[
-    ("sk9rgfiA", "Embeddium"),
+    ("sk9rgfiA|4ZqxOvjD", "Embeddium|Rubidium"),
     ("uXXizFIs", "FerriteCore"),
     ("NNAgCjsB", "EntityCulling"),
     ("5ZwdcRci", "ImmediatelyFast"),
@@ -1079,20 +1087,20 @@ const PERF_FORGE: &[(&str, &str)] = &[
     ("QwxR6Gcd", "Debugify"),
     ("Wnxd13zP", "Clumps"),
     ("qa2H4BS9", "Canary"),
-    ("2gvRmQXx", "Radium"),
     ("2eT495vq", "Saturn"),
 ];
-/// Normal: performance, plus the quality-of-life mods most players add.
+
+/// Normal: the everyday extras on top of the performance set.
 const NORMAL_FABRIC: &[(&str, &str)] = &[
     ("mOgUt4GM", "Mod Menu"),
     ("YL57xq9U", "Iris Shaders"),
     ("1IjD5062", "Continuity"),
-    ("yBW8D80W", "LambDynamicLights"),
+    ("yBW8D80W|PxQSWIcD", "LambDynamicLights|Sodium Dynamic Lights"),
     ("EsAfCjCV", "AppleSkin"),
     ("1bokaNcj", "Xaero's Minimap"),
     ("NcUtCpym", "Xaero's World Map"),
-    ("u6dRKJwZ", "JEI"),
-    ("nvQzSEkH", "Jade"),
+    ("u6dRKJwZ|nfn13YXA|fRiHVvU7", "JEI|REI|EMI"),
+    ("nvQzSEkH|6AQIaxuO", "Jade|WTHIT"),
     ("aC3cM3Vq", "Mouse Tweaks"),
     ("2M01OLQq", "Shulker Box Tooltip"),
     ("Wb5oqrBJ", "Chat Heads"),
@@ -1108,8 +1116,26 @@ const NORMAL_FABRIC: &[(&str, &str)] = &[
     ("kYuIpRLv", "Wavey Capes"),
     ("cVNW5lr6", "Item Highlighter"),
     ("M08ruV16", "Bobby"),
+    ("MPCX6s5C", "Not Enough Animations"),
+    ("qyVF9oeo", "Sound Physics Remastered"),
+    ("rcTfTZr3", "Presence Footsteps"),
+    ("fM515JnW", "AmbientSounds"),
+    ("UVtY3ZAC", "Enchantment Descriptions"),
+    ("rI0hvYcd", "Visuality"),
+    ("ETlrkaYF", "Cubes Without Borders"),
+    ("nrikgvxm", "Particle Rain"),
+    ("pJogNFap", "Paginated Advancements"),
+    ("gPCdW0Wr", "Make Bubbles Pop"),
+    ("JtifUr64", "Traveler's Titles"),
+    ("5srFLIaK", "Better Clouds"),
+    ("QdG47OkI", "Model Fix"),
+    ("89Wsn8GD", "Capes"),
+    ("kqJFAPU9", "Better Mount HUD"),
+    ("1KiJRrTg", "Screenshot to Clipboard"),
 ];
+
 const NORMAL_FORGE: &[(&str, &str)] = &[
+    ("GchcoXML", "Oculus"),
     ("u6dRKJwZ", "JEI"),
     ("nvQzSEkH", "Jade"),
     ("EsAfCjCV", "AppleSkin"),
@@ -1126,9 +1152,25 @@ const NORMAL_FORGE: &[(&str, &str)] = &[
     ("O7RBXm3n", "Inventory Profiles Next"),
     ("kYuIpRLv", "Wavey Capes"),
     ("1IjD5062", "Continuity"),
+    ("PxQSWIcD", "Sodium Dynamic Lights"),
+    ("8shC1gFX", "BetterF3"),
+    ("smUP7V3r", "Durability Tooltip"),
+    ("cVNW5lr6", "Item Highlighter"),
+    ("MPCX6s5C", "Not Enough Animations"),
+    ("qyVF9oeo", "Sound Physics Remastered"),
+    ("fM515JnW", "AmbientSounds"),
+    ("UVtY3ZAC", "Enchantment Descriptions"),
+    ("ETlrkaYF", "Cubes Without Borders"),
+    ("nrikgvxm", "Particle Rain"),
+    ("gPCdW0Wr", "Make Bubbles Pop"),
+    ("JtifUr64", "Traveler's Titles"),
+    ("5srFLIaK", "Better Clouds"),
+    ("QdG47OkI", "Model Fix"),
+    ("89Wsn8GD", "Capes"),
 ];
-/// PvP: performance, the Vortex PvP mods, and the extras PvP players use
-/// (nothing that changes combat).
+
+/// PvP: the client-side extras that help in a fight, on top of performance
+/// (the Vortex mod itself brings the PvP HUD).
 const PVP_FABRIC: &[(&str, &str)] = &[
     ("mOgUt4GM", "Mod Menu"),
     ("zV5r3pPn", "3D Skin Layers"),
@@ -1142,19 +1184,34 @@ const PVP_FABRIC: &[(&str, &str)] = &[
     ("cVNW5lr6", "Item Highlighter"),
     ("yjgIrBjZ", "Auth Me"),
     ("M08ruV16", "Bobby"),
+    ("89Wsn8GD", "Capes"),
+    ("xv94TkTM", "Controlling"),
+    ("aC3cM3Vq", "Mouse Tweaks"),
+    ("rI0hvYcd", "Visuality"),
 ];
+
 const PVP_FORGE: &[(&str, &str)] = &[
     ("zV5r3pPn", "3D Skin Layers"),
     ("kYuIpRLv", "Wavey Capes"),
     ("Wb5oqrBJ", "Chat Heads"),
     ("qQyHxfxd", "No Chat Reports"),
     ("smUP7V3r", "Durability Tooltip"),
+    ("89Wsn8GD", "Capes"),
+    ("xv94TkTM", "Controlling"),
+    ("aC3cM3Vq", "Mouse Tweaks"),
+    ("cVNW5lr6", "Item Highlighter"),
 ];
+
+/// A pack entry's alternatives, in order: (id, name).
+fn alternatives(entry: (&'static str, &'static str)) -> Vec<(&'static str, &'static str)> {
+    let names: Vec<&'static str> = entry.1.split('|').collect();
+    entry.0.split('|').enumerate().map(|(i, id)| (id, names.get(i).copied().unwrap_or(names[0]))).collect()
+}
+
 /// Remembers which pack mods were already added to an instance, so one you
 /// remove stays removed.
 const PERF_MARK: &str = ".vortex-performance.json";
 
-/// A pack list: (Modrinth project id, display name).
 type ModList = &'static [(&'static str, &'static str)];
 
 /// The mods an instance's pack adds, for its loader.
@@ -1203,16 +1260,20 @@ async fn setup_pack(
     let optifine = present.iter().any(|m| m.name.to_lowercase().contains("optif"));
     let index = modrinth::installed(instance);
     let mut todo = Vec::new();
-    for (id, name) in list {
-        if done.iter().any(|d| d == id) {
+    for entry in list {
+        let options = alternatives(entry);
+        let key = options[0].0;
+        if options.iter().any(|(id, _)| done.iter().any(|d| d == id)) {
             continue;
         }
-        let have = index.files.values().any(|e| e.project_id == id)
-            || present.iter().any(|m| m.name.eq_ignore_ascii_case(name));
-        if have || (optifine && ["AANobbMI", "YL57xq9U", "sk9rgfiA", "PtjYWJkn", "Bh37bMuy"].contains(&id)) {
-            done.push(id.to_string());
+        let have = options.iter().any(|(id, name)| {
+            index.files.values().any(|e| e.project_id == *id) || present.iter().any(|m| m.name.eq_ignore_ascii_case(name))
+        });
+        let clash = optifine && options.iter().any(|(id, _)| ["AANobbMI", "YL57xq9U", "sk9rgfiA", "4ZqxOvjD", "GchcoXML", "PtjYWJkn", "Bh37bMuy"].contains(id));
+        if have || clash {
+            done.push(key.to_string());
         } else {
-            todo.push((id, name));
+            todo.push((key, options));
         }
     }
     let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
@@ -1227,35 +1288,45 @@ async fn setup_pack(
     let mut start = PackEvent::new(name, "start");
     start.pack = Some(pack.to_string());
     start.version = Some(format!("{} {}", instance.minecraft_version, instance.loader.label().split(' ').next().unwrap_or_default()));
-    start.mods = todo.iter().map(|(id, n)| PackModView { id: id.to_string(), name: n.to_string() }).collect();
+    start.mods = todo.iter().map(|(id, o)| PackModView { id: id.to_string(), name: o[0].1.to_string() }).collect();
     send(start);
 
     let mut added = Vec::new();
     let (mut skipped, mut failed) = (0, 0);
-    for (id, mod_name) in todo {
+    for (key, options) in todo {
         let mut ev = PackEvent::new(name, "mod");
-        ev.id = Some(id.to_string());
+        ev.id = Some(key.to_string());
         ev.state = Some("active");
         send(ev.clone());
-        report(progress, &format!("Adding {mod_name}"), 0, 0);
-        ev.state = Some(match modrinth::install(launcher, instance, ProjectKind::Mod, id, None, false, true, progress).await {
-            Ok(_) => {
-                added.push(mod_name.to_string());
-                done.push(id.to_string());
-                "added"
+        // The first alternative with a build for this version wins.
+        let mut outcome = "skipped";
+        for (id, mod_name) in &options {
+            report(progress, &format!("Adding {mod_name}"), 0, 0);
+            match modrinth::install(launcher, instance, ProjectKind::Mod, id, None, false, true, progress).await {
+                Ok(_) => {
+                    added.push(mod_name.to_string());
+                    ev.name = Some(mod_name.to_string());
+                    outcome = "added";
+                    break;
+                }
+                // None for this version: try the next one.
+                Err(e) if format!("{e:#}").contains("no version") => {}
+                // Offline or Modrinth down: try again next launch.
+                Err(_) => {
+                    outcome = "failed";
+                    break;
+                }
             }
-            // None for this version: don't keep asking.
-            Err(e) if format!("{e:#}").contains("no version") => {
-                done.push(id.to_string());
+        }
+        match outcome {
+            "added" => done.push(key.to_string()),
+            "skipped" => {
+                done.push(key.to_string());
                 skipped += 1;
-                "skipped"
             }
-            // Offline or Modrinth down: try again next launch.
-            Err(_) => {
-                failed += 1;
-                "failed"
-            }
-        });
+            _ => failed += 1,
+        }
+        ev.state = Some(outcome);
         send(ev);
         let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
     }
@@ -1612,4 +1683,36 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vortex");
+}
+
+#[cfg(test)]
+mod pack_tests {
+    use super::*;
+
+    #[test]
+    fn alternatives_split_in_order() {
+        assert_eq!(alternatives(("a|b|c", "A|B|C")), vec![("a", "A"), ("b", "B"), ("c", "C")]);
+        assert_eq!(alternatives(("x", "X")), vec![("x", "X")]);
+    }
+
+    #[test]
+    fn packs_are_client_side_and_unique() {
+        // Server-only mods stay out: Radium, VMP, C2ME.
+        for pack in ["performance", "normal", "pvp"] {
+            for loader in [Loader::Fabric { version: None }, Loader::Forge { version: None }] {
+                let list = pack_mods(pack, &loader);
+                assert!(!list.is_empty());
+                let ids: Vec<&str> = list.iter().flat_map(|e| e.0.split('|')).collect();
+                for bad in ["2gvRmQXx", "wnEe9KBa", "VSNURh3q"] {
+                    assert!(!ids.contains(&bad), "{pack}: {bad}");
+                }
+                let mut seen = std::collections::HashSet::new();
+                for e in &list {
+                    assert!(seen.insert(e.0), "{pack}: {} twice", e.1);
+                    assert_eq!(e.0.split('|').count(), e.1.split('|').count(), "{}", e.1);
+                    assert!(e.0.split('|').all(|id| id.len() == 8 && id.chars().all(|c| c.is_ascii_alphanumeric())));
+                }
+            }
+        }
+    }
 }

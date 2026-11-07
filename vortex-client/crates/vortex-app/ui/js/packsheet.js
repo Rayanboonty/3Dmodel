@@ -137,6 +137,12 @@ function mod(ev) {
   }
   if (s.active === ev.id) s.active = null;
   s.finished += 1;
+  // An alternative stood in (REI for JEI, Starlight on older versions...).
+  if (ev.name && ev.name !== s.names[ev.id]) {
+    s.names[ev.id] = ev.name;
+    chip.querySelector(".pk-name").textContent = ev.name;
+    chip.title = `${ev.name}: ${stateLabel(ev.state, s.version)}`;
+  }
   const { x, y } = center(chip);
   if (ev.state === "added") {
     s.added += 1;

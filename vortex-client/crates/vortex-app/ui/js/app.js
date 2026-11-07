@@ -10,6 +10,7 @@ import { dust } from "./dust.js";
 import { watch as watchGlass, setEnabled as setLiquid, liquifyRail } from "./lglass.js";
 import { coverFor, updateName } from "./versions.js";
 import { packSheet } from "./packsheet.js";
+import { attachPlayDust } from "./playfx.js";
 
 // ------------------------------------------------------------------ state --
 
@@ -745,18 +746,18 @@ function playButton(inst) {
   const label = esc(parts.join(" · "));
   if (r.phase === "preparing") {
     const pct = r.total ? Math.round((r.done / r.total) * 100) : 0;
-    return `<button class="play busy glass lq ${r.total ? "" : "indet"}" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Cancel launch">
+    return `<button class="play busy glass lq ${r.total ? "" : "indet"}" id="play" data-action="stop" data-name="${esc(inst.name)}" data-pct="${pct}" aria-label="Cancel launch">
       <span class="play-track" aria-hidden="true"><span class="play-fill" style="width:${pct}%"><i class="play-edge"></i></span><span class="play-scan"></span></span>
       <span class="play-label">${esc(r.stage || "Preparing")}</span>
       <span class="play-sub">${r.total ? `${pct}% · ` : ""}Click to cancel</span></button>`;
   }
   if (r.phase === "running") {
     const t = S.started[inst.name] ? clock(Date.now() - S.started[inst.name]) : "";
-    return `<button class="play running lq" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Stop the game">
+    return `<button class="play running glass lq" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Stop the game">
       <span class="play-label"><span class="run-text"><span class="live-dot" aria-hidden="true"></span>PLAYING</span><span class="stop-text"><span class="stop-glyph" aria-hidden="true"></span>STOP GAME</span></span>
       <span class="play-sub">${esc(inst.name)}${t ? ` · ${t}` : ""}</span></button>`;
   }
-  return `<button class="play lq" id="play" data-action="play" data-name="${esc(inst.name)}">
+  return `<button class="play glass lq" id="play" data-action="play" data-name="${esc(inst.name)}">
     <span class="play-label">LAUNCH GAME</span>
     <span class="play-sub">${label}</span></button>`;
 }
@@ -1053,7 +1054,7 @@ function renderHome() {
   S.switcher = false;
   const recent = [...S.instances].filter((i) => !inst || i.name !== inst.name).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).slice(0, 3);
   const cluster = inst
-    ? `<div class="play-cluster split">${playButton(inst)}<button class="play-more" data-action="toggle-switcher" aria-label="Choose instance" aria-haspopup="menu" aria-expanded="false"><span class="chev">${icon("chev", 12)}</span></button></div>`
+    ? `<div class="play-cluster split">${playButton(inst)}<button class="play-more glass" data-action="toggle-switcher" aria-label="Choose instance" aria-haspopup="menu" aria-expanded="false"><span class="chev">${icon("chev", 12)}</span></button></div>`
     : `<div class="play-cluster"><button class="play" id="play" data-action="route" data-route="new"><span class="play-label">${icon("plus", 20)} CREATE</span><span class="play-sub">Pick any Minecraft version to start</span></button></div>`;
   const chips = u.home_recent ? recent.map((i) => `<button class="recent-chip glass glassy hl" data-action="play" data-name="${esc(i.name)}" title="Play ${esc(i.name)}">
       ${coverThumb(i, "sm")}<span class="meta"><strong>${esc(i.name)}</strong><span>${esc(chipSub(i))}</span></span><span class="go">${icon("play", 12)}</span></button>`).join("") : "";
@@ -1096,9 +1097,28 @@ function updateRunUI(name) {
       const btn = $("#play");
       if (btn) {
         const wasPhase = btn.classList.contains("busy") ? "preparing" : btn.classList.contains("running") ? "running" : "idle";
-        if (wasPhase === r.phase && r.phase === "preparing") {
+        if (btn._exploding) {
+          // Mid-explosion: the button is rebuilt from the latest state when it's done.
+        } else if (wasPhase === "preparing" && r.phase !== "preparing" && anims() && dust.enabled) {
+          btn._exploding = true;
+          const ok = r.phase === "running";
+          // Ready: the grains rush into the button, then it blows apart.
+          if (ok) dust.charge(btn, { duration: 420, count: 380, colors: ["rgba(255,250,235,1)", "rgba(255,214,150,1)", "rgba(255,181,71,1)"] });
+          const boom = () => dust.explode(btn, ok ? { power: 1.15 } : { colors: ["rgba(255,190,170,1)", "rgba(255,120,100,1)", "rgba(200,190,200,1)"], power: 0.6 });
+          new Promise((res) => setTimeout(res, ok ? 300 : 0)).then(boom).then(() => {
+            const cur = selectedInstance();
+            const old = $("#play");
+            if (!old || !cur) return;
+            old.outerHTML = playButton(cur);
+            const nb = $("#play");
+            if (!nb) return;
+            if (runOf(cur.name).phase === "running") dust.gather(nb, { duration: 700, density: 0.6, spread: 0.5 });
+            nb.animate([{ scale: "0.86", opacity: 0, filter: "blur(8px) brightness(1.6)" }, { offset: 0.6, scale: "1.04", opacity: 1, filter: "blur(0px) brightness(1.1)" }, { scale: "1", filter: "brightness(1)" }], { duration: 620, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+          });
+        } else if (wasPhase === r.phase && r.phase === "preparing") {
           const pct = r.total ? Math.round((r.done / r.total) * 100) : 0;
           btn.querySelector(".play-fill").style.width = `${pct}%`;
+          btn.dataset.pct = String(pct);
           btn.classList.toggle("indet", !r.total);
           const lab = btn.querySelector(".play-label");
           const stage = r.stage || "Preparing";
@@ -1110,9 +1130,10 @@ function updateRunUI(name) {
         } else {
           btn.outerHTML = playButton(inst);
           const nb = $("#play");
+          if (nb && r.phase === "preparing" && anims()) attachPlayDust(nb);
           if (nb && r.phase === "preparing" && wasPhase === "idle") {
             dust.charge(nb, { duration: 800, count: 300, colors: ["rgba(255,226,170,1)", "rgba(255,181,71,1)", "rgba(240,143,34,1)"] });
-            if (anims()) nb.animate([{ filter: "brightness(1.8) blur(4px)", scale: "1.04" }, { filter: "brightness(1) blur(0px)", scale: "1" }], { duration: 620, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+            if (anims()) nb.animate([{ scale: "1.05" }, { offset: 0.4, scale: "0.98" }, { scale: "1" }], { duration: 560, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
           }
           if (nb && r.phase === "running" && wasPhase !== "running") {
             const g = nb.getBoundingClientRect();
@@ -1218,9 +1239,9 @@ const autoName = (w) => `${w.version || "Minecraft"}${w.pack && w.pack !== "vani
 
 /** What an instance can be set up for; its mods are added on first launch. */
 const PACKS = {
-  pvp: { title: "PvP", icon: "sword", desc: "Vortex PvP mods (keystrokes, CPS, armor, zoom, freelook, toggle sprint), every performance mod, 3D skin layers, wavey capes, chat heads and more.", mods: ["Vortex PvP HUD", "Sodium", "Lithium", "ImmediatelyFast", "EntityCulling", "3D Skin Layers", "Wavey Capes", "Better Ping Display", "Shield Statuses", "Status Effect Bars", "Chat Heads", "Bobby", "+ 20 more"] },
-  normal: { title: "Normal", icon: "grid", desc: "Shaders, minimap and world map, recipes, item info, connected textures, dynamic lights and more, on top of every performance mod.", mods: ["Iris Shaders", "Xaero's Minimap", "Xaero's World Map", "JEI", "Jade", "AppleSkin", "Continuity", "LambDynamicLights", "Mouse Tweaks", "EMF/ETF", "Inventory Profiles", "+ 30 more"] },
-  performance: { title: "Performance", icon: "bolt", desc: "Every optimisation mod that works together: much higher FPS, faster loading and less memory. Nothing else changes.", mods: ["Sodium", "Lithium", "FerriteCore", "ModernFix", "ImmediatelyFast", "EntityCulling", "More Culling", "C2ME", "ScalableLux", "Krypton", "Dynamic FPS", "BadOptimizations", "+ 10 more"] },
+  pvp: { title: "PvP", icon: "sword", desc: "Vortex PvP mods (keystrokes, CPS, armor, zoom, freelook, toggle sprint), every performance mod, 3D skin layers, wavey capes, chat heads and more.", mods: ["Vortex PvP HUD", "Sodium", "Lithium", "ImmediatelyFast", "EntityCulling", "3D Skin Layers", "Wavey Capes", "Better Ping Display", "Shield Statuses", "Status Effect Bars", "Chat Heads", "Visuality", "Capes", "+ 25 more"] },
+  normal: { title: "Normal", icon: "grid", desc: "Shaders, minimap and world map, recipes, item info, connected textures, dynamic lights and more, on top of every performance mod.", mods: ["Iris Shaders", "Xaero's Minimap", "Xaero's World Map", "JEI", "Jade", "AppleSkin", "Continuity", "LambDynamicLights", "Sound Physics", "Not Enough Animations", "Visuality", "Particle Rain", "+ 45 more"] },
+  performance: { title: "Performance", icon: "bolt", desc: "Every optimisation mod that works together: much higher FPS, faster loading and less memory. Nothing else changes.", mods: ["Sodium", "Lithium", "FerriteCore", "ModernFix", "ImmediatelyFast", "EntityCulling", "More Culling", "ScalableLux", "Krypton", "Dynamic FPS", "BadOptimizations", "+ 10 more"] },
   vanilla: { title: "Vanilla", icon: "play", desc: "Minecraft exactly as Mojang ships it, no mods.", mods: [] },
 };
 
@@ -2883,20 +2904,12 @@ function toggleLog() {
 
 // ------------------------------------------------------------ play button --
 
-/** While the Play button is busy, dust streams along its fill and sparks rise off the edge. */
+/** A busy Play button (also one drawn by a page render) gets its particle loading. */
 function playParticles() {
-  let tick = 0;
   setInterval(() => {
     const btn = document.querySelector("#play.busy");
-    if (!btn || !anims() || document.hidden) return;
-    const track = btn.querySelector(".play-track");
-    if (!btn._flow) { btn._flow = true; dust.flow(track); }
-    if (++tick % 2 || btn.classList.contains("indet")) return;
-    const edge = btn.querySelector(".play-edge")?.getBoundingClientRect();
-    const t = track.getBoundingClientRect();
-    if (!edge || edge.right <= t.left + 2) return;
-    dust.burst(Math.min(edge.right, t.right - 4), t.top + t.height * (0.2 + Math.random() * 0.6), { count: 5, speed: 0.28 });
-  }, 110);
+    if (btn && anims()) attachPlayDust(btn);
+  }, 250);
 }
 
 // ------------------------------------------------------------ live events --

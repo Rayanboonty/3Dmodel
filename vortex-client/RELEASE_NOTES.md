@@ -1,3 +1,17 @@
+**The Play button, remade.**
+- **Liquid glass everywhere:** LAUNCH GAME is orange liquid glass, PLAYING is green liquid glass, and the button turns into dark glass while the game gets ready.
+- **Particle loading:** the progress is a river of glowing particles inside the button, thickest at its moving front. Steps without a percentage show a sweeping swarm.
+- **Explosion when it's ready:** the particles rush in, the button blows apart into gold sparks with a flash and a shockwave, and PLAYING forms out of the dust.
+- **Cleaner:** no more stray outlines, double lines next to the arrow, or dots floating around the button.
+
+**Packs matched to every version.**
+- **Client mods only:** Radium, VMP and C2ME are gone (they're for servers).
+- **The right mod for each version:** when a mod has no build for your version, its counterpart is used. REI or EMI if JEI is missing, Starlight on versions before ScalableLux, Rubidium on Forge versions before Embeddium, and Sodium Dynamic Lights if LambDynamicLights is missing. The install sheet shows which one was used.
+- **More mods:** Not Enough Animations, Sound Physics Remastered, Presence Footsteps, AmbientSounds, Enchantment Descriptions, Visuality, Cubes Without Borders, Particle Rain, Traveler's Titles, Better Clouds, Model Fix, Capes, Better Mount HUD, Language Reload and more. Forge gets Oculus (shaders).
+- Tested in game: Normal on 1.21.4 and 1.20.1 (title screen and a world), and PvP on 1.21.4 (title screen).
+
+**From 0.7.4:**
+
 **A liquid glass Play button while the game gets ready.** After you press Play, the button turns into liquid glass:
 - A glowing liquid fill shows the download, with a bright wobbling edge and dust streaming along it.
 - Sparks rise off the edge as it moves. Steps without a percentage show a sweep of light instead.

@@ -56,14 +56,16 @@ function view(i) {
 }
 
 // The same sets the launcher installs (Fabric), so the demo shows the real list.
-const PERF = ["Sodium", "Lithium", "FerriteCore", "EntityCulling", "ImmediatelyFast", "ModernFix", "More Culling", "Dynamic FPS", "BadOptimizations", "Krypton", "C2ME", "ScalableLux", "VMP", "Memory Leak Fix", "Fast IP Ping", "Debugify", "Sodium Extra", "Reese's Sodium Options", "Cull Less Leaves", "FastQuit", "Clumps", "ThreadTweak"];
+const PERF = ["Sodium", "Lithium", "FerriteCore", "EntityCulling", "ImmediatelyFast", "ModernFix", "More Culling", "Dynamic FPS", "BadOptimizations", "Krypton", "ScalableLux", "Memory Leak Fix", "Fast IP Ping", "Debugify", "Sodium Extra", "Reese's Sodium Options", "Cull Less Leaves", "FastQuit", "Clumps", "ThreadTweak", "Language Reload"];
 const PACK_MODS = {
   performance: PERF,
-  normal: [...PERF, "Mod Menu", "Iris Shaders", "Continuity", "LambDynamicLights", "AppleSkin", "Xaero's Minimap", "Xaero's World Map", "JEI", "Jade", "Mouse Tweaks", "Shulker Box Tooltip", "Chat Heads", "3D Skin Layers", "Entity Model Features", "Entity Texture Features", "BetterF3", "Controlling", "No Chat Reports", "Inventory Profiles Next", "Durability Tooltip", "Falling Leaves", "Wavey Capes", "Item Highlighter", "Bobby"],
-  pvp: [...PERF, "Mod Menu", "3D Skin Layers", "Wavey Capes", "Chat Heads", "No Chat Reports", "Better Ping Display", "Shield Statuses", "Status Effect Bars", "Durability Tooltip", "Item Highlighter", "Auth Me", "Bobby"],
+  normal: [...PERF, "Mod Menu", "Iris Shaders", "Continuity", "LambDynamicLights", "AppleSkin", "Xaero's Minimap", "Xaero's World Map", "JEI", "Jade", "Mouse Tweaks", "Shulker Box Tooltip", "Chat Heads", "3D Skin Layers", "Entity Model Features", "Entity Texture Features", "BetterF3", "Controlling", "No Chat Reports", "Inventory Profiles Next", "Durability Tooltip", "Falling Leaves", "Wavey Capes", "Item Highlighter", "Bobby", "Not Enough Animations", "Sound Physics Remastered", "Presence Footsteps", "AmbientSounds", "Enchantment Descriptions", "Visuality", "Cubes Without Borders", "Particle Rain", "Paginated Advancements", "Make Bubbles Pop", "Traveler's Titles", "Better Clouds", "Model Fix", "Capes", "Better Mount HUD", "Screenshot to Clipboard"],
+  pvp: [...PERF, "Mod Menu", "3D Skin Layers", "Wavey Capes", "Chat Heads", "No Chat Reports", "Better Ping Display", "Shield Statuses", "Status Effect Bars", "Durability Tooltip", "Item Highlighter", "Auth Me", "Bobby", "Capes", "Controlling", "Mouse Tweaks", "Visuality"],
 };
-// No 1.21.4 build of these, like the real thing.
-const NO_BUILD = new Set(["Memory Leak Fix", "Cull Less Leaves", "JEI"]);
+// Alternatives that stand in when the first choice has no build, like the real thing.
+const STAND_IN = { "JEI": "REI" };
+// No 1.21.4 build of these.
+const NO_BUILD = new Set(["Memory Leak Fix", "Cull Less Leaves"]);
 
 async function installPack(inst) {
   const name = inst.name;
@@ -83,7 +85,7 @@ async function installPack(inst) {
     }
     const st = NO_BUILD.has(m.name) ? "skipped" : "added";
     if (st === "added") added++; else skipped++;
-    emit("pack-install", { instance: name, phase: "mod", id: m.id, state: st });
+    emit("pack-install", { instance: name, phase: "mod", id: m.id, state: st, ...(STAND_IN[m.name] ? { name: STAND_IN[m.name] } : {}) });
     await wait(60);
   }
   emit("pack-install", { instance: name, phase: "done", added, skipped, failed: 0 });
@@ -154,7 +156,7 @@ export const mock = {
     await wait(60 + Math.random() * 120);
     switch (cmd) {
       case "bootstrap":
-        return { appVersion: "0.7.4", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
+        return { appVersion: "0.7.5", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
       case "list_versions":
         return versionList();
       case "loader_versions": {
@@ -204,9 +206,9 @@ export const mock = {
       }
       case "check_update":
         return location.search.includes("update")
-          ? { available: true, current: "0.7.4", version: "0.7.5", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.7.5/Vortex-windows-x64.zip",
+          ? { available: true, current: "0.7.5", version: "0.7.6", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.7.6/Vortex-windows-x64.zip",
               notes: "## What's new\n- Faster instance switching\n- New Servers panel on Home\n- Smoother pop-up animations\n- Fixed the Stop Game button" }
-          : { available: false, current: "0.7.4", version: "0.7.4" };
+          : { available: false, current: "0.7.5", version: "0.7.5" };
       case "install_update":
         for (let i = 0; i <= 20; i++) { emit("update-progress", { stage: "download", done: i * 535000, total: 10_700_000 }); await wait(90); }
         emit("update-progress", { stage: "install", done: 1, total: 1 });

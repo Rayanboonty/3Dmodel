@@ -360,7 +360,7 @@ export const dust = {
    * the grains break off row by row from the top and float up and away.
    * Resolves once the last row has broken off.
    */
-  shatter(el, { duration = 720, density = 1 } = {}) {
+  shatter(el, { duration = 720, density = 1, radial = 0 } = {}) {
     if (!el || !el.isConnected) return Promise.resolve();
     const r = el.getBoundingClientRect();
     if (!enabled || !r.width || !r.height) return Promise.resolve();
@@ -383,7 +383,7 @@ export const dust = {
     const peel = (duration / 1000) * 0.72;
     const jitter = 0.11;
     const t0 = performance.now();
-    const cx = r.left + r.width / 2;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     for (let j = 0; j < rows; j++) {
       const y = r.top + (j + 0.5) * ch;
       const row = (j + 0.5) / rows;
@@ -399,6 +399,8 @@ export const dust = {
           // against the dark background.
           const L = (0.2126 * R + 0.7152 * G + 0.0722 * B) / 255;
           if (L < 0.32) { const m = 0.38 * (1 - L / 0.32); R += (255 - R) * m; G += (255 - G) * m; B += (255 - B) * m; }
+          // An explosion glows hot: every grain is pushed toward fiery gold.
+          if (radial) { R += (255 - R) * 0.62; G += (205 - G) * 0.55; B += (120 - B) * 0.5; }
           color = `rgb(${R | 0},${G | 0},${B | 0})`;
         } else {
           color = colorAt(el, x, y, cache) || pick(fallback);
@@ -409,8 +411,16 @@ export const dust = {
           x: x + (Math.random() - 0.5) * cw * 0.8, y: y + (Math.random() - 0.5) * ch * 0.8,
           gx: r.left + i * cw - 0.3, gy: r.top + j * ch - 0.3, cell: Math.max(cw, ch) + 0.6, src,
           breakAt: t0 + (row * peel + jit) * 1000, jit: jit * 1000, sq: true, size: Math.min(cell * 0.95, 4.6) * (0.7 + Math.random() * 0.55), color,
-          vx: (Math.random() - 0.5) * 60 + ((x - cx) / r.width) * 46, vy: -(36 + Math.random() * 120),
-          turb: 48, drag: 1.1, wx: 0, wy: -40, life: 0.6 + Math.random() * 0.55, alpha,
+          ...(radial ? (() => {
+            // Blown outward from the middle, fastest near the centre line.
+            const dx = x - cx, dy = (y - cy) * 2.2 + (Math.random() - 0.5) * 30;
+            const d = Math.hypot(dx, dy) || 1, sp = radial * (180 + Math.random() * 420);
+            return { vx: (dx / d) * sp, vy: (dy / d) * sp * 0.75 - 40, turb: 70, drag: 2.1, wx: 0, wy: 60, life: 0.8 + Math.random() * 0.8 };
+          })() : {
+            vx: (Math.random() - 0.5) * 60 + ((x - cx) / r.width) * 46, vy: -(36 + Math.random() * 120),
+            turb: 48, drag: 1.1, wx: 0, wy: -40, life: 0.6 + Math.random() * 0.55,
+          }),
+          alpha,
         });
       }
     }
@@ -635,6 +645,22 @@ export const dust = {
   /** Start reading a picture's colours now, so they're ready later. */
   warm(url) { sampleImage(url); },
   colorsOfImage(url) { return sampleImage(url); },
+
+  /**
+   * Blow an element apart: its own grains fly outward from the middle, with a
+   * bright flash, a shockwave ring and a spray of sparks. Resolves when it's gone.
+   */
+  explode(el, { colors = ["rgba(255,240,205,1)", "rgba(255,200,110,1)", "rgba(255,160,60,1)"], power = 1 } = {}) {
+    if (!el || !el.isConnected || !enabled) return Promise.resolve();
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const done = this.shatter(el, { duration: 160, density: 1.4, radial: power });
+    this.glowRing(x, y, (k) => 30 + (1 - Math.pow(1 - k, 3)) * 420 * power, { duration: 1100, width: 240 });
+    this.ring(x, y, (k) => 20 + (1 - Math.pow(1 - k, 2.4)) * 380 * power, { duration: 800, perFrame: 60, colors });
+    this.burst(x, y, { count: 1100 * power, colors, speed: 2.8 * power });
+    setTimeout(() => this.burst(x, y, { count: 380 * power, colors: ["rgba(255,255,255,1)", ...colors], speed: 1.2 * power }), 90);
+    return done;
+  },
 
   /** A burst of dust from a point. */
   burst(x, y, { count = 220, colors = ["rgba(255,210,140,1)", "rgba(255,181,71,1)", "rgba(240,143,34,1)"], speed = 1 } = {}) {
