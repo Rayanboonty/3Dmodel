@@ -7,7 +7,7 @@ import { Player, defaultSkin } from "./player.js";
 import { sound } from "./sound.js";
 import { fx, toast } from "./fx.js";
 import { dust } from "./dust.js";
-import { watch as watchGlass, setEnabled as setLiquid, liquifyRail } from "./lglass.js";
+import { watch as watchGlass, setEnabled as setLiquid, liquifyRail, liquify } from "./lglass.js";
 import { coverFor, updateName } from "./versions.js";
 import { packSheet } from "./packsheet.js";
 import { attachPlayDust } from "./playfx.js";
@@ -316,7 +316,7 @@ function placeAnchor() {
 }
 
 const UI_DEFAULTS = {
-  glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
+  glass_effect: "default", glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
   home_news: true, home_quick: true, home_recent: true, side_labels: true, intro: true,
   auto_update: true, servers: null, widgets: null, theme: "dark",
   reduce_transparency: false, launcher_particles: true, ui_scale: 100, lite_mode: "auto", start_page: "home", flash_on_exit: true,
@@ -330,6 +330,28 @@ const FEATURED_SERVERS = [
   { name: "Wynncraft", address: "play.wynncraft.com" },
   { name: "MCC Island", address: "play.mccisland.net" },
 ];
+
+/**
+ * Glass effect (Appearance > Glass). Default: clean panels with no blur or
+ * refraction, the fastest by far (blur and liquid glass are what made the
+ * launcher slow on most computers). Blur: frosted panels. Liquid glass:
+ * frosted panels that also bend what's behind them.
+ */
+let liquidOn = false, glassWatched = false;
+function applyGlassEffect(s) {
+  const fx = s.reduce_transparency === true ? "default" : (s.glass_effect || "default");
+  document.documentElement.classList.toggle("no-glass", fx === "default");
+  document.documentElement.dataset.glass = fx;
+  const want = fx === "liquid";
+  if (want === liquidOn) return;
+  liquidOn = want;
+  setLiquid(want);
+  if (want) {
+    if (!glassWatched && !lite) { glassWatched = true; watchGlass(); }
+    liquify(document);
+    liquifyRail($("#nav"));
+  }
+}
 
 function applyLook(s = S.settings || {}) {
   // Fixed look: the Golden Meadow wallpaper, 40 px corner blur, 60% edge
@@ -372,7 +394,7 @@ function applyLook(s = S.settings || {}) {
   sound.setEnabled(s.ui_sounds !== false);
   fx.setEnabled(s.animations !== false);
   dust.setEnabled(s.animations !== false && s.launcher_particles !== false);
-  document.documentElement.classList.toggle("no-glass", s.reduce_transparency === true);
+  applyGlassEffect(s);
   document.body.style.zoom = String((Number(s.ui_scale) || 100) / 100);
   document.body.classList.toggle("no-anim", s.animations === false);
   document.body.classList.toggle("no-player", s.show_player === false);
@@ -1905,6 +1927,7 @@ function settingsBody(d) {
     const wall = u.wall_custom && S.customWallUrl ? S.customWallUrl : "img/birch-forest.jpg";
     return `<div class="settings-grid">
       <div class="card-pad"><h3>Feel</h3>
+        ${segRow(u, "glass_effect", "Glass", [["default", "Default"], ["blur", "Blur"], ["liquid", "Liquid glass"]], "Default is the fastest: clean panels, no blur. Blur frosts what's behind them. Liquid glass bends it like iOS 26 (needs a strong graphics card)")}
         ${segRow(u, "radius", "Corners", [["round", "Round"], ["soft", "Soft"], ["sharp", "Sharp"]])}
         ${segRow(u, "motion", "Motion", [["bouncy", "Bouncy"], ["smooth", "Smooth"]], "How presses, menus and tabs spring")}
       </div>
@@ -2069,7 +2092,6 @@ function settingsBody(d) {
     <div class="card-pad"><h3>Launcher</h3>
       ${selRow(g, "start_page", "Opens on", [["home", "Play"], ["instances", "Instances"], ["mods", "Mods"], ["skins", "Skins"]])}
       ${selRow(g, "ui_scale", "Size", [["90", "Compact (90%)"], ["100", "Normal"], ["110", "Large (110%)"], ["125", "Larger (125%)"]], "", "num")}
-      ${swRow(g, "reduce_transparency", "Reduce transparency", "Solid panels instead of glass, easier to read")}
       ${selRow(g, "lite_mode", "Lite mode", [["auto", "Auto (on for phones)"], ["on", "Always on"], ["off", "Always off"]], "Lighter effects for slow computers. After a restart")}
       ${swRow(g, "flash_on_exit", "Flash when the game closes", "The taskbar icon lights up so you notice")}
     </div>
@@ -3197,9 +3219,7 @@ async function boot() {
   // iOS 26 liquid glass on every glass surface (where the engine can).
   // Phones keep it on the tab bar only (every glass panel bending a moving
   // wallpaper costs too much there).
-  setLiquid(true);
-  if (!lite) watchGlass();
-  liquifyRail($("#nav"));
+  applyGlassEffect({ ...UI_DEFAULTS, ...(S.settings || {}) });
   if (lite) preblurBackdrop();
   // Let the loading bar's light run for a moment before the burst.
   const shown = performance.now() - bootT0;

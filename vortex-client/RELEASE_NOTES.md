@@ -1,3 +1,18 @@
+**A much faster launcher.** It was slow because of the glass effects. Measured on the Home screen, on a computer with no graphics card:
+- **Before:** liquid glass and blur everywhere, 83 ms a frame (about 12 FPS).
+- **Now, with the new Default:** 16.7 ms a frame (a smooth 60 FPS).
+
+The animated wallpaper also costs about half as much: the photo is resized once instead of every frame, and its slow drifting lights run at 30 FPS.
+
+**Choose your glass** in Settings > Appearance > Glass:
+- **Default** (the new standard): clean panels with no blur. The fastest.
+- **Blur:** frosted panels.
+- **Liquid glass:** frosted panels that also bend what's behind them, like iOS 26. Best on a strong graphics card.
+
+Reduce transparency is now the Default glass.
+
+**From 0.7.6:**
+
 **Max FPS mode.** A new switch in Settings > Game: fast graphics, no clouds or shadows, minimal particles, render distance 8. Anything you set yourself still wins.
 
 We measured it in the same world and spot, on a test machine with no graphics card:

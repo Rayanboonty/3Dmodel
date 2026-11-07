@@ -1219,8 +1219,10 @@ export class World {
     requestAnimationFrame((t) => this.loop(t));
     // Nothing to draw while the wallpaper is hidden (another page is open).
     if (document.hidden || this.paused) { this.last = now; return; }
-    // Phones draw at most maxFps frames a second.
-    if (this.maxFps < 60 && now - this.last < 1000 / this.maxFps - 3) return;
+    // Phones draw at most maxFps frames a second; a picture wallpaper (slow
+    // drifting motes) looks the same at 30 and costs half.
+    const cap = this.def && this.def.image ? Math.min(this.maxFps, 30) : this.maxFps;
+    if (cap < 60 && now - this.last < 1000 / cap - 3) return;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.emitPhase();
@@ -1504,9 +1506,29 @@ export class World {
     // Where the picture is cropped on narrow screens (its point of interest).
     const [fx, fy] = D.focus || [0.5, 0.5];
     const ox = (w - dw) * fx - this.parallax * w * 0.018, oy = (h - dh) * fy - this.tilt * h * 0.02;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(img, ox, oy, dw, dh);
+    if (rise < 1) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, ox, oy, dw, dh);
+    } else {
+      // Settled: scale the photo once (high-quality resampling of a big
+      // picture every frame was most of the wallpaper's cost), then blit.
+      const key = `${D.image}:${w}x${h}@${this.dpr}`;
+      if (this.picKey !== key) {
+        const c = this.picCache || (this.picCache = document.createElement("canvas"));
+        c.width = Math.max(1, Math.round(w * this.dpr));
+        c.height = Math.max(1, Math.round(h * this.dpr));
+        const g = c.getContext("2d");
+        g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        g.imageSmoothingEnabled = true;
+        g.imageSmoothingQuality = "high";
+        g.drawImage(img, ox, oy, dw, dh);
+        this.picKey = key;
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(this.picCache, 0, 0);
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    }
     if (D.sunAt) this.drawSun(ctx, ox + dw * D.sunAt[0], oy + dh * D.sunAt[1], w, h, t, D);
     this.drawPictureLife(ctx, w, h, t, dt, D);
   }
