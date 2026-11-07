@@ -25,11 +25,14 @@ public final class VortexStyle {
         boolean active = w.active;
         boolean hot = active && w.isSelected();
         int accent = VortexMods.accent();
-        int bg = !active ? 0x90101318 : hot ? 0xE8262C38 : 0xD0151922;
-        Ui.round(c, x, y, wd, h, bg);
-        Ui.outline(c, x, y, wd, h, hot ? accent : 0x38FFFFFF);
-        c.fill(x + 2, y + 1, x + wd - 2, y + 2, hot ? 0x30FFFFFF : 0x14FFFFFF);
-        if (hot) c.fill(x + 3, y + h - 2, x + wd - 3, y + h - 1, Ui.alpha(accent, 0.85f));
+        int bg = !active ? 0x80101318 : hot ? 0xE0262C38 : 0xC0151922;
+        int r = Math.min(7, h / 2 - 1);
+        // Rounded glass; the accent lights the edge and the bottom on hover.
+        Ui.glass(c, x, y, wd, h, r, bg);
+        if (hot) {
+            Ui.roundedOutline(c, x, y, wd, h, r, Ui.alpha(accent, 0.9f));
+            c.fillGradient(x + 2, y + h / 2, x + wd - 2, y + h - 1, 0x00000000, Ui.alpha(accent, 0.22f));
+        }
         int tc = !active ? 0xFF6E747E : hot ? 0xFFFFFFFF : 0xFFE4E8EE;
         Gfx.buttonLabel(c, w, tc);
     }

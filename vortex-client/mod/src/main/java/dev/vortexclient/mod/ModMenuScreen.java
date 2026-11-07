@@ -22,10 +22,10 @@ public class ModMenuScreen extends ScreenBase {
 
     private record Hit(int x, int y, int w, int h, Action action) {}
 
-    private static final int BG = 0xF00E1116;
-    private static final int CARD = 0xFF171B22;
-    private static final int CARD_HOT = 0xFF1D222B;
-    private static final int LINE = 0xFF252B35;
+    private static final int BG = 0xD80C0F15;
+    private static final int CARD = 0xC8171B23;
+    private static final int CARD_HOT = 0xE0202630;
+    private static final int LINE = 0x30FFFFFF;
     private static final int TEXT = 0xFFF2F4F7;
     private static final int DIM = 0xFF8D96A5;
     private static final int CONTROL = 0xFF242A33;
@@ -100,48 +100,79 @@ public class ModMenuScreen extends ScreenBase {
         int lift = Math.round((1 - ease) * 10);
         int accent = VortexMods.accent();
 
-        int pw = Math.min(width - 24, 470);
+        int pw = Math.min(width - 24, 520);
         int px = (width - pw) / 2;
-        int top = 8 + lift;
-
-        // Top bar: section pills on the left, close on the right.
-        int tx = px;
-        tx = pill(c, mx, my, tx, top, "MODS", true, accent, () -> selected = null) + 4;
         boolean inWorld = client != null && client.world != null;
-        pill(c, mx, my, tx, top, "EDIT HUD", false, accent, () -> {
-            if (inWorld) client.setScreen(new HudEditorScreen(this));
-            else flash("Join a world to move HUD elements");
-        });
-        int cs = 20;
-        int cx = px + pw - cs;
-        boolean closeHot = Ui.inside(mx, my, cx, top, cs, cs);
-        Ui.round(c, cx, top, cs, cs, closeHot ? 0xFF3A1518 : 0xC0141820);
-        Ui.outline(c, cx, top, cs, cs, closeHot ? 0xFFFF5A5F : 0xFF6B2A30);
-        for (int i = 0; i < 7; i++) {
-            c.fill(cx + 7 + i, top + 7 + i, cx + 8 + i, top + 8 + i, 0xFFFF6B70);
-            c.fill(cx + 13 - i, top + 7 + i, cx + 14 - i, top + 8 + i, 0xFFFF6B70);
-        }
-        hit(cx, top, cs, cs, (x, y) -> close());
 
-        int py = top + cs + 8;
-        int ph = height - py - 8;
-        Ui.round(c, px, py, pw, ph, BG);
-        Ui.outline(c, px, py, pw, ph, LINE);
+        // The dock: Mods, Edit HUD, Close.
+        int dockH = 24, dockY = height - dockH - 6 + lift;
+        String[] labels = {"MODS", "EDIT HUD", "CLOSE"};
+        int[] bw = new int[labels.length];
+        int dockW = 6;
+        for (int i = 0; i < labels.length; i++) {
+            bw[i] = Ui.width(labels[i]) + 30;
+            dockW += bw[i] + 2;
+        }
+        int dockX = (width - dockW) / 2;
+        Ui.glass(c, dockX, dockY, dockW, dockH, 11, 0xD0101319);
+        int bx = dockX + 4;
+        for (int i = 0; i < labels.length; i++) {
+            final int which = i;
+            boolean on = i == 0;
+            boolean hot = Ui.inside(mx, my, bx, dockY + 3, bw[i], dockH - 6);
+            if (on) Ui.rounded(c, bx, dockY + 3, bw[i], dockH - 6, 8, accent);
+            else if (hot) Ui.rounded(c, bx, dockY + 3, bw[i], dockH - 6, 8, i == 2 ? 0x60FF4A55 : 0x26FFFFFF);
+            int fg = on ? 0xFF16110A : (i == 2 && hot ? 0xFFFFD0D3 : TEXT);
+            dockIcon(c, i, bx + 9, dockY + 8, fg);
+            Ui.text(c, labels[i], bx + 21, dockY + 8, fg);
+            hit(bx, dockY + 3, bw[i], dockH - 6, (x, y) -> {
+                if (which == 0) selected = null;
+                else if (which == 1) {
+                    if (inWorld) client.setScreen(new HudEditorScreen(this));
+                    else flash("Join a world to move HUD elements");
+                } else close();
+            });
+            bx += bw[i] + 2;
+        }
+
+        int py = 8 + lift;
+        int ph = dockY - 6 - py;
+        Ui.glass(c, px, py, pw, ph, 10, BG);
 
         if (selected == null) renderGrid(c, mx, my, px, py, pw, ph, accent);
         else renderOptions(c, mx, my, px, py, pw, ph, accent);
 
         if (notice != null && System.currentTimeMillis() - noticeAt < 2200) {
-            int nw = Ui.width(notice) + 16;
-            Ui.round(c, (width - nw) / 2, height - 28, nw, 16, 0xF0201820);
-            Ui.outline(c, (width - nw) / 2, height - 28, nw, 16, accent);
-            Ui.centered(c, notice, width / 2, height - 24, TEXT);
+            int nw = Ui.width(notice) + 20;
+            int ny = dockY - 24;
+            Ui.glass(c, (width - nw) / 2, ny, nw, 18, 9, 0xF0201820);
+            Ui.roundedOutline(c, (width - nw) / 2, ny, nw, 18, 9, Ui.alpha(accent, 0.8f));
+            Ui.centered(c, notice, width / 2, ny + 5, TEXT);
         }
     }
 
     private void flash(String text) {
         notice = text;
         noticeAt = System.currentTimeMillis();
+    }
+
+    /** Dock icons: a grid (Mods), arrows (Edit HUD), a cross (Close). */
+    private void dockIcon(DrawContext c, int which, int x, int y, int fg) {
+        if (which == 0) {
+            for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++) c.fill(x + i * 4, y + j * 4, x + 3 + i * 4, y + 3 + j * 4, fg);
+        } else if (which == 1) {
+            c.fill(x + 3, y - 1, x + 4, y + 8, fg);
+            c.fill(x - 1, y + 3, x + 8, y + 4, fg);
+            c.fill(x + 2, y, x + 5, y + 1, fg);
+            c.fill(x + 2, y + 6, x + 5, y + 7, fg);
+            c.fill(x, y + 2, x + 1, y + 5, fg);
+            c.fill(x + 6, y + 2, x + 7, y + 5, fg);
+        } else {
+            for (int i = 0; i < 7; i++) {
+                c.fill(x + i, y + i, x + i + 1, y + i + 1, fg);
+                c.fill(x + 6 - i, y + i, x + 7 - i, y + i + 1, fg);
+            }
+        }
     }
 
     /** A top-bar pill; returns its right edge. */
@@ -186,28 +217,35 @@ public class ModMenuScreen extends ScreenBase {
     }
 
     private void renderGrid(DrawContext c, int mx, int my, int px, int py, int pw, int ph, int accent) {
-        int pad = 8;
-        // Category pills.
-        int x = px + pad, y = py + pad;
+        int pad = 10;
+        // Title, then the category tabs in a segmented track.
+        Ui.text(c, "VORTEX", px + pad, py + 9, accent);
+        Ui.text(c, "CLIENT", px + pad + Ui.width("VORTEX ") , py + 9, DIM);
+        int x = px + pad + Ui.width("VORTEX CLIENT") + 14, y = py + 6;
+        int trackW = 4;
+        for (String cat : CATEGORIES) trackW += Ui.width(cat) + 18;
+        Ui.rounded(c, x - 2, y - 2, trackW, 18, 9, 0x50000000);
         for (String cat : CATEGORIES) {
             int w = Ui.width(cat) + 18;
             boolean on = cat.equals(category);
-            boolean hot = Ui.inside(mx, my, x, y, w, 16);
-            Ui.round(c, x, y, w, 16, on ? accent : (hot ? 0xFF2A303A : CONTROL));
-            Ui.centered(c, cat, x + w / 2, y + 4, on ? 0xFF16110A : (hot ? TEXT : DIM));
-            hit(x, y, w, 16, (a, b) -> {
+            boolean hot = Ui.inside(mx, my, x, y, w, 14);
+            if (on) Ui.rounded(c, x, y, w, 14, 7, accent);
+            else if (hot) Ui.rounded(c, x, y, w, 14, 7, 0x22FFFFFF);
+            Ui.centered(c, cat, x + w / 2, y + 3, on ? 0xFF16110A : (hot ? TEXT : DIM));
+            hit(x, y, w, 14, (a, b) -> {
                 category = cat;
                 scrollTarget = 0;
             });
-            x += w + 4;
+            x += w;
         }
+        y = py + 6;
         // Search box.
         int sw = Math.min(130, px + pw - pad - x - 8);
         if (sw > 50) {
             int sx = px + pw - pad - sw;
             boolean hot = Ui.inside(mx, my, sx, y, sw, 16);
-            Ui.round(c, sx, y, sw, 16, hot || searchFocused ? 0xFF20252E : CONTROL);
-            if (searchFocused) Ui.outline(c, sx, y, sw, 16, Ui.alpha(accent, 0.8f));
+            Ui.rounded(c, sx, y - 2, sw, 18, 9, hot || searchFocused ? 0x70000000 : 0x50000000);
+            if (searchFocused) Ui.roundedOutline(c, sx, y - 2, sw, 18, 9, Ui.alpha(accent, 0.8f));
             // Magnifier.
             Ui.outline(c, sx + 6, y + 4, 6, 6, DIM);
             c.fill(sx + 11, y + 10, sx + 13, y + 12, DIM);
@@ -220,8 +258,8 @@ public class ModMenuScreen extends ScreenBase {
         // Cards.
         int gx = px + pad, gy = y + 16 + pad, gw = pw - pad * 2, gh = py + ph - pad - gy;
         int cols = gw >= 430 ? 4 : gw >= 300 ? 3 : 2;
-        int gap = 6;
-        int cw = (gw - gap * (cols - 1) - 4) / cols, ch = 76;
+        int gap = 7;
+        int cw = (gw - gap * (cols - 1) - 4) / cols, ch = 78;
         List<Module> list = visible();
         int rows = (list.size() + cols - 1) / cols;
         maxScroll = Math.max(0, rows * (ch + gap) - gap - gh);
@@ -256,8 +294,10 @@ public class ModMenuScreen extends ScreenBase {
         boolean on = VortexMods.config.enabled(m);
         boolean hot = inGrid && Ui.inside(mx, my, x, y, w, h);
         float hv = anim("card:" + m.id, hot ? 1 : 0, 16f);
-        Ui.round(c, x, y, w, h, Ui.mix(CARD, CARD_HOT, hv));
-        Ui.outline(c, x, y, w, h, Ui.mix(LINE, Ui.alpha(accent, 0.7f), hv * 0.8f));
+        float onT = anim("on:" + m.id, on ? 1 : 0, 14f);
+        Ui.glass(c, x, y, w, h, 7, Ui.mix(CARD, CARD_HOT, hv));
+        if (onT > 0.01f) c.fillGradient(x + 2, y + h / 2, x + w - 2, y + h - 2, 0x00000000, Ui.alpha(accent, 0.16f * onT));
+        Ui.roundedOutline(c, x, y, w, h, 7, Ui.mix(LINE, Ui.alpha(accent, 0.75f), Math.max(hv * 0.8f, onT * 0.55f)));
         boolean hasOptions = !m.options.isEmpty();
         // Clicking the card body opens its options; the controls on top win.
         if (inGrid && hasOptions) hit(x, y, w, h - 22, (a, b) -> openOptions(m));
@@ -287,25 +327,21 @@ public class ModMenuScreen extends ScreenBase {
         c.drawItem(new ItemStack(m.icon), 0, 0);
         Gfx.pop(c);
 
-        // Bottom row: options and the on/off bar.
-        int by = y + h - 20;
-        int barX = x + 6;
+        // Bottom row: options on the left, a switch on the right.
+        int by = y + h - 19;
         if (hasOptions) {
             boolean gHot = inGrid && Ui.inside(mx, my, x + 6, by, 16, 14);
-            Ui.round(c, x + 6, by, 16, 14, gHot ? 0xFF2E3540 : CONTROL);
+            Ui.rounded(c, x + 6, by, 16, 14, 7, gHot ? 0x40FFFFFF : 0x1EFFFFFF);
             gear(c, x + 14, by + 7, gHot ? TEXT : DIM);
             if (inGrid) hit(x + 6, by, 16, 14, (a, b) -> openOptions(m));
-            barX = x + 26;
         }
-        int barW = x + w - 6 - barX;
-        boolean bHot = inGrid && Ui.inside(mx, my, barX, by, barW, 14);
-        float t = anim("on:" + m.id, on ? 1 : 0, 14f);
-        int bg = Ui.mix(CONTROL, ON_BG, t);
-        if (bHot) bg = Ui.mix(bg, 0xFFFFFFFF, 0.06f);
-        Ui.round(c, barX, by, barW, 14, bg);
-        Ui.centered(c, on ? "Enabled" : "Disabled", barX + barW / 2, by + 3, Ui.mix(DIM, ON_TEXT, t));
+        int swW = 24, swH = 13, swX = x + w - 7 - swW, swY = by + 1;
+        boolean bHot = inGrid && Ui.inside(mx, my, swX - 26, by - 1, swW + 26, 16);
+        Ui.text(c, on ? "ON" : "OFF", swX - Ui.width(on ? "ON" : "OFF") - 5, swY + 3, Ui.mix(DIM, TEXT, onT));
+        Ui.toggle(c, swX, swY, swW, swH, onT, accent);
+        if (bHot) Ui.roundedOutline(c, swX - 1, swY - 1, swW + 2, swH + 2, 7, 0x40FFFFFF);
         if (inGrid) {
-            hit(barX, by, barW, 14, (a, b) -> {
+            hit(swX - 26, by - 1, swW + 26, 16, (a, b) -> {
                 VortexMods.config.state(m).enabled = !on;
                 VortexMods.config.save();
                 VortexMods.applyToggles();
@@ -340,7 +376,7 @@ public class ModMenuScreen extends ScreenBase {
         int x = px + pad, y = py + pad;
         // Back.
         boolean backHot = Ui.inside(mx, my, x, y, 18, 18);
-        Ui.round(c, x, y, 18, 18, backHot ? 0xFF2A303A : CONTROL);
+        Ui.rounded(c, x, y, 18, 18, 9, backHot ? 0x40FFFFFF : 0x1EFFFFFF);
         for (int i = 0; i < 4; i++) {
             c.fill(x + 7 + i, y + 9 - i, x + 8 + i, y + 10 - i, TEXT);
             c.fill(x + 7 + i, y + 9 + i, x + 8 + i, y + 10 + i, TEXT);
@@ -356,7 +392,7 @@ public class ModMenuScreen extends ScreenBase {
         int rw = Ui.width("Reset") + 16;
         int rx = px + pw - pad - rw;
         boolean resetHot = Ui.inside(mx, my, rx, y + 1, rw, 16);
-        Ui.round(c, rx, y + 1, rw, 16, resetHot ? 0xFF2A303A : CONTROL);
+        Ui.rounded(c, rx, y + 1, rw, 16, 8, resetHot ? 0x40FFFFFF : 0x1EFFFFFF);
         Ui.centered(c, "Reset", rx + rw / 2, y + 5, resetHot ? TEXT : DIM);
         hit(rx, y + 1, rw, 16, (a, b) -> {
             VortexMods.config.reset(m);
@@ -406,7 +442,7 @@ public class ModMenuScreen extends ScreenBase {
             c.fill(bx, ground, bx + bw, ground + 3, 0xFF6DAA3C);
             c.fill(bx, ground + 3, bx + bw, by + bh, 0xFF7A5537);
             for (int i = 0; i < bw; i += 6) c.fill(bx + i, ground + 3 + (i * 7 % 5), bx + i + 2, ground + 5 + (i * 7 % 5), 0xFF6A472D);
-            Ui.outline(c, bx, by, bw, bh, LINE);
+            Ui.roundedOutline(c, bx, by, bw, bh, 4, LINE);
             int[] s = Hud.size(m);
             float scale = (float) VortexMods.config.num(m, "scale");
             float fit = Math.min(scale, Math.min((bw - 16f) / Math.max(1, s[0]), (bh - 16f) / Math.max(1, s[1])));
@@ -421,13 +457,10 @@ public class ModMenuScreen extends ScreenBase {
 
     private int toggleRow(DrawContext c, int mx, int my, int x, int right, int y, String label, boolean value, String key, int accent, java.util.function.Consumer<Boolean> set) {
         boolean hot = Ui.inside(mx, my, x, y, right - x, 18) && my >= listTop && my < listBottom;
-        if (hot) Ui.round(c, x - 2, y, right - x + 4, 18, 0x10FFFFFF);
+        if (hot) Ui.rounded(c, x - 2, y, right - x + 4, 18, 6, 0x12FFFFFF);
         Ui.text(c, label, x + 2, y + 5, TEXT);
         float t = anim("t:" + key, value ? 1 : 0, 16f);
-        int tw = 22, th = 11, tx = right - tw - 2, ty = y + 4;
-        Ui.round(c, tx, ty, tw, th, Ui.mix(0xFF39404B, accent, t));
-        int kx = tx + 2 + Math.round(t * (tw - 11));
-        Ui.round(c, kx, ty + 2, 7, 7, 0xFFFFFFFF);
+        Ui.toggle(c, right - 26, y + 3, 24, 13, t, accent);
         listHit(x, y, right - x, 18, (a, b) -> {
             set.accept(!value);
             VortexMods.config.save();
@@ -449,7 +482,7 @@ public class ModMenuScreen extends ScreenBase {
             final int cw = w;
             final int cx = right - 2 - w;
             boolean hot = Ui.inside(mx, my, cx, y + 2, w, 14) && my >= listTop && my < listBottom;
-            Ui.round(c, cx, y + 2, w, 14, hot ? 0xFF2E3540 : CONTROL);
+            Ui.rounded(c, cx, y + 2, w, 14, 7, hot ? 0x40FFFFFF : 0x1EFFFFFF);
             Ui.text(c, "<", cx + 5, y + 5, DIM);
             Ui.text(c, ">", cx + w - 10, y + 5, DIM);
             Ui.centered(c, current, cx + w / 2, y + 5, accent);
@@ -469,7 +502,7 @@ public class ModMenuScreen extends ScreenBase {
             cx -= w;
             boolean on = ch.equals(current);
             boolean hot = Ui.inside(mx, my, cx, y + 2, w, 14) && my >= listTop && my < listBottom;
-            Ui.round(c, cx, y + 2, w, 14, on ? accent : (hot ? 0xFF2E3540 : CONTROL));
+            Ui.rounded(c, cx, y + 2, w, 14, 7, on ? accent : (hot ? 0x40FFFFFF : 0x1EFFFFFF));
             Ui.centered(c, ch, cx + w / 2, y + 5, on ? 0xFF16110A : (hot ? TEXT : DIM));
             listHit(cx, y + 2, w, 14, (a, b) -> {
                 VortexMods.config.set(m, o.key(), ch);
@@ -487,14 +520,15 @@ public class ModMenuScreen extends ScreenBase {
         String label = o.step() < 1 ? String.format(Locale.ROOT, "%.1f", v) : String.valueOf(Math.round(v));
         if (o.key().equals("level")) label += "×";
         int vw = Math.max(22, Ui.width(label) + 8);
-        Ui.round(c, tx - vw - 8, y + 3, vw, 12, CONTROL);
+        Ui.rounded(c, tx - vw - 8, y + 3, vw, 12, 6, 0x1EFFFFFF);
         Ui.centered(c, label, tx - vw - 8 + vw / 2, y + 5, TEXT);
         float f = (float) ((v - o.min()) / (o.max() - o.min()));
-        c.fill(tx, ty, tx + tw, ty + 2, 0xFF39404B);
-        c.fill(tx, ty, tx + Math.round(f * tw), ty + 2, accent);
-        int kx = tx + Math.round(f * tw) - 3;
+        Ui.rounded(c, tx, ty - 1, tw, 4, 2, 0xFF39404B);
+        Ui.rounded(c, tx, ty - 1, Math.max(4, Math.round(f * tw)), 4, 2, accent);
+        int kx = tx + Math.round(f * tw) - 4;
         boolean hot = (Ui.inside(mx, my, tx - 4, y, tw + 8, 18) && my >= listTop && my < listBottom) || draggingSlider == o;
-        Ui.round(c, kx, ty - 3, 7, 8, hot ? 0xFFFFFFFF : accent);
+        Ui.rounded(c, kx, ty - 4, 9, 9, 4, 0xFFFFFFFF);
+        if (hot) Ui.roundedOutline(c, kx - 1, ty - 5, 11, 11, 5, Ui.alpha(accent, 0.9f));
         listHit(tx - 4, y, tw + 8, 18, (a, b) -> {
             draggingSlider = o;
             sliderX = tx;

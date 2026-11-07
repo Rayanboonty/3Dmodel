@@ -59,6 +59,11 @@ pub struct LaunchCommand {
     pub args: Vec<String>,
     pub working_dir: PathBuf,
     secrets: Vec<String>,
+    /// Program (and its arguments) the Java command runs under, like
+    /// `gamemoderun` or `prime-run`. Empty = run Java directly.
+    pub wrapper: Vec<String>,
+    /// Extra environment variables for the game.
+    pub env: Vec<(String, String)>,
 }
 
 impl LaunchCommand {
@@ -276,6 +281,8 @@ pub fn build_command(
         args,
         working_dir: opts.game_dir.clone(),
         secrets: vec![session.access_token.clone()],
+        wrapper: Vec::new(),
+        env: Vec::new(),
     })
 }
 
@@ -300,7 +307,15 @@ impl GameProcess {
 /// plain lines) and delivered through [`GameProcess::logs`].
 pub fn spawn(cmd: &LaunchCommand) -> Result<GameProcess> {
     std::fs::create_dir_all(&cmd.working_dir)?;
-    let mut command = Command::new(&cmd.java);
+    let mut command = match cmd.wrapper.split_first() {
+        Some((prog, rest)) => {
+            let mut c = Command::new(prog);
+            c.args(rest).arg(&cmd.java);
+            c
+        }
+        None => Command::new(&cmd.java),
+    };
+    command.envs(cmd.env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
     command
         .args(&cmd.args)
         .current_dir(&cmd.working_dir)

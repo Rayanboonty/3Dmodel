@@ -1,8 +1,18 @@
 pluginManagement {
     repositories {
         maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
+        // Google's copy of Maven Central, for when Central rate-limits.
+        maven { name = 'CentralMirror'; url = 'https://maven-central.storage-download.googleapis.com/maven2/' }
         mavenCentral()
         gradlePluginPortal()
     }
 }
 rootProject.name = 'vortex-mods-mojang'
+
+// Same mirror for the build's own dependencies (Loom adds Mojang's and Fabric's).
+dependencyResolutionManagement {
+    repositories {
+        maven { name = 'CentralMirror'; url = 'https://maven-central.storage-download.googleapis.com/maven2/' }
+    }
+    repositoriesMode = RepositoriesMode.PREFER_PROJECT
+}

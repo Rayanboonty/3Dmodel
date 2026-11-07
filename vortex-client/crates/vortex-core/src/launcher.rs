@@ -295,6 +295,13 @@ impl Launcher {
             let tuned = fastlaunch::tuned_jvm_args(major, &extra_jvm_args, base.then_some(cds.as_path()));
             extra_jvm_args.splice(0..0, tuned);
         }
+        // A chosen garbage collector replaces the tuned G1 flags.
+        let (_, java_major) = installed.version.java_requirement();
+        let gc = crate::extras::gc_args(&settings.gc, java_major);
+        if !gc.is_empty() {
+            extra_jvm_args.retain(|a| !(a.starts_with("-XX:+Use") && a.ends_with("GC")) && !a.starts_with("-XX:G1") && !a.starts_with("-XX:MaxGCPauseMillis"));
+            extra_jvm_args.splice(0..0, gc);
+        }
         let opts = LaunchOptions {
             java,
             game_dir,
@@ -308,8 +315,12 @@ impl Launcher {
         // Newer versions take fullscreen from the game's own options.txt over
         // the --fullscreen flag, so the launcher's choice is written there too.
         set_game_option(&opts.game_dir, "fullscreen", if settings.fullscreen { "true" } else { "false" });
+        crate::extras::apply_game_defaults(&opts.game_dir, &instance.minecraft_version, settings);
         report(progress, "Ready", 1, 1);
-        launch::build_command(&installed, &self.paths, session, &opts)
+        let mut cmd = launch::build_command(&installed, &self.paths, session, &opts)?;
+        cmd.wrapper = crate::extras::split_command(&settings.wrapper_command);
+        cmd.env = crate::extras::parse_env(&settings.game_env);
+        Ok(cmd)
     }
 
     /// Read the files an instance's last launch used, so the next start

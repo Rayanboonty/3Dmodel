@@ -740,6 +740,31 @@ pub async fn install(
     })
 }
 
+/// Update everything installed from Modrinth to its newest version for the
+/// instance (mods you turned off are left as they are). Returns the titles
+/// that were updated.
+pub async fn update_all(launcher: &Launcher, instance: &Instance, allow_unstable: bool, progress: &ProgressFn) -> Result<Vec<String>> {
+    let index = installed(instance);
+    let mut updated = Vec::new();
+    for (k, e) in &index.files {
+        let file = k.split_once('/').map(|(_, f)| f).unwrap_or(k);
+        // Turned off on the Mods page: leave it.
+        if !e.kind.dir(instance).join(file).is_file() {
+            continue;
+        }
+        let target = Target::for_instance(instance, e.kind);
+        let Ok(list) = raw_versions(launcher, &e.project_id, &target).await else { continue };
+        let Some(best) = pick(&list, allow_unstable) else { continue };
+        if best.id == e.version_id {
+            continue;
+        }
+        if install(launcher, instance, e.kind, &e.project_id, Some(&best.id), allow_unstable, false, progress).await.is_ok() {
+            updated.push(e.title.clone());
+        }
+    }
+    Ok(updated)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

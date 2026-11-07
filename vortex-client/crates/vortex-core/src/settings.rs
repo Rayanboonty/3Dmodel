@@ -77,6 +77,53 @@ pub struct Settings {
     /// Add tuned garbage-collector and class-sharing flags on Java 17+.
     pub tuned_jvm: bool,
 
+    // ---- Game defaults, written into each instance's options.txt before
+    // it starts. None = leave the game's own setting alone.
+    pub max_fps: Option<u32>,
+    pub render_distance: Option<u32>,
+    pub simulation_distance: Option<u32>,
+    /// 0 = Auto.
+    pub gui_scale: Option<u32>,
+    pub vsync: Option<bool>,
+    /// Field of view in degrees (30-110).
+    pub fov: Option<u32>,
+    pub raw_mouse_input: Option<bool>,
+    pub narrator_off: bool,
+    pub skip_multiplayer_warning: bool,
+    pub auto_jump: Option<bool>,
+    pub entity_shadows: Option<bool>,
+    /// `all`, `decreased` or `minimal`.
+    pub particles: Option<String>,
+    /// `fancy`, `fast` or `off`.
+    pub clouds: Option<String>,
+    pub pause_on_lost_focus: Option<bool>,
+    /// Skip the "Move with WASD" tutorial pop-ups.
+    pub hide_tutorial: bool,
+
+    // ---- Launching.
+    /// Garbage collector: `auto`, `g1`, `zgc`, `shenandoah` or `parallel`.
+    pub gc: String,
+    /// Run before the game starts (in the game folder); the launch waits.
+    pub pre_launch_command: String,
+    /// Run after the game closes.
+    pub post_exit_command: String,
+    /// Put in front of the Java command (e.g. `gamemoderun` or `prime-run`).
+    pub wrapper_command: String,
+    /// Extra environment for the game: `KEY=value`, one per line.
+    pub game_env: String,
+    /// Zip each instance's worlds before it starts.
+    pub backup_worlds: bool,
+    /// How many world backups to keep per instance.
+    pub backups_keep: u32,
+    /// After a crash, say why in plain words.
+    pub crash_helper: bool,
+    /// Delete game logs and crash reports older than this many days (0 = never).
+    pub log_retention_days: u32,
+    /// Update mods installed from Modrinth before each launch.
+    pub auto_update_mods: bool,
+    /// Pressing Play rejoins the server you last joined from the launcher.
+    pub rejoin_last_server: bool,
+
     /// Interface preferences the launcher UI keeps (layout, wallpaper,
     /// glass style…); stored as-is.
     #[serde(flatten)]
@@ -117,6 +164,32 @@ impl Default for Settings {
             mods_with_dependencies: true,
             fast_launch: true,
             tuned_jvm: true,
+            max_fps: None,
+            render_distance: None,
+            simulation_distance: None,
+            gui_scale: None,
+            vsync: None,
+            fov: None,
+            raw_mouse_input: None,
+            narrator_off: true,
+            skip_multiplayer_warning: true,
+            auto_jump: None,
+            entity_shadows: None,
+            particles: None,
+            clouds: None,
+            pause_on_lost_focus: None,
+            hide_tutorial: true,
+            gc: "auto".to_string(),
+            pre_launch_command: String::new(),
+            post_exit_command: String::new(),
+            wrapper_command: String::new(),
+            game_env: String::new(),
+            backup_worlds: false,
+            backups_keep: 5,
+            crash_helper: true,
+            log_retention_days: 30,
+            auto_update_mods: false,
+            rejoin_last_server: false,
             ui: serde_json::Map::new(),
         }
     }

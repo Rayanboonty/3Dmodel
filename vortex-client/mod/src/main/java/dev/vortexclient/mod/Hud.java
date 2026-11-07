@@ -68,7 +68,12 @@ public final class Hud {
     }
 
     static void panel(DrawContext c, Module m, int x, int y, int w, int h) {
-        if (VortexMods.config.bool(m, "background")) Ui.round(c, x, y, w, h, 0x78000000);
+        // Rounded glass, like the launcher's panels.
+        if (VortexMods.config.bool(m, "background")) {
+            int r = Math.min(4, Math.min(w, h) / 3);
+            Ui.rounded(c, x, y, w, h, r, 0x70000000);
+            c.fill(x + r, y, x + w - r, y + 1, 0x30FFFFFF);
+        }
     }
 
     static void line(DrawContext c, Module m, String label, String value, int x, int y) {
@@ -511,9 +516,15 @@ public final class Hud {
     }
 
     /** Where every enabled HUD element goes on a screen of this size. */
+    private static final boolean MINIMAP = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("xaerominimap")
+            || net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("xaerominimapfair")
+            || net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("journeymap");
+
     public static Map<Module, Rect> layout(int sw, int sh) {
         Map<Module, Rect> out = new LinkedHashMap<>();
-        int leftY = 4, rightY = Math.max(30, sh / 4);
+        // A minimap mod sits in the top-left corner: start the left column
+        // under it (elements you placed yourself stay where you put them).
+        int leftY = MINIMAP ? Math.max(4, Math.round(sh * 0.32f)) : 4, rightY = Math.max(30, sh / 4);
         List<Module> order = new ArrayList<>();
         for (String id : LEFT) order.add(Module.get(id));
         for (String id : RIGHT) order.add(Module.get(id));

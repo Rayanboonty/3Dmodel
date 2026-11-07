@@ -68,6 +68,7 @@ struct InstanceView {
     game_dir: String,
     running: bool,
     mod_count: usize,
+    pack: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -178,6 +179,7 @@ fn instance_view(inst: &Instance, running: &HashMap<String, oneshot::Sender<()>>
         game_dir: inst.game_dir().to_string_lossy().into_owned(),
         running: running.contains_key(&inst.name),
         mod_count: count_mods(inst),
+        pack: inst.pack.clone(),
     }
 }
 
@@ -263,6 +265,7 @@ async fn create_instance(
     loader: LoaderKind,
     loader_version: Option<String>,
     memory_mb: Option<u32>,
+    pack: Option<String>,
 ) -> CmdResult<InstanceView> {
     let loader = match loader {
         LoaderKind::Vanilla => Loader::Vanilla,
@@ -271,6 +274,7 @@ async fn create_instance(
     };
     let mut inst = Instance::new(name.trim(), &version, loader);
     inst.memory_mb = memory_mb;
+    inst.pack = pack.filter(|p| ["pvp", "normal", "performance", "vanilla"].contains(&p.as_str()));
     let inst = state.launcher.instances().create(inst).map_err(fail)?;
     let running = state.running.lock().await;
     Ok(instance_view(&inst, &running))
@@ -326,11 +330,16 @@ async fn launch_instance(app: AppHandle, state: State<'_, AppState>, name: Strin
     }
     instance.last_played = Some(auth::now_secs());
     let _ = instance.save();
-    // A server picked on Home: join it this time only (not saved).
-    if join_once.is_some() {
-        instance.join_server = join_once;
-    }
     let settings = state.settings.lock().await.clone();
+    // A server picked on Home: join it this time (remembered as the last
+    // server, which "rejoin last server" uses for a plain Play).
+    if join_once.is_some() {
+        instance.last_server = join_once.clone();
+        let _ = instance.save();
+        instance.join_server = join_once;
+    } else if settings.rejoin_last_server && instance.join_server.is_none() {
+        instance.join_server = instance.last_server.clone();
+    }
     let launcher = state.launcher.clone();
     tauri::async_runtime::spawn(async move {
         let started = std::time::Instant::now();
@@ -995,58 +1004,178 @@ async fn setup_vortex_mod(
     Ok(true)
 }
 
-/// Performance mods by Modrinth project id, for Fabric and for Forge.
+/// Mod sets by Modrinth project id. Each mod is added only when it has a
+/// build for the instance's Minecraft and loader; the rest are skipped.
+/// Performance: every mainstream optimisation mod that works alongside the
+/// others (the Fabulously Optimized idea, and a bit further).
 const PERF_FABRIC: &[(&str, &str)] = &[
     ("AANobbMI", "Sodium"),
     ("gvQqBUqZ", "Lithium"),
     ("uXXizFIs", "FerriteCore"),
     ("NNAgCjsB", "EntityCulling"),
     ("5ZwdcRci", "ImmediatelyFast"),
+    ("nmDcB62a", "ModernFix"),
+    ("51shyZVL", "More Culling"),
+    ("LQ3K71Q1", "Dynamic FPS"),
+    ("g96Z4WVZ", "BadOptimizations"),
+    ("fQEb0iXm", "Krypton"),
+    ("VSNURh3q", "C2ME"),
+    ("Ps1zyz6x", "ScalableLux"),
+    ("wnEe9KBa", "Very Many Players"),
+    ("NRjRiSSD", "Memory Leak Fix"),
+    ("9mtu0sUO", "Fast IP Ping"),
+    ("QwxR6Gcd", "Debugify"),
+    ("PtjYWJkn", "Sodium Extra"),
+    ("Bh37bMuy", "Reese's Sodium Options"),
+    ("iG6ZHsUV", "Cull Less Leaves"),
+    ("x1hIzbuY", "FastQuit"),
+    ("Wnxd13zP", "Clumps"),
+    ("vSEH1ERy", "ThreadTweak"),
 ];
 const PERF_FORGE: &[(&str, &str)] = &[
+    ("sk9rgfiA", "Embeddium"),
     ("uXXizFIs", "FerriteCore"),
     ("NNAgCjsB", "EntityCulling"),
     ("5ZwdcRci", "ImmediatelyFast"),
     ("nmDcB62a", "ModernFix"),
+    ("LQ3K71Q1", "Dynamic FPS"),
+    ("g96Z4WVZ", "BadOptimizations"),
+    ("NRjRiSSD", "Memory Leak Fix"),
+    ("9mtu0sUO", "Fast IP Ping"),
+    ("QwxR6Gcd", "Debugify"),
+    ("Wnxd13zP", "Clumps"),
+    ("qa2H4BS9", "Canary"),
+    ("2gvRmQXx", "Radium"),
+    ("2eT495vq", "Saturn"),
 ];
-/// Remembers which performance mods were already added to an instance, so
-/// one you remove stays removed.
+/// Normal: performance, plus the quality-of-life mods most players add.
+const NORMAL_FABRIC: &[(&str, &str)] = &[
+    ("mOgUt4GM", "Mod Menu"),
+    ("YL57xq9U", "Iris Shaders"),
+    ("1IjD5062", "Continuity"),
+    ("yBW8D80W", "LambDynamicLights"),
+    ("EsAfCjCV", "AppleSkin"),
+    ("1bokaNcj", "Xaero's Minimap"),
+    ("NcUtCpym", "Xaero's World Map"),
+    ("u6dRKJwZ", "JEI"),
+    ("nvQzSEkH", "Jade"),
+    ("aC3cM3Vq", "Mouse Tweaks"),
+    ("2M01OLQq", "Shulker Box Tooltip"),
+    ("Wb5oqrBJ", "Chat Heads"),
+    ("zV5r3pPn", "3D Skin Layers"),
+    ("4I1XuqiY", "Entity Model Features"),
+    ("BVzZfTc1", "Entity Texture Features"),
+    ("8shC1gFX", "BetterF3"),
+    ("xv94TkTM", "Controlling"),
+    ("qQyHxfxd", "No Chat Reports"),
+    ("O7RBXm3n", "Inventory Profiles Next"),
+    ("smUP7V3r", "Durability Tooltip"),
+    ("WhbRG4iK", "Falling Leaves"),
+    ("kYuIpRLv", "Wavey Capes"),
+    ("cVNW5lr6", "Item Highlighter"),
+    ("M08ruV16", "Bobby"),
+];
+const NORMAL_FORGE: &[(&str, &str)] = &[
+    ("u6dRKJwZ", "JEI"),
+    ("nvQzSEkH", "Jade"),
+    ("EsAfCjCV", "AppleSkin"),
+    ("1bokaNcj", "Xaero's Minimap"),
+    ("NcUtCpym", "Xaero's World Map"),
+    ("aC3cM3Vq", "Mouse Tweaks"),
+    ("xv94TkTM", "Controlling"),
+    ("Wb5oqrBJ", "Chat Heads"),
+    ("zV5r3pPn", "3D Skin Layers"),
+    ("4I1XuqiY", "Entity Model Features"),
+    ("BVzZfTc1", "Entity Texture Features"),
+    ("qQyHxfxd", "No Chat Reports"),
+    ("2M01OLQq", "Shulker Box Tooltip"),
+    ("O7RBXm3n", "Inventory Profiles Next"),
+    ("kYuIpRLv", "Wavey Capes"),
+    ("1IjD5062", "Continuity"),
+];
+/// PvP: performance, the Vortex PvP mods, and the extras PvP players use
+/// (nothing that changes combat).
+const PVP_FABRIC: &[(&str, &str)] = &[
+    ("mOgUt4GM", "Mod Menu"),
+    ("zV5r3pPn", "3D Skin Layers"),
+    ("kYuIpRLv", "Wavey Capes"),
+    ("Wb5oqrBJ", "Chat Heads"),
+    ("qQyHxfxd", "No Chat Reports"),
+    ("MS1ZMyR7", "Better Ping Display"),
+    ("GfoMZ9Ly", "Shield Statuses"),
+    ("x02cBj9Y", "Status Effect Bars"),
+    ("smUP7V3r", "Durability Tooltip"),
+    ("cVNW5lr6", "Item Highlighter"),
+    ("yjgIrBjZ", "Auth Me"),
+    ("M08ruV16", "Bobby"),
+];
+const PVP_FORGE: &[(&str, &str)] = &[
+    ("zV5r3pPn", "3D Skin Layers"),
+    ("kYuIpRLv", "Wavey Capes"),
+    ("Wb5oqrBJ", "Chat Heads"),
+    ("qQyHxfxd", "No Chat Reports"),
+    ("smUP7V3r", "Durability Tooltip"),
+];
+/// Remembers which pack mods were already added to an instance, so one you
+/// remove stays removed.
 const PERF_MARK: &str = ".vortex-performance.json";
 
-/// Add the performance pack to a Fabric or Forge instance: each mod once,
-/// when a version exists for this Minecraft. Returns the names added.
-async fn setup_performance_mods(
+/// The mods an instance's pack adds, for its loader.
+fn pack_mods(pack: &str, loader: &Loader) -> Vec<(&'static str, &'static str)> {
+    let fabric = matches!(loader, Loader::Fabric { .. });
+    let (perf, extra): (&[(&str, &str)], &[(&str, &str)]) = match (pack, fabric) {
+        ("performance", true) => (PERF_FABRIC, &[]),
+        ("performance", false) => (PERF_FORGE, &[]),
+        ("normal", true) => (PERF_FABRIC, NORMAL_FABRIC),
+        ("normal", false) => (PERF_FORGE, NORMAL_FORGE),
+        ("pvp", true) => (PERF_FABRIC, PVP_FABRIC),
+        ("pvp", false) => (PERF_FORGE, PVP_FORGE),
+        _ => return Vec::new(),
+    };
+    perf.iter().chain(extra.iter()).copied().collect()
+}
+
+/// Add the instance's pack (PvP, Normal or Performance) on a Fabric or Forge
+/// instance: each mod once, when a version exists for this Minecraft.
+/// Instances made before packs existed get the performance pack when that
+/// setting is on. Returns the names added.
+async fn setup_pack(
     launcher: &Launcher,
     instance: &Instance,
     settings: &Settings,
     progress: &ProgressFn,
 ) -> Vec<String> {
-    if !settings.performance_mods {
+    if matches!(instance.loader, Loader::Vanilla) {
         return Vec::new();
     }
-    let pack = match instance.loader {
-        Loader::Fabric { .. } => PERF_FABRIC,
-        Loader::Forge { .. } => PERF_FORGE,
-        _ => return Vec::new(),
+    let pack = match instance.pack.as_deref() {
+        Some(p) => p,
+        None if settings.performance_mods => "performance",
+        None => return Vec::new(),
     };
+    let list = pack_mods(pack, &instance.loader);
+    if list.is_empty() {
+        return Vec::new();
+    }
     let mark = instance.dir.join(PERF_MARK);
     let mut done: Vec<String> = std::fs::read(&mark).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
     let dir = mods::mods_dir(instance);
     let present = mods::list(&dir).unwrap_or_default();
-    let index = modrinth::installed(instance);
-    // OptiFine (through OptiFabric) and Sodium don't mix.
+    // OptiFine (through OptiFabric) doesn't go with Sodium, Iris or Embeddium.
     let optifine = present.iter().any(|m| m.name.to_lowercase().contains("optif"));
     let mut added = Vec::new();
-    for (id, name) in pack {
+    for (id, name) in list {
         if done.iter().any(|d| d == id) {
             continue;
         }
-        let have = index.files.values().any(|e| e.project_id == *id)
+        let index = modrinth::installed(instance);
+        let have = index.files.values().any(|e| e.project_id == id)
             || present.iter().any(|m| m.name.eq_ignore_ascii_case(name));
-        if have || (optifine && *id == "AANobbMI") {
+        if have || (optifine && ["AANobbMI", "YL57xq9U", "sk9rgfiA", "PtjYWJkn", "Bh37bMuy"].contains(&id)) {
             done.push(id.to_string());
             continue;
         }
+        report(progress, &format!("Adding {name}"), 0, 0);
         match modrinth::install(launcher, instance, ProjectKind::Mod, id, None, false, true, progress).await {
             Ok(_) => {
                 added.push(name.to_string());
@@ -1057,6 +1186,7 @@ async fn setup_performance_mods(
             // Offline or Modrinth down: try again next launch.
             Err(_) => {}
         }
+        let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
     }
     let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
     added
@@ -1105,9 +1235,44 @@ async fn run_game(
     }
 
     let progress = progress_emitter(app, &name);
-    let perf = setup_performance_mods(&launcher, &instance, &settings, &progress).await;
-    if !perf.is_empty() {
-        emit_lines(app, &name, vec![LogLineView { level: "info", text: format!("Performance mods added: {}.", perf.join(", ")) }]);
+    let game_dir = instance.game_dir();
+    let info = |text: String| emit_lines(app, &name, vec![LogLineView { level: "info", text }]);
+    let warn = |text: String| emit_lines(app, &name, vec![LogLineView { level: "warn", text }]);
+    // Housekeeping first: old logs, a world backup, mod updates.
+    let pruned = vortex_core::extras::prune_logs(&game_dir, settings.log_retention_days);
+    if pruned > 0 {
+        info(format!("Removed {pruned} old log file(s)."));
+    }
+    if settings.backup_worlds {
+        report(&progress, "Backing up worlds", 0, 0);
+        let dir = game_dir.clone();
+        let keep = settings.backups_keep;
+        match tokio::task::spawn_blocking(move || vortex_core::extras::backup_worlds(&dir, keep)).await {
+            Ok(Ok(Some(p))) => info(format!("Worlds backed up to {}.", p.display())),
+            Ok(Ok(None)) => {}
+            Ok(Err(e)) => warn(format!("World backup failed: {e}")),
+            Err(e) => warn(format!("World backup failed: {e}")),
+        }
+    }
+    let added = setup_pack(&launcher, &instance, &settings, &progress).await;
+    if !added.is_empty() {
+        info(format!("Mods added: {}.", added.join(", ")));
+    }
+    if settings.auto_update_mods {
+        report(&progress, "Checking for mod updates", 0, 0);
+        if let Ok(up) = modrinth::update_all(&launcher, &instance, settings.mods_allow_unstable, &progress).await {
+            if !up.is_empty() {
+                info(format!("Updated: {}.", up.join(", ")));
+            }
+        }
+    }
+    if !settings.pre_launch_command.trim().is_empty() {
+        report(&progress, "Running your pre-launch command", 0, 0);
+        match vortex_core::extras::run_hook(&settings.pre_launch_command, &game_dir, Duration::from_secs(120)).await {
+            Ok(0) => {}
+            Ok(code) => warn(format!("Pre-launch command exited with {code}.")),
+            Err(e) => warn(format!("Pre-launch command: {e}")),
+        }
     }
     match setup_vortex_mod(&launcher, &mut instance, &account, &settings, &progress).await {
         Ok(true) => emit_lines(app, &name, vec![LogLineView { level: "info", text: "Vortex mods added (Right Shift in-game opens the mod menu).".into() }]),
@@ -1117,6 +1282,7 @@ async fn run_game(
     let cmd = launcher.prepare_launch(&instance, &session, &settings, &progress).await?;
     emit_lines(app, &name, vec![LogLineView { level: "debug", text: format!("> {}", cmd.display_redacted()) }]);
 
+    let started_at = std::time::SystemTime::now();
     let mut game = launch::spawn(&cmd)?;
     let _ = app.emit("game-state", state("running"));
     window_after_launch(app, &settings.after_launch, true);
@@ -1156,7 +1322,38 @@ async fn run_game(
         emit_lines(app, &name, buffer);
     }
     window_after_launch(app, &settings.after_launch, false);
-    Ok(status.code())
+    // Crash helper: why it crashed, in plain words.
+    let code = status.code();
+    if settings.crash_helper && code.is_some_and(|c| c != 0) {
+        if let Some((reason, file)) = vortex_core::extras::crash_reason(&game_dir, started_at) {
+            let _ = app.emit("game-crash", CrashEvent { instance: name.clone(), reason, file: file.to_string_lossy().into_owned() });
+        }
+    }
+    if !settings.post_exit_command.trim().is_empty() {
+        let cmdline = settings.post_exit_command.clone();
+        let dir = game_dir.clone();
+        tokio::spawn(async move {
+            let _ = vortex_core::extras::run_hook(&cmdline, &dir, Duration::from_secs(600)).await;
+        });
+    }
+    // Flash the taskbar so you notice the game closed.
+    if settings.ui.get("flash_on_exit").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.request_user_attention(Some(tauri::UserAttentionType::Informational));
+        }
+    }
+    Ok(code)
+}
+
+fn report(progress: &ProgressFn, stage: &str, done: u64, total: u64) {
+    progress(Progress { stage: stage.to_string(), done, total });
+}
+
+#[derive(Serialize, Clone)]
+struct CrashEvent {
+    instance: String,
+    reason: String,
+    file: String,
 }
 
 fn emit_lines(app: &AppHandle, instance: &str, lines: Vec<LogLineView>) {

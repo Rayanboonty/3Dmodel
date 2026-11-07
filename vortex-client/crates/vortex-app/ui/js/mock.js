@@ -22,6 +22,8 @@ const state = {
     microsoft_client_id: null, download_concurrency: 32, show_snapshots: false,
     show_old_versions: false, sky: "cycle", day_length_min: 10, ui_sounds: true, animations: true,
     game_width: null, game_height: null, fullscreen: false, after_launch: "keep", vortex_mods: true, performance_mods: true, open_log_on_launch: false,
+    narrator_off: true, skip_multiplayer_warning: true, hide_tutorial: true, gc: "auto", backups_keep: 5, crash_helper: true, log_retention_days: 30,
+    backup_worlds: false, auto_update_mods: false, rejoin_last_server: false, pre_launch_command: "", post_exit_command: "", wrapper_command: "", game_env: "",
     accent: "amber", glass: 60, logo_style: 0, background: "golden", theme: "dark", vortex_menu: true, show_player: true, world_life: true, clock_12h: false,
     mods_allow_unstable: false, mods_with_dependencies: true, fast_launch: true, tuned_jvm: true,
   },
@@ -59,6 +61,15 @@ async function simulateLaunch(name) {
   state.fast ||= new Set();
   const fast = state.fast.has(name);
   state.fast.add(name);
+  // First launch of a PvP / Normal / Performance instance: its mods arrive.
+  const packMods = { performance: ["Sodium", "Lithium", "FerriteCore", "ModernFix", "ImmediatelyFast", "EntityCulling", "More Culling", "C2ME"], normal: ["Sodium", "Lithium", "Iris Shaders", "Xaero's Minimap", "JEI", "Jade", "AppleSkin"], pvp: ["Sodium", "Lithium", "ImmediatelyFast", "3D Skin Layers", "Wavey Capes", "Better Ping Display"] }[inst.packPending ? inst.pack : ""] || [];
+  if (packMods.length) {
+    inst.packPending = false;
+    packMods.forEach((m, i) => setTimeout(() => emit("launch-progress", { instance: name, stage: `Adding ${m}`, done: i + 1, total: packMods.length }), i * 260));
+    await new Promise((r) => setTimeout(r, packMods.length * 260 + 100));
+    inst.modCount += packMods.length * 2 + 4;
+    emit("game-log", { instance: name, lines: [{ level: "info", text: `Mods added: ${packMods.join(", ")} and ${packMods.length + 4} more.` }] });
+  }
   const stages = fast ? [["Fast launch", 1, 1, 350], ["Ready", 1, 1, 150]] : [
     ["Resolving " + inst.minecraftVersion, 0, 0, 500],
     ["Libraries", 31, 31, 900],
@@ -129,7 +140,7 @@ export const mock = {
       case "create_instance": {
         if (state.instances.some((i) => i.name.toLowerCase() === args.name.toLowerCase())) throw `an instance called '${args.name}' already exists`;
         const labels = { vanilla: "Vanilla", fabric: "Fabric", forge: "Forge" };
-        const inst = { name: args.name, minecraftVersion: args.version, loader: args.loader, loaderVersion: args.loaderVersion || null, loaderLabel: labels[args.loader] + (args.loaderVersion ? " " + args.loaderVersion : ""), memoryMb: args.memoryMb || null, joinServer: null, jvmArgs: "", lastPlayed: null, gameDir: "", running: false, modCount: 0 };
+        const inst = { name: args.name, minecraftVersion: args.version, loader: args.loader, loaderVersion: args.loaderVersion || null, loaderLabel: labels[args.loader] + (args.loaderVersion ? " " + args.loaderVersion : ""), memoryMb: args.memoryMb || null, joinServer: null, jvmArgs: "", lastPlayed: null, gameDir: "", running: false, modCount: 0, pack: args.pack || null, packPending: !!args.pack && args.pack !== "vanilla" };
         state.instances.push(inst);
         return view(inst);
       }

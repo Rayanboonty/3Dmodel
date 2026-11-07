@@ -139,6 +139,9 @@ const lite = (() => {
     const q = new URLSearchParams(location.search);
     if (q.has("lite")) return q.get("lite") !== "0";
   } catch { /* no query */ }
+  const pref = store.get("vortex.lite");
+  if (pref === "on") return true;
+  if (pref === "off") return false;
   return isAndroid || (matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches);
 })();
 document.documentElement.classList.toggle("lite", lite);
@@ -315,6 +318,7 @@ const UI_DEFAULTS = {
   glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
   home_news: true, home_quick: true, home_recent: true, side_labels: true, intro: true,
   auto_update: true, servers: null, widgets: null, theme: "dark",
+  reduce_transparency: false, launcher_particles: true, ui_scale: 100, lite_mode: "auto", start_page: "home", flash_on_exit: true,
 };
 
 /** Popular servers shown until you add your own. */
@@ -366,7 +370,9 @@ function applyLook(s = S.settings || {}) {
   world.setLife(s.world_life !== false);
   sound.setEnabled(s.ui_sounds !== false);
   fx.setEnabled(s.animations !== false);
-  dust.setEnabled(s.animations !== false);
+  dust.setEnabled(s.animations !== false && s.launcher_particles !== false);
+  document.documentElement.classList.toggle("no-glass", s.reduce_transparency === true);
+  document.body.style.zoom = String((Number(s.ui_scale) || 100) / 100);
   document.body.classList.toggle("no-anim", s.animations === false);
   document.body.classList.toggle("no-player", s.show_player === false);
   const root = document.documentElement.style;
@@ -1196,6 +1202,7 @@ function newWizard() {
     search: "",
     version: S.versions?.latestRelease || null,
     loader: "vanilla",
+    pack: "pvp",
     loaderVersions: {},
     loaderVersion: null,
     name: "",
@@ -1204,12 +1211,31 @@ function newWizard() {
   };
 }
 
-const autoName = (w) => `${w.version || "Minecraft"}${{ vanilla: "", fabric: " Fabric", forge: " Forge" }[w.loader]}`;
+const autoName = (w) => `${w.version || "Minecraft"}${w.pack && w.pack !== "vanilla" ? ` ${PACKS[w.pack].title}` : { vanilla: "", fabric: " Fabric", forge: " Forge" }[w.loader]}`;
+
+/** What an instance can be set up for; its mods are added on first launch. */
+const PACKS = {
+  pvp: { title: "PvP", icon: "sword", desc: "Vortex PvP mods (keystrokes, CPS, armor, zoom, freelook, toggle sprint), every performance mod, 3D skin layers, wavey capes, chat heads and more.", mods: ["Vortex PvP HUD", "Sodium", "Lithium", "ImmediatelyFast", "EntityCulling", "3D Skin Layers", "Wavey Capes", "Better Ping Display", "Shield Statuses", "Status Effect Bars", "Chat Heads", "Bobby", "+ 20 more"] },
+  normal: { title: "Normal", icon: "grid", desc: "Shaders, minimap and world map, recipes, item info, connected textures, dynamic lights and more, on top of every performance mod.", mods: ["Iris Shaders", "Xaero's Minimap", "Xaero's World Map", "JEI", "Jade", "AppleSkin", "Continuity", "LambDynamicLights", "Mouse Tweaks", "EMF/ETF", "Inventory Profiles", "+ 30 more"] },
+  performance: { title: "Performance", icon: "bolt", desc: "Every optimisation mod that works together: much higher FPS, faster loading and less memory. Nothing else changes.", mods: ["Sodium", "Lithium", "FerriteCore", "ModernFix", "ImmediatelyFast", "EntityCulling", "More Culling", "C2ME", "ScalableLux", "Krypton", "Dynamic FPS", "BadOptimizations", "+ 10 more"] },
+  vanilla: { title: "Vanilla", icon: "play", desc: "Minecraft exactly as Mojang ships it, no mods.", mods: [] },
+};
+
+/** The loader a pack needs: Fabric when it exists for the version, else Forge. */
+function packLoader(w) {
+  if (w.pack === "vanilla") return "vanilla";
+  const ok = (k) => Array.isArray(w.loaderVersions[k]) && w.loaderVersions[k].length > 0;
+  if (ok("fabric")) return "fabric";
+  if (ok("forge")) return "forge";
+  return w.loaderVersions.fabric === undefined ? "fabric" : "vanilla";
+}
 
 function renderWizard() {
   const w = (S.wizard ||= newWizard());
+  // The pack picks the loader (Fabric, else Forge) unless you chose one.
+  if (!w.loaderManual && w.step >= 2 && w.pack !== "vanilla") { const l = packLoader(w); if (l !== w.loader) { w.loader = l; w.loaderVersion = null; } }
   if (!w.nameTouched) w.name = autoName(w);
-  const steps = ["Version", "Loader", "Details"];
+  const steps = ["Version", "Setup", "Details"];
   const stepper = `<div class="steps">${steps.map((s, i) => `${i ? '<span class="step-gap"></span>' : ""}<span class="step ${w.step === i + 1 ? "on" : ""} ${w.step > i + 1 ? "done" : ""}"><b>${w.step > i + 1 ? icon("check", 12) : i + 1}</b>${s}</span>`).join("")}</div>`;
   let body;
   if (w.step === 1) {
@@ -1246,7 +1272,18 @@ function renderWizard() {
     };
     const lv = w.loaderVersions[w.loader];
     const rec = Array.isArray(lv) ? lv.find((x) => x.recommended) : null;
-    body = `<div class="loaders">
+    const packCard = (k) => {
+      const P = PACKS[k];
+      return `<button class="pack ${w.pack === k ? "on" : ""}" data-action="wiz-pack" data-pack="${k}" aria-pressed="${w.pack === k}">
+        <span class="pack-icon">${icon(P.icon, 22)}</span><h3>${P.title}</h3><p>${P.desc}</p>
+        ${P.mods.length ? `<span class="pack-mods">${P.mods.map((m) => `<i>${esc(m)}</i>`).join("")}</span>` : ""}</button>`;
+    };
+    const noLoader = w.pack !== "vanilla" && packLoader(w) === "vanilla";
+    body = `<h3 class="wiz-h">What's this instance for?</h3>
+      <div class="packs">${["pvp", "normal", "performance", "vanilla"].map(packCard).join("")}</div>
+      ${noLoader ? `<p class="muted small">Mods aren't available for Minecraft ${esc(w.version)}, so this one will be Vanilla.</p>` : ""}
+      <details class="wiz-adv" ${w.advOpen ? "open" : ""}><summary>Loader${w.pack !== "vanilla" ? `: ${w.loader === "forge" ? "Forge" : w.loader === "fabric" ? "Fabric" : "Vanilla"} (picked for you)` : ""}</summary>
+      <div class="loaders">
         ${card("vanilla", "Vanilla", "Minecraft exactly as Mojang ships it.")}
         ${card("fabric", "Fabric", "Lightweight modding for performance, minimap and PvP mods.")}
         ${card("forge", "Forge", "The classic loader for big content mods and modpacks.")}
@@ -1254,6 +1291,7 @@ function renderWizard() {
       ${w.loader !== "vanilla" && Array.isArray(lv) && lv.length ? `<div class="field" style="max-width:420px"><label class="label" for="wiz-lv">${w.loader === "forge" ? "Forge build" : "Fabric loader"}</label>
         <select class="input" id="wiz-lv"><option value="">Recommended${rec ? ` (${esc(rec.display)})` : ""}</option>
         ${lv.slice(0, 60).map((x) => `<option value="${esc(x.id)}" ${w.loaderVersion === x.id ? "selected" : ""}>${esc(x.display)}${x.recommended ? ", recommended" : x.latest ? ", latest" : ""}${x.stable ? "" : " (beta)"}</option>`).join("")}</select></div>` : ""}
+      </details>
       <div class="row"><button class="btn lq" data-action="wiz-back">Back</button><span class="grow"></span><button class="btn btn-accent lq" data-action="wiz-next">Next</button></div>`;
   } else {
     const pct = ((w.memory - 1024) / (16384 - 1024)) * 100;
@@ -1261,6 +1299,7 @@ function renderWizard() {
       <div class="field"><label class="label" for="wiz-mem">Memory</label><div class="row"><input class="range grow" id="wiz-mem" type="range" min="1024" max="16384" step="512" value="${w.memory}" style="--fill:${pct}%"><span class="value" id="wiz-mem-v">${gb(w.memory)}</span></div></div>
       <div class="summary">
         <span class="label">Minecraft</span><strong>${esc(w.version)}</strong>
+        <span class="label">Setup</span><strong>${esc(PACKS[w.pack]?.title || "Vanilla")}${w.pack !== "vanilla" && w.loader !== "vanilla" ? ", mods added on first launch" : ""}</strong>
         <span class="label">Loader</span><strong>${esc(w.loader === "vanilla" ? "Vanilla" : `${w.loader === "forge" ? "Forge" : "Fabric"} ${w.loaderVersion || "(recommended)"}`)}</strong>
         <span class="label">Java</span><strong>Downloaded for you</strong>
       </div>
@@ -1281,6 +1320,7 @@ function renderWizard() {
       // Bring the selected version into view only the first time.
       if (!w.scrolled && $(".vrow.on", root)) { $(".vrow.on", root).scrollIntoView({ block: "center" }); w.scrolled = true; }
       $("#wiz-lv", root)?.addEventListener("change", (e) => (w.loaderVersion = e.target.value || null));
+      $(".wiz-adv", root)?.addEventListener("toggle", (e) => (w.advOpen = e.target.open));
       $("#wiz-name", root)?.addEventListener("input", (e) => { w.name = e.target.value; w.nameTouched = true; });
       const mem = $("#wiz-mem", root);
       if (mem) mem.addEventListener("input", () => {
@@ -1824,6 +1864,14 @@ const WINDOW_SIZES = [["", "Minecraft default (854 × 480)"], ["1280x720", "1280
 const swRow = (d, key, title, desc) => `<div class="setting"><div><strong>${title}</strong>${desc ? `<span>${desc}</span>` : ""}</div><button class="switch" role="switch" aria-checked="${!!d[key]}" data-action="set-bool" data-key="${key}" aria-label="${title}"></button></div>`;
 const segRow = (d, key, title, options, desc = "") => `<div class="setting stack"><div><strong>${title}</strong>${desc ? `<span>${desc}</span>` : ""}</div>
   <div class="seg" role="group" aria-label="${title}">${options.map(([v, l]) => `<button class="${String(d[key]) === String(v) ? "on" : ""}" data-action="set-choice" data-key="${key}" data-value="${v}">${l}</button>`).join("")}</div></div>`;
+/** A drop-down setting: "" means Auto (null); data-kind="num"/"bool" converts. */
+const selRow = (d, key, title, options, desc = "", kind = "") => `<div class="setting"><div><strong>${title}</strong>${desc ? `<span>${desc}</span>` : ""}</div>
+  <select class="input sel" data-setting="${key}" data-kind="${kind}" aria-label="${title}">${options.map(([v, l]) => `<option value="${v}" ${String(d[key] ?? "") === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select></div>`;
+/** A text setting (a command, variables). */
+const txtRow = (d, key, title, placeholder, desc = "", lines = 1) => `<div class="field"><label class="label" for="t-${key}">${title}</label>${lines > 1
+  ? `<textarea class="input" id="t-${key}" data-text="${key}" rows="${lines}" placeholder="${esc(placeholder)}" spellcheck="false">${esc(d[key] || "")}</textarea>`
+  : `<input class="input" id="t-${key}" data-text="${key}" placeholder="${esc(placeholder)}" value="${esc(d[key] || "")}" spellcheck="false">`}${desc ? `<span class="muted small">${desc}</span>` : ""}</div>`;
+const AUTO = ["", "Auto (the game's own)"];
 const rangeRow = (id, label, value, lo, hi, step, text) => `<div class="field"><label class="label" for="${id}">${label}</label><div class="row"><input class="range grow" id="${id}" type="range" min="${lo}" max="${hi}" step="${step}" value="${value}" style="--fill:${((value - lo) / (hi - lo)) * 100}%"><span class="value" id="${id}-v">${text}</span></div></div>`;
 
 function settingsBody(d) {
@@ -1905,7 +1953,38 @@ function settingsBody(d) {
       <div class="card-pad"><h3>Mod downloads</h3>
         ${swRow(d, "mods_with_dependencies", "Install required mods", "Adds the libraries a mod needs, like Fabric API")}
         ${swRow(d, "mods_allow_unstable", "Prefer beta versions", "Otherwise betas are used only when there's nothing else")}
+        ${swRow(d, "auto_update_mods", "Update mods before playing", "Mods from Modrinth update to their newest version for the instance. Mods you turned off stay as they are")}
         ${rangeRow("s-dl", "Parallel downloads", d.download_concurrency, 1, 64, 1, String(d.download_concurrency))}
+      </div>
+      <div class="card-pad wide"><h3>Game defaults</h3>
+        <p class="muted small">Set once here, applied to every instance when it starts. Auto leaves the game's own setting alone.</p>
+        <div class="settings-2col">
+          ${selRow(d, "max_fps", "Max FPS", [AUTO, ["60", "60"], ["120", "120"], ["144", "144"], ["165", "165"], ["240", "240"], ["260", "Unlimited"]], "", "num")}
+          ${selRow(d, "render_distance", "Render distance", [AUTO, ...[4, 6, 8, 10, 12, 16, 20, 24, 32].map((n) => [String(n), `${n} chunks`])], "", "num")}
+          ${selRow(d, "simulation_distance", "Simulation distance", [AUTO, ...[5, 6, 8, 10, 12, 16].map((n) => [String(n), `${n} chunks`])], "", "num")}
+          ${selRow(d, "fov", "Field of view", [AUTO, ["70", "70 (Normal)"], ["80", "80"], ["90", "90"], ["100", "100"], ["110", "110 (Quake Pro)"]], "", "num")}
+          ${selRow(d, "gui_scale", "GUI scale", [AUTO, ["0", "Auto"], ["1", "Small"], ["2", "Normal"], ["3", "Large"], ["4", "Largest"]], "", "num")}
+          ${selRow(d, "vsync", "VSync", [AUTO, ["true", "On"], ["false", "Off (lower input lag)"]], "", "bool")}
+          ${selRow(d, "raw_mouse_input", "Raw mouse input", [AUTO, ["true", "On (recommended for PvP)"], ["false", "Off"]], "", "bool")}
+          ${selRow(d, "entity_shadows", "Entity shadows", [AUTO, ["true", "On"], ["false", "Off (faster)"]], "", "bool")}
+          ${selRow(d, "particles", "Particles", [AUTO, ["all", "All"], ["decreased", "Decreased"], ["minimal", "Minimal (faster)"]])}
+          ${selRow(d, "clouds", "Clouds", [AUTO, ["fancy", "Fancy"], ["fast", "Fast"], ["off", "Off (faster)"]])}
+          ${selRow(d, "auto_jump", "Auto-jump", [AUTO, ["false", "Off"], ["true", "On"]], "", "bool")}
+          ${selRow(d, "pause_on_lost_focus", "Pause when you tab out", [AUTO, ["true", "Yes"], ["false", "No"]], "", "bool")}
+        </div>
+        ${swRow(d, "hide_tutorial", "Skip tutorial pop-ups", "No more \"Move with W, A, S and D\" hints")}
+        ${swRow(d, "narrator_off", "Narrator off", "Ctrl+B won't start reading the screen aloud")}
+        ${swRow(d, "skip_multiplayer_warning", "Skip the multiplayer warning", "The \"online play is not rated\" screen")}
+      </div>
+      <div class="card-pad"><h3>Launching</h3>
+        ${selRow(d, "gc", "Garbage collector", [["auto", "Auto (tuned G1)"], ["zgc", "ZGC (lowest pauses, Java 21)"], ["shenandoah", "Shenandoah"], ["g1", "G1 (plain)"], ["parallel", "Parallel (old PCs)"]], "ZGC suits 8 GB or more")}
+        ${swRow(d, "rejoin_last_server", "Rejoin the last server", "Play goes straight back to the server you last joined from Home")}
+        ${txtRow(d, "wrapper_command", "Run the game through", "e.g. gamemoderun or prime-run", "Linux: Feral GameMode or a discrete GPU")}
+        ${txtRow(d, "game_env", "Environment variables", "KEY=value, one per line", "", 2)}
+      </div>
+      <div class="card-pad"><h3>Commands</h3>
+        ${txtRow(d, "pre_launch_command", "Before the game starts", "e.g. a script that syncs your worlds", "Runs in the instance folder; the launch waits up to 2 minutes")}
+        ${txtRow(d, "post_exit_command", "After the game closes", "e.g. back up screenshots")}
       </div>
     </div>`;
   }
@@ -1943,16 +2022,31 @@ function settingsBody(d) {
         <div class="row wrap"><button class="btn btn-sm lq" data-action="folder-data">${icon("folder", 12)} Data</button><button class="btn btn-sm lq" data-action="folder-skins">${icon("folder", 12)} Skins</button><button class="btn btn-sm lq" data-action="folder-runtimes">${icon("folder", 12)} Java runtimes</button></div>
         <span class="muted small">Vortex Client ${esc(S.appVersion)}${isTauri ? "" : ", preview mode"}</span>
       </div>
+      <div class="card-pad"><h3>Backups and logs</h3>
+        ${swRow(d, "backup_worlds", "Back up worlds before playing", "Zips each instance's worlds into its backups folder")}
+        ${selRow(d, "backups_keep", "Backups to keep", [["3", "3"], ["5", "5"], ["10", "10"], ["20", "20"]], "", "num")}
+        ${selRow(d, "log_retention_days", "Delete old logs after", [["7", "7 days"], ["30", "30 days"], ["90", "90 days"], ["0", "Never"]], "", "num")}
+        ${swRow(d, "crash_helper", "Crash helper", "If the game crashes, says why in plain words")}
+      </div>
       <div class="card-pad"><h3>Updates</h3>
         <div class="setting"><div><strong>Vortex Client ${esc(S.appVersion)}</strong><span>New versions install in a few seconds and keep your instances and settings</span></div><button class="btn btn-sm" data-action="check-update">Check now</button></div>
         ${swRow({ ...UI_DEFAULTS, ...d }, "auto_update", "Check automatically", "Looks for a new version each time the launcher opens")}
       </div>
     </div>`;
   }
+  const g = { ...UI_DEFAULTS, ...d };
   return `<div class="settings-grid">
     <div class="card-pad"><h3>Motion and sound</h3>
       ${swRow(d, "animations", "Animations", "The moving world, panel motion and particles")}
+      ${swRow(g, "launcher_particles", "Particle effects", "Things break into particles as they close")}
       ${swRow(d, "ui_sounds", "Sounds", "Clicks, launch sounds and alerts")}
+    </div>
+    <div class="card-pad"><h3>Launcher</h3>
+      ${selRow(g, "start_page", "Opens on", [["home", "Play"], ["instances", "Instances"], ["mods", "Mods"], ["skins", "Skins"]])}
+      ${selRow(g, "ui_scale", "Size", [["90", "Compact (90%)"], ["100", "Normal"], ["110", "Large (110%)"], ["125", "Larger (125%)"]], "", "num")}
+      ${swRow(g, "reduce_transparency", "Reduce transparency", "Solid panels instead of glass, easier to read")}
+      ${selRow(g, "lite_mode", "Lite mode", [["auto", "Auto (on for phones)"], ["on", "Always on"], ["off", "Always off"]], "Lighter effects for slow computers. After a restart")}
+      ${swRow(g, "flash_on_exit", "Flash when the game closes", "The taskbar icon lights up so you notice")}
     </div>
   </div>`;
 }
@@ -2001,6 +2095,14 @@ function mountSettings(root, d) {
   range("#s-wdim", "wall_dim", (v) => `${v}%`, 0, 60, () => applyLook(d));
   $("#wall-file", root)?.addEventListener("change", (e) => { const f = e.target.files?.[0]; if (f) useWallpaper(f); });
   const text = (id, fn) => $(id, root)?.addEventListener("input", (e) => { fn(e.target.value); markDirty(); });
+  $$("select[data-setting]", root).forEach((el) => el.addEventListener("change", () => {
+    const k = el.dataset.setting, v = el.value, kind = el.dataset.kind;
+    d[k] = v === "" ? null : kind === "num" ? Number(v) : kind === "bool" ? v === "true" : v;
+    sound.pop();
+    applyLook(d);
+    markDirty();
+  }));
+  $$("[data-text]", root).forEach((el) => el.addEventListener("input", () => { d[el.dataset.text] = el.value; markDirty(); }));
   text("#s-java", (v) => (d.java_path = v.trim() || null));
   text("#s-jvm", (v) => (d.extra_jvm_args = v.split(/\s+/).filter(Boolean)));
   text("#s-client", (v) => (d.microsoft_client_id = v.trim() || null));
@@ -2116,6 +2218,7 @@ function markDirty() {
 }
 
 async function saveSettings(next) {
+  if (next && next.lite_mode) store.set("vortex.lite", next.lite_mode);
   S.settings = await call("save_settings", { settings: next });
   applyLook();
 }
@@ -2483,7 +2586,8 @@ const actions = {
   },
   "wiz-next"() { const w = S.wizard; if (w.step === 1) loadLoaderVersions(w); w.step = Math.min(3, w.step + 1); w.scrolled = false; updateWizard(true); },
   "wiz-back"() { S.wizard.step = Math.max(1, S.wizard.step - 1); S.wizard.scrolled = false; updateWizard(true); },
-  "wiz-loader"(el) { const w = S.wizard; w.loader = el.dataset.kind; w.loaderVersion = null; updateWizard(); },
+  "wiz-loader"(el) { const w = S.wizard; w.loaderManual = true; w.loader = el.dataset.kind; w.loaderVersion = null; if (w.loader === "vanilla") w.pack = "vanilla"; else if (w.pack === "vanilla") w.pack = "performance"; updateWizard(); },
+  "wiz-pack"(el) { const w = S.wizard; w.pack = el.dataset.pack; w.loaderManual = false; w.loader = packLoader(w); w.loaderVersion = null; sound.pop(); updateWizard(); },
   async "wiz-create"(el) {
     const w = S.wizard;
     const name = (w.name || autoName(w)).trim();
@@ -2495,6 +2599,7 @@ const actions = {
         loader: w.loader,
         loaderVersion: w.loader === "vanilla" ? null : w.loaderVersion,
         memoryMb: w.memory !== S.settings.max_memory_mb ? w.memory : null,
+        pack: w.loader === "vanilla" ? "vanilla" : w.pack,
       });
       await refreshInstances();
       select(inst.name);
@@ -2783,6 +2888,11 @@ function bindEvents() {
     S.runs[p.instance] = { phase: "preparing", stage: p.stage, done: p.done, total: p.total };
     updateRunUI(p.instance);
   });
+  on("game-crash", (ev) => {
+    sound.error();
+    toast(`${ev.instance} crashed`, ev.reason, "error", 14000);
+    (S.logs[ev.instance] ||= []).push({ level: "error", text: `Crash: ${ev.reason} (${ev.file})` });
+  });
   on("game-state", (ev) => {
     const name = ev.instance;
     if (ev.state === "preparing") {
@@ -3033,7 +3143,8 @@ async function boot() {
   tick();
   $("#side-version").textContent = `v${S.appVersion}`;
   $("#brand-ver").textContent = `v${S.appVersion}`;
-  go("home", { silent: true });
+  const startPage = { ...UI_DEFAULTS, ...S.settings }.start_page;
+  go(["home", "instances", "mods", "skins"].includes(startPage) ? startPage : "home", { silent: true });
   requestAnimationFrame(() => liquidTabs($("#nav"), true));
   // iOS 26 liquid glass on every glass surface (where the engine can).
   // Phones keep it on the tab bar only (every glass panel bending a moving

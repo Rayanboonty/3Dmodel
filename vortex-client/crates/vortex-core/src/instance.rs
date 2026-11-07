@@ -55,6 +55,13 @@ pub struct Instance {
     pub join_server: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_played: Option<u64>,
+    /// What the instance was made for: `pvp`, `normal`, `performance` or
+    /// `vanilla`; its mods are added on the first launch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pack: Option<String>,
+    /// The server last joined from the launcher (for "rejoin last server").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_server: Option<String>,
     /// Directory containing `instance.json`. Set when loading.
     #[serde(skip)]
     pub dir: PathBuf,
@@ -72,6 +79,8 @@ impl Instance {
             resolution: None,
             join_server: None,
             last_played: None,
+            pack: None,
+            last_server: None,
             dir: PathBuf::new(),
         }
     }

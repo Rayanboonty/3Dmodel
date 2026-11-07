@@ -23,6 +23,7 @@ pub mod accounts;
 pub mod assets;
 pub mod auth;
 pub mod download;
+pub mod extras;
 pub mod fabric;
 pub mod fastlaunch;
 pub mod forge;
