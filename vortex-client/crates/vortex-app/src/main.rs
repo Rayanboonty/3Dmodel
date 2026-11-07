@@ -106,6 +106,40 @@ struct ProgressEvent {
     total: u64,
 }
 
+/// What the pack install sheet shows: the list when it starts, each mod as
+/// it goes (active, added, skipped, failed), then the totals.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PackEvent {
+    instance: String,
+    phase: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pack: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    version: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    mods: Vec<PackModView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    state: Option<&'static str>,
+    added: usize,
+    skipped: usize,
+    failed: usize,
+}
+
+#[derive(Clone, Serialize)]
+struct PackModView {
+    id: String,
+    name: String,
+}
+
+impl PackEvent {
+    fn new(instance: &str, phase: &'static str) -> Self {
+        PackEvent { instance: instance.to_string(), phase, pack: None, version: None, mods: Vec::new(), id: None, state: None, added: 0, skipped: 0, failed: 0 }
+    }
+}
+
 #[derive(Clone, Serialize)]
 struct LogEvent {
     instance: String,
@@ -1143,6 +1177,7 @@ fn pack_mods(pack: &str, loader: &Loader) -> Vec<(&'static str, &'static str)> {
 /// Instances made before packs existed get the performance pack when that
 /// setting is on. Returns the names added.
 async fn setup_pack(
+    app: &AppHandle,
     launcher: &Launcher,
     instance: &Instance,
     settings: &Settings,
@@ -1166,32 +1201,69 @@ async fn setup_pack(
     let present = mods::list(&dir).unwrap_or_default();
     // OptiFine (through OptiFabric) doesn't go with Sodium, Iris or Embeddium.
     let optifine = present.iter().any(|m| m.name.to_lowercase().contains("optif"));
-    let mut added = Vec::new();
+    let index = modrinth::installed(instance);
+    let mut todo = Vec::new();
     for (id, name) in list {
         if done.iter().any(|d| d == id) {
             continue;
         }
-        let index = modrinth::installed(instance);
         let have = index.files.values().any(|e| e.project_id == id)
             || present.iter().any(|m| m.name.eq_ignore_ascii_case(name));
         if have || (optifine && ["AANobbMI", "YL57xq9U", "sk9rgfiA", "PtjYWJkn", "Bh37bMuy"].contains(&id)) {
             done.push(id.to_string());
-            continue;
+        } else {
+            todo.push((id, name));
         }
-        report(progress, &format!("Adding {name}"), 0, 0);
-        match modrinth::install(launcher, instance, ProjectKind::Mod, id, None, false, true, progress).await {
-            Ok(_) => {
-                added.push(name.to_string());
-                done.push(id.to_string());
-            }
-            // None for this version: don't keep asking.
-            Err(e) if format!("{e:#}").contains("no version") => done.push(id.to_string()),
-            // Offline or Modrinth down: try again next launch.
-            Err(_) => {}
-        }
-        let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
     }
     let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
+    if todo.is_empty() {
+        return Vec::new();
+    }
+
+    let name = &instance.name;
+    let send = |ev: PackEvent| {
+        let _ = app.emit("pack-install", ev);
+    };
+    let mut start = PackEvent::new(name, "start");
+    start.pack = Some(pack.to_string());
+    start.version = Some(format!("{} {}", instance.minecraft_version, instance.loader.label().split(' ').next().unwrap_or_default()));
+    start.mods = todo.iter().map(|(id, n)| PackModView { id: id.to_string(), name: n.to_string() }).collect();
+    send(start);
+
+    let mut added = Vec::new();
+    let (mut skipped, mut failed) = (0, 0);
+    for (id, mod_name) in todo {
+        let mut ev = PackEvent::new(name, "mod");
+        ev.id = Some(id.to_string());
+        ev.state = Some("active");
+        send(ev.clone());
+        report(progress, &format!("Adding {mod_name}"), 0, 0);
+        ev.state = Some(match modrinth::install(launcher, instance, ProjectKind::Mod, id, None, false, true, progress).await {
+            Ok(_) => {
+                added.push(mod_name.to_string());
+                done.push(id.to_string());
+                "added"
+            }
+            // None for this version: don't keep asking.
+            Err(e) if format!("{e:#}").contains("no version") => {
+                done.push(id.to_string());
+                skipped += 1;
+                "skipped"
+            }
+            // Offline or Modrinth down: try again next launch.
+            Err(_) => {
+                failed += 1;
+                "failed"
+            }
+        });
+        send(ev);
+        let _ = std::fs::write(&mark, serde_json::to_vec(&done).unwrap_or_default());
+    }
+    let mut end = PackEvent::new(name, "done");
+    end.added = added.len();
+    end.skipped = skipped;
+    end.failed = failed;
+    send(end);
     added
 }
 
@@ -1257,7 +1329,7 @@ async fn run_game(
             Err(e) => warn(format!("World backup failed: {e}")),
         }
     }
-    let added = setup_pack(&launcher, &instance, &settings, &progress).await;
+    let added = setup_pack(app, &launcher, &instance, &settings, &progress).await;
     if !added.is_empty() {
         info(format!("Mods added: {}.", added.join(", ")));
     }

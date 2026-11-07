@@ -1,3 +1,11 @@
+**A new look for pack installs.** The first launch of a PvP, Normal or Performance instance now opens a liquid glass sheet that shows every mod arriving:
+- Each mod lights up while it downloads, with dust streaming into it and a fill showing the download.
+- It bursts into sparks and gets a check mark when it lands. Mods with no build for your version are crossed out.
+- A ring and a bar fill up as the pack goes, then the sheet says how many mods were added and breaks into dust as the game starts.
+- **Hide** closes it; the Play button keeps showing the progress.
+
+**From 0.7.2:**
+
 **VC cape.** The Vortex cape now shows the VC logo instead of the old V, in-game and in the launcher.
 
 **From 0.7.1:**

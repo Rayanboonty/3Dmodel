@@ -9,6 +9,7 @@ import { fx, toast } from "./fx.js";
 import { dust } from "./dust.js";
 import { watch as watchGlass, setEnabled as setLiquid, liquifyRail } from "./lglass.js";
 import { coverFor, updateName } from "./versions.js";
+import { packSheet } from "./packsheet.js";
 
 // ------------------------------------------------------------------ state --
 
@@ -2876,7 +2877,19 @@ function toggleLog() {
 // ------------------------------------------------------------ live events --
 
 function bindEvents() {
+  const packMeta = {};
+  on("pack-install", (ev) => {
+    if (ev.phase === "start") {
+      packMeta[ev.instance] = PACKS[ev.pack] || { title: "Mod", icon: "download" };
+      packSheet.open(ev, packMeta[ev.instance], { animate: anims() });
+    } else if (ev.phase === "mod") {
+      packSheet.mod(ev);
+    } else if (ev.phase === "done") {
+      packSheet.done(ev, packMeta[ev.instance] || { title: "Mod" });
+    }
+  });
   on("launch-progress", (p) => {
+    packSheet.bytes(p);
     const r = S.runs[p.instance];
     if (!r || r.phase === "running") return;
     S.runs[p.instance] = { phase: "preparing", stage: p.stage, done: p.done, total: p.total };
@@ -2889,6 +2902,7 @@ function bindEvents() {
   });
   on("game-state", (ev) => {
     const name = ev.instance;
+    if (ev.state !== "preparing" && packSheet.instance === name) packSheet.close();
     if (ev.state === "preparing") {
       S.runs[name] = { ...(S.runs[name] || {}), phase: "preparing", stage: S.runs[name]?.stage || "Preparing" };
     } else if (ev.state === "running") {

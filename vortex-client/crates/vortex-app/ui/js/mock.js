@@ -55,6 +55,43 @@ function view(i) {
   return { ...i, running: state.running.has(i.name) };
 }
 
+// The same sets the launcher installs (Fabric), so the demo shows the real list.
+const PERF = ["Sodium", "Lithium", "FerriteCore", "EntityCulling", "ImmediatelyFast", "ModernFix", "More Culling", "Dynamic FPS", "BadOptimizations", "Krypton", "C2ME", "ScalableLux", "VMP", "Memory Leak Fix", "Fast IP Ping", "Debugify", "Sodium Extra", "Reese's Sodium Options", "Cull Less Leaves", "FastQuit", "Clumps", "ThreadTweak"];
+const PACK_MODS = {
+  performance: PERF,
+  normal: [...PERF, "Mod Menu", "Iris Shaders", "Continuity", "LambDynamicLights", "AppleSkin", "Xaero's Minimap", "Xaero's World Map", "JEI", "Jade", "Mouse Tweaks", "Shulker Box Tooltip", "Chat Heads", "3D Skin Layers", "Entity Model Features", "Entity Texture Features", "BetterF3", "Controlling", "No Chat Reports", "Inventory Profiles Next", "Durability Tooltip", "Falling Leaves", "Wavey Capes", "Item Highlighter", "Bobby"],
+  pvp: [...PERF, "Mod Menu", "3D Skin Layers", "Wavey Capes", "Chat Heads", "No Chat Reports", "Better Ping Display", "Shield Statuses", "Status Effect Bars", "Durability Tooltip", "Item Highlighter", "Auth Me", "Bobby"],
+};
+// No 1.21.4 build of these, like the real thing.
+const NO_BUILD = new Set(["Memory Leak Fix", "Cull Less Leaves", "JEI"]);
+
+async function installPack(inst) {
+  const name = inst.name;
+  const mods = [...new Set(PACK_MODS[inst.pack])].map((m) => ({ id: m.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: m }));
+  const version = `${inst.minecraftVersion} ${{ fabric: "Fabric", forge: "Forge" }[inst.loader] || ""}`.trim();
+  emit("pack-install", { instance: name, phase: "start", pack: inst.pack, version, mods });
+  await wait(900);
+  let added = 0, skipped = 0;
+  for (const m of mods) {
+    emit("pack-install", { instance: name, phase: "mod", id: m.id, state: "active" });
+    emit("launch-progress", { instance: name, stage: `Adding ${m.name}`, done: 0, total: 0 });
+    const size = 200_000 + Math.random() * 1_400_000;
+    const steps = 3 + Math.floor(Math.random() * 3);
+    for (let i = 1; i <= steps; i++) {
+      await wait(60 + Math.random() * 70);
+      if (!NO_BUILD.has(m.name)) emit("launch-progress", { instance: name, stage: `Downloading ${m.name}`, done: Math.round((size * i) / steps), total: Math.round(size) });
+    }
+    const st = NO_BUILD.has(m.name) ? "skipped" : "added";
+    if (st === "added") added++; else skipped++;
+    emit("pack-install", { instance: name, phase: "mod", id: m.id, state: st });
+    await wait(60);
+  }
+  emit("pack-install", { instance: name, phase: "done", added, skipped, failed: 0 });
+  inst.modCount += added;
+  emit("game-log", { instance: name, lines: [{ level: "info", text: `Mods added: ${mods.filter((m) => !NO_BUILD.has(m.name)).map((m) => m.name).join(", ")}.` }] });
+  await wait(1400);
+}
+
 async function simulateLaunch(name) {
   const inst = state.instances.find((i) => i.name === name);
   emit("game-state", { instance: name, state: "preparing" });
@@ -62,13 +99,9 @@ async function simulateLaunch(name) {
   const fast = state.fast.has(name);
   state.fast.add(name);
   // First launch of a PvP / Normal / Performance instance: its mods arrive.
-  const packMods = { performance: ["Sodium", "Lithium", "FerriteCore", "ModernFix", "ImmediatelyFast", "EntityCulling", "More Culling", "C2ME"], normal: ["Sodium", "Lithium", "Iris Shaders", "Xaero's Minimap", "JEI", "Jade", "AppleSkin"], pvp: ["Sodium", "Lithium", "ImmediatelyFast", "3D Skin Layers", "Wavey Capes", "Better Ping Display"] }[inst.packPending ? inst.pack : ""] || [];
-  if (packMods.length) {
+  if (inst.packPending && PACK_MODS[inst.pack]) {
     inst.packPending = false;
-    packMods.forEach((m, i) => setTimeout(() => emit("launch-progress", { instance: name, stage: `Adding ${m}`, done: i + 1, total: packMods.length }), i * 260));
-    await new Promise((r) => setTimeout(r, packMods.length * 260 + 100));
-    inst.modCount += packMods.length * 2 + 4;
-    emit("game-log", { instance: name, lines: [{ level: "info", text: `Mods added: ${packMods.join(", ")} and ${packMods.length + 4} more.` }] });
+    await installPack(inst);
   }
   const stages = fast ? [["Fast launch", 1, 1, 350], ["Ready", 1, 1, 150]] : [
     ["Resolving " + inst.minecraftVersion, 0, 0, 500],
@@ -121,7 +154,7 @@ export const mock = {
     await wait(60 + Math.random() * 120);
     switch (cmd) {
       case "bootstrap":
-        return { appVersion: "0.7.2", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
+        return { appVersion: "0.7.3", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view) };
       case "list_versions":
         return versionList();
       case "loader_versions": {
@@ -171,9 +204,9 @@ export const mock = {
       }
       case "check_update":
         return location.search.includes("update")
-          ? { available: true, current: "0.7.2", version: "0.7.3", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.7.3/Vortex-windows-x64.zip",
+          ? { available: true, current: "0.7.3", version: "0.7.4", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.7.4/Vortex-windows-x64.zip",
               notes: "## What's new\n- Faster instance switching\n- New Servers panel on Home\n- Smoother pop-up animations\n- Fixed the Stop Game button" }
-          : { available: false, current: "0.7.2", version: "0.7.2" };
+          : { available: false, current: "0.7.3", version: "0.7.3" };
       case "install_update":
         for (let i = 0; i <= 20; i++) { emit("update-progress", { stage: "download", done: i * 535000, total: 10_700_000 }); await wait(90); }
         emit("update-progress", { stage: "install", done: 1, total: 1 });
