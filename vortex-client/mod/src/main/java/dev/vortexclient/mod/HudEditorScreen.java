@@ -63,6 +63,18 @@ public class HudEditorScreen extends ScreenBase {
             }
         }
 
+        // Presets: one click sets which elements show.
+        int px = 6;
+        Ui.text(c, "Presets", px, 9, 0xFFB8BEC8);
+        px += Ui.width("Presets") + 8;
+        for (String p : ModMenuScreen.PRESETS) {
+            int w = Ui.width(p) + 12;
+            boolean hot = Ui.inside(mouseX, mouseY, px, 5, w, 15);
+            Ui.rounded(c, px, 5, w, 15, 5, hot ? 0xE0202228 : 0xC0101114);
+            Ui.centered(c, p, px + w / 2, 9, hot ? 0xFFFFFFFF : 0xFFC9CED6);
+            px += w + 4;
+        }
+
         String hint = "Drag to move.  Scroll to resize.  Arrows nudge.  G grid" + (grid ? " (on)" : "") + ".  R resets all.  Esc to finish.";
         int hw = Ui.width(hint) + 16;
         Ui.round(c, (width - hw) / 2, height - 26, hw, 16, 0xD0101318);
@@ -71,6 +83,15 @@ public class HudEditorScreen extends ScreenBase {
 
     @Override
     protected boolean onMouseDown(double mx, double my, int button) {
+        int px = 6 + Ui.width("Presets") + 8;
+        for (String p : ModMenuScreen.PRESETS) {
+            int w = Ui.width(p) + 12;
+            if (button == 0 && Ui.inside(mx, my, px, 5, w, 15)) {
+                ModMenuScreen.applyPreset(p);
+                return true;
+            }
+            px += w + 4;
+        }
         for (Map.Entry<Module, Hud.Rect> e : Hud.layout(width, height).entrySet()) {
             Hud.Rect r = e.getValue();
             if (!r.contains(mx, my)) continue;

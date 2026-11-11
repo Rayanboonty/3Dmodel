@@ -42,8 +42,8 @@ public final class Hud {
 
     static final Map<String, Element> ELEMENTS = new LinkedHashMap<>();
     /** Elements that stack down the left edge by default, in order. */
-    private static final List<String> LEFT = List.of("fps", "cps", "ping", "memory", "server", "players", "speed", "reach", "combo", "clock", "worldtime", "day", "saturation", "health", "xp", "light", "biome", "rotation", "chunk", "entities", "forecast", "moon", "fall", "bow", "session", "pack",
-            "kills", "deaths", "distance", "difficulty", "gamemode", "dimension", "afk", "velocity", "version", "armorpts", "fire", "air", "attack", "hunger", "elytra", "mount", "lookat", "helditem",
+    private static final List<String> LEFT = List.of("fps", "cps", "ping", "memory", "server", "players", "speed", "reach", "combo", "clock", "day", "saturation", "health", "xp", "light", "biome", "rotation", "chunk", "entities", "forecast", "moon", "fall", "bow", "session", "pack",
+            "kills", "distance", "armorpts", "fire", "air", "attack", "hunger", "elytra", "mount", "lookat", "helditem",
             "coords", "deathpos", "durability", "sprint");
     /** Graphs and lists, under the right-hand stack by default. */
     private static final List<String> BOTTOM_LEFT = List.of("fpsgraph", "pinggraph", "nearby");
@@ -196,15 +196,27 @@ public final class Hud {
     /** A simple element made of label/value lines. */
     static Element lines(java.util.function.Function<Module, List<String[]>> content) {
         return new Element() {
+            // Worked out once a tick and reused for every frame in between.
+            private List<String[]> cache;
+            private int cachedAt = -1;
+
+            private List<String[]> get(Module m) {
+                if (cache == null || cachedAt != VortexMods.ticks) {
+                    cache = content.apply(m);
+                    cachedAt = VortexMods.ticks;
+                }
+                return cache;
+            }
+
             public int[] size(Module m) {
-                List<String[]> ls = content.apply(m);
+                List<String[]> ls = get(m);
                 int w = 0;
                 for (String[] l : ls) w = Math.max(w, tw(lab(m, l[0])) + tw(tc(bracket(m, l[1]))));
                 return new int[] {w + 8 + (styled() && VortexMods.config.bool(style(), "accentbar") ? 2 : 0), ls.size() * 10 + 5};
             }
 
             public void draw(DrawContext c, Module m, int x, int y) {
-                List<String[]> ls = content.apply(m);
+                List<String[]> ls = get(m);
                 int[] s = size(m);
                 panel(c, m, x, y, s[0], s[1]);
                 int ty = y + 4;
@@ -371,7 +383,6 @@ public final class Hud {
             int n = mc.getNetworkHandler() != null ? mc.getNetworkHandler().getPlayerList().size() : 1;
             return List.<String[]>of(new String[] {"Players ", String.valueOf(n)});
         }));
-        ELEMENTS.put("worldtime", lines(m -> List.<String[]>of(new String[] {"", worldClock(mc, VortexMods.config.bool(m, "h24"))})));
         ELEMENTS.put("biome", lines(m -> {
             String biome = "Plains";
             if (mc.player != null && mc.world != null) {
@@ -859,9 +870,12 @@ public final class Hud {
         int rightTop = rightY, rightX = sw - margin, rightColW = 0, rightBottom = sh - 70;
 
         List<Module> order = new ArrayList<>();
-        for (String id : RIGHT) order.add(Module.get(id));
-        for (String id : BOTTOM_LEFT) order.add(Module.get(id));
-        for (String id : LEFT) order.add(Module.get(id));
+        for (List<String> ids : List.of(RIGHT, BOTTOM_LEFT, LEFT)) {
+            for (String id : ids) {
+                Module m = Module.find(id);
+                if (m != null) order.add(m);
+            }
+        }
         for (Module m : Module.ALL) if (!order.contains(m)) order.add(m);
         for (Module m : order) {
             if (!m.hud || !has(m) || !VortexMods.config.enabled(m)) continue;

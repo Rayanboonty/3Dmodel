@@ -46,12 +46,6 @@ public final class Module {
             Option.bool("labels", "Labels", true),
             Option.bool("border", "Accent border", false));
 
-    /** Modules added in 0.9 (the "New" tab in the menu). */
-    public static final java.util.Set<String> NEW = java.util.Set.of(
-            "hudstyle", "armorpts", "air", "fire", "elytra", "mount", "lookat", "kills", "deaths", "distance",
-            "fpsgraph", "pinggraph", "nearby", "invhud", "helditem", "difficulty", "gamemode", "dimension", "afk",
-            "hunger", "attack", "velocity", "version", "tabping", "mentions", "copycoords", "lowhp", "hitmarker",
-            "killsound", "autorespawn", "hudkey");
 
     public final String id;
     public final String name;
@@ -81,6 +75,15 @@ public final class Module {
     }
 
     public static final List<Module> ALL = List.of(
+            new Module("boost", "FPS Boost", "More FPS in one switch: fast graphics, shorter view and fewer effects. Your own settings come back when you turn it off.",
+                    Category.UTILITY, Items.BLAZE_ROD, false, false, List.of(
+                            Option.slider("view", "View distance (chunks)", 8, 4, 16, 1),
+                            Option.bool("graphics", "Fast graphics", true),
+                            Option.bool("particles", "Fewest particles", true),
+                            Option.bool("clouds", "No clouds", true),
+                            Option.bool("shadows", "No entity shadows", true),
+                            Option.bool("lighting", "No smooth lighting", false),
+                            Option.bool("entities", "Hide far-away entities sooner", true))),
             new Module("keystrokes", "Keystrokes", "Shows your movement keys and mouse buttons as you press them.",
                     Category.HUD, Items.PISTON, true, true, List.of(
                             Option.bool("mouse", "Mouse buttons", true),
@@ -202,8 +205,6 @@ public final class Module {
                     Category.HUD, Items.TORCH, true, false, List.of(Option.bool("sky", "Sky light too", false))),
             new Module("players", "Player Count", "How many players are online.",
                     Category.HUD, Items.PLAYER_HEAD, true, false, List.of()),
-            new Module("worldtime", "World Time", "The time of day in the world, as a clock.",
-                    Category.UTILITY, Items.LANTERN, true, false, List.of(Option.bool("h24", "24-hour", true))),
             new Module("biome", "Biome", "The biome you're in.",
                     Category.UTILITY, Items.GRASS_BLOCK, true, false, List.of()),
             new Module("rotation", "Yaw and Pitch", "Exactly where you're looking.",
@@ -260,8 +261,6 @@ public final class Module {
                     Category.UTILITY, Items.OBSERVER, true, false, List.of(Option.bool("pos", "Its position", false), Option.bool("dist", "Distance", true))),
             new Module("kills", "Kill Counter", "Kills this session.",
                     Category.PVP, Items.IRON_SWORD, true, false, List.of(Option.bool("kdr", "Kill/death ratio", true))),
-            new Module("deaths", "Death Counter", "Deaths this session.",
-                    Category.PVP, Items.BONE, true, false, List.of()),
             new Module("distance", "Distance Travelled", "How far you've gone this session.",
                     Category.UTILITY, Items.LEATHER_BOOTS, true, false, List.of()),
             new Module("fpsgraph", "FPS Graph", "Your frame rate over the last 20 seconds.",
@@ -274,22 +273,10 @@ public final class Module {
                     Category.HUD, Items.CHEST, true, false, List.of(Option.bool("hotbar", "Hotbar too", false))),
             new Module("helditem", "Held Item", "Name, count and durability of what's in your hand.",
                     Category.HUD, Items.STICK, true, false, List.of(Option.bool("total", "How many you carry", true))),
-            new Module("difficulty", "Difficulty", "The world's difficulty.",
-                    Category.UTILITY, Items.CREEPER_HEAD, true, false, List.of()),
-            new Module("gamemode", "Game Mode", "Survival, creative, adventure or spectator.",
-                    Category.UTILITY, Items.COMMAND_BLOCK, true, false, List.of()),
-            new Module("dimension", "Dimension", "Overworld, Nether or End.",
-                    Category.UTILITY, Items.OBSIDIAN, true, false, List.of()),
-            new Module("afk", "AFK Timer", "How long you've been away from the keyboard.",
-                    Category.UTILITY, Items.WHITE_BED, true, false, List.of(Option.slider("after", "Show after (seconds)", 30, 5, 300, 5))),
             new Module("hunger", "Hunger Warning", "Tells you to eat before you stop sprinting.",
                     Category.UTILITY, Items.BREAD, true, true, List.of(Option.slider("below", "Warn at (hunger)", 8, 2, 18, 1))),
             new Module("attack", "Attack Cooldown", "When your next hit does full damage.",
                     Category.PVP, Items.NETHERITE_SWORD, true, false, List.of(Option.bool("hidefull", "Hide when ready", true))),
-            new Module("velocity", "Vertical Speed", "How fast you're going up or down.",
-                    Category.UTILITY, Items.SLIME_BALL, true, false, List.of()),
-            new Module("version", "Game Version", "The Minecraft version and how many mods are loaded.",
-                    Category.HUD, Items.BOOK, true, false, List.of(Option.bool("mods", "Mod count", true))),
             new Module("tabping", "Tab Ping", "Ping in milliseconds next to every name in the Tab list.",
                     Category.UTILITY, Items.REDSTONE_TORCH, false, true, List.of(Option.bool("color", "Colour by quality", true))),
             new Module("mentions", "Chat Mentions", "Highlights messages with your name and plays a sound.",
@@ -303,9 +290,13 @@ public final class Module {
             new Module("killsound", "Kill Sound", "A sound when you get a kill.",
                     Category.PVP, Items.NOTE_BLOCK, false, false, List.of(Option.choice("sound", "Sound", "Ding", "Ding", "Level up", "Orb"))),
             new Module("autorespawn", "Auto Respawn", "Respawns you straight away when you die.",
-                    Category.UTILITY, Items.RESPAWN_ANCHOR, false, false, List.of()),
-            new Module("hudkey", "HUD Toggle Key", "F6 hides or shows the Vortex HUD (F1 hides everything).",
-                    Category.HUD, Items.GLASS, false, true, List.of()));
+                    Category.UTILITY, Items.RESPAWN_ANCHOR, false, false, List.of()));
+
+    /** The module with this id, or null. */
+    public static Module find(String id) {
+        for (Module m : ALL) if (m.id.equals(id)) return m;
+        return null;
+    }
 
     public static Module get(String id) {
         for (Module m : ALL) if (m.id.equals(id)) return m;

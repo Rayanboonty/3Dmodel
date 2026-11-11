@@ -2027,115 +2027,13 @@ const AUTO = ["", "Auto (the game's own)"];
 /** More game options (written to options.txt on every start). [key, label, [[value, label]...], desc] */
 const BOOL = [["true", "On"], ["false", "Off"]];
 const PCT = (vals) => vals.map((v) => [String(v), `${Math.round(v * 100)}%`]);
-const GAME_OPTS = [
-  ["Graphics", [
-    ["graphicsMode", "Graphics", [["0", "Fast"], ["1", "Fancy"], ["2", "Fabulous"]], "Fabulous needs a strong graphics card"],
-    ["ao", "Smooth lighting", BOOL],
-    ["biomeBlendRadius", "Biome blend", [["0", "Off"], ["1", "3×3"], ["2", "5×5"], ["3", "7×7"], ["5", "11×11"], ["7", "15×15"]], "Off is fastest"],
-    ["mipmapLevels", "Mipmap levels", [["0", "Off"], ["1", "1"], ["2", "2"], ["4", "4"]]],
-    ["entityDistanceScaling", "Entity distance", PCT([0.5, 0.75, 1, 1.5, 2, 3])],
-    ["prioritizeChunkUpdates", "Chunk updates", [["0", "Threaded"], ["1", "Semi-blocking"], ["2", "Fully blocking"]]],
-    ["gamma", "Brightness", [["0.0", "Moody"], ["0.5", "Normal"], ["1.0", "Bright"]]],
-    ["glintStrength", "Enchantment glint", PCT([0, 0.25, 0.5, 0.75, 1])],
-    ["menuBackgroundBlurriness", "Menu background blur", [["0", "Off"], ["5", "Normal"], ["10", "Strong"]], "1.20.5 and newer"],
-    ["glintSpeed", "Glint speed", PCT([0, 0.25, 0.5, 0.75, 1])],
-    ["inactivityFpsLimit", "Save power when away", [['"afk"', "When AFK"], ['"minimized"', "Only when minimized"]], "1.21 and newer"],
-    ["darkMojangStudiosBackground", "Dark loading screen", BOOL],
-    ["hideSplashTexts", "Hide splash texts", BOOL],
-    ["panoramaScrollSpeed", "Title screen panorama speed", PCT([0, 0.5, 1, 2])],
-  ]],
-  ["Camera and effects", [
-    ["bobView", "View bobbing", BOOL],
-    ["fovEffectScale", "FOV effects", PCT([0, 0.25, 0.5, 1])],
-    ["screenEffectScale", "Distortion effects", PCT([0, 0.25, 0.5, 1])],
-    ["damageTiltStrength", "Damage tilt", PCT([0, 0.5, 1])],
-    ["darknessEffectScale", "Darkness pulsing", PCT([0, 0.5, 1])],
-    ["hideLightningFlashes", "Hide lightning flashes", BOOL],
-    ["attackIndicator", "Attack indicator", [["0", "Off"], ["1", "Crosshair"], ["2", "Hotbar"]]],
-  ]],
-  ["Controls", [
-    ["mouseSensitivity", "Mouse sensitivity", [["0.3", "Slow"], ["0.5", "Normal"], ["0.7", "Fast"], ["0.85", "Very fast"]]],
-    ["toggleSprint", "Sprint", [["false", "Hold"], ["true", "Toggle"]]],
-    ["toggleCrouch", "Sneak", [["false", "Hold"], ["true", "Toggle"]]],
-    ["mainHand", "Main hand", [['"right"', "Right"], ['"left"', "Left"]]],
-    ["autoSuggestions", "Command suggestions", BOOL],
-    ["invertYMouse", "Invert mouse", BOOL],
-    ["mouseWheelSensitivity", "Scroll sensitivity", [["0.5", "Slow"], ["1.0", "Normal"], ["2.0", "Fast"]]],
-    ["discrete_mouse_scroll", "Discrete scrolling", BOOL, "One hotbar slot per wheel click"],
-    ["rotateWithMinecart", "Turn with minecarts", BOOL, "1.21.2 and newer"],
-    ["advancedItemTooltips", "Advanced tooltips", BOOL, "Item IDs and durability (F3+H)"],
-    ["operatorItemsTab", "Operator items tab", BOOL],
-  ]],
-  ["Chat", [
-    ["chatOpacity", "Chat text opacity", PCT([0.5, 0.75, 1])],
-    ["textBackgroundOpacity", "Chat background", PCT([0, 0.25, 0.5, 0.75])],
-    ["chatScale", "Chat size", PCT([0.75, 1])],
-    ["chatLinks", "Web links in chat", BOOL],
-    ["reducedDebugInfo", "Reduced F3 info", BOOL],
-    ["chatVisibility", "Chat", [["0", "Shown"], ["1", "Commands only"], ["2", "Hidden"]]],
-    ["chatColors", "Chat colours", BOOL],
-    ["chatLinksPrompt", "Ask before opening links", BOOL],
-    ["chatWidth", "Chat width", PCT([0.5, 0.75, 1])],
-    ["chatHeightFocused", "Chat height (open)", PCT([0.5, 0.75, 1])],
-    ["chatHeightUnfocused", "Chat height (closed)", PCT([0.25, 0.4375, 0.75, 1])],
-    ["chatLineSpacing", "Line spacing", PCT([0, 0.25, 0.5])],
-    ["chatDelay", "Chat delay", [["0.0", "None"], ["0.5", "0.5 s"], ["1.0", "1 s"], ["2.0", "2 s"]]],
-    ["backgroundForChatOnly", "Text background only in chat", BOOL],
-    ["notificationDisplayTime", "Toast time", [["0.5", "Short"], ["1.0", "Normal"], ["2.0", "Long"], ["5.0", "Very long"]]],
-    ["hideMatchedNames", "Hide blocked players' messages", BOOL],
-    ["onlyShowSecureChat", "Only signed chat", BOOL],
-  ]],
-  ["Sound", [
-    ["soundCategory_master", "Master volume", PCT([0, 0.25, 0.5, 0.75, 1])],
-    ["soundCategory_music", "Music", PCT([0, 0.25, 0.5, 1])],
-    ["showSubtitles", "Subtitles", BOOL],
-    ["soundCategory_player", "Players", PCT([0, 0.25, 0.5, 1])],
-    ["soundCategory_hostile", "Hostile creatures", PCT([0, 0.25, 0.5, 1])],
-    ["soundCategory_neutral", "Friendly creatures", PCT([0, 0.25, 0.5, 1])],
-    ["soundCategory_block", "Blocks", PCT([0, 0.25, 0.5, 1])],
-    ["soundCategory_weather", "Weather", PCT([0, 0.25, 0.5, 1])],
-    ["soundCategory_ambient", "Ambient", PCT([0, 0.25, 0.5, 1])],
-    ["soundCategory_record", "Jukebox and note blocks", PCT([0, 0.25, 0.5, 1])],
-    ["soundCategory_voice", "Voice", PCT([0, 0.25, 0.5, 1])],
-    ["directionalAudio", "Directional audio", BOOL, "3D sound for headphones"],
-  ]],
-  ["Skin and multiplayer", [
-    ["modelPart_cape", "Show cape", BOOL],
-    ["modelPart_hat", "Show hat layer", BOOL],
-    ["modelPart_jacket", "Show jacket", BOOL],
-    ["modelPart_left_sleeve", "Show left sleeve", BOOL],
-    ["modelPart_right_sleeve", "Show right sleeve", BOOL],
-    ["modelPart_left_pants_leg", "Show left trouser leg", BOOL],
-    ["modelPart_right_pants_leg", "Show right trouser leg", BOOL],
-    ["hideServerAddress", "Hide server addresses", BOOL, "Good for streaming"],
-    ["allowServerListing", "Appear in server player lists", BOOL],
-    ["showAutosaveIndicator", "Autosave indicator", BOOL],
-  ]],
-  ["Language and accessibility", [
-    ["lang", "Game language", [["en_us", "English (US)"], ["en_gb", "English (UK)"], ["ar_sa", "العربية"], ["de_de", "Deutsch"], ["es_es", "Español"], ["fr_fr", "Français"], ["it_it", "Italiano"], ["nl_nl", "Nederlands"], ["pl_pl", "Polski"], ["pt_br", "Português (BR)"], ["ru_ru", "Русский"], ["tr_tr", "Türkçe"], ["ja_jp", "日本語"], ["ko_kr", "한국어"], ["zh_cn", "简体中文"]]],
-    ["forceUnicodeFont", "Unicode font", BOOL],
-    ["highContrast", "High contrast", BOOL, "1.20 and newer"],
-    ["highContrastBlockOutline", "Thick block outline", BOOL, "1.21.4 and newer"],
-    ["narratorHotkey", "Narrator shortcut (Ctrl+B)", BOOL],
-    ["japaneseGlyphVariants", "Japanese glyph variants", BOOL],
-    ["onboardAccessibility", "Accessibility screen on first start", BOOL],
-    ["realmsNotifications", "Realms notifications", BOOL],
-    ["telemetryOptInExtra", "Optional telemetry", BOOL],
-  ]],
-];
-const goptRow = (d, [key, label, options, desc]) => `<div class="setting"><div><strong>${label}</strong>${desc ? `<span>${desc}</span>` : ""}</div>
-  <select class="input sel" data-gopt="${key}" aria-label="${label}"><option value="">${AUTO[1]}</option>${options.map(([v, l]) => `<option value="${esc(v)}" ${(d.game_options || {})[key] === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>`;
-
 /** What's new in this version (shown once after updating). */
 const WHATS_NEW = [
-  "Starts faster and more reliably on low-end PCs: memory now fits your PC",
-  "No pre-made instances: yours appear as soon as you make them",
-  "Installs itself as an app: Start menu, Desktop and Settings > Apps",
-  "Packs install about 3.6x faster (all mods at once)",
-  "A VC badge next to Vortex players in the Tab list",
-  "Texture packs in Customize, turned on with one switch",
-  "A new loading screen that builds the launcher out of its own pixels",
-  "18 new in-game mods and 100+ new options",
+  "FPS Boost in-game: one switch for more FPS, your settings come back when it's off",
+  "Render resolution: draw the world with fewer pixels on weak graphics cards",
+  "A new minimal in-game mod menu",
+  "Settings cut down to what matters",
+  "The Vortex HUD costs less: its text is worked out once a tick, not every frame",
 ];
 const rangeRow = (id, label, value, lo, hi, step, text) => `<div class="field"><label class="label" for="${id}">${label}</label><div class="row"><input class="range grow" id="${id}" type="range" min="${lo}" max="${hi}" step="${step}" value="${value}" style="--fill:${((value - lo) / (hi - lo)) * 100}%"><span class="value" id="${id}-v">${text}</span></div></div>`;
 
@@ -2164,74 +2062,42 @@ function settingsBody(d) {
     </div>`;
   }
   if (tab === "game") {
-    const more = GAME_OPTS.map(([title, rows]) => `<div class="card-pad wide"><h3>More options: ${title}</h3><div class="settings-2col">${rows.map((r) => goptRow(d, r)).join("")}</div></div>`).join("");
     const size = d.game_width && d.game_height ? `${d.game_width}x${d.game_height}` : "";
     const preset = WINDOW_SIZES.some(([v]) => v === size) ? size : "custom";
     return `<div class="settings-grid">
-      <div class="card-pad"><h3>Memory</h3>
-        ${swRow(d, "auto_memory", "Automatic", S.autoMemMb ? `Right for this PC${S.systemRamMb ? ` (${gb(S.systemRamMb)} of RAM)` : ""}: ${gb(S.autoMemMb)}, or ${gb(S.autoMemModdedMb)} with mods. Leaves room for Windows, so low-end PCs don't slow down` : "Picks the right amount for this PC")}
-        <div id="mem-manual" ${d.auto_memory !== false ? "hidden" : ""}>${rangeRow("s-max", "Maximum memory", d.max_memory_mb, 1024, 32768, 512, gb(d.max_memory_mb))}</div>
-        ${rangeRow("s-min", "Minimum memory", d.min_memory_mb, 256, 8192, 256, gb(d.min_memory_mb))}
-        <span class="muted small">Instances can set their own maximum.</span>
+      <div class="card-pad"><h3>Performance</h3>
+        ${swRow(d, "max_fps_mode", "Max FPS mode", "Fast graphics, no clouds or shadows, fewest particles, render distance 8. The biggest single FPS gain. What you set below still wins")}
+        ${selRow(d, "render_scale", "Render resolution", [["100", "100% (sharp)"], ["85", "85%"], ["75", "75% (faster)"], ["67", "67%"], ["50", "50% (fastest)"]], "Draws the world with fewer pixels and keeps menus and text sharp. Big gain on weak graphics cards. Minecraft 1.21.4 and newer with Fabric", "num")}
+        ${selRow(d, "render_distance", "Render distance", [AUTO, ...[4, 6, 8, 10, 12, 16, 20, 24, 32].map((n) => [String(n), `${n} chunks`])], "", "num")}
+        ${selRow(d, "max_fps", "FPS limit", [AUTO, ["60", "60"], ["120", "120"], ["144", "144"], ["165", "165"], ["240", "240"], ["260", "Unlimited"]], "", "num")}
+        ${selRow(d, "vsync", "VSync", [AUTO, ["true", "On"], ["false", "Off (lower input lag)"]], "", "bool")}
+        ${S.platform === "windows" ? swRow(d, "gpu_high_performance", "Use the fast graphics card", "For laptops with two: runs Minecraft on the strong one") : ""}
       </div>
-      <div class="card-pad"><h3>Game window</h3>
-        <div class="field"><label class="label" for="s-size">Size</label><select class="input" id="s-size">${WINDOW_SIZES.map(([v, l]) => `<option value="${v}" ${preset === v && (v !== "custom" || size) ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="card-pad"><h3>Memory and window</h3>
+        ${swRow(d, "auto_memory", "Automatic memory", S.autoMemMb ? `Right for this PC${S.systemRamMb ? ` (${gb(S.systemRamMb)} of RAM)` : ""}: ${gb(S.autoMemMb)}, or ${gb(S.autoMemModdedMb)} with mods` : "Picks the right amount for this PC")}
+        <div id="mem-manual" ${d.auto_memory !== false ? "hidden" : ""}>${rangeRow("s-max", "Memory", d.max_memory_mb, 1024, 32768, 512, gb(d.max_memory_mb))}</div>
+        <div class="field"><label class="label" for="s-size">Window size</label><select class="input" id="s-size">${WINDOW_SIZES.map(([v, l]) => `<option value="${v}" ${preset === v && (v !== "custom" || size) ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         <div class="row" id="s-custom" ${preset === "custom" && size ? "" : "hidden"}><input class="input grow" id="s-w" type="number" min="320" max="7680" placeholder="Width" value="${d.game_width || ""}"><span class="muted">×</span><input class="input grow" id="s-h" type="number" min="240" max="4320" placeholder="Height" value="${d.game_height || ""}"></div>
         ${swRow(d, "fullscreen", "Start fullscreen", "F11 switches in-game")}
       </div>
-      <div class="card-pad"><h3>Java</h3>
-        <div class="field"><label class="label" for="s-java">Java</label><input class="input" id="s-java" placeholder="Automatic (recommended)" value="${esc(d.java_path || "")}"></div>
-        <div class="field"><label class="label" for="s-jvm">Extra JVM arguments</label><input class="input" id="s-jvm" placeholder="Optional, for example -XX:+UseG1GC" value="${esc((d.extra_jvm_args || []).join(" "))}"></div>
-        <span class="muted small">Vortex downloads the exact Java each version needs.</span>
-      </div>
-      <div class="card-pad"><h3>Launch speed</h3>
-        ${swRow(d, "fast_launch", "Fast launch", "Starts from the files the last launch checked, with no downloads or hashing. A full check still runs every few days")}
-        ${swRow(d, "tuned_jvm", "Tuned Java", "Low-pause garbage collector and class sharing on Java 17+, for a quicker start and smoother play")}
-        <div class="row wrap"><button class="btn btn-sm" data-action="verify-files">${icon("check", 12)} Check files on next launch</button></div>
-      </div>
-      <div class="card-pad"><h3>Mod downloads</h3>
-        ${swRow(d, "mods_with_dependencies", "Install required mods", "Adds the libraries a mod needs, like Fabric API")}
-        ${swRow(d, "mods_allow_unstable", "Prefer beta versions", "Otherwise betas are used only when there's nothing else")}
-        ${swRow(d, "auto_update_mods", "Update mods before playing", "Mods from Modrinth update to their newest version for the instance. Mods you turned off stay as they are")}
-        ${rangeRow("s-dl", "Parallel downloads", d.download_concurrency, 1, 64, 1, String(d.download_concurrency))}
-      </div>
-      <div class="card-pad wide"><h3>Game defaults</h3>
-        <p class="muted small">Set once here, applied to every instance when it starts. Auto leaves the game's own setting alone.</p>
-        ${swRow(d, "max_fps_mode", "Max FPS mode", "Fast graphics, no clouds or shadows, minimal particles, render distance 8. With the Performance pack it gave about 3x the FPS of normal Minecraft in our test. Anything you set below still wins.")}
-        <div class="settings-2col">
-          ${selRow(d, "max_fps", "Max FPS", [AUTO, ["60", "60"], ["120", "120"], ["144", "144"], ["165", "165"], ["240", "240"], ["260", "Unlimited"]], "", "num")}
-          ${selRow(d, "render_distance", "Render distance", [AUTO, ...[4, 6, 8, 10, 12, 16, 20, 24, 32].map((n) => [String(n), `${n} chunks`])], "", "num")}
-          ${selRow(d, "simulation_distance", "Simulation distance", [AUTO, ...[5, 6, 8, 10, 12, 16].map((n) => [String(n), `${n} chunks`])], "", "num")}
-          ${selRow(d, "fov", "Field of view", [AUTO, ["70", "70 (Normal)"], ["80", "80"], ["90", "90"], ["100", "100"], ["110", "110 (Quake Pro)"]], "", "num")}
-          ${selRow(d, "gui_scale", "GUI scale", [AUTO, ["0", "Auto"], ["1", "Small"], ["2", "Normal"], ["3", "Large"], ["4", "Largest"]], "", "num")}
-          ${selRow(d, "vsync", "VSync", [AUTO, ["true", "On"], ["false", "Off (lower input lag)"]], "", "bool")}
-          ${selRow(d, "raw_mouse_input", "Raw mouse input", [AUTO, ["true", "On (recommended for PvP)"], ["false", "Off"]], "", "bool")}
-          ${selRow(d, "entity_shadows", "Entity shadows", [AUTO, ["true", "On"], ["false", "Off (faster)"]], "", "bool")}
-          ${selRow(d, "particles", "Particles", [AUTO, ["all", "All"], ["decreased", "Decreased"], ["minimal", "Minimal (faster)"]])}
-          ${selRow(d, "clouds", "Clouds", [AUTO, ["fancy", "Fancy"], ["fast", "Fast"], ["off", "Off (faster)"]])}
-          ${selRow(d, "auto_jump", "Auto-jump", [AUTO, ["false", "Off"], ["true", "On"]], "", "bool")}
-          ${selRow(d, "pause_on_lost_focus", "Pause when you tab out", [AUTO, ["true", "Yes"], ["false", "No"]], "", "bool")}
-        </div>
-        ${swRow(d, "hide_tutorial", "Skip tutorial pop-ups", "No more \"Move with W, A, S and D\" hints")}
-        ${swRow(d, "narrator_off", "Narrator off", "Ctrl+B won't start reading the screen aloud")}
-        ${swRow(d, "skip_multiplayer_warning", "Skip the multiplayer warning", "The \"online play is not rated\" screen")}
-      </div>
-      <div class="card-pad"><h3>Launching</h3>
-        ${selRow(d, "gc", "Garbage collector", [["auto", "Auto (tuned G1)"], ["zgc", "ZGC (lowest pauses, Java 21)"], ["shenandoah", "Shenandoah"], ["g1", "G1 (plain)"], ["parallel", "Parallel (old PCs)"]], "ZGC suits 8 GB or more")}
+      <div class="card-pad"><h3>Game defaults</h3>
+        <p class="muted small">Applied to every instance when it starts. Auto leaves the game's own setting alone.</p>
+        ${selRow(d, "fov", "Field of view", [AUTO, ["70", "70 (Normal)"], ["80", "80"], ["90", "90"], ["100", "100"], ["110", "110 (Quake Pro)"]], "", "num")}
+        ${selRow(d, "gui_scale", "GUI scale", [AUTO, ["0", "Auto"], ["1", "Small"], ["2", "Normal"], ["3", "Large"], ["4", "Largest"]], "", "num")}
+        ${selRow(d, "particles", "Particles", [AUTO, ["all", "All"], ["decreased", "Decreased"], ["minimal", "Minimal (faster)"]])}
+        ${selRow(d, "clouds", "Clouds", [AUTO, ["fancy", "Fancy"], ["fast", "Fast"], ["off", "Off (faster)"]])}
+        ${selRow(d, "auto_jump", "Auto-jump", [AUTO, ["false", "Off"], ["true", "On"]], "", "bool")}
         ${swRow(d, "rejoin_last_server", "Rejoin the last server", "Play goes straight back to the server you last joined from Home")}
-        ${txtRow(d, "wrapper_command", "Run the game through", "e.g. gamemoderun or prime-run", "Linux: Feral GameMode or a discrete GPU")}
-        ${txtRow(d, "game_env", "Environment variables", "KEY=value, one per line", "", 2)}
       </div>
-      <div class="card-pad"><h3>Commands</h3>
-        ${txtRow(d, "pre_launch_command", "Before the game starts", "e.g. a script that syncs your worlds", "Runs in the instance folder; the launch waits up to 2 minutes")}
-        ${txtRow(d, "post_exit_command", "After the game closes", "e.g. back up screenshots")}
-      </div>
-      <div class="card-pad"><h3>System</h3>
-        ${S.platform === "windows" ? swRow(d, "gpu_high_performance", "Use the fast graphics card", "For laptops with two: runs Java on the strong one") : ""}
+      <div class="card-pad"><h3>Advanced</h3>
+        ${swRow(d, "auto_update_mods", "Update mods before playing", "Mods from Modrinth update to their newest version for the instance")}
+        ${swRow(d, "fast_launch", "Fast launch", "Starts from the files the last launch checked. A full check still runs every few days")}
         ${selRow(d, "process_priority", "Game priority", [["normal", "Normal"], ["above", "Above normal"], ["high", "High"]], "Higher can smooth out stutters when other apps run")}
         ${swRow(d, "prefer_ipv4", "Prefer IPv4", "Helps when servers time out on some home networks")}
+        <div class="field"><label class="label" for="s-java">Java</label><input class="input" id="s-java" placeholder="Automatic (recommended)" value="${esc(d.java_path || "")}"></div>
+        <div class="field"><label class="label" for="s-jvm">Extra JVM arguments</label><input class="input" id="s-jvm" placeholder="Optional" value="${esc((d.extra_jvm_args || []).join(" "))}"></div>
+        <div class="row wrap"><button class="btn btn-sm" data-action="verify-files">${icon("check", 12)} Check files on next launch</button></div>
       </div>
-      ${more}
     </div>`;
   }
   if (tab === "ingame") {
@@ -2286,25 +2152,18 @@ function settingsBody(d) {
       ${swRow(d, "animations", "Animations", "The moving world, panel motion and particles")}
       ${swRow(g, "launcher_particles", "Particle effects", "Things break into particles as they close")}
       ${swRow(d, "ui_sounds", "Sounds", "Clicks, launch sounds and alerts")}
-    </div>
-    ${S.install?.supported ? appCard() : ""}
-    <div class="card-pad"><h3>Privacy and access</h3>
-      ${swRow(g, "streamer_mode", "Streamer mode", "Blurs account names and server addresses in the launcher")}
-      ${swRow(g, "high_contrast", "High contrast", "Brighter text and stronger edges")}
-      ${swRow(g, "shortcuts", "Keyboard shortcuts", "Ctrl+Enter plays, Ctrl+L opens the log, Alt+1 to 5 switch pages")}
-      ${swRow(g, "confirm_close", "Ask before closing while playing", "The game keeps running, but its log stops in the launcher")}
       ${rangeRow("s-vol", "Sound volume", g.ui_volume, 0, 100, 5, `${g.ui_volume}%`)}
     </div>
-    <div class="card-pad"><h3>New instances</h3>
-      ${selRow(g, "default_pack", "Starts with", [["performance", "Performance"], ["pvp", "PvP"], ["normal", "Normal"], ["vanilla", "Vanilla"]], "The setup picked first in the New instance window")}
-      ${swRow(g, "show_playtime", "Show time played", "On each instance card")}
-      ${swRow(d, "track_playtime", "Count time played", "Adds up how long you play each instance")}
-    </div>
+    ${S.install?.supported ? appCard() : ""}
     <div class="card-pad"><h3>Launcher</h3>
-      ${selRow(g, "start_page", "Opens on", [["home", "Play"], ["instances", "Instances"], ["mods", "Mods"], ["skins", "Skins"]])}
       ${selRow(g, "ui_scale", "Size", [["90", "Compact (90%)"], ["100", "Normal"], ["110", "Large (110%)"], ["125", "Larger (125%)"]], "", "num")}
-      ${selRow(g, "lite_mode", "Lite mode", [["auto", "Auto (on for phones)"], ["on", "Always on"], ["off", "Always off"]], "Lighter effects for slow computers. After a restart")}
-      ${swRow(g, "flash_on_exit", "Flash when the game closes", "The taskbar icon lights up so you notice")}
+      ${selRow(g, "lite_mode", "Lite mode", [["auto", "Auto"], ["on", "Always on"], ["off", "Always off"]], "Lighter effects for slow computers. After a restart")}
+      ${selRow(g, "default_pack", "New instances start with", [["performance", "Performance"], ["pvp", "PvP"], ["normal", "Normal"], ["vanilla", "Vanilla"]])}
+      ${swRow(d, "track_playtime", "Count time played", "Shown on each instance")}
+    </div>
+    <div class="card-pad"><h3>Privacy</h3>
+      ${swRow(g, "streamer_mode", "Streamer mode", "Blurs account names and server addresses in the launcher")}
+      ${swRow(g, "confirm_close", "Ask before closing while playing", "The game keeps running, but its log stops in the launcher")}
     </div>
   </div>`;
 }
@@ -2409,12 +2268,6 @@ function mountSettings(root, d) {
   range("#s-day", "day_length_min", (v) => `${v} min`, 2, 40, (v) => world.setDayLength(v));
   range("#s-glass", "glass", glassLabel, 0, 100, () => applyLook(d));
   range("#s-vol", "ui_volume", (v) => `${v}%`, 0, 100, () => { applyLook(d); sound.click(); });
-  $$("select[data-gopt]", root).forEach((sel) => sel.addEventListener("change", () => {
-    const opts = { ...(d.game_options || {}) };
-    if (sel.value === "") delete opts[sel.dataset.gopt]; else opts[sel.dataset.gopt] = sel.value;
-    d.game_options = opts;
-    markDirty();
-  }));
   range("#s-wblur", "wall_blur", (v) => `${v} px`, 0, 40, (v) => { applyLook(d); $(".wall-corners", root)?.style.setProperty("--wb", `${v}px`); });
   range("#s-wdim", "wall_dim", (v) => `${v}%`, 0, 60, () => applyLook(d));
   $("#wall-file", root)?.addEventListener("change", (e) => { const f = e.target.files?.[0]; if (f) useWallpaper(f); });
@@ -2542,6 +2395,8 @@ function markDirty() {
 
 async function saveSettings(next) {
   if (next && next.lite_mode) store.set("vortex.lite", next.lite_mode);
+  // The long "More options" list was removed in 0.9: nothing it set lingers.
+  if (next && next.game_options && Object.keys(next.game_options).length) next = { ...next, game_options: {} };
   S.settings = await call("save_settings", { settings: next });
   applyLook();
 }

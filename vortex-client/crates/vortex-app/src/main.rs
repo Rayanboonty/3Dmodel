@@ -1333,9 +1333,13 @@ async fn setup_pack(
         None if settings.performance_mods => "performance",
         None => return Vec::new(),
     };
-    let list = pack_mods(pack, &instance.loader);
+    let mut list = pack_mods(pack, &instance.loader);
     if list.is_empty() {
         return Vec::new();
+    }
+    // Render resolution below 100% needs the RenderScale mod (Fabric).
+    if settings.render_scale < 100 && matches!(instance.loader, Loader::Fabric { .. }) {
+        list.push(("Va8PJBFX", "RenderScale"));
     }
     let mark = instance.dir.join(PERF_MARK);
     // Already set up once: anything left is a retry of mods that failed.
@@ -1529,6 +1533,7 @@ async fn run_game(
         }
     }
     let added = setup_pack(app, &launcher, &instance, &settings, &progress).await;
+    vortex_core::extras::write_render_scale(&game_dir, settings.render_scale);
     if !added.is_empty() {
         info(format!("Mods added: {}.", added.join(", ")));
     }

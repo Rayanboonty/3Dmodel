@@ -39,6 +39,22 @@ pub fn prefer_fast_gpu(java: &Path) {
     let _ = java;
 }
 
+/// Render resolution: the RenderScale mod's config in an instance. Written
+/// when the setting is below 100%, and reset to full when it's back at 100%
+/// and the mod already has a config (so it stops scaling).
+pub fn write_render_scale(game_dir: &Path, percent: u32) {
+    let path = game_dir.join("config").join("renderscale.json5");
+    let percent = percent.clamp(25, 100);
+    if percent >= 100 && !path.exists() {
+        return;
+    }
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let text = format!("{{\n\t\"scale\": {:.2},\n\t\"forceLinear\": true\n}}\n", percent as f64 / 100.0);
+    let _ = std::fs::write(path, text);
+}
+
 /// What Max FPS mode writes to options.txt (`graphicsMode` from 1.16 on,
 /// `fancyGraphics` before; the game ignores the one it doesn't know).
 const MAX_FPS_MODE: &[(&str, &str)] = &[

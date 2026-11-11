@@ -22,26 +22,23 @@ public class ModMenuScreen extends ScreenBase {
 
     private record Hit(int x, int y, int w, int h, Action action) {}
 
-    private static final int BG = 0xD80C0F15;
-    private static final int CARD = 0xC8171B23;
-    private static final int CARD_HOT = 0xE0202630;
-    private static final int LINE = 0x30FFFFFF;
+    private static final int BG = 0xF2101114;
+    private static final int LINE = 0x1CFFFFFF;
     private static final int TEXT = 0xFFF2F4F7;
     private static final int DIM = 0xFF8D96A5;
     private static final int CONTROL = 0xFF242A33;
     private static final int ON_BG = 0xFF1C5229;
     private static final int ON_TEXT = 0xFF86E596;
 
-    private static final String[] CATEGORIES = {"All", "New", "HUD", "PvP", "Utility", "Favorites"};
-    private static final String[] PRESETS = {"PvP", "Minimal", "Info", "Streamer"};
-    private static final String[] SORTS = {"Default", "A-Z", "On first"};
+    private static final String[] CATEGORIES = {"All", "HUD", "PvP", "Utility", "Favorites"};
+    static final String[] PRESETS = {"PvP", "Minimal", "Info", "Streamer"};
     /** Which HUD elements each preset shows (every other HUD element is hidden). */
     private static final java.util.Map<String, java.util.List<String>> PRESET_MODULES = java.util.Map.of(
             "PvP", java.util.List.of("keystrokes", "cps", "fps", "ping", "armor", "potions", "reach", "combo", "target", "items", "sprint", "attack", "armorpts", "crosshair", "hitmarker", "lowhp"),
             "Minimal", java.util.List.of("fps", "coords", "armor", "potions"),
-            "Info", java.util.List.of("fps", "ping", "coords", "clock", "biome", "light", "worldtime", "day", "direction", "lookat", "memory", "server", "dimension"),
+            "Info", java.util.List.of("fps", "ping", "coords", "clock", "biome", "light", "day", "direction", "lookat", "memory", "server"),
             "Streamer", java.util.List.of("fps", "keystrokes", "armor", "potions", "cps", "clock"));
-    private int sort;
+
 
     private final Screen parent;
     private final List<Hit> hits = new ArrayList<>();
@@ -109,7 +106,7 @@ public class ModMenuScreen extends ScreenBase {
         int lift = Math.round((1 - ease) * 10);
         int accent = VortexMods.accent();
 
-        int pw = Math.min(width - 24, 520);
+        int pw = Math.min(width - 24, 430);
         int px = (width - pw) / 2;
         boolean inWorld = client != null && client.world != null;
 
@@ -123,15 +120,16 @@ public class ModMenuScreen extends ScreenBase {
             dockW += bw[i] + 2;
         }
         int dockX = (width - dockW) / 2;
-        Ui.glass(c, dockX, dockY, dockW, dockH, 11, 0xD0101319);
+        Ui.rounded(c, dockX, dockY, dockW, dockH, 8, BG);
+        Ui.roundedOutline(c, dockX, dockY, dockW, dockH, 8, LINE);
         int bx = dockX + 4;
         for (int i = 0; i < labels.length; i++) {
             final int which = i;
             boolean on = i == 0;
             boolean hot = Ui.inside(mx, my, bx, dockY + 3, bw[i], dockH - 6);
-            if (on) Ui.rounded(c, bx, dockY + 3, bw[i], dockH - 6, 8, accent);
-            else if (hot) Ui.rounded(c, bx, dockY + 3, bw[i], dockH - 6, 8, i == 2 ? 0x60FF4A55 : 0x26FFFFFF);
-            int fg = on ? 0xFF16110A : (i == 2 && hot ? 0xFFFFD0D3 : TEXT);
+            if (on) Ui.rounded(c, bx, dockY + 3, bw[i], dockH - 6, 6, 0x1EFFFFFF);
+            else if (hot) Ui.rounded(c, bx, dockY + 3, bw[i], dockH - 6, 6, 0x12FFFFFF);
+            int fg = on ? TEXT : (hot ? TEXT : DIM);
             dockIcon(c, i, bx + 9, dockY + 8, fg);
             Ui.text(c, labels[i], bx + 21, dockY + 8, fg);
             hit(bx, dockY + 3, bw[i], dockH - 6, (x, y) -> {
@@ -146,7 +144,8 @@ public class ModMenuScreen extends ScreenBase {
 
         int py = 8 + lift;
         int ph = dockY - 6 - py;
-        Ui.glass(c, px, py, pw, ph, 10, BG);
+        Ui.rounded(c, px, py, pw, ph, 8, BG);
+        Ui.roundedOutline(c, px, py, pw, ph, 8, LINE);
 
         if (selected == null) renderGrid(c, mx, my, px, py, pw, ph, accent);
         else renderOptions(c, mx, my, px, py, pw, ph, accent);
@@ -154,8 +153,8 @@ public class ModMenuScreen extends ScreenBase {
         if (notice != null && System.currentTimeMillis() - noticeAt < 2200) {
             int nw = Ui.width(notice) + 20;
             int ny = dockY - 24;
-            Ui.glass(c, (width - nw) / 2, ny, nw, 18, 9, 0xF0201820);
-            Ui.roundedOutline(c, (width - nw) / 2, ny, nw, 18, 9, Ui.alpha(accent, 0.8f));
+            Ui.rounded(c, (width - nw) / 2, ny, nw, 18, 6, BG);
+            Ui.roundedOutline(c, (width - nw) / 2, ny, nw, 18, 6, LINE);
             Ui.centered(c, notice, width / 2, ny + 5, TEXT);
         }
     }
@@ -218,52 +217,15 @@ public class ModMenuScreen extends ScreenBase {
                 case "PvP" -> m.category == Module.Category.PVP;
                 case "Utility" -> m.category == Module.Category.UTILITY;
                 case "Favorites" -> VortexMods.config.favorites.contains(m.id);
-                case "New" -> Module.NEW.contains(m.id);
                 default -> true;
             };
             if (cat && (q.isEmpty() || m.name.toLowerCase(Locale.ROOT).contains(q) || m.description.toLowerCase(Locale.ROOT).contains(q))) out.add(m);
         }
-        if (sort == 1) out.sort(java.util.Comparator.comparing(mod -> mod.name.toLowerCase(Locale.ROOT)));
-        else if (sort == 2) out.sort(java.util.Comparator.comparing(mod -> !VortexMods.config.enabled(mod)));
         return out;
     }
 
-    /** A category tab's text: its name and how many of its modules are on. */
-    private String catLabel(String cat) {
-        if (cat.equals("All") || cat.equals("Favorites")) return cat;
-        int on = 0;
-        for (Module m : Module.ALL) {
-            boolean in = switch (cat) {
-                case "HUD" -> m.category == Module.Category.HUD;
-                case "PvP" -> m.category == Module.Category.PVP;
-                case "Utility" -> m.category == Module.Category.UTILITY;
-                default -> Module.NEW.contains(m.id);
-            };
-            if (in && VortexMods.config.enabled(m)) on++;
-        }
-        return cat + " " + on;
-    }
-
-    /** A small rounded button on the toolbar. */
-    private int chip(DrawContext c, int mx, int my, int x, int y, String label, boolean active, int accent, Runnable onClick) {
-        int w = Ui.width(label) + 12, h = 14;
-        boolean hot = Ui.inside(mx, my, x, y, w, h);
-        Ui.rounded(c, x, y, w, h, 7, active ? accent : hot ? 0x40FFFFFF : 0x1EFFFFFF);
-        Ui.centered(c, label, x + w / 2, y + 3, active ? 0xFF16110A : hot ? TEXT : DIM);
-        hit(x, y, w, h, (a, b) -> onClick.run());
-        return x + w;
-    }
-
-    /** Turn every module in the current tab on or off. */
-    private void setAll(boolean on) {
-        for (Module m : visible()) VortexMods.config.state(m).enabled = on;
-        VortexMods.config.save();
-        VortexMods.applyToggles();
-        flash(on ? "Turned on " + visible().size() + " mods" : "Turned off " + visible().size() + " mods");
-    }
-
     /** A preset: these HUD elements on, every other HUD element off. */
-    private void applyPreset(String name) {
+    static void applyPreset(String name) {
         java.util.List<String> ids = PRESET_MODULES.get(name);
         for (Module m : Module.ALL) {
             if (ids.contains(m.id)) VortexMods.config.state(m).enabled = true;
@@ -271,175 +233,126 @@ public class ModMenuScreen extends ScreenBase {
         }
         VortexMods.config.save();
         VortexMods.applyToggles();
-        flash(name + " preset applied");
     }
 
+    /** The list of mods: a tab line, a search box, and one plain row each. */
     private void renderGrid(DrawContext c, int mx, int my, int px, int py, int pw, int ph, int accent) {
-        int pad = 10;
-        // Title, then the category tabs in a segmented track.
-        VortexStyle.Art logo = VortexStyle.logoSmall();
-        int lh = 16, lw = lh * logo.w() / logo.h();
-        Gfx.texture(c, logo.id(), px + pad, py + 4, lw, lh, logo.w(), logo.h());
-        int x = px + pad + lw + 12, y = py + 6;
-        int trackW = 4;
-        for (String cat : CATEGORIES) trackW += Ui.width(catLabel(cat)) + 18;
-        Ui.rounded(c, x - 2, y - 2, trackW, 18, 9, 0x50000000);
+        int pad = 12;
+        int x = px + pad, y = py + 10;
+        // Tabs: plain words, the current one underlined.
         for (String cat : CATEGORIES) {
-            String label = catLabel(cat);
-            int w = Ui.width(label) + 18;
+            int w = Ui.width(cat);
             boolean on = cat.equals(category);
-            boolean hot = Ui.inside(mx, my, x, y, w, 14);
-            if (on) Ui.rounded(c, x, y, w, 14, 7, accent);
-            else if (hot) Ui.rounded(c, x, y, w, 14, 7, 0x22FFFFFF);
-            Ui.centered(c, label, x + w / 2, y + 3, on ? 0xFF16110A : (hot ? TEXT : DIM));
-            hit(x, y, w, 14, (a, b) -> {
+            boolean hot = Ui.inside(mx, my, x - 4, y - 3, w + 8, 16);
+            Ui.text(c, cat, x, y, on ? TEXT : (hot ? 0xFFC9CED6 : DIM));
+            float u = anim("tab:" + cat, on ? 1 : 0, 18f);
+            if (u > 0.02f) c.fill(x + Math.round(w / 2f * (1 - u)), y + 11, x + w - Math.round(w / 2f * (1 - u)), y + 12, accent);
+            hit(x - 4, y - 3, w + 8, 16, (a, b) -> {
                 category = cat;
                 scrollTarget = 0;
             });
-            x += w;
+            x += w + 14;
         }
-        y = py + 6;
-        // Search box.
-        int sw = Math.min(130, px + pw - pad - x - 8);
+        // Search, on the right of the same line.
+        int sw = Math.min(110, px + pw - pad - x);
         if (sw > 50) {
             int sx = px + pw - pad - sw;
-            boolean hot = Ui.inside(mx, my, sx, y, sw, 16);
-            Ui.rounded(c, sx, y - 2, sw, 18, 9, hot || searchFocused ? 0x70000000 : 0x50000000);
-            if (searchFocused) Ui.roundedOutline(c, sx, y - 2, sw, 18, 9, Ui.alpha(accent, 0.8f));
-            // Magnifier.
-            Ui.outline(c, sx + 6, y + 4, 6, 6, DIM);
-            c.fill(sx + 11, y + 10, sx + 13, y + 12, DIM);
+            boolean hot = Ui.inside(mx, my, sx, y - 4, sw, 16);
+            Ui.rounded(c, sx, y - 4, sw, 16, 5, searchFocused ? 0x1EFFFFFF : hot ? 0x14FFFFFF : 0x0CFFFFFF);
             String shown = search.isEmpty() && !searchFocused ? "Search" : search;
             boolean caret = searchFocused && (System.currentTimeMillis() / 500) % 2 == 0;
-            Ui.text(c, shown + (caret ? "_" : ""), sx + 17, y + 4, search.isEmpty() ? DIM : TEXT);
-            hit(sx, y, sw, 16, (a, b) -> searchFocused = true);
+            Ui.text(c, shown + (caret ? "_" : ""), sx + 6, y, search.isEmpty() ? DIM : TEXT);
+            hit(sx, y - 4, sw, 16, (a, b) -> searchFocused = true);
         }
+        c.fill(px + pad, y + 15, px + pw - pad, y + 16, LINE);
 
-        // Toolbar: presets on the left; sort and all on / all off on the right.
-        int barY = y + 18;
-        int tx = px + pad;
-        // Room left of the right-hand chips: drop the label, then presets, when narrow.
-        int rightW = Ui.width("Sort: " + SORTS[sort]) + Ui.width("All off") + Ui.width("All on") + 12 * 3 + 6;
-        int room = px + pw - pad - rightW - 6 - tx;
-        int presetsW = 0;
-        for (String p : PRESETS) presetsW += Ui.width(p) + 12 + 3;
-        if (presetsW + Ui.width("Presets") + 6 <= room) {
-            Ui.text(c, "Presets", tx, barY + 3, DIM);
-            tx += Ui.width("Presets") + 6;
-        }
-        for (String p : PRESETS) {
-            if (tx + Ui.width(p) + 12 > px + pad + room) break;
-            tx = chip(c, mx, my, tx, barY, p, false, accent, () -> applyPreset(p)) + 3;
-        }
-        int rx = px + pw - pad;
-        String sortLabel = "Sort: " + SORTS[sort];
-        rx -= Ui.width(sortLabel) + 12;
-        chip(c, mx, my, rx, barY, sortLabel, false, accent, () -> { sort = (sort + 1) % SORTS.length; scrollTarget = 0; });
-        rx -= Ui.width("All off") + 12 + 3;
-        chip(c, mx, my, rx, barY, "All off", false, accent, () -> setAll(false));
-        rx -= Ui.width("All on") + 12 + 3;
-        chip(c, mx, my, rx, barY, "All on", false, accent, () -> setAll(true));
-
-        // Cards.
-        int gx = px + pad, gy = barY + 14 + 6, gw = pw - pad * 2, gh = py + ph - pad - gy;
-        int cols = gw >= 430 ? 4 : gw >= 300 ? 3 : 2;
-        int gap = 7;
-        int cw = (gw - gap * (cols - 1) - 4) / cols, ch = 78;
+        // Rows, in two columns when there's room.
+        int gx = px + pad, gy = y + 20, gw = pw - pad * 2, gh = py + ph - 8 - gy;
+        int cols = gw >= 340 ? 2 : 1;
+        int gap = 10;
+        int cw = (gw - gap * (cols - 1) - 4) / cols, ch = 20;
         List<Module> list = visible();
         int rows = (list.size() + cols - 1) / cols;
-        maxScroll = Math.max(0, rows * (ch + gap) - gap - gh);
+        maxScroll = Math.max(0, rows * ch - gh);
         scrollTarget = Math.max(0, Math.min(maxScroll, scrollTarget));
         scroll = Ui.approach(scroll, scrollTarget, 18f, dt);
 
         if (list.isEmpty()) {
-            Ui.centered(c, category.equals("Favorites") ? "Tap the heart on a card to add it here." : "Nothing matches \"" + search + "\".", gx + gw / 2, gy + 30, DIM);
+            Ui.centered(c, category.equals("Favorites") ? "Nothing here yet. The heart on a row adds it." : "Nothing matches \"" + search + "\".", gx + gw / 2, gy + 30, DIM);
         }
 
         c.enableScissor(gx, gy, gx + gw, gy + gh);
         boolean inGrid = Ui.inside(mx, my, gx, gy, gw, gh);
+        Module hovered = null;
         for (int i = 0; i < list.size(); i++) {
             Module m = list.get(i);
-            int cx = gx + (i % cols) * (cw + gap);
-            int cy = gy + (i / cols) * (ch + gap) - Math.round(scroll);
+            // Down the first column, then the second.
+            int col = i / rows, row = i % rows;
+            int cx = gx + col * (cw + gap);
+            int cy = gy + row * ch - Math.round(scroll);
             if (cy + ch < gy || cy > gy + gh) continue;
+            if (inGrid && Ui.inside(mx, my, cx, cy, cw, ch)) hovered = m;
             card(c, mx, my, inGrid, m, cx, cy, cw, ch, accent);
         }
         c.disableScissor();
 
         if (maxScroll > 0) {
-            int track = gh;
-            int thumb = Math.max(20, track * gh / (gh + Math.round(maxScroll)));
-            int ty = gy + Math.round((track - thumb) * (scroll / maxScroll));
-            c.fill(gx + gw - 2, gy, gx + gw, gy + gh, 0x22FFFFFF);
-            c.fill(gx + gw - 2, ty, gx + gw, ty + thumb, Ui.alpha(accent, 0.8f));
+            int thumb = Math.max(16, gh * gh / (gh + Math.round(maxScroll)));
+            int ty = gy + Math.round((gh - thumb) * (scroll / maxScroll));
+            c.fill(gx + gw - 1, ty, gx + gw, ty + thumb, 0x50FFFFFF);
+        }
+        // What the row under the mouse does, in one quiet line.
+        if (hovered != null) {
+            String d = hovered.description;
+            while (Ui.width(d) > pw - pad * 2 && d.length() > 4) d = d.substring(0, d.length() - 2);
+            if (!d.equals(hovered.description)) d += "…";
+            int dy = py + ph + 4;
+            if (dy + 10 < height - 34) Ui.centered(c, d, width / 2, dy, 0xFFB8BEC8);
         }
     }
 
+    /** One mod: its name, and on hover a heart and a gear, then the switch. */
     private void card(DrawContext c, int mx, int my, boolean inGrid, Module m, int x, int y, int w, int h, int accent) {
         boolean on = VortexMods.config.enabled(m);
         boolean hot = inGrid && Ui.inside(mx, my, x, y, w, h);
-        float hv = anim("card:" + m.id, hot ? 1 : 0, 16f);
-        float onT = anim("on:" + m.id, on ? 1 : 0, 14f);
-        Ui.glass(c, x, y, w, h, 7, Ui.mix(CARD, CARD_HOT, hv));
-        if (onT > 0.01f) c.fillGradient(x + 2, y + h / 2, x + w - 2, y + h - 2, 0x00000000, Ui.alpha(accent, 0.16f * onT));
-        Ui.roundedOutline(c, x, y, w, h, 7, Ui.mix(LINE, Ui.alpha(accent, 0.75f), Math.max(hv * 0.8f, onT * 0.55f)));
+        float hv = anim("card:" + m.id, hot ? 1 : 0, 20f);
+        float onT = anim("on:" + m.id, on ? 1 : 0, 16f);
+        if (hv > 0.02f) Ui.rounded(c, x - 4, y, w + 4, h - 1, 4, Ui.alpha(0xFFFFFFFF, 0.06f * hv));
         boolean hasOptions = !m.options.isEmpty();
-        // Clicking the card body opens its options; the controls on top win.
-        if (inGrid && hasOptions) hit(x, y, w, h - 22, (a, b) -> openOptions(m));
+        int swW = 18, swH = 9, swX = x + w - swW - 4, swY = y + (h - swH) / 2 - 1;
 
         String name = m.name;
-        int maxName = w - 26;
+        int maxName = w - swW - 44;
         while (Ui.width(name) > maxName && name.length() > 3) name = name.substring(0, name.length() - 2);
         if (!name.equals(m.name)) name = name + "…";
-        Ui.text(c, name, x + 7, y + 7, on ? TEXT : DIM);
+        Ui.text(c, name, x, y + 5, Ui.mix(DIM, TEXT, Math.max(onT, hv * 0.6f)));
 
+        // The row opens its options; the heart, gear and switch are on top.
+        if (inGrid && hasOptions) hit(x - 4, y, w - swW - 8, h, (a, b) -> openOptions(m));
         boolean fav = VortexMods.config.favorites.contains(m.id);
-        int hx = x + w - 15, hy = y + 5;
-        boolean heartHot = hot && Ui.inside(mx, my, hx - 2, hy - 1, 13, 12);
-        Ui.round(c, hx - 2, hy - 1, 13, 12, heartHot ? 0xFF2A303A : 0x00000000);
-        Ui.text(c, "❤", hx, hy + 1, fav ? 0xFFFF5470 : (heartHot ? 0xFF8890A0 : 0xFF4A5260));
-        if (inGrid) hit(hx - 2, hy - 1, 13, 12, (a, b) -> {
-            if (fav) VortexMods.config.favorites.remove(m.id);
-            else VortexMods.config.favorites.add(m.id);
-            VortexMods.config.save();
-        });
-
-        // Icon, drawn at 2× and lifted a little on hover.
-        int iy = y + 19 - Math.round(hv * 2);
-        Gfx.push(c);
-        Gfx.translate(c, x + w / 2f - 16, iy);
-        Gfx.scale(c, 2f, 2f);
-        c.drawItem(new ItemStack(m.icon), 0, 0);
-        Gfx.pop(c);
-
-        // Bottom row: options on the left, a switch on the right.
-        int by = y + h - 19;
-        if (hasOptions) {
-            boolean gHot = inGrid && Ui.inside(mx, my, x + 6, by, 16, 14);
-            Ui.rounded(c, x + 6, by, 16, 14, 7, gHot ? 0x40FFFFFF : 0x1EFFFFFF);
-            gear(c, x + 14, by + 7, gHot ? TEXT : DIM);
-            if (inGrid) hit(x + 6, by, 16, 14, (a, b) -> openOptions(m));
+        int ix = swX - 14;
+        if (hasOptions && hot) {
+            boolean gHot = Ui.inside(mx, my, ix - 3, y, 14, h);
+            gear(c, ix + 3, y + h / 2 - 1, gHot ? TEXT : DIM);
+            if (inGrid) hit(ix - 3, y, 14, h, (a, b) -> openOptions(m));
         }
-        int swW = 24, swH = 13, swX = x + w - 7 - swW, swY = by + 1;
-        boolean bHot = inGrid && Ui.inside(mx, my, swX - 26, by - 1, swW + 26, 16);
-        Ui.text(c, on ? "ON" : "OFF", swX - Ui.width(on ? "ON" : "OFF") - 5, swY + 3, Ui.mix(DIM, TEXT, onT));
+        ix -= 14;
+        if (fav || hot) {
+            boolean heartHot = hot && Ui.inside(mx, my, ix - 3, y, 14, h);
+            Ui.text(c, "❤", ix, y + 5, fav ? 0xFFFF5470 : (heartHot ? TEXT : 0xFF5A6270));
+            if (inGrid) hit(ix - 3, y, 14, h, (a, b) -> {
+                if (fav) VortexMods.config.favorites.remove(m.id);
+                else VortexMods.config.favorites.add(m.id);
+                VortexMods.config.save();
+            });
+        }
         Ui.toggle(c, swX, swY, swW, swH, onT, accent);
-        if (bHot) Ui.roundedOutline(c, swX - 1, swY - 1, swW + 2, swH + 2, 7, 0x40FFFFFF);
         if (inGrid) {
-            hit(swX - 26, by - 1, swW + 26, 16, (a, b) -> {
+            hit(swX - 4, y, swW + 8, h, (a, b) -> {
                 VortexMods.config.state(m).enabled = !on;
                 VortexMods.config.save();
                 VortexMods.applyToggles();
             });
-        }
-        if (Module.NEW.contains(m.id)) {
-            int nw = Ui.width("NEW") + 6;
-            Ui.rounded(c, x + 26, y + h - 14, nw, 9, 4, Ui.alpha(accent, 0.9f));
-            Gfx.push(c);
-            Gfx.translate(c, x + 29, y + h - 12);
-            Gfx.scale(c, 0.75f, 0.75f);
-            c.drawText(Ui.font(), "NEW", 0, 0, 0xFF16110A, false);
-            Gfx.pop(c);
         }
     }
 
@@ -470,7 +383,7 @@ public class ModMenuScreen extends ScreenBase {
         int x = px + pad, y = py + pad;
         // Back.
         boolean backHot = Ui.inside(mx, my, x, y, 18, 18);
-        Ui.rounded(c, x, y, 18, 18, 9, backHot ? 0x40FFFFFF : 0x1EFFFFFF);
+        Ui.rounded(c, x, y, 18, 18, 5, backHot ? 0x24FFFFFF : 0x10FFFFFF);
         for (int i = 0; i < 4; i++) {
             c.fill(x + 7 + i, y + 9 - i, x + 8 + i, y + 10 - i, TEXT);
             c.fill(x + 7 + i, y + 9 + i, x + 8 + i, y + 10 + i, TEXT);
@@ -486,7 +399,7 @@ public class ModMenuScreen extends ScreenBase {
         int rw = Ui.width("Reset") + 16;
         int rx = px + pw - pad - rw;
         boolean resetHot = Ui.inside(mx, my, rx, y + 1, rw, 16);
-        Ui.rounded(c, rx, y + 1, rw, 16, 8, resetHot ? 0x40FFFFFF : 0x1EFFFFFF);
+        Ui.rounded(c, rx, y + 1, rw, 16, 5, resetHot ? 0x24FFFFFF : 0x10FFFFFF);
         Ui.centered(c, "Reset", rx + rw / 2, y + 5, resetHot ? TEXT : DIM);
         hit(rx, y + 1, rw, 16, (a, b) -> {
             VortexMods.config.reset(m);

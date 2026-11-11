@@ -139,6 +139,9 @@ pub struct Settings {
     pub prefer_ipv4: bool,
     /// Count the time played in each instance.
     pub track_playtime: bool,
+    /// The world is drawn at this percentage of the window's resolution
+    /// (100 = off). Uses the RenderScale mod on Fabric 1.21.4 and newer.
+    pub render_scale: u32,
 
     /// Interface preferences the launcher UI keeps (layout, wallpaper,
     /// glass style…); stored as-is.
@@ -224,6 +227,7 @@ impl Default for Settings {
             process_priority: "normal".to_string(),
             prefer_ipv4: false,
             track_playtime: true,
+            render_scale: 100,
             ui: serde_json::Map::new(),
         }
     }

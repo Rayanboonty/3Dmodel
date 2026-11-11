@@ -1,3 +1,25 @@
+**Vortex 0.9.0: more FPS, a cleaner game, fewer settings.**
+
+**FPS Boost (in-game).** One switch at the top of the mod menu: fast graphics, a shorter view (8 chunks, you can change it), fewest particles, no clouds or shadows, and far-away entities hidden sooner. Turn it off and every setting it changed comes back exactly as you had it, even after a restart.
+
+**Render resolution (launcher, Settings > Game > Performance).** Draws the world with fewer pixels (85% down to 50%) while menus and text stay sharp. On a weak graphics card this is the biggest single gain. Fabric 1.21.4 and newer.
+
+**Measured.** On our test machine, with the Performance pack and Max FPS mode: 102 FPS average. We also tried four more popular "optimisation" mods (Enhanced Block Entities, Particle Core, Ixeris and a loading-screen fix). Together they lowered it to 85 FPS, so they are not in the pack.
+
+**A cleaner in-game menu.** The big cards are gone: it's now a plain two-column list with one small switch per mod. Hover a row to see what it does, and to show its heart and options. The tabs are plain words. Presets moved to the Edit HUD screen.
+
+**A lighter HUD.** Each element's text is worked out once per game tick instead of every frame.
+
+**Fewer settings.** The Game tab went from 16 cards to 4: Performance, Memory and window, Game defaults and Advanced. The long "More options" list is gone (anything it set is cleared). General has 4 cards.
+
+**Fewer, better in-game mods.** Removed the ones nobody needs: Difficulty, Game Mode, Game Version, Vertical Speed, AFK Timer, Dimension (still an option on Coordinates), Death Counter (Kill Counter shows K/D), World Time (Day Counter shows it) and the HUD key switch (F6 always works now).
+
+**Fixes.**
+- The game no longer crashes when a removed module is still in your settings.
+- FPS Boost only re-applies when you change it, so toggling other mods never makes the world reload.
+
+**From 0.8.1:**
+
 **Vortex 0.8.1: a quicker start.** The particle animation when the launcher opens is gone (it lagged on many computers). The launcher now appears straight away with a short fade.
 
 The Android app is no longer made.

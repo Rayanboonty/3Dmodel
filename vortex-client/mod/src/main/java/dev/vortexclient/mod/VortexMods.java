@@ -87,7 +87,11 @@ public class VortexMods implements ClientModInitializer {
     private static final boolean BENCH = Boolean.getBoolean("vortex.bench");
     private static int benchTicks;
 
+    /** Client ticks so far (HUD text is worked out once a tick, not every frame). */
+    public static int ticks;
+
     private static void tick(MinecraftClient client) {
+        ticks++;
         if (BENCH && client.world != null && ++benchTicks % 20 == 0) LOG.info("Vortex bench fps={}", client.getCurrentFps());
         Stats.tick(client);
         while (menuKey.wasPressed()) {
@@ -95,7 +99,7 @@ public class VortexMods implements ClientModInitializer {
         }
         // HUD Toggle Key (F6): the Vortex HUD only, F1 still hides everything.
         while (hudKey.wasPressed()) {
-            if (on("hudkey")) hudOff = !hudOff;
+            hudOff = !hudOff;
         }
         // Copy Coordinates (F7).
         while (copyKey.wasPressed()) {
@@ -344,6 +348,7 @@ public class VortexMods implements ClientModInitializer {
 
     /** Applies modules that change vanilla options (toggle sprint and sneak). */
     public static void applyToggles() {
+        Boost.sync();
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.options == null) return;
         Module sprint = Module.get("sprint");

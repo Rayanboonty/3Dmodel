@@ -112,7 +112,6 @@ final class HudPlus {
             if (!VortexMods.config.bool(m, "kdr")) return List.<String[]>of(new String[] {"Kills ", String.valueOf(k)});
             return List.<String[]>of(new String[] {"Kills ", k + String.format(Locale.ROOT, "  K/D %.2f", d == 0 ? (double) k : k / (double) d)});
         }));
-        Hud.ELEMENTS.put("deaths", Hud.lines(m -> List.<String[]>of(new String[] {"Deaths ", String.valueOf(mc.player == null ? 2 : Stats.deaths)})));
         Hud.ELEMENTS.put("distance", Hud.lines(m -> {
             double d = mc.player == null ? 1830 : Stats.distance;
             return List.<String[]>of(new String[] {"Travelled ", d >= 1000 ? String.format(Locale.ROOT, "%.2f km", d / 1000) : String.format(Locale.ROOT, "%.0f m", d)});
@@ -153,22 +152,6 @@ final class HudPlus {
             }
             return out;
         }));
-        Hud.ELEMENTS.put("difficulty", Hud.lines(m -> List.<String[]>of(new String[] {"Difficulty ", mc.world == null ? "Normal" : Hud.cap(mc.world.getDifficulty().name().toLowerCase(Locale.ROOT))})));
-        Hud.ELEMENTS.put("gamemode", Hud.lines(m -> {
-            String g = mc.interactionManager != null && mc.interactionManager.getCurrentGameMode() != null
-                    ? Hud.cap(mc.interactionManager.getCurrentGameMode().name().toLowerCase(Locale.ROOT)) : "Survival";
-            return List.<String[]>of(new String[] {"Mode ", g});
-        }));
-        Hud.ELEMENTS.put("dimension", Hud.lines(m -> {
-            String d = dimension(mc);
-            String col = d.equals("Nether") ? "FFFF6655" : d.equals("The End") ? "FFD9B3FF" : "FF88DD77";
-            return List.<String[]>of(new String[] {"", d, col});
-        }));
-        Hud.ELEMENTS.put("afk", Hud.lines(m -> {
-            long s = mc.player == null ? 95 : (System.currentTimeMillis() - Stats.lastActive) / 1000;
-            if (mc.player != null && s < VortexMods.config.num(m, "after")) return List.<String[]>of();
-            return List.<String[]>of(new String[] {"AFK ", s >= 60 ? String.format(Locale.ROOT, "%d:%02d", s / 60, s % 60) : s + "s", "FFFFAA00"});
-        }));
         Hud.ELEMENTS.put("hunger", Hud.lines(m -> {
             int food = mc.player != null ? mc.player.getHungerManager().getFoodLevel() : 6;
             if (mc.player != null && (food > VortexMods.config.num(m, "below") || mc.player.isCreative())) return List.<String[]>of();
@@ -184,16 +167,6 @@ final class HudPlus {
             boolean bar(Module m) { return true; }
             boolean hidden(Module m) { return mc.player != null && VortexMods.config.bool(m, "hidefull") && k() >= 1f; }
         });
-        Hud.ELEMENTS.put("velocity", Hud.lines(m -> {
-            double v = mc.player == null ? -3.9 : Stats.vspeed;
-            String arrow = v > 0.05 ? "▲ " : v < -0.05 ? "▼ " : "";
-            return List.<String[]>of(new String[] {"Vertical ", arrow + String.format(Locale.ROOT, "%.1f m/s", Math.abs(v))});
-        }));
-        Hud.ELEMENTS.put("version", Hud.lines(m -> {
-            String v = "Minecraft " + Compat.gameVersionName();
-            if (!VortexMods.config.bool(m, "mods")) return List.<String[]>of(new String[] {"", v});
-            return List.<String[]>of(new String[] {"", v}, new String[] {"Mods ", String.valueOf(net.fabricmc.loader.api.FabricLoader.getInstance().getAllMods().size())});
-        }));
     }
 
     /** A label, a value and an optional bar under them. */

@@ -58,4 +58,12 @@ public final class Compat {
     public static java.util.UUID profileId(net.minecraft.client.network.PlayerListEntry e) {
         return e.getProfile().getId();
     }
+
+    /** The Fast / Fancy / Fabulous option (FPS Boost), or null where the game has none. */
+    public static net.minecraft.client.option.SimpleOption<?> graphicsOption(net.minecraft.client.option.GameOptions o) {
+        return o.getGraphicsMode();
+    }
+
+    /** The value of that option that draws fastest. */
+    public static final String GRAPHICS_FAST = "FAST";
 }
