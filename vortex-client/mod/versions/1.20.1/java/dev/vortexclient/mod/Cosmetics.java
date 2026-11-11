@@ -54,9 +54,31 @@ public final class Cosmetics {
         return img;
     }
 
+    private static final Identifier CUSTOM_CAPE = Identifier.of("vortex", "cape/custom");
+    private static int customCape; // 0 unknown, 1 loaded, -1 failed
+
     private static Identifier cape() {
         String c = System.getProperty("vortex.cape", "none");
+        if ("custom".equals(c)) return customCape() ? CUSTOM_CAPE : null;
         return CAPES.contains(c) ? Identifier.of("vortex", "textures/cape/" + c + ".png") : null;
+    }
+
+    /** A cape from your collection (OptiFine, LabyMod, a file...), saved by the launcher as a 64×32 layout. */
+    private static boolean customCape() {
+        if (customCape == 0) {
+            customCape = -1;
+            String path = System.getProperty("vortex.capeFile");
+            if (path != null && !path.isBlank()) {
+                try (InputStream in = Files.newInputStream(Path.of(path))) {
+                    NativeImage img = NativeImage.read(in);
+                    MinecraftClient.getInstance().getTextureManager().registerTexture(CUSTOM_CAPE, Gfx.newTexture(img));
+                    customCape = 1;
+                } catch (Exception e) {
+                    VortexMods.LOG.warn("Could not load the cape from {}", path, e);
+                }
+            }
+        }
+        return customCape == 1;
     }
 
     /** Minecraft 1.20.1 asks for the skin, cape and model one at a time. */

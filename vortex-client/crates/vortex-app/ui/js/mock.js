@@ -137,13 +137,23 @@ async function simulateLaunch(name) {
   }
 }
 
+function findHost(name) {
+  const h = (state.hosts || []).find((x) => x.name === name);
+  if (!h) throw `no server called ${name}`;
+  return h;
+}
+
+function hostView(h) {
+  return { name: h.name, kind: h.kind, version: h.version, memoryMb: h.memoryMb, created: h.created, backupOnStop: h.backupOnStop, restartOnCrash: h.restartOnCrash, keepBackups: h.keepBackups, publicAddress: h.publicAddress, jvmArgs: h.jvmArgs, running: h.running, starting: h.starting, players: h.players, startedAt: h.startedAt, port: Number(h.props["server-port"]) || 25565, maxPlayers: Number(h.props["max-players"]) || 20, motd: h.props.motd, lanAddress: "192.168.1.24" };
+}
+
 function libView() {
   if (!state.seeded && globalThis.__vortexSkinSeeds) {
     state.seeded = true;
     globalThis.__vortexSkinSeeds().forEach(([name, dataUrl, slim], i) => state.skins.push({ id: `seed${i}`, name, slim, added: now, dataUrl }));
     state.applied = "seed0";
   }
-  return { skins: state.skins, applied: state.applied, cape: state.cape, capes: ["none", "vortex", "diamond", "ember", "emerald", "amethyst"], microsoft: false };
+  return { skins: state.skins, applied: state.applied, cape: state.cape, capes: ["none", "vortex", "diamond", "ember", "emerald", "amethyst"], savedCapes: (state.savedCapes ||= []), microsoft: false };
 }
 
 export const mock = {
@@ -156,7 +166,7 @@ export const mock = {
     await wait(60 + Math.random() * 120);
     switch (cmd) {
       case "bootstrap":
-        return { appVersion: "0.10.1", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view), systemRamMb: 8192, cpuCount: 4, autoMemoryMb: 2560, autoMemoryModdedMb: 3072 };
+        return { appVersion: "0.11.0", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view), systemRamMb: 8192, cpuCount: 4, autoMemoryMb: 2560, autoMemoryModdedMb: 3072 };
       case "list_versions":
         return versionList();
       case "loader_versions": {
@@ -206,9 +216,9 @@ export const mock = {
       }
       case "check_update":
         return location.search.includes("update")
-          ? { available: true, current: "0.10.1", version: "0.10.2", published: "2026-11-06", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.10.2/Vortex.exe",
+          ? { available: true, current: "0.11.0", version: "0.11.1", published: "2026-11-12", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.11.1/Vortex.exe",
               notes: "## What's new\n- Faster instance switching\n- New Servers panel on Home\n- Smoother pop-up animations\n- Fixed the Stop Game button" }
-          : { available: false, current: "0.10.1", version: "0.10.1" };
+          : { available: false, current: "0.11.0", version: "0.11.0" };
       case "install_update":
         for (let i = 0; i <= 20; i++) { emit("update-progress", { stage: "download", done: i * 535000, total: 10_700_000 }); await wait(90); }
         emit("update-progress", { stage: "install", done: 1, total: 1 });
@@ -261,6 +271,142 @@ export const mock = {
           const r = await fetch(`https://de1.api.radio-browser.info/json/stations/search?${q}`);
           return (await r.json()).filter((s) => s.url_resolved).map((s) => ({ name: s.name, url: s.url_resolved, favicon: s.favicon, tags: s.tags, country: s.country, codec: s.codec, bitrate: s.bitrate }));
         } catch { return []; }
+      case "music_trending":
+      case "music_search":
+      case "music_playlists":
+      case "music_playlist": {
+        const A = "https://api.audius.co/v1";
+        const art = (v) => v.artwork?.["480x480"] || v.artwork?.["150x150"] || "";
+        const song = (t) => (t.is_streamable === false || t.stream_conditions ? null : { id: t.id, title: (t.title || "").trim(), artist: t.user?.name || "", artwork: art(t), duration: t.duration || 0, genre: t.genre || "", url: `${A}/tracks/${t.id}/stream?app_name=VortexClient` });
+        const get = async (path, q = {}) => { const r = await fetch(`${A}${path}?${new URLSearchParams({ app_name: "VortexClient", ...q })}`); if (!r.ok) throw new Error(`Audius said ${r.status}`); return (await r.json()).data || []; };
+        if (cmd === "music_trending") return (await get("/tracks/trending", { time: args.time || "week", limit: "50", ...(args.genre ? { genre: args.genre } : {}) })).map(song).filter(Boolean);
+        if (cmd === "music_search") return (await get("/tracks/search", { query: args.query, limit: "50" })).map(song).filter(Boolean);
+        if (cmd === "music_playlist") return (await get(`/playlists/${args.id}/tracks`)).map(song).filter(Boolean);
+        const pl = args.query ? await get("/playlists/search", { query: args.query, limit: "20" }) : await get("/playlists/trending", { limit: "20" });
+        return pl.map((p) => ({ id: p.id, name: (p.playlist_name || "").trim(), owner: p.user?.name || "", artwork: art(p), count: p.track_count || 0 }));
+      }
+      case "host_list":
+        return (state.hosts ||= []).map(hostView);
+      case "host_versions":
+        await wait(300);
+        return ["1.21.11", "1.21.10", "1.21.8", "1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2", "1.8.9"];
+      case "host_create": {
+        if (!args.eula) throw "accept the Minecraft EULA to host a server";
+        const name = (args.config.name || "").replace(/[^A-Za-z0-9 _.-]/g, "").trim();
+        if (!name) throw "give the server a name";
+        if ((state.hosts ||= []).some((h) => h.name === name)) throw `there's already a server called ${name}`;
+        for (let i = 1; i <= 10; i++) { await wait(120); emit("server-progress", { name, stage: "Downloading the server", done: i * 5e6, total: 5e7 }); }
+        const h = { name, kind: args.config.kind, version: args.config.version, memoryMb: args.config.memoryMb, created: Date.now() / 1000, backupOnStop: false, restartOnCrash: false, keepBackups: 10, publicAddress: "", jvmArgs: "", running: false, starting: false, players: [], startedAt: 0, log: [], backups: [], addons: [], ops: [], whitelist: [], banned: [], bannedIps: [],
+          props: { motd: `${name} §7· hosted with Vortex`, "server-port": "25565", "max-players": "20", "view-distance": "10", "simulation-distance": "8", difficulty: "normal", gamemode: "survival", "online-mode": "true", pvp: "true", "white-list": "false", "spawn-protection": "16", "level-name": "world", "enable-command-block": "false", "allow-flight": "false" } };
+        state.hosts.unshift(h);
+        return hostView(h);
+      }
+      case "host_update": {
+        const h = findHost(args.name);
+        Object.assign(h, args.patch);
+        return hostView(h);
+      }
+      case "host_delete":
+        state.hosts = state.hosts.filter((h) => h.name !== args.name);
+        return null;
+      case "host_start": {
+        const h = findHost(args.name);
+        h.running = true; h.starting = true; h.startedAt = Date.now() / 1000; h.log = [];
+        const say = (t, d) => setTimeout(() => { if (!h.running) return; h.log.push(t); emit("server-log", { name: h.name, line: t }); }, d);
+        say(`[Vortex] Starting ${h.kind} ${h.version} with ${h.memoryMb} MB of memory`, 0);
+        say("[12:00:01] [main/INFO]: Loading properties", 300);
+        say("[12:00:02] [Server thread/INFO]: Starting minecraft server version " + h.version, 600);
+        say("[12:00:02] [Server thread/INFO]: Default game type: SURVIVAL", 800);
+        say("[12:00:03] [Server thread/INFO]: Preparing level \"world\"", 1100);
+        say("[12:00:05] [Server thread/INFO]: Preparing spawn area: 83%", 1700);
+        setTimeout(() => { h.starting = false; say("[12:00:06] [Server thread/INFO]: Done (4.215s)! For help, type \"help\"", 0); emit("server-state", { name: h.name }); }, 2200);
+        setTimeout(() => { if (!h.running) return; h.players = ["Steve", "Alex_Builds"]; say("[12:01:10] [Server thread/INFO]: Steve joined the game", 0); say("[12:01:15] [Server thread/INFO]: Alex_Builds joined the game", 50); emit("server-state", { name: h.name }); }, 3500);
+        emit("server-state", { name: h.name });
+        return null;
+      }
+      case "host_stop": {
+        const h = findHost(args.name);
+        const line = (t) => { h.log.push(t); emit("server-log", { name: h.name, line: t }); };
+        line("[12:30:00] [Server thread/INFO]: Stopping the server");
+        setTimeout(() => { h.running = false; h.players = []; line("[Vortex] The server stopped (exit code 0)"); emit("server-state", { name: h.name }); }, 900);
+        return null;
+      }
+      case "host_command": {
+        const h = findHost(args.name);
+        if (!h.running) throw "the server isn't running";
+        const t = `[12:10:00] [Server thread/INFO]: ${args.line === "list" ? `There are ${h.players.length} of a max of 20 players online: ${h.players.join(", ")}` : `Ran: ${args.line}`}`;
+        h.log.push(t);
+        emit("server-log", { name: h.name, line: t });
+        return null;
+      }
+      case "host_log":
+        return findHost(args.name).log.slice();
+      case "host_properties":
+        return Object.entries(findHost(args.name).props);
+      case "host_set_properties":
+        Object.assign(findHost(args.name).props, args.changes);
+        return null;
+      case "host_players": {
+        const h = findHost(args.name);
+        return { online: h.players, ops: h.ops, whitelist: h.whitelist, banned: h.banned, bannedIps: h.bannedIps, whitelistOn: h.props["white-list"] === "true" };
+      }
+      case "host_player": {
+        const h = findHost(args.name);
+        const p = args.player;
+        const lists = { op: ["ops", 1], deop: ["ops", 0], "whitelist-add": ["whitelist", 1], "whitelist-remove": ["whitelist", 0], ban: ["banned", 1], pardon: ["banned", 0], "ban-ip": ["bannedIps", 1], "pardon-ip": ["bannedIps", 0] };
+        if (args.action === "whitelist-on" || args.action === "whitelist-off") { h.props["white-list"] = String(args.action === "whitelist-on"); return null; }
+        if (args.action === "kick") { h.players = h.players.filter((x) => x !== p); emit("server-state", { name: h.name }); return null; }
+        const [key, add] = lists[args.action];
+        const field = key === "bannedIps" ? "ip" : "name";
+        h[key] = h[key].filter((e) => e[field].toLowerCase() !== p.toLowerCase());
+        if (add) h[key].push(key === "bannedIps" ? { ip: p } : { name: p, uuid: "", level: key === "ops" ? 4 : undefined, reason: args.reason || undefined });
+        if (args.action === "ban") h.players = h.players.filter((x) => x !== p);
+        return null;
+      }
+      case "host_backups":
+        return findHost(args.name).backups;
+      case "host_backup": {
+        await wait(900);
+        const h = findHost(args.name);
+        const b = { file: `${h.name}-${Date.now()}.zip`, size: 48e6 + Math.random() * 2e7, time: Date.now() / 1000 };
+        h.backups.unshift(b);
+        return b;
+      }
+      case "host_restore":
+        await wait(600);
+        return null;
+      case "host_delete_backup": {
+        const h = findHost(args.name);
+        h.backups = h.backups.filter((b) => b.file !== args.file);
+        return null;
+      }
+      case "host_addons":
+        return findHost(args.name).addons;
+      case "host_addon_search": {
+        const h = findHost(args.name);
+        const facets = JSON.stringify(h.kind === "fabric" ? [["project_type:mod"], ["categories:fabric"], [`versions:${h.version}`], ["server_side:required", "server_side:optional"]] : [["project_type:plugin"], ["categories:paper", "categories:spigot", "categories:bukkit"], [`versions:${h.version}`]]);
+        try {
+          const r = await fetch(`https://api.modrinth.com/v2/search?${new URLSearchParams({ query: args.query || "", facets, limit: "30", index: args.query ? "relevance" : "downloads" })}`);
+          return (await r.json()).hits.map((x) => ({ id: x.project_id, title: x.title, description: x.description, icon: x.icon_url || "", downloads: x.downloads, author: x.author }));
+        } catch { return []; }
+      }
+      case "host_addon_install": {
+        await wait(700);
+        const h = findHost(args.name);
+        const f = `${args.project}.jar`;
+        if (!h.addons.some((a) => a.file === f)) h.addons.push({ file: f, size: 1.2e6, enabled: true });
+        return [f];
+      }
+      case "host_addon_toggle": {
+        const h = findHost(args.name);
+        if (args.enabled == null) h.addons = h.addons.filter((a) => a.file !== args.file);
+        else { const a = h.addons.find((x) => x.file === args.file); if (a) { a.enabled = args.enabled; a.file = args.enabled ? a.file.replace(/\.disabled$/, "") : `${a.file}.disabled`; } }
+        return null;
+      }
+      case "host_tunnel":
+        throw "the preview can't open programs; in the app this opens playit.gg's agent";
+      case "host_folder":
+        return null;
       case "music_state":
         return null;
       case "music_commands":
@@ -294,7 +440,8 @@ export const mock = {
         return state.mods[args.name];
       case "player_skin": {
         const chosen = state.skins.find((x) => x.id === state.applied);
-        return chosen ? { dataUrl: chosen.dataUrl, slim: chosen.slim, source: "chosen", cape: state.cape } : { dataUrl: null, slim: false, source: "none", cape: state.cape };
+        const capeUrl = (state.savedCapes || []).find((c) => c.id === state.cape)?.dataUrl || null;
+        return chosen ? { dataUrl: chosen.dataUrl, slim: chosen.slim, source: "chosen", cape: state.cape, capeUrl } : { dataUrl: null, slim: false, source: "none", cape: state.cape, capeUrl };
       }
       case "modrinth_search": {
         await wait(250);
@@ -356,6 +503,26 @@ export const mock = {
         return libView();
       case "set_cape":
         state.cape = args.cape;
+        return libView();
+      case "skin_defaults":
+        return [];
+      case "cape_find": {
+        const r = await fetch(`https://api.capes.dev/load/${encodeURIComponent(args.username)}`);
+        if (!r.ok) throw "capes.dev didn't answer";
+        const d = await r.json();
+        const L = { minecraft: "Minecraft", optifine: "OptiFine", labymod: "LabyMod", minecraftcapes: "MinecraftCapes", "5zig": "5zig", tlauncher: "TLauncher", cloaksplus: "Cloaks+" };
+        return Object.entries(d).filter(([, v]) => v && v.exists).map(([k, v]) => ({ service: L[k] || k, imageUrl: v.stillImageUrl || v.imageUrl })).filter((c) => c.imageUrl);
+      }
+      case "cape_add": {
+        state.savedCapes ||= [];
+        let c = state.savedCapes.find((x) => x.dataUrl === args.dataUrl);
+        if (!c) { c = { id: `c${Math.random().toString(16).slice(2, 18).padEnd(16, "0")}`, name: args.name, source: args.source, dataUrl: args.dataUrl }; state.savedCapes.push(c); }
+        if (args.wear) state.cape = c.id;
+        return libView();
+      }
+      case "cape_remove":
+        state.savedCapes = (state.savedCapes || []).filter((c) => c.id !== args.id);
+        if (state.cape === args.id) state.cape = "none";
         return libView();
       case "import_mods":
         return state.mods[args.name] || [];

@@ -38,6 +38,7 @@ public class VortexMods implements ClientModInitializer {
     private static boolean savedSmooth;
 
     private static Integer accent;
+    private static String accentPick = "";
 
     @Override
     public void onInitializeClient() {
@@ -72,13 +73,14 @@ public class VortexMods implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(VortexMods::tick);
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> applyToggles());
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
-            if (screen instanceof TitleScreen) {
+            Module ui = Module.find("client");
+            if (screen instanceof TitleScreen && (ui == null || config.bool(ui, "titlebutton"))) {
                 Screens.getButtons(screen).add(ButtonWidget.builder(Text.literal("Vortex Mods"), b -> client.setScreen(new ModMenuScreen(screen)))
                         .dimensions(w - 92, 6, 86, 20)
                         .build());
             }
             // The pause menu gets the button too (and Edit HUD next to it).
-            if (screen instanceof net.minecraft.client.gui.screen.GameMenuScreen) {
+            if (screen instanceof net.minecraft.client.gui.screen.GameMenuScreen && (ui == null || config.bool(ui, "pausebuttons"))) {
                 Screens.getButtons(screen).add(ButtonWidget.builder(Text.literal("Vortex Mods"), b -> client.setScreen(new ModMenuScreen(screen)))
                         .dimensions(6, 6, 86, 20)
                         .build());
@@ -446,8 +448,17 @@ public class VortexMods implements ClientModInitializer {
 
     /** The accent colour chosen in the launcher. */
     public static int accent() {
+        Module client = Module.find("client");
+        String pick = client == null ? "Launcher" : config.str(client, "accent");
+        if (!pick.equals(accentPick)) {
+            accentPick = pick;
+            accent = null;
+        }
         if (accent == null) {
-            accent = switch (System.getProperty("vortex.accent", "amber").toLowerCase(Locale.ROOT)) {
+            String name = pick.equals("Launcher") ? System.getProperty("vortex.accent", "amber") : pick;
+            accent = switch (name.toLowerCase(Locale.ROOT)) {
+                case "rose" -> 0xFFFF6FA8;
+                case "white" -> 0xFFF2F4F7;
                 case "diamond" -> 0xFF4FD8EB;
                 case "emerald" -> 0xFF45D46B;
                 case "amethyst" -> 0xFFB58CFF;

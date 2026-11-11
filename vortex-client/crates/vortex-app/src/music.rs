@@ -280,6 +280,103 @@ pub async fn radio(http: &vortex_core::reqwest::Client, query: &str, tag: &str) 
         .collect())
 }
 
+// ------------------------------------------------------------- Audius --
+// Free streaming (audius.co): real artists' music, no account or key.
+
+const AUDIUS: &str = "https://api.audius.co/v1";
+const APP: &str = "VortexClient";
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Song {
+    pub id: String,
+    pub title: String,
+    pub artist: String,
+    pub artwork: String,
+    pub duration: u32,
+    pub genre: String,
+    pub url: String,
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Playlist {
+    pub id: String,
+    pub name: String,
+    pub owner: String,
+    pub artwork: String,
+    pub count: u32,
+}
+
+fn art(v: &serde_json::Value) -> String {
+    v.get("artwork").and_then(|a| a.get("480x480").or_else(|| a.get("150x150"))).and_then(|u| u.as_str()).unwrap_or("").to_string()
+}
+
+fn song(t: &serde_json::Value) -> Option<Song> {
+    // Paid or gated tracks can't be streamed for free: leave them out.
+    if t.get("is_streamable").and_then(|v| v.as_bool()) == Some(false) || t.get("stream_conditions").is_some_and(|c| !c.is_null()) {
+        return None;
+    }
+    let id = t.get("id")?.as_str()?.to_string();
+    Some(Song {
+        url: format!("{AUDIUS}/tracks/{id}/stream?app_name={APP}"),
+        title: t.get("title")?.as_str()?.trim().to_string(),
+        artist: t.get("user").and_then(|u| u.get("name")).and_then(|n| n.as_str()).unwrap_or("").to_string(),
+        artwork: art(t),
+        duration: t.get("duration").and_then(|d| d.as_u64()).unwrap_or(0) as u32,
+        genre: t.get("genre").and_then(|g| g.as_str()).unwrap_or("").to_string(),
+        id,
+    })
+}
+
+async fn audius_get(http: &vortex_core::reqwest::Client, path: &str, query: &[(&str, &str)]) -> anyhow::Result<Vec<serde_json::Value>> {
+    let mut q: Vec<(&str, &str)> = vec![("app_name", APP)];
+    q.extend_from_slice(query);
+    let r: serde_json::Value = http.get(format!("{AUDIUS}{path}")).query(&q).send().await?.error_for_status()?.json().await?;
+    Ok(r.get("data").and_then(|d| d.as_array()).cloned().unwrap_or_default())
+}
+
+/// Trending songs, for a genre or all ("week", "month" or "year").
+pub async fn trending(http: &vortex_core::reqwest::Client, genre: &str, time: &str) -> anyhow::Result<Vec<Song>> {
+    let mut q = vec![("time", time), ("limit", "50")];
+    if !genre.is_empty() {
+        q.push(("genre", genre));
+    }
+    Ok(audius_get(http, "/tracks/trending", &q).await?.iter().filter_map(song).collect())
+}
+
+/// Songs matching a search.
+pub async fn search(http: &vortex_core::reqwest::Client, query: &str) -> anyhow::Result<Vec<Song>> {
+    Ok(audius_get(http, "/tracks/search", &[("query", query), ("limit", "50")]).await?.iter().filter_map(song).collect())
+}
+
+/// Trending playlists, or ones matching a search.
+pub async fn playlists(http: &vortex_core::reqwest::Client, query: &str) -> anyhow::Result<Vec<Playlist>> {
+    let list = if query.trim().is_empty() {
+        audius_get(http, "/playlists/trending", &[("limit", "20")]).await?
+    } else {
+        audius_get(http, "/playlists/search", &[("query", query), ("limit", "20")]).await?
+    };
+    Ok(list
+        .iter()
+        .filter_map(|p| {
+            Some(Playlist {
+                id: p.get("id")?.as_str()?.to_string(),
+                name: p.get("playlist_name")?.as_str()?.trim().to_string(),
+                owner: p.get("user").and_then(|u| u.get("name")).and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                artwork: art(p),
+                count: p.get("track_count").and_then(|c| c.as_u64()).unwrap_or(0) as u32,
+            })
+        })
+        .collect())
+}
+
+/// The songs in a playlist.
+pub async fn playlist_tracks(http: &vortex_core::reqwest::Client, id: &str) -> anyhow::Result<Vec<Song>> {
+    let id: String = id.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+    Ok(audius_get(http, &format!("/playlists/{id}/tracks"), &[]).await?.iter().filter_map(song).collect())
+}
+
 // ------------------------------------------------- the game's overlay --
 
 pub fn dir(data_root: &Path) -> PathBuf {

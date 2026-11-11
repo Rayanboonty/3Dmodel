@@ -72,6 +72,7 @@ const ROUTES = {
   accounts: renderAccounts,
   settings: renderSettings,
   music: renderMusic,
+  host: renderHost,
 };
 const NAV_OF = { new: "instances" };
 
@@ -118,7 +119,33 @@ const ACCENTS = {
   redstone: ["#ff6a5c", "#e0362c", "#330404"],
   copper: ["#ec9465", "#c8673a", "#2e1206"],
 };
-const capeUrl = (c) => (c && c !== "none" ? new URL(`img/capes/${c}.png`, location.href).href : null);
+const capeUrl = (c) => {
+  if (!c || c === "none") return null;
+  if (/^c[0-9a-f]{16}$/.test(c)) return S.skins?.savedCapes?.find((x) => x.id === c)?.dataUrl || (S.skin?.cape === c ? S.skin.capeUrl : null) || null;
+  return new URL(`img/capes/${c}.png`, location.href).href;
+};
+// Players whose capes (OptiFine, LabyMod, MinecraftCapes, Minecraft) seed the free cape gallery.
+const CAPE_GALLERY = ["Notch", "Technoblade", "Ph1LzA", "xNestorio", "GeorgeNotFound", "jeb_", "Dinnerbone", "Grumm", "Marc_IRL", "Sapnap", "TommyInnit", "Tubbo", "Quackity", "Skeppy", "BadBoyHalo", "Fruitberries", "Purpled", "Krinios"];
+// Famous skins you can copy in one click (from Mojang, through the launcher).
+const SKIN_GALLERY = ["Technoblade", "Dream", "Notch", "jeb_", "Dinnerbone", "GeorgeNotFound", "Sapnap", "TommyInnit", "Tubbo", "Ph1LzA", "Skeppy", "BadBoyHalo", "Quackity", "Purpled", "Fruitberries", "Krinios"];
+
+/** Lay any cape picture (OptiFine's 46×22, 64×32, HD multiples) out as a 64×32-multiple PNG. */
+function normalizeCape(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const s = Math.max(1, Math.ceil(img.naturalWidth / 64), Math.ceil(img.naturalHeight / 32));
+      const c = document.createElement("canvas");
+      c.width = 64 * s;
+      c.height = 32 * s;
+      c.getContext("2d").drawImage(img, 0, 0);
+      try { resolve(c.toDataURL("image/png")); } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error("That picture didn't load"));
+    img.src = src;
+  });
+}
 const CAPE_NAMES = { none: "None", vortex: "Vortex", diamond: "Diamond", ember: "Ember", emerald: "Emerald", amethyst: "Amethyst" };
 
 function ago(secs) {
@@ -640,6 +667,8 @@ function go(route, opts = {}) {
   S.route = route;
   S.switcher = false;
   closePopover();
+  const mp = $("#mini-player");
+  if (mp) mp.hidden = !M.now || route === "music";
   const navRoute = NAV_OF[route] || route;
   const wasOn = $("#nav .tab.on");
   $$("#nav .tab").forEach((b) => b.classList.toggle("on", b.dataset.route === navRoute));
@@ -787,7 +816,7 @@ function playButton(inst) {
   if (r.phase === "running") {
     const t = S.started[inst.name] ? clock(Date.now() - S.started[inst.name]) : "";
     return `<button class="play running lq" id="play" data-action="stop" data-name="${esc(inst.name)}" aria-label="Stop the game">
-      <span class="play-label"><span class="run-text"><span class="live-dot" aria-hidden="true"></span>PLAYING</span><span class="stop-text"><span class="stop-glyph" aria-hidden="true"></span>STOP GAME</span></span>
+      <span class="play-label"><span class="run-text"><span class="live-dot" aria-hidden="true"></span>PLAYING</span><span class="stop-text"><span class="stop-glyph" aria-hidden="true"></span>STOP</span></span>
       <span class="play-sub">${esc(inst.name)}${t ? ` · ${t}` : ""}</span></button>`;
   }
   return `<button class="play lq" id="play" data-action="play" data-name="${esc(inst.name)}">
@@ -1776,15 +1805,41 @@ async function loadSkins() {
   try {
     S.skins = await call("skin_library");
   } catch (e) {
-    S.skins = { skins: [], applied: null, cape: "none", capes: Object.keys(CAPE_NAMES), microsoft: false };
+    S.skins = { skins: [], applied: null, cape: "none", capes: Object.keys(CAPE_NAMES), savedCapes: [], microsoft: false };
     toast("Couldn't read your skins", errText(e), "error");
   }
   if (S.route === "skins") render();
 }
 
+async function addCape(src, name, source, wear) {
+  try {
+    const dataUrl = await normalizeCape(src);
+    S.skins = await call("cape_add", { dataUrl, name, source, wear });
+    if (wear) await loadSkin();
+    toast(wear ? "Cape on" : "Cape added", `${name} is in your capes${wear ? " and you're wearing it" : ""}.`, "success");
+  } catch (e) {
+    toast("Couldn't add that cape", errText(e), "error");
+  }
+  if (S.route === "skins") render();
+}
+
+async function findCapes(names) {
+  const CF = S.capeFind;
+  CF.loading = true;
+  CF.results = [];
+  render();
+  const all = await Promise.all(names.map((n) => call("cape_find", { username: n }).then((l) => l.map((c) => ({ ...c, player: n }))).catch(() => [])));
+  CF.results = all.flat();
+  CF.loading = false;
+  CF.note = CF.results.length ? "" : names.length === 1 ? `${names[0]} has no capes on the free cape services.` : "The cape gallery didn't load. Check your connection.";
+  if (S.route === "skins") render();
+}
+
 function renderSkins() {
   if (!S.skins) loadSkins();
-  const lib = S.skins || { skins: [], applied: null, cape: "none", capes: Object.keys(CAPE_NAMES), microsoft: false };
+  const lib = S.skins || { skins: [], applied: null, cape: "none", capes: Object.keys(CAPE_NAMES), savedCapes: [], microsoft: false };
+  const CF = (S.capeFind ||= { tab: "mine", results: [], loading: false, query: "", note: "" });
+  const SC = (S.skinCol ||= { tab: "defaults", defaults: null });
   const acc = selectedAccount();
   const skinCards = lib.skins.map((k) => `<div class="skin-card ${lib.applied === k.id ? "on" : ""}">
       <button class="skin-art" data-action="skin-use" data-id="${esc(k.id)}" aria-label="Use ${esc(k.name)}"><canvas width="64" height="128" data-skin="${esc(k.id)}"></canvas>${lib.applied === k.id ? `<span class="chip accent">In use</span>` : ""}</button>
@@ -1799,10 +1854,24 @@ function renderSkins() {
       </div></div>`).join("");
   const capeCards = lib.capes.map((c) => `<button class="cape ${lib.cape === c ? "on" : ""}" data-action="cape" data-cape="${c}" aria-pressed="${lib.cape === c}">
       ${c === "none" ? `<span class="cape-art none">${icon("x", 16)}</span>` : `<span class="cape-art" style="background-image:url('img/capes/${c}.png')"></span>`}
-      <span>${CAPE_NAMES[c] || c}</span></button>`).join("");
+      <span>${CAPE_NAMES[c] || c}</span></button>`).join("") + (lib.savedCapes || []).map((c) => `<div class="cape saved ${lib.cape === c.id ? "on" : ""}">
+      <button class="cape-hit" data-action="cape" data-cape="${c.id}" aria-pressed="${lib.cape === c.id}" aria-label="Wear ${esc(c.name)}"><span class="cape-art" style="background-image:url('${c.dataUrl}')"></span></button>
+      <span title="${esc(c.name)} · ${esc(c.source)}">${esc(c.name)}</span><small>${esc(c.source)}</small>
+      <button class="cape-x" data-action="cape-remove" data-id="${c.id}" aria-label="Remove ${esc(c.name)}">${icon("x", 8)}</button></div>`).join("");
+  const found = CF.loading ? `<div class="side-note">Looking for capes</div>`
+    : CF.results.length ? CF.results.map((r, i) => `<div class="cape found"><span class="cape-art" style="background-image:url('${esc(r.imageUrl)}');background-size:${r.w ? `${(256 * 64) / r.w}px auto` : "256px 128px"}"></span>
+        <span title="${esc(r.player)}">${esc(r.player)}</span><small>${esc(r.service)}</small>
+        <div class="row" style="gap:4px"><button class="btn btn-sm lq" data-action="cape-add" data-i="${i}">Add</button><button class="btn btn-sm btn-accent lq" data-action="cape-add" data-i="${i}" data-wear="1">Wear</button></div></div>`).join("")
+    : `<div class="side-note">${esc(CF.note || "Type a username to see the capes that player has on OptiFine, LabyMod, MinecraftCapes and the other free cape services, or open the free gallery.")}</div>`;
+  const defaults = SC.defaults;
+  const collection = SC.tab === "players"
+    ? SKIN_GALLERY.map((n) => `<button class="col-skin" data-action="skin-copy" data-name="${esc(n)}" title="Add ${esc(n)}'s skin"><img src="https://mc-heads.net/body/${encodeURIComponent(n)}/90" alt="" loading="lazy" referrerpolicy="no-referrer"><span>${esc(n)}</span></button>`).join("")
+    : defaults === null ? `<div class="side-note">Loading</div>`
+    : defaults.length ? defaults.map((d, i) => `<button class="col-skin" data-action="skin-default" data-i="${i}" title="Add ${esc(d.name)}"><canvas width="64" height="128" data-def="${i}"></canvas><span>${esc(d.name)}</span></button>`).join("")
+    : `<div class="side-note">Play any Minecraft version once and its nine default skins (Steve, Alex, Ari, Efe, Kai, Makena, Noor, Sunny, Zuri) show up here.</div>`;
   const where = lib.microsoft
     ? "Using a skin uploads it to your Microsoft account, so everyone sees it."
-    : `Offline accounts: Vortex mods show your skin and cape in-game on Fabric ${VORTEX_MC.join(", ")}. Only you see them.`;
+    : `Offline accounts: Vortex shows your skin and cape in-game on Fabric ${VORTEX_MC[0]} to ${VORTEX_MC[VORTEX_MC.length - 1]}. Only you see them.`;
   const custTabs = `<div class="tabs glass" id="cust-tabs"><span class="drop" aria-hidden="true"></span>${[["skins", "Skin & cape"], ["packs", "Texture packs"]].map(([k, l]) => `<button class="tab ${S.custTab === k ? "on" : ""}" data-action="cust-tab" data-tab="${k}">${l}</button>`).join("")}</div>`;
   if (S.custTab === "packs") return renderTexturePacks(custTabs);
   return {
@@ -1819,7 +1888,21 @@ function renderSkins() {
           <div class="section"><h2>Copy a player's skin</h2>
             <div class="row"><input class="input grow" id="skin-player" maxlength="16" placeholder="Java Edition username" aria-label="Username"><button class="btn lq" data-action="skin-player">${icon("download", 14)} Get skin</button></div>
           </div>
-          <div class="section"><h2>Cape</h2><div class="capes">${capeCards}</div></div>
+          <div class="section"><div class="section-head"><h2>Skin collection</h2>
+            <div class="seg sm" role="group" aria-label="Collection">${[["defaults", "Minecraft"], ["players", "Famous players"]].map(([k, l]) => `<button class="${SC.tab === k ? "on" : ""}" data-action="skincol-tab" data-tab="${k}">${l}</button>`).join("")}</div></div>
+            <div class="col-grid">${collection}</div>
+          </div>
+          <div class="section"><div class="section-head"><h2>Capes</h2>
+            <div class="seg sm" role="group" aria-label="Capes">${[["mine", "My capes"], ["find", "Find capes"]].map(([k, l]) => `<button class="${CF.tab === k ? "on" : ""}" data-action="capes-tab" data-tab="${k}">${l}</button>`).join("")}</div></div>
+            ${CF.tab === "find" ? `<div class="row wrap" style="gap:8px">
+                <input class="input grow" id="cape-player" maxlength="16" placeholder="Username" value="${esc(CF.query)}" aria-label="Username">
+                <button class="btn lq" data-action="cape-find">${icon("search", 13)} Find</button>
+                <button class="btn lq" data-action="cape-gallery">${icon("sparkle", 13)} Free gallery</button></div>
+              <div class="capes">${found}</div>
+              <p class="muted small">Capes come from capes.dev, which collects the free capes players made on OptiFine, LabyMod, MinecraftCapes, 5zig and more. Added capes are yours to wear in Vortex; only you see them.</p>`
+            : `<div class="capes">${capeCards}
+                <label class="cape add" tabindex="0"><input type="file" id="cape-file" accept="image/png" hidden><span class="cape-art none">${icon("plus", 14)}</span><span>Import</span></label></div>`}
+          </div>
         </div>
       </div>`),
     mount(root) {
@@ -1827,7 +1910,7 @@ function renderSkins() {
       S.preview = new Player(ped, null, { preview: true, unit: 9 });
       S.preview.setSkin(S.skin?.dataUrl || defaultSkin(), S.skin?.slim);
       S.preview.setCape(capeUrl(lib.cape));
-      S.preview.facing = 200;
+      S.preview.facing = 16;
       $$("canvas[data-skin]", root).forEach((c) => {
         const k = lib.skins.find((x) => x.id === c.dataset.skin);
         if (k) drawSkinFront(c, k.dataUrl, k.slim);
@@ -1840,6 +1923,24 @@ function renderSkins() {
         reader.readAsDataURL(file);
       });
       $("#skin-player", root).addEventListener("keydown", (e) => { if (e.key === "Enter") actions["skin-player"](); });
+      $("#cape-player", root)?.addEventListener("keydown", (e) => { if (e.key === "Enter") actions["cape-find"](); });
+      $("#cape-file", root)?.addEventListener("change", (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => addCape(String(reader.result), file.name.replace(/\.png$/i, ""), "File", true);
+        reader.readAsDataURL(file);
+      });
+      if (SC.tab === "defaults" && SC.defaults === null) call("skin_defaults").then((d) => { SC.defaults = d; if (S.route === "skins") render(); }).catch(() => { SC.defaults = []; });
+      $$("canvas[data-def]", root).forEach((c) => { const d = SC.defaults?.[Number(c.dataset.def)]; if (d) drawSkinFront(c, d.dataUrl, d.slim); });
+      $$(".cape.found .cape-art", root).forEach((el, i) => {
+        // Size each found cape by its real width so the front shows.
+        const r = CF.results[i];
+        if (!r || r.w) return;
+        const img = new Image();
+        img.onload = () => { r.w = img.naturalWidth >= 64 ? img.naturalWidth : 64 * Math.max(1, Math.ceil(img.naturalHeight / 32)); el.style.backgroundSize = `${(256 * 64) / r.w}px auto`; };
+        img.src = r.imageUrl;
+      });
     },
   };
 }
@@ -2040,13 +2141,13 @@ const BOOL = [["true", "On"], ["false", "Off"]];
 const PCT = (vals) => vals.map((v) => [String(v), `${Math.round(v * 100)}%`]);
 /** What's new in this version (shown once after updating). */
 const WHATS_NEW = [
-  "Music: your songs and free radio, with lyrics that follow along, in the launcher and in-game",
-  "Vortex in-game mods now on every Minecraft 1.20 and 1.21 version",
-  "Fullscreen sticks, whether you set it here or in the game",
-  "10 new in-game mods, like Waypoints, Cooldowns, TNT Timer and Quick Chat",
-  "A picture and a live preview for every in-game setting",
-  "More PvP mods in the PvP pack",
-];
+  "Host: run your own Minecraft server (Paper, Fabric or Vanilla) with its console, players, settings, plugins, backups and a free tunnel",
+  "Music is a full player now: free streaming, search, playlists, liked songs, shuffle and repeat",
+  "Find and wear free capes from OptiFine, LabyMod, MinecraftCapes and more, or import your own",
+  "A skin collection: Minecraft's default skins and famous players' skins in one click",
+  "In-game recording with Replay Mod (Settings > Game)",
+  "A Settings page in the in-game menu: accent colour, layout, background, sounds and more",
+]
 const rangeRow = (id, label, value, lo, hi, step, text) => `<div class="field"><label class="label" for="${id}">${label}</label><div class="row"><input class="range grow" id="${id}" type="range" min="${lo}" max="${hi}" step="${step}" value="${value}" style="--fill:${((value - lo) / (hi - lo)) * 100}%"><span class="value" id="${id}-v">${text}</span></div></div>`;
 
 function settingsBody(d) {
@@ -2082,6 +2183,7 @@ function settingsBody(d) {
         ${selRow(d, "render_distance", "Render distance", [AUTO, ...[4, 6, 8, 10, 12, 16, 20, 24, 32].map((n) => [String(n), `${n} chunks`])], "", "num")}
         ${selRow(d, "max_fps", "FPS limit", [AUTO, ["60", "60"], ["120", "120"], ["144", "144"], ["165", "165"], ["240", "240"], ["260", "Unlimited"]], "", "num")}
         ${selRow(d, "vsync", "VSync", [AUTO, ["true", "On"], ["false", "Off (lower input lag)"]], "", "bool")}
+        ${swRow(d, "replay_mod", "In-game recording", "Adds Replay Mod: every match is recorded so you can watch it back from any angle and render clips as videos. Fabric")}
         ${S.platform === "windows" ? swRow(d, "gpu_high_performance", "Use the fast graphics card", "For laptops with two: runs Minecraft on the strong one") : ""}
       </div>
       <div class="card-pad"><h3>Memory and window</h3>
@@ -2517,37 +2619,64 @@ function editModal(inst) {
 }
 
 // ------------------------------------------------------------------ music --
-// One player for the whole launcher: songs from a folder (or files you pick)
-// and free internet radio. Lyrics come from an .lrc beside the song or from
-// LRCLIB and follow the music; the game shows the current line too.
+// A full music player: free streaming from Audius (trending, search,
+// playlists), your own files, internet radio, liked songs and your own
+// playlists. Lyrics follow the song (an .lrc beside it, or LRCLIB) and the
+// game shows what's playing.
 
+const jget = (k, d) => { try { return JSON.parse(store.get(k) || "") ?? d; } catch { return d; } };
 const M = {
   audio: new Audio(),
-  tab: store.get("vortex.musicTab") || "library",
+  view: store.get("vortex.musicView") || "home",
+  genre: "",
+  time: "week",
+  query: "",
+  songs: [], // what the main list shows
+  lists: [], // playlists shown on Home / Search
+  open: null, // { kind: "playlist" | "mine" | "liked" | "files", id, name }
+  loading: false,
+  error: "",
   dir: "",
-  tracks: [],
-  filter: "",
+  files: [],
   stations: [],
-  genre: "lofi",
   radioQuery: "",
+  radioGenre: "lofi",
   queue: [],
   index: -1,
-  now: null, // { kind: "track" | "radio", title, artist, path?, url }
+  now: null,
+  shuffle: store.get("vortex.musicShuffle") === "1",
+  repeat: store.get("vortex.musicRepeat") || "off", // off | all | one
+  side: "lyrics", // lyrics | queue
+  liked: jget("vortex.liked", []),
+  mine: jget("vortex.playlists", []),
   lyrics: [],
   plain: "",
   lyricsNote: "",
   line: -1,
-  loaded: false,
+  filesLoaded: false,
 };
 M.audio.preload = "metadata";
 M.audio.volume = Math.max(0, Math.min(1, Number(store.get("vortex.musicVol") ?? 0.8)));
-const GENRES = [["lofi", "Lofi"], ["pop", "Pop"], ["hip hop", "Hip hop"], ["rock", "Rock"], ["electronic", "Electronic"], ["chill", "Chill"], ["jazz", "Jazz"], ["classical", "Classical"]];
+const GENRES = [["", "All"], ["Electronic", "Electronic"], ["Hip-Hop/Rap", "Hip-hop"], ["Pop", "Pop"], ["House", "House"], ["Lo-Fi", "Lo-fi"], ["Alternative", "Alternative"], ["Rock", "Rock"], ["R&B/Soul", "R&B"], ["Ambient", "Ambient"], ["Dubstep", "Dubstep"], ["Drum & Bass", "Drum & bass"]];
+const RADIO_GENRES = [["lofi", "Lofi"], ["pop", "Pop"], ["hip hop", "Hip hop"], ["rock", "Rock"], ["electronic", "Electronic"], ["chill", "Chill"], ["jazz", "Jazz"], ["classical", "Classical"]];
 const mmss = (s) => (Number.isFinite(s) && s >= 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "--:--");
+const keyOf = (t) => t.id || t.path || t.url;
+const isLiked = (t) => !!t && M.liked.some((x) => keyOf(x) === keyOf(t));
+const saveLiked = () => store.set("vortex.liked", JSON.stringify(M.liked.slice(0, 2000)));
+const saveMine = () => store.set("vortex.playlists", JSON.stringify(M.mine));
+// Songs picked from disk this session play from memory; they can't be saved.
+const keepable = (t) => !String(t.url || "").startsWith("blob:");
 
 function trackSrc(t) {
   if (t.url) return t.url;
   const conv = window.__TAURI__?.core?.convertFileSrc;
-  return conv ? conv(t.path, "vmusic") : "";
+  return conv && t.path ? conv(t.path, "vmusic") : "";
+}
+
+/** Play song i of a list (the list becomes the queue). */
+function playList(list, i) {
+  M.queue = list.slice();
+  playAt(i);
 }
 
 async function playAt(i) {
@@ -2560,14 +2689,15 @@ async function playAt(i) {
   M.line = -1;
   M.lyricsNote = "Looking for lyrics";
   M.audio.src = trackSrc(t);
-  try { await M.audio.play(); } catch (e) { toast("Couldn't play that", errText(e), "warn"); }
+  try { await M.audio.play(); } catch (e) { if (M.now === t || M.index === i) toast("Couldn't play that", errText(e), "warn"); }
   drawMusic();
   sendNow();
 }
 
 function playStation(st) {
   M.index = -1;
-  M.now = { kind: "radio", title: st.name, artist: [st.country, st.tags.split(",").slice(0, 2).join(", ")].filter(Boolean).join(" · "), url: st.url };
+  M.queue = [];
+  M.now = { kind: "radio", title: st.name, artist: [st.country, st.tags.split(",").slice(0, 2).join(", ")].filter(Boolean).join(" · "), url: st.url, artwork: st.favicon || "" };
   M.lyrics = [];
   M.plain = "";
   M.lyricsNote = "Live radio has no lyrics";
@@ -2578,14 +2708,34 @@ function playStation(st) {
 }
 
 function musicToggle() {
-  if (!M.now) { if (M.queue.length) playAt(0); return; }
+  if (!M.now) { if (M.songs.length) playList(M.songs, 0); return; }
   if (M.audio.paused) M.audio.play().catch(() => {}); else M.audio.pause();
 }
-function musicStep(d) {
+
+function musicStep(d, auto = false) {
   if (M.now?.kind !== "track" || !M.queue.length) return;
+  if (auto && M.repeat === "one") { M.audio.currentTime = 0; M.audio.play().catch(() => {}); return; }
   // Previous: back to the start first, like every player.
   if (d < 0 && M.audio.currentTime > 3) { M.audio.currentTime = 0; return; }
-  playAt((M.index + d + M.queue.length) % M.queue.length);
+  let n;
+  if (M.shuffle && M.queue.length > 1) {
+    do n = Math.floor(Math.random() * M.queue.length); while (n === M.index);
+  } else {
+    n = M.index + d;
+    if (n >= M.queue.length) { if (auto && M.repeat === "off") { M.audio.pause(); drawNow(); return; } n = 0; }
+    if (n < 0) n = M.queue.length - 1;
+  }
+  playAt(n);
+}
+
+function toggleLike(t) {
+  if (!t || !keepable(t)) { toast("Can't save that one", "Songs added from a file this time can't be liked. Load their folder in Your library.", "warn"); return; }
+  if (isLiked(t)) M.liked = M.liked.filter((x) => keyOf(x) !== keyOf(t));
+  else M.liked.unshift({ id: t.id, path: t.path, url: t.url, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration });
+  saveLiked();
+  drawNow();
+  $$(`.track [data-like="${CSS.escape(keyOf(t))}"]`).forEach((b) => b.classList.toggle("on", isLiked(t)));
+  if (M.open?.kind === "liked") { M.songs = M.liked.slice(); drawList(); }
 }
 
 async function loadLyrics() {
@@ -2600,12 +2750,11 @@ async function loadLyrics() {
   } catch {
     if (M.now === n) M.lyricsNote = "Lyrics couldn't be loaded (offline?)";
   }
-  drawLyrics();
+  drawSide();
   sendNow();
 }
 
 /** The game's Now Playing overlay reads this. */
-let nowTimer = 0;
 function sendNow() {
   if (!isTauri) return;
   const n = M.now;
@@ -2623,9 +2772,18 @@ function currentLine() {
   return lo;
 }
 
-function drawLyrics() {
-  const box = $("#lyrics");
+function drawSide() {
+  const box = $("#music-side");
   if (!box) return;
+  $$('[data-action="music-side"]').forEach((b) => b.classList.toggle("on", b.dataset.s === M.side));
+  if (M.side === "queue") {
+    box.className = "music-queue";
+    box.innerHTML = M.queue.length
+      ? M.queue.map((t, i) => `<button class="qrow ${i === M.index ? "on" : ""}" data-action="music-q" data-i="${i}"><span>${esc(t.title)}</span><small>${esc(t.artist || "")}</small></button>`).join("")
+      : `<div class="lyrics-note">Nothing queued. Play a song from a list and the rest of the list follows.</div>`;
+    return;
+  }
+  box.className = "lyrics";
   if (M.lyrics.length) {
     box.innerHTML = M.lyrics.map(([ms, t], i) => `<div class="lyric" data-ms="${ms}" data-i="${i}">${esc(t) || "&#9834;"}</div>`).join("");
     M.line = -1;
@@ -2638,11 +2796,11 @@ function drawLyrics() {
 }
 
 function tickLyrics(force = false) {
-  if (!M.lyrics.length) return;
+  if (!M.lyrics.length || M.side !== "lyrics") return;
   const i = currentLine();
   if (i === M.line && !force) return;
   M.line = i;
-  const box = $("#lyrics");
+  const box = $("#music-side");
   if (!box) return;
   box.querySelectorAll(".lyric").forEach((el, k) => { el.classList.toggle("on", k === i); el.classList.toggle("past", k < i); });
   const el = box.querySelector(`.lyric[data-i="${Math.max(0, i)}"]`);
@@ -2653,138 +2811,257 @@ function drawNow() {
   const n = M.now;
   const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
   set("#now-title", n ? n.title : "Nothing playing");
-  set("#now-artist", n ? n.artist || (n.kind === "radio" ? "Radio" : "Unknown artist") : "Pick a song or a station");
+  set("#now-artist", n ? n.artist || (n.kind === "radio" ? "Radio" : "Unknown artist") : "Pick a song, a playlist or a station");
+  const cover = $("#now-art");
+  if (cover) {
+    const src = n?.artwork || "";
+    if (cover.dataset.src !== src) { cover.dataset.src = src; cover.style.backgroundImage = src ? `url("${src}")` : ""; }
+    cover.classList.toggle("empty", !src);
+  }
   const playing = n && !M.audio.paused;
   $$('[data-action="music-toggle"] .icon-slot, #mp-toggle .icon-slot').forEach((s) => { s.innerHTML = icon(playing ? "pause" : "play", s.closest("#mp-toggle") ? 12 : 16); });
+  $("#now-like")?.classList.toggle("on", isLiked(n));
+  $('[data-action="music-shuffle"]')?.classList.toggle("on", M.shuffle);
+  const rep = $('[data-action="music-repeat"]');
+  if (rep) { rep.classList.toggle("on", M.repeat !== "off"); rep.dataset.mode = M.repeat; rep.title = { off: "Repeat off", all: "Repeat the list", one: "Repeat this song" }[M.repeat]; }
   const seek = $("#now-seek");
   if (seek) {
     const d = M.audio.duration;
     seek.disabled = !n || n.kind === "radio" || !Number.isFinite(d);
     seek.max = Number.isFinite(d) ? String(Math.round(d)) : "0";
     if (!seek.matches(":active")) seek.value = String(Math.floor(M.audio.currentTime || 0));
+    seek.style.setProperty("--fill", `${Number.isFinite(d) && d > 0 ? (M.audio.currentTime / d) * 100 : 0}%`);
     set("#now-pos", mmss(M.audio.currentTime));
     set("#now-len", n?.kind === "radio" ? "Live" : mmss(d));
   }
   const mp = $("#mini-player");
   if (mp) {
-    mp.hidden = !n;
+    mp.hidden = !n || S.route === "music";
     set("#mp-title", n ? n.title : "");
     set("#mp-artist", n ? n.artist || "" : "");
   }
-  $$(".track").forEach((el) => el.classList.toggle("on", M.now?.kind === "track" && Number(el.dataset.i) === M.index));
+  const cur = n && n.kind === "track" ? keyOf(n) : null;
+  $$(".track[data-key]").forEach((el) => el.classList.toggle("on", el.dataset.key === cur));
+  $$(".qrow").forEach((el) => el.classList.toggle("on", Number(el.dataset.i) === M.index));
 }
 
 function drawMusic() {
   drawNow();
-  drawLyrics();
+  drawSide();
 }
 
-function trackRows() {
-  const q = M.filter.toLowerCase();
-  M.queue = M.tracks.filter((t) => !q || `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(q));
-  if (!M.queue.length) return `<div class="empty"><h3>${M.tracks.length ? "Nothing matches" : "No songs here"}</h3><p>${M.tracks.length ? "Try another search." : "Pick the folder with your music, or add songs from anywhere. MP3, FLAC, Ogg, Opus, M4A and WAV all play."}</p></div>`;
-  return M.queue.map((t, i) => `<button class="track" data-action="music-play" data-i="${i}"><span class="t-n">${i + 1}</span><span class="t-title">${esc(t.title)}<span class="t-artist">${esc(t.artist || "Unknown artist")}${t.album ? ` · ${esc(t.album)}` : ""}</span></span><span class="t-len"></span></button>`).join("");
+// ---- the main column
+
+function songRows(list) {
+  if (!list.length) return "";
+  return list.map((t, i) => {
+    const k = keyOf(t);
+    return `<div class="track" data-key="${esc(k)}" data-action="music-play" data-i="${i}" role="button" tabindex="0">
+      <span class="t-n">${i + 1}</span>
+      <span class="t-art" ${t.artwork ? `style="background-image:url('${esc(t.artwork)}')"` : ""}></span>
+      <span class="t-title">${esc(t.title)}<span class="t-artist">${esc(t.artist || "Unknown artist")}</span></span>
+      <span class="t-len">${t.duration ? mmss(t.duration) : ""}</span>
+      <button class="t-btn ${isLiked(t) ? "on" : ""}" data-action="music-like" data-i="${i}" data-like="${esc(k)}" aria-label="Like">${icon("heart", 12)}</button>
+      <button class="t-btn" data-action="music-add" data-i="${i}" aria-label="Add to a playlist">${icon("plus", 12)}</button>
+    </div>`;
+  }).join("");
 }
 
-function stationRows() {
-  if (!M.stations.length) return `<div class="side-note">${M.radioLoading ? "Finding stations" : "No stations found."}</div>`;
-  return M.stations.map((s, i) => `<button class="track" data-action="music-station" data-i="${i}"><span class="t-n">${icon("radio", 12)}</span><span class="t-title">${esc(s.name)}<span class="t-artist">${esc([s.country, s.tags.split(",").slice(0, 3).join(", ")].filter(Boolean).join(" · "))}</span></span><span class="t-len">${s.bitrate ? `${s.bitrate} kbps` : ""}</span></button>`).join("");
+function playlistTiles(lists) {
+  return `<div class="pl-grid">${lists.map((p, i) => `<button class="pl-tile" data-action="music-open" data-i="${i}">
+      <span class="pl-art" ${p.artwork ? `style="background-image:url('${esc(p.artwork)}')"` : ""}>${p.artwork ? "" : icon("music", 22)}</span>
+      <strong>${esc(p.name)}</strong><span>${esc(p.owner ? `${p.owner} · ` : "")}${p.count} songs</span></button>`).join("")}</div>`;
+}
+
+function listBody() {
+  if (M.loading) return `<div class="side-note">Loading</div>`;
+  if (M.error) return `<div class="empty"><h3>Music couldn't load</h3><p>${esc(M.error)}</p></div>`;
+  const v = M.view;
+  if (M.open) {
+    const empty = M.open.kind === "liked" ? "Songs you like show up here. Tap the heart on any song." : M.open.kind === "files" ? "No songs in this folder. Pick another, or add songs from anywhere." : "This playlist is empty. Add songs with the + on any song.";
+    return `<div class="list-head"><button class="btn btn-sm btn-ghost" data-action="music-back">${icon("chev", 10)} Back</button><h2>${esc(M.open.name)}</h2>
+      <span class="grow"></span>${M.songs.length ? `<button class="btn btn-sm btn-accent" data-action="music-playall">${icon("play", 11)} Play</button>` : ""}
+      ${M.open.kind === "mine" ? `<button class="btn btn-sm btn-ghost" data-action="music-dellist">${icon("trash", 11)} Delete</button>` : ""}</div>
+      ${M.open.kind === "files" ? `<div class="row wrap" style="gap:8px;margin:0 0 10px">
+         <input class="input grow" id="music-dir" placeholder="Music folder" value="${esc(M.dir)}" aria-label="Music folder">
+         <button class="btn btn-sm" data-action="music-load">Load</button>
+         <label class="btn btn-sm" for="music-files">${icon("plus", 12)} Add songs</label><input id="music-files" type="file" accept="audio/*,.mp3,.flac,.ogg,.opus,.m4a,.wav" multiple hidden></div>` : ""}
+      <div class="tracks">${songRows(M.songs) || `<div class="side-note">${empty}</div>`}</div>`;
+  }
+  if (v === "radio") {
+    return `<div class="row wrap" style="gap:8px;margin-bottom:10px"><input class="input grow" id="radio-q" type="search" placeholder="Search stations" value="${esc(M.radioQuery)}" aria-label="Search stations"></div>
+      <div class="chips">${RADIO_GENRES.map(([g, l]) => `<button class="chip-btn ${M.radioGenre === g && !M.radioQuery ? "on" : ""}" data-action="music-rgenre" data-g="${g}">${l}</button>`).join("")}</div>
+      <div class="tracks">${M.stations.length ? M.stations.map((s, i) => `<div class="track" data-action="music-station" data-i="${i}" role="button" tabindex="0"><span class="t-n">${icon("radio", 12)}</span><span class="t-art" ${s.favicon ? `style="background-image:url('${esc(s.favicon)}')"` : ""}></span><span class="t-title">${esc(s.name)}<span class="t-artist">${esc([s.country, s.tags.split(",").slice(0, 3).join(", ")].filter(Boolean).join(" · "))}</span></span><span class="t-len">${s.bitrate ? `${s.bitrate} kbps` : ""}</span></div>`).join("") : `<div class="side-note">No stations found.</div>`}</div>`;
+  }
+  if (v === "library") {
+    const tiles = [
+      { kind: "liked", name: "Liked songs", sub: `${M.liked.length} songs`, ic: "heart" },
+      { kind: "files", name: "On this PC", sub: M.dir ? M.dir : "Your Music folder", ic: "folder" },
+      ...M.mine.map((p) => ({ kind: "mine", id: p.id, name: p.name, sub: `${p.tracks.length} songs`, ic: "music" })),
+    ];
+    return `<div class="list-head"><h2>Your library</h2><span class="grow"></span><button class="btn btn-sm" data-action="music-newlist">${icon("plus", 11)} New playlist</button></div>
+      <div class="pl-grid">${tiles.map((t) => `<button class="pl-tile" data-action="music-lib" data-kind="${t.kind}" data-id="${esc(t.id || "")}"><span class="pl-art lib">${icon(t.ic, 22)}</span><strong>${esc(t.name)}</strong><span>${esc(t.sub)}</span></button>`).join("")}</div>`;
+  }
+  if (v === "search") {
+    return `${M.lists.length ? `<h2 class="sub-h">Playlists</h2>${playlistTiles(M.lists.slice(0, 8))}` : ""}
+      <h2 class="sub-h">Songs</h2><div class="tracks">${songRows(M.songs) || `<div class="side-note">${M.query ? "Nothing found." : "Search for a song, an artist or a playlist."}</div>`}</div>`;
+  }
+  return `<div class="chips">${GENRES.map(([g, l]) => `<button class="chip-btn ${M.genre === g ? "on" : ""}" data-action="music-genre" data-g="${esc(g)}">${l}</button>`).join("")}
+      <span class="grow"></span><div class="seg sm">${[["week", "This week"], ["month", "Month"], ["year", "Year"]].map(([t, l]) => `<button class="${M.time === t ? "on" : ""}" data-action="music-time" data-t="${t}">${l}</button>`).join("")}</div></div>
+    ${M.lists.length && !M.genre ? `<h2 class="sub-h">Trending playlists</h2>${playlistTiles(M.lists.slice(0, 8))}` : ""}
+    <h2 class="sub-h">Trending ${esc(GENRES.find(([g]) => g === M.genre)?.[1] || "")} songs</h2><div class="tracks">${songRows(M.songs)}</div>`;
+}
+
+function drawList() {
+  const box = $("#music-main");
+  if (!box) return;
+  box.innerHTML = listBody();
+  hydrateIcons(box);
+  bindListInputs(box);
+  drawNow();
+}
+
+function bindListInputs(root) {
+  $("#music-dir", root)?.addEventListener("keydown", (e) => { if (e.key === "Enter") actions["music-load"](); });
+  $("#radio-q", root)?.addEventListener("keydown", (e) => { if (e.key === "Enter") { M.radioQuery = e.target.value.trim(); loadStations(); } });
+  $("#music-files", root)?.addEventListener("change", (e) => {
+    const files = [...(e.target.files || [])];
+    const added = files.map((f) => {
+      const stem = f.name.replace(/\.[^.]+$/, "");
+      const [artist, title] = stem.includes(" - ") ? stem.split(" - ", 2) : ["", stem];
+      return { path: null, url: URL.createObjectURL(f), title: title.trim(), artist: artist.trim(), artwork: "" };
+    });
+    M.files = [...added, ...M.files];
+    if (M.open?.kind === "files") { M.songs = M.files.slice(); drawList(); }
+    if (added.length && !M.now) playList(M.files, 0);
+  });
+}
+
+async function loadView() {
+  M.error = "";
+  const v = M.view;
+  if (v === "radio") return loadStations();
+  if (v === "library") { drawList(); return; }
+  M.loading = true;
+  drawList();
+  try {
+    if (v === "search") {
+      if (M.query) [M.songs, M.lists] = await Promise.all([call("music_search", { query: M.query }), call("music_playlists", { query: M.query }).catch(() => [])]);
+      else { M.songs = []; M.lists = []; }
+    } else {
+      [M.songs, M.lists] = await Promise.all([call("music_trending", { genre: M.genre, time: M.time }), M.genre ? Promise.resolve([]) : call("music_playlists", { query: "" }).catch(() => [])]);
+    }
+  } catch (e) {
+    M.error = `${errText(e)}. Your own songs and the radio still work.`;
+  }
+  M.loading = false;
+  drawList();
+}
+
+async function openList(o) {
+  M.open = o;
+  if (o.kind === "liked") M.songs = M.liked.slice();
+  else if (o.kind === "mine") M.songs = (M.mine.find((p) => p.id === o.id)?.tracks || []).slice();
+  else if (o.kind === "files") {
+    if (!M.filesLoaded) await loadLibrary(M.dir || S.settings?.music_dir || "");
+    M.songs = M.files.slice();
+  } else {
+    M.loading = true;
+    drawList();
+    try { M.songs = await call("music_playlist", { id: o.id }); } catch (e) { M.error = errText(e); }
+    M.loading = false;
+  }
+  drawList();
+}
+
+async function loadLibrary(dir) {
+  try {
+    const r = await call("music_library", { dir: dir || null });
+    M.dir = r.dir;
+    M.files = [...M.files.filter((t) => t.url), ...r.tracks.map((t) => ({ ...t, artwork: "" }))];
+    M.filesLoaded = true;
+    if (dir && dir !== S.settings?.music_dir) saveSettings({ ...S.settings, music_dir: dir }).catch(() => {});
+  } catch (e) {
+    toast("Couldn't read that folder", errText(e), "warn");
+  }
+}
+
+async function loadStations() {
+  M.loading = true;
+  drawList();
+  try { M.stations = await call("music_radio", { query: M.radioQuery, tag: M.radioQuery ? "" : M.radioGenre }); } catch (e) { M.stations = []; M.error = errText(e); }
+  M.loading = false;
+  drawList();
+}
+
+function addToPlaylist(t, anchor) {
+  if (!keepable(t)) { toast("Can't save that one", "Songs added from a file this time can't go in a playlist. Load their folder in Your library.", "warn"); return; }
+  const root = $("#popover-root");
+  const r = anchor.getBoundingClientRect();
+  root.innerHTML = `<div class="popover glass music-pop" style="position:fixed;left:${Math.max(8, r.right - 220)}px;top:${Math.min(innerHeight - 260, r.bottom + 6)}px;width:220px">
+    <span class="label">Add to playlist</span>
+    ${M.mine.map((p) => `<button class="pop-row" data-p="${esc(p.id)}">${esc(p.name)}</button>`).join("")}
+    <button class="pop-row new" data-p="">${icon("plus", 10)} New playlist</button></div>`;
+  hydrateIcons(root);
+  root.querySelectorAll(".pop-row").forEach((b) => b.addEventListener("click", () => {
+    let p = M.mine.find((x) => x.id === b.dataset.p);
+    if (!p) {
+      p = { id: `p${Date.now().toString(36)}`, name: `My playlist ${M.mine.length + 1}`, tracks: [] };
+      M.mine.push(p);
+    }
+    if (!p.tracks.some((x) => keyOf(x) === keyOf(t))) p.tracks.push({ id: t.id, path: t.path, url: t.url, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration });
+    saveMine();
+    closePopover();
+    toast("Added", `${t.title} is in ${p.name}.`, "success");
+  }));
 }
 
 function renderMusic() {
-  const lib = M.tab === "library";
-  const list = lib
-    ? `<div class="row wrap" style="gap:8px;margin-bottom:10px">
-         <input class="input grow" id="music-dir" placeholder="Music folder" value="${esc(M.dir)}" aria-label="Music folder">
-         <button class="btn btn-sm" data-action="music-load">Load</button>
-         <label class="btn btn-sm" for="music-files">${icon("plus", 12)} Add songs</label><input id="music-files" type="file" accept="audio/*,.mp3,.flac,.ogg,.opus,.m4a,.wav" multiple hidden>
-       </div>
-       <input class="input" id="music-filter" type="search" placeholder="Search songs" value="${esc(M.filter)}" style="margin-bottom:8px" aria-label="Search songs">
-       <div class="music-tracks" id="music-tracks">${trackRows()}</div>`
-    : `<div class="row wrap" style="gap:8px;margin-bottom:10px">
-         <input class="input grow" id="radio-q" type="search" placeholder="Search stations" value="${esc(M.radioQuery)}" aria-label="Search stations">
-       </div>
-       <div class="seg" style="margin-bottom:10px;flex-wrap:wrap">${GENRES.map(([g, l]) => `<button class="${M.genre === g && !M.radioQuery ? "on" : ""}" data-action="music-genre" data-g="${g}">${l}</button>`).join("")}</div>
-       <div class="music-tracks" id="music-tracks">${stationRows()}</div>`;
+  const tabs = [["home", "Home"], ["search", "Search"], ["library", "Your library"], ["radio", "Radio"]];
   return {
-    html: sheet("Music", "Your own songs and free internet radio, with lyrics that follow the music. In the game, F8 plays or pauses and F9 skips.",
-      `<div class="seg"><button class="${lib ? "on" : ""}" data-action="music-tab" data-t="library">${icon("music", 12)} My music</button><button class="${lib ? "" : "on"}" data-action="music-tab" data-t="radio">${icon("radio", 12)} Radio</button></div>`,
+    html: sheet("Music", "Free music from Audius, your own songs and internet radio, with lyrics that follow along. In the game, F8 plays or pauses and F9 skips.",
+      `${M.view === "search" ? `<input class="input" id="music-q" type="search" placeholder="Songs, artists, playlists" value="${esc(M.query)}" aria-label="Search music" style="width:220px">` : ""}
+       <div class="seg">${tabs.map(([v, l]) => `<button class="${M.view === v ? "on" : ""}" data-action="music-view" data-v="${v}">${l}</button>`).join("")}</div>`,
       `<div class="music">
-        <div class="music-list">${list}</div>
+        <div class="music-main" id="music-main"></div>
         <div class="card-pad now">
-          <div><div class="now-title" id="now-title"></div><div class="now-artist" id="now-artist"></div></div>
-          <div class="now-bar"><span id="now-pos">0:00</span><input type="range" id="now-seek" min="0" max="0" value="0" aria-label="Position"><span id="now-len">--:--</span></div>
+          <div class="now-art" id="now-art"></div>
+          <div class="now-head"><div class="now-text"><div class="now-title" id="now-title"></div><div class="now-artist" id="now-artist"></div></div>
+            <button class="t-btn big" id="now-like" data-action="music-likenow" aria-label="Like">${icon("heart", 14)}</button></div>
+          <div class="now-bar"><span id="now-pos">0:00</span><input type="range" class="range" id="now-seek" min="0" max="0" value="0" aria-label="Position"><span id="now-len">--:--</span></div>
           <div class="now-ctl">
+            <button class="t-btn" data-action="music-shuffle" aria-label="Shuffle" title="Shuffle">${icon("shuffle", 13)}</button>
             <button class="btn btn-icon" data-action="music-prev" aria-label="Previous">${icon("prev", 14)}</button>
             <button class="btn btn-accent btn-play" data-action="music-toggle" aria-label="Play or pause"><span class="icon-slot">${icon("play", 16)}</span></button>
             <button class="btn btn-icon" data-action="music-next" aria-label="Next">${icon("next", 14)}</button>
+            <button class="t-btn" data-action="music-repeat" aria-label="Repeat">${icon("repeat", 13)}</button>
           </div>
-          <div class="now-bar"><span>${icon("music", 11)}</span><input type="range" id="now-vol" min="0" max="100" value="${Math.round(M.audio.volume * 100)}" aria-label="Volume"></div>
-          <div class="lyrics" id="lyrics"></div>
+          <div class="now-bar"><span>${icon("volume", 12)}</span><input type="range" class="range" id="now-vol" min="0" max="100" value="${Math.round(M.audio.volume * 100)}" aria-label="Volume" style="--fill:${Math.round(M.audio.volume * 100)}%"></div>
+          <div class="seg sm side-tabs"><button class="${M.side === "lyrics" ? "on" : ""}" data-action="music-side" data-s="lyrics">Lyrics</button><button class="${M.side === "queue" ? "on" : ""}" data-action="music-side" data-s="queue">Up next</button></div>
+          <div class="lyrics" id="music-side"></div>
         </div>
       </div>`),
     mount(root) {
       drawMusic();
-      if (lib && !M.loaded) { M.loaded = true; loadLibrary(M.dir || S.settings?.music_dir || ""); }
-      if (!lib && !M.stations.length) loadStations();
-      $("#music-filter", root)?.addEventListener("input", (e) => { M.filter = e.target.value; $("#music-tracks").innerHTML = trackRows(); drawNow(); });
-      $("#music-dir", root)?.addEventListener("keydown", (e) => { if (e.key === "Enter") actions["music-load"](); });
-      $("#radio-q", root)?.addEventListener("keydown", (e) => { if (e.key === "Enter") { M.radioQuery = e.target.value.trim(); loadStations(); } });
-      $("#music-files", root)?.addEventListener("change", (e) => {
-        const files = [...(e.target.files || [])];
-        const added = files.map((f) => {
-          const stem = f.name.replace(/\.[^.]+$/, "");
-          const [artist, title] = stem.includes(" - ") ? stem.split(" - ", 2) : ["", stem];
-          return { path: null, url: URL.createObjectURL(f), title: title.trim(), artist: artist.trim(), album: "" };
-        });
-        M.tracks = [...added, ...M.tracks];
-        $("#music-tracks").innerHTML = trackRows();
-        if (added.length && !M.now) playAt(0);
-      });
+      if (M.open) drawList();
+      else if (M.view === "home" && M.songs.length && !M.error) drawList();
+      else loadView();
+      const q = $("#music-q", root);
+      if (q) {
+        q.focus();
+        let t = 0;
+        q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { M.query = q.value.trim(); loadView(); }, 350); });
+      }
       const seek = $("#now-seek", root);
       seek?.addEventListener("input", () => { $("#now-pos").textContent = mmss(Number(seek.value)); });
       seek?.addEventListener("change", () => { M.audio.currentTime = Number(seek.value); sendNow(); });
-      $("#now-vol", root)?.addEventListener("input", (e) => { M.audio.volume = Number(e.target.value) / 100; store.set("vortex.musicVol", M.audio.volume); });
-      $("#lyrics", root)?.addEventListener("click", (e) => {
+      $("#now-vol", root)?.addEventListener("input", (e) => { M.audio.volume = Number(e.target.value) / 100; e.target.style.setProperty("--fill", `${e.target.value}%`); store.set("vortex.musicVol", M.audio.volume); });
+      $("#music-side", root)?.addEventListener("click", (e) => {
         const el = e.target.closest(".lyric[data-ms]");
         if (el && M.now?.kind === "track") { M.audio.currentTime = Number(el.dataset.ms) / 1000; sendNow(); }
       });
     },
   };
-}
-
-async function loadLibrary(dir) {
-  const box = $("#music-tracks");
-  if (box) box.innerHTML = `<div class="side-note">Reading your music</div>`;
-  try {
-    const r = await call("music_library", { dir: dir || null });
-    M.dir = r.dir;
-    M.tracks = [...M.tracks.filter((t) => t.url), ...r.tracks];
-    const input = $("#music-dir");
-    if (input) input.value = r.dir;
-    if (dir && dir !== S.settings?.music_dir) saveSettings({ ...S.settings, music_dir: dir }).catch(() => {});
-  } catch (e) {
-    toast("Couldn't read that folder", errText(e), "warn");
-  }
-  const b = $("#music-tracks");
-  if (b) b.innerHTML = trackRows();
-  drawNow();
-}
-
-async function loadStations() {
-  M.radioLoading = true;
-  const box = $("#music-tracks");
-  if (box) box.innerHTML = stationRows();
-  try {
-    M.stations = await call("music_radio", { query: M.radioQuery, tag: M.radioQuery ? "" : M.genre });
-  } catch (e) {
-    M.stations = [];
-    toast("Radio couldn't be reached", errText(e), "warn");
-  }
-  M.radioLoading = false;
-  const b = $("#music-tracks");
-  if (b) b.innerHTML = stationRows();
-  drawNow();
 }
 
 function bindMusic() {
@@ -2794,11 +3071,18 @@ function bindMusic() {
   a.addEventListener("loadedmetadata", () => { drawNow(); if (M.now?.kind === "track") loadLyrics(); });
   a.addEventListener("timeupdate", () => { drawNow(); tickLyrics(); });
   a.addEventListener("seeked", sendNow);
-  a.addEventListener("ended", () => musicStep(1));
-  a.addEventListener("error", () => { if (M.now) toast("Couldn't play that", "The file or station didn't load.", "warn"); });
+  a.addEventListener("ended", () => musicStep(1, true));
+  a.addEventListener("error", () => { if (M.now && a.src) toast("Couldn't play that", "The song or station didn't load.", "warn"); });
   $("#mp-toggle")?.addEventListener("click", (e) => { e.stopPropagation(); musicToggle(); });
   $("#mp-next")?.addEventListener("click", (e) => { e.stopPropagation(); musicStep(1); });
   $("#mp-open")?.addEventListener("click", () => go("music"));
+  // Media keys on the keyboard (and Windows' media overlay).
+  if (navigator.mediaSession) {
+    navigator.mediaSession.setActionHandler?.("play", () => musicToggle());
+    navigator.mediaSession.setActionHandler?.("pause", () => musicToggle());
+    navigator.mediaSession.setActionHandler?.("nexttrack", () => musicStep(1));
+    navigator.mediaSession.setActionHandler?.("previoustrack", () => musicStep(-1));
+  }
   // Resync the game now and then, and take its button presses.
   setInterval(() => { if (M.now && !a.paused) sendNow(); }, 5000);
   if (isTauri) setInterval(async () => {
@@ -2811,6 +3095,510 @@ function bindMusic() {
     } catch { /* not now */ }
   }, 400);
 }
+
+const MUSIC_ACTIONS = {
+  "music-view"(el) { M.view = el.dataset.v; M.open = null; store.set("vortex.musicView", M.view); if (M.view !== "search") M.query = ""; M.songs = []; M.lists = []; render(); },
+  "music-play"(el, e) { if (e?.target?.closest(".t-btn")) return; playList(M.songs, Number(el.dataset.i)); },
+  "music-like"(el) { toggleLike(M.songs[Number(el.dataset.i)]); },
+  "music-likenow"() { if (M.now?.kind === "track") toggleLike(M.now); },
+  "music-add"(el) { const t = M.songs[Number(el.dataset.i)]; if (t) addToPlaylist(t, el); },
+  "music-station"(el) { const st = M.stations[Number(el.dataset.i)]; if (st) playStation(st); },
+  "music-toggle"() { musicToggle(); },
+  "music-next"() { musicStep(1); },
+  "music-prev"() { musicStep(-1); },
+  "music-shuffle"() { M.shuffle = !M.shuffle; store.set("vortex.musicShuffle", M.shuffle ? "1" : "0"); drawNow(); },
+  "music-repeat"() { M.repeat = { off: "all", all: "one", one: "off" }[M.repeat]; store.set("vortex.musicRepeat", M.repeat); drawNow(); },
+  "music-side"(el) { M.side = el.dataset.s; drawSide(); },
+  "music-q"(el) { playAt(Number(el.dataset.i)); },
+  "music-genre"(el) { M.genre = el.dataset.g; loadView(); },
+  "music-time"(el) { M.time = el.dataset.t; loadView(); },
+  "music-rgenre"(el) { M.radioGenre = el.dataset.g; M.radioQuery = ""; loadStations(); },
+  "music-open"(el) { const p = M.lists[Number(el.dataset.i)]; if (p) openList({ kind: "playlist", id: p.id, name: p.name }); },
+  "music-lib"(el) {
+    const k = el.dataset.kind;
+    if (k === "liked") openList({ kind: "liked", name: "Liked songs" });
+    else if (k === "files") openList({ kind: "files", name: "On this PC" });
+    else { const p = M.mine.find((x) => x.id === el.dataset.id); if (p) openList({ kind: "mine", id: p.id, name: p.name }); }
+  },
+  "music-back"() { M.open = null; loadView(); },
+  "music-playall"() { if (M.songs.length) playList(M.songs, M.shuffle ? Math.floor(Math.random() * M.songs.length) : 0); },
+  "music-newlist"() { M.mine.push({ id: `p${Date.now().toString(36)}`, name: `My playlist ${M.mine.length + 1}`, tracks: [] }); saveMine(); drawList(); },
+  "music-dellist"() { M.mine = M.mine.filter((p) => p.id !== M.open?.id); saveMine(); M.open = null; drawList(); },
+  async "music-load"() { const v = $("#music-dir")?.value.trim(); M.files = M.files.filter((t) => t.url); await loadLibrary(v); if (M.open?.kind === "files") { M.songs = M.files.slice(); drawList(); } },
+};
+
+// ---------------------------------------------------------------- hosting --
+// Host a Minecraft server on this PC: Vanilla, Paper (plugins) or Fabric
+// (mods), with its console, players, settings, add-ons, backups and a way
+// for friends to join.
+
+const H = { list: null, sel: store.get("vortex.hostSel") || null, tab: "console", log: {}, props: null, players: null, backups: null, addons: null, hits: null, query: "", history: [], hIdx: -1, progress: {}, dirty: {} };
+const SERVER_KINDS = [["paper", "Paper", "Fast, and runs plugins (EssentialsX, LuckPerms, WorldEdit…)"], ["fabric", "Fabric", "Runs server mods (Lithium, Chunky, Simple Voice Chat…)"], ["vanilla", "Vanilla", "Plain Minecraft, exactly as Mojang ships it"]];
+const KIND_NAME = Object.fromEntries(SERVER_KINDS.map(([k, l]) => [k, l]));
+// server.properties, grouped the way people look for them.
+const PROPS = [
+  ["General", [
+    ["motd", "Message of the day", "text", "Shown under the server's name in the multiplayer list"],
+    ["max-players", "Max players", "num"],
+    ["server-port", "Port", "num", "25565 is the default; change it to run two servers at once"],
+    ["view-distance", "View distance", "num", "Chunks sent to players (2–32). Lower is lighter on your PC"],
+    ["simulation-distance", "Simulation distance", "num", "Chunks where mobs and crops are ticked"],
+  ]],
+  ["Gameplay", [
+    ["gamemode", "Game mode", ["survival", "creative", "adventure", "spectator"]],
+    ["force-gamemode", "Force game mode", "bool", "Put players back in the game mode above when they join"],
+    ["difficulty", "Difficulty", ["peaceful", "easy", "normal", "hard"]],
+    ["hardcore", "Hardcore", "bool", "One life: dying makes you a spectator"],
+    ["pvp", "PvP", "bool", "Players can hurt each other"],
+    ["allow-flight", "Allow flight", "bool", "Don't kick players who fly (needed for some mods and plugins)"],
+    ["allow-nether", "Nether", "bool"],
+    ["enable-command-block", "Command blocks", "bool"],
+    ["spawn-protection", "Spawn protection", "num", "Radius around spawn only operators can build in (0 = off)"],
+    ["player-idle-timeout", "Kick idle players after", "num", "Minutes (0 = never)"],
+  ]],
+  ["World", [
+    ["level-name", "World folder", "text"],
+    ["level-seed", "Seed", "text", "Only used when a new world is made"],
+    ["level-type", "World type", ["minecraft:normal", "minecraft:flat", "minecraft:large_biomes", "minecraft:amplified"]],
+    ["generate-structures", "Villages and structures", "bool"],
+    ["max-world-size", "World border radius", "num"],
+  ]],
+  ["Security", [
+    ["online-mode", "Online mode", "bool", "Only real Minecraft accounts can join. Turn off for offline accounts (anyone can then use any name)"],
+    ["white-list", "Whitelist", "bool", "Only players on the whitelist can join"],
+    ["enforce-whitelist", "Enforce whitelist", "bool", "Kick players who are removed from the whitelist"],
+    ["enforce-secure-profile", "Signed chat", "bool", "Require players to have signed chat keys"],
+    ["op-permission-level", "Operator level", ["1", "2", "3", "4"], "4 lets operators use every command, /stop included"],
+    ["prevent-proxy-connections", "Block VPNs and proxies", "bool"],
+    ["hide-online-players", "Hide who's online", "bool", "The server list won't show player names"],
+    ["rate-limit", "Packet rate limit", "num", "Kick players who send too many packets (0 = off)"],
+  ]],
+  ["Network", [
+    ["network-compression-threshold", "Compression threshold", "num", "Bytes; -1 turns compression off (good on a fast LAN)"],
+    ["enable-status", "Show in server list", "bool"],
+    ["enable-query", "GameSpy query", "bool"],
+    ["enable-rcon", "Remote console (RCON)", "bool"],
+    ["rcon.port", "RCON port", "num"],
+    ["rcon.password", "RCON password", "secret"],
+    ["resource-pack", "Server resource pack", "text", "A direct download link to a .zip"],
+    ["require-resource-pack", "Require the resource pack", "bool"],
+  ]],
+];
+const QUICK = [["list", "Who's online"], ["save-all", "Save"], ["time set day", "Day"], ["weather clear", "Clear weather"], ["difficulty peaceful", "Peaceful"], ["gamerule keepInventory true", "Keep inventory"], ["whitelist reload", "Reload whitelist"]];
+
+const hostSel = () => H.list?.find((s) => s.name === H.sel) || H.list?.[0] || null;
+const uptime = (t) => { const s = Math.max(0, Math.floor(Date.now() / 1000 - t)); return s < 3600 ? `${Math.floor(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`; };
+const fmtSize = (b) => (b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`);
+const when = (t) => new Date(t * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+
+async function loadHosts() {
+  try { H.list = await call("host_list"); } catch (e) { H.list = []; toast("Couldn't read your servers", errText(e), "error"); }
+  if (!H.list.some((s) => s.name === H.sel)) H.sel = H.list[0]?.name || null;
+}
+
+function statusOf(s) {
+  return !s.running ? ["off", "Offline"] : s.starting ? ["starting", "Starting"] : ["on", "Online"];
+}
+
+function renderHost() {
+  if (H.list === null) { loadHosts().then(() => { if (S.route === "host") render(); }); }
+  const list = H.list || [];
+  const s = hostSel();
+  const empty = `<div class="empty"><h3>Host your own server</h3><p>Run a Minecraft server on this PC for you and your friends. Free, with plugins or mods, backups and a tunnel so people outside your home can join.</p><button class="btn btn-accent lq" data-action="host-new">${icon("plus", 14)} Create a server</button></div>`;
+  return {
+    html: sheet("Host", "Your own Minecraft servers, running on this PC.", `<button class="btn btn-accent lq" data-action="host-new">${icon("plus", 14)} New server</button>`,
+      H.list === null ? `<div class="side-note">Loading</div>` : !list.length ? empty : `<div class="host">
+        <div class="host-list">${list.map((x) => { const [k, l] = statusOf(x); return `<button class="host-item ${x.name === s?.name ? "on" : ""}" data-action="host-sel" data-name="${esc(x.name)}">
+          <span class="h-dot ${k}" aria-hidden="true"></span><span class="h-meta"><strong>${esc(x.name)}</strong><span>${KIND_NAME[x.kind] || x.kind} ${esc(x.version)} · ${l}${x.running && !x.starting ? ` · ${x.players.length}/${x.maxPlayers}` : ""}</span></span></button>`; }).join("")}</div>
+        <div class="host-main" id="host-main">${hostDetail(s)}</div></div>`),
+    mount(root) {
+      bindHost(root);
+      if (s) loadTab(s);
+    },
+  };
+}
+
+function hostDetail(s) {
+  if (!s) return "";
+  const [k, l] = statusOf(s);
+  const p = H.progress[s.name];
+  const tabs = [["console", "Console"], ["players", "Players"], ["settings", "Settings"], ["addons", s.kind === "fabric" ? "Mods" : "Plugins"], ["backups", "Backups"], ["connect", "Connect"]];
+  return `<div class="host-head">
+      <div class="grow"><h2>${esc(s.name)}</h2>
+        <div class="host-sub"><span class="h-dot ${k}"></span>${l}${s.running && !s.starting ? ` · ${s.players.length} of ${s.maxPlayers} players · up ${uptime(s.startedAt)}` : ""} · ${KIND_NAME[s.kind] || s.kind} ${esc(s.version)} · ${(s.memoryMb / 1024).toFixed(s.memoryMb % 1024 ? 1 : 0)} GB</div>
+        ${p && !s.running ? `<div class="host-sub">${esc(p.stage)}${p.total ? ` · ${Math.round((p.done / p.total) * 100)}%` : ""}</div>` : ""}</div>
+      ${s.running ? `<button class="btn lq" data-action="host-restart">${icon("bolt", 13)} Restart</button><button class="btn lq" data-action="host-stop">${icon("stop", 12)} Stop</button>`
+        : `<button class="btn btn-accent lq" data-action="host-start">${icon("play", 13)} Start</button>`}
+    </div>
+    <div class="seg host-tabs" role="tablist">${tabs.map(([t, lab]) => `<button class="${H.tab === t ? "on" : ""}" data-action="host-tab" data-tab="${t}" role="tab">${lab}</button>`).join("")}</div>
+    <div class="host-body" id="host-body">${tabBody(s)}</div>`;
+}
+
+function logLine(t) {
+  const cls = /\bERROR\b|Exception|\[stderr\]/.test(t) ? "err" : /\bWARN\b/.test(t) ? "warn" : t.startsWith("[Vortex]") ? "vx" : /joined the game|left the game/.test(t) ? "join" : "";
+  return `<div class="ln ${cls}">${esc(t)}</div>`;
+}
+
+function tabBody(s) {
+  const t = H.tab;
+  if (t === "console") {
+    const lines = H.log[s.name] || [];
+    return `<div class="console" id="host-console">${lines.length ? lines.map(logLine).join("") : `<div class="ln vx">${s.running ? "Waiting for the server" : "The server is off. Press Start and its console shows up here."}</div>`}</div>
+      <div class="chips">${QUICK.map(([c, lab]) => `<button class="chip-btn" data-action="host-quick" data-cmd="${esc(c)}" ${s.running ? "" : "disabled"}>${lab}</button>`).join("")}</div>
+      <div class="row" style="gap:8px"><input class="input grow mono" id="host-cmd" placeholder="${s.running ? "Type a command, like say hello or op YourName" : "Start the server to send commands"}" ${s.running ? "" : "disabled"} autocomplete="off" spellcheck="false" aria-label="Command"><button class="btn lq" data-action="host-send" ${s.running ? "" : "disabled"}>Send</button></div>`;
+  }
+  if (t === "players") {
+    const P = H.players;
+    if (!P) return `<div class="side-note">Loading</div>`;
+    const rows = (list, key, remove, extra = () => "") => list.length ? list.map((p) => `<div class="p-row"><img class="p-head" src="https://mc-heads.net/avatar/${encodeURIComponent(p.name || p.ip || "MHF_Steve")}/24" alt="" loading="lazy" referrerpolicy="no-referrer"><span class="grow">${esc(p.name || p.ip)}${extra(p)}</span><button class="btn btn-sm btn-ghost lq" data-action="host-player" data-act="${remove}" data-player="${esc(p[key])}">Remove</button></div>`).join("") : `<div class="side-note">Nobody yet.</div>`;
+    return `<div class="host-grid">
+      <div class="card-pad"><h3>Online now <span class="muted small">${P.online.length}</span></h3>
+        ${P.online.length ? P.online.map((n) => `<div class="p-row"><img class="p-head" src="https://mc-heads.net/avatar/${encodeURIComponent(n)}/24" alt="" loading="lazy" referrerpolicy="no-referrer"><span class="grow">${esc(n)}</span>
+          <button class="btn btn-sm btn-ghost lq" data-action="host-player" data-act="op" data-player="${esc(n)}">Op</button>
+          <button class="btn btn-sm btn-ghost lq" data-action="host-player" data-act="kick" data-player="${esc(n)}">Kick</button>
+          <button class="btn btn-sm btn-ghost lq" data-action="host-player" data-act="ban" data-player="${esc(n)}">Ban</button></div>`).join("") : `<div class="side-note">${s.running ? "No one is playing right now." : "The server is off."}</div>`}
+        <h3 style="margin-top:6px">Add a player</h3>
+        <div class="row wrap" style="gap:6px"><input class="input grow" id="host-pname" maxlength="45" placeholder="Player name (or IP to ban)" aria-label="Player">
+          ${[["op", "Make operator"], ["whitelist-add", "Whitelist"], ["ban", "Ban"], ["ban-ip", "Ban IP"]].map(([a, lab]) => `<button class="btn btn-sm lq" data-action="host-player-add" data-act="${a}">${lab}</button>`).join("")}</div>
+      </div>
+      <div class="card-pad"><h3>Operators</h3>${rows(P.ops, "name", "deop", (p) => (p.level ? ` <span class="muted small">level ${p.level}</span>` : ""))}</div>
+      <div class="card-pad"><div class="row"><h3 class="grow">Whitelist</h3>${swInline("host-wl", P.whitelistOn)}</div>${rows(P.whitelist, "name", "whitelist-remove")}</div>
+      <div class="card-pad"><h3>Banned</h3>${rows(P.banned, "name", "pardon", (p) => (p.reason ? ` <span class="muted small">· ${esc(p.reason)}</span>` : ""))}${P.bannedIps.length ? `<h3>Banned IPs</h3>${rows(P.bannedIps, "ip", "pardon-ip")}` : ""}</div>
+    </div>`;
+  }
+  if (t === "settings") {
+    const props = H.props;
+    if (!props) return `<div class="side-note">Loading</div>`;
+    const val = (k) => (k in H.dirty ? H.dirty[k] : props[k] ?? "");
+    const ctl = ([key, , type]) => {
+      const v = val(key);
+      if (type === "bool") return `<button class="switch" role="switch" aria-checked="${v === "true"}" data-prop="${key}" aria-label="${esc(key)}"></button>`;
+      if (Array.isArray(type)) return `<select class="input sel" data-prop="${key}">${[...new Set([...type, ...(v && !type.includes(v) ? [v] : [])])].map((o) => `<option value="${esc(o)}" ${o === v ? "selected" : ""}>${esc(o.replace("minecraft:", ""))}</option>`).join("")}</select>`;
+      return `<input class="input ${type === "num" ? "num" : ""}" data-prop="${key}" type="${type === "secret" ? "password" : type === "num" ? "number" : "text"}" value="${esc(v)}" aria-label="${esc(key)}">`;
+    };
+    return `<div class="host-grid">
+      <div class="card-pad"><h3>Server</h3>
+        <div class="setting"><div class="s-text"><strong>Memory</strong><span>How much RAM the server may use. 2–4 GB suits a few friends; more for big modpacks</span></div>
+          <select class="input sel" id="host-mem">${[1024, 2048, 3072, 4096, 6144, 8192, 12288, 16384].map((m) => `<option value="${m}" ${m === s.memoryMb ? "selected" : ""}>${m / 1024} GB</option>`).join("")}</select></div>
+        <div class="setting"><div class="s-text"><strong>Restart after a crash</strong><span>Starts it again 5 seconds after it crashes</span></div>${swInline("host-restart-crash", s.restartOnCrash)}</div>
+        <div class="setting"><div class="s-text"><strong>Java arguments</strong><span>Extra flags, for experts. Vortex already uses Aikar's tuned flags</span></div><input class="input mono" id="host-jvm" value="${esc(s.jvmArgs || "")}" placeholder="-Dfile.encoding=UTF-8" style="max-width:240px"></div>
+        <div class="row wrap" style="gap:8px"><button class="btn btn-sm lq" data-action="host-folder">${icon("folder", 12)} Open folder</button><span class="grow"></span><button class="btn btn-sm btn-ghost btn-danger lq" data-action="host-delete">${icon("trash", 12)} Delete server</button></div>
+      </div>
+      ${PROPS.map(([group, items]) => `<div class="card-pad"><h3>${group}</h3>${items.map((it) => `<div class="setting ${it[2] === "text" || it[2] === "secret" ? "stack" : ""}"><div class="s-text"><strong>${esc(it[1])}</strong>${it[3] ? `<span>${esc(it[3])}</span>` : ""}</div>${ctl(it)}</div>`).join("")}</div>`).join("")}
+    </div>
+    <div class="host-save ${Object.keys(H.dirty).length ? "" : "hidden"}" id="host-save"><span>${s.running ? "Saved changes apply after a restart." : "Changes apply the next time it starts."}</span><button class="btn btn-sm btn-ghost lq" data-action="host-props-reset">Undo</button><button class="btn btn-sm btn-accent lq" data-action="host-props-save">Save changes</button></div>`;
+  }
+  if (t === "addons") {
+    if (s.kind === "vanilla") return `<div class="empty"><h3>Vanilla can't use plugins or mods</h3><p>Make a Paper server for plugins or a Fabric server for mods. Your world can be copied over from the server's folder.</p></div>`;
+    const word = s.kind === "fabric" ? "mods" : "plugins";
+    const inst = H.addons;
+    return `<div class="host-grid two">
+      <div class="card-pad"><h3>Installed ${word}</h3>${inst === null ? `<div class="side-note">Loading</div>` : inst.length ? inst.map((a) => `<div class="p-row"><span class="grow ${a.enabled ? "" : "muted"}" title="${esc(a.file)}">${esc(a.file.replace(/\.jar(\.disabled)?$/, ""))} <span class="muted small">${fmtSize(a.size)}</span></span>
+          ${swInline(`addon:${a.file}`, a.enabled)}<button class="t-btn" data-action="host-addon-del" data-file="${esc(a.file)}" aria-label="Delete">${icon("trash", 12)}</button></div>`).join("") : `<div class="side-note">No ${word} yet. Find some on the right.</div>`}
+        <p class="muted small">Restart the server after adding or removing ${word}.</p></div>
+      <div class="card-pad"><h3>Find ${word} on Modrinth</h3>
+        <input class="input" id="host-addon-q" type="search" placeholder="Search ${word} for ${KIND_NAME[s.kind]} ${esc(s.version)}" value="${esc(H.query)}" aria-label="Search">
+        <div class="addon-hits">${H.hits === null ? `<div class="side-note">Loading</div>` : H.hits.length ? H.hits.map((h) => `<div class="addon-hit"><span class="a-icon" ${h.icon ? `style="background-image:url('${esc(h.icon)}')"` : ""}></span><div class="grow"><strong>${esc(h.title)}</strong><span>${esc(h.description)}</span><small>${esc(h.author)} · ${fmtCount(h.downloads)} downloads</small></div><button class="btn btn-sm lq" data-action="host-addon-add" data-id="${esc(h.id)}">Install</button></div>`).join("") : `<div class="side-note">Nothing found for this version.</div>`}</div>
+      </div></div>`;
+  }
+  if (t === "backups") {
+    const b = H.backups;
+    return `<div class="host-grid two">
+      <div class="card-pad"><div class="row"><h3 class="grow">Backups</h3><button class="btn btn-sm btn-accent lq" data-action="host-backup">${icon("download", 12)} Back up now</button></div>
+        ${b === null ? `<div class="side-note">Loading</div>` : b.length ? b.map((x) => `<div class="p-row"><span class="grow">${when(x.time)} <span class="muted small">${fmtSize(x.size)}</span></span>
+          <button class="btn btn-sm btn-ghost lq" data-action="host-restore" data-file="${esc(x.file)}" ${s.running ? "disabled title=\"Stop the server first\"" : ""}>Restore</button>
+          <button class="t-btn" data-action="host-backup-del" data-file="${esc(x.file)}" aria-label="Delete">${icon("trash", 12)}</button></div>`).join("") : `<div class="side-note">No backups yet.</div>`}</div>
+      <div class="card-pad"><h3>Automatic backups</h3>
+        <div class="setting"><div class="s-text"><strong>Back up when it stops</strong><span>Zips the world (and its Nether and End) every time the server stops</span></div>${swInline("host-backup-stop", s.backupOnStop)}</div>
+        <div class="setting"><div class="s-text"><strong>Keep</strong><span>Older backups are removed</span></div><select class="input sel" id="host-keep">${[3, 5, 10, 20, 50, 0].map((n) => `<option value="${n}" ${n === s.keepBackups ? "selected" : ""}>${n ? `${n} backups` : "All"}</option>`).join("")}</select></div>
+        <p class="muted small">While the server runs, Vortex pauses world saving for a moment so the backup is consistent.</p></div></div>`;
+  }
+  // connect
+  const local = s.port === 25565 ? "localhost" : `localhost:${s.port}`;
+  const copy = (v) => `<button class="btn btn-sm lq" data-action="host-copy" data-v="${esc(v)}">${icon("copy", 12)} Copy</button>`;
+  return `<div class="host-grid two">
+    <div class="card-pad"><h3>Addresses</h3>
+      <div class="addr"><div class="s-text"><strong>This PC</strong><span>For you, on this computer</span></div><code>${esc(local)}</code>${copy(local)}</div>
+      ${s.lanAddress ? `<div class="addr"><div class="s-text"><strong>Home network</strong><span>For people on the same Wi-Fi or LAN</span></div><code>${esc(s.lanAddress)}</code>${copy(s.lanAddress)}</div>` : ""}
+      <div class="addr"><div class="s-text"><strong>Internet</strong><span>${s.publicAddress ? "Your tunnel address" : "Set up a tunnel below, then paste its address here"}</span></div>
+        <input class="input mono" id="host-public" value="${esc(s.publicAddress || "")}" placeholder="something.joinmc.link" style="max-width:220px">${s.publicAddress ? copy(s.publicAddress) : ""}</div>
+    </div>
+    <div class="card-pad"><h3>Free tunnel with playit.gg</h3>
+      <p class="muted small">A tunnel lets friends anywhere join without port forwarding or showing your home IP. playit.gg is free.</p>
+      <ol class="steps"><li>Press the button. playit's agent downloads and opens in its own window.</li><li>Open the link it shows and make a free playit.gg account (or sign in).</li><li>On playit.gg, add a tunnel of type <strong>Minecraft Java</strong> pointing at port <strong>${s.port}</strong>.</li><li>Copy the address playit gives you into <strong>Internet</strong> on the left.</li></ol>
+      <div class="row" style="gap:8px"><button class="btn btn-accent lq" data-action="host-tunnel">${icon("link", 13)} Open playit.gg agent</button><button class="btn lq" data-action="host-open" data-url="https://playit.gg/account/tunnels">Tunnels page</button></div>
+      <p class="muted small">Prefer your router? Forward TCP port ${s.port} to ${esc(s.lanAddress.split(":")[0] || "this PC")} and share your public IP.</p></div></div>`;
+}
+
+const swInline = (id, on) => `<button class="switch" role="switch" aria-checked="${!!on}" data-sw="${esc(id)}" aria-label="On or off"></button>`;
+
+async function loadTab(s, quiet = false) {
+  const t = H.tab;
+  try {
+    if (t === "console") H.log[s.name] = await call("host_log", { name: s.name });
+    else if (t === "players") H.players = await call("host_players", { name: s.name });
+    else if (t === "settings") { if (!quiet || !H.props) { H.props = Object.fromEntries(await call("host_properties", { name: s.name })); H.dirty = {}; } }
+    else if (t === "backups") H.backups = await call("host_backups", { name: s.name });
+    else if (t === "addons" && s.kind !== "vanilla") {
+      H.addons = await call("host_addons", { name: s.name });
+      if (H.hits === null) H.hits = await call("host_addon_search", { name: s.name, query: H.query }).catch(() => []);
+    }
+  } catch (e) {
+    if (!quiet) toast("Couldn't load that", errText(e), "warn");
+  }
+  drawHostBody();
+}
+
+function drawHostBody() {
+  const s = hostSel();
+  const box = $("#host-body");
+  if (!s || !box) return;
+  box.innerHTML = tabBody(s);
+  hydrateIcons(box);
+  bindHostBody(box, s);
+  const c = $("#host-console");
+  if (c) c.scrollTop = c.scrollHeight;
+}
+
+function drawHostAll() {
+  if (S.route !== "host") return;
+  const keepCmd = $("#host-cmd")?.value || "";
+  const focus = document.activeElement?.id === "host-cmd";
+  render();
+  const cmd = $("#host-cmd");
+  if (cmd) { cmd.value = keepCmd; if (focus) cmd.focus(); }
+}
+
+function bindHost(root) {
+  bindHostBody(root, hostSel());
+}
+
+async function hostCfg(patch) {
+  const s = hostSel();
+  if (!s) return;
+  try {
+    const v = await call("host_update", { name: s.name, patch });
+    H.list = H.list.map((x) => (x.name === v.name ? v : x));
+  } catch (e) { toast("Couldn't save that", errText(e), "error"); }
+}
+
+function bindHostBody(root, s) {
+  if (!s) return;
+  const cmd = $("#host-cmd", root);
+  cmd?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); HOST_ACTIONS["host-send"](); }
+    else if (e.key === "ArrowUp" && H.history.length) { e.preventDefault(); H.hIdx = Math.min(H.history.length - 1, H.hIdx + 1); cmd.value = H.history[H.hIdx]; }
+    else if (e.key === "ArrowDown") { e.preventDefault(); H.hIdx = Math.max(-1, H.hIdx - 1); cmd.value = H.hIdx < 0 ? "" : H.history[H.hIdx]; }
+  });
+  $("#host-pname", root)?.addEventListener("keydown", (e) => { if (e.key === "Enter") $('[data-action="host-player-add"][data-act="whitelist-add"]')?.click(); });
+  const propChange = (el) => {
+    const k = el.dataset.prop;
+    const v = el.classList.contains("switch") ? el.getAttribute("aria-checked") : el.value.trim();
+    if (v === (H.props?.[k] ?? "")) delete H.dirty[k]; else H.dirty[k] = v;
+    $("#host-save")?.classList.toggle("hidden", !Object.keys(H.dirty).length);
+  };
+  $$("[data-prop]", root).forEach((el) => {
+    if (el.classList.contains("switch")) el.addEventListener("click", () => { el.setAttribute("aria-checked", String(el.getAttribute("aria-checked") !== "true")); propChange(el); });
+    else el.addEventListener("change", () => propChange(el));
+  });
+  $$("[data-sw]", root).forEach((el) => el.addEventListener("click", async () => {
+    const on = el.getAttribute("aria-checked") !== "true";
+    el.setAttribute("aria-checked", String(on));
+    const id = el.dataset.sw;
+    if (id === "host-restart-crash") return hostCfg({ restartOnCrash: on });
+    if (id === "host-backup-stop") return hostCfg({ backupOnStop: on });
+    if (id === "host-wl") { await hostPlayer(on ? "whitelist-on" : "whitelist-off", "-"); return; }
+    if (id.startsWith("addon:")) {
+      try { await call("host_addon_toggle", { name: s.name, file: id.slice(6), enabled: on }); H.addons = await call("host_addons", { name: s.name }); drawHostBody(); } catch (e) { toast("Couldn't change it", errText(e), "error"); }
+    }
+  }));
+  $("#host-mem", root)?.addEventListener("change", (e) => hostCfg({ memoryMb: Number(e.target.value) }));
+  $("#host-keep", root)?.addEventListener("change", (e) => hostCfg({ keepBackups: Number(e.target.value) }));
+  $("#host-jvm", root)?.addEventListener("change", (e) => hostCfg({ jvmArgs: e.target.value.trim() }));
+  $("#host-public", root)?.addEventListener("change", async (e) => { await hostCfg({ publicAddress: e.target.value.trim() }); drawHostBody(); });
+  let t = 0;
+  $("#host-addon-q", root)?.addEventListener("input", (e) => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      H.query = e.target.value.trim();
+      try { H.hits = await call("host_addon_search", { name: s.name, query: H.query }); } catch (err) { H.hits = []; toast("Search failed", errText(err), "warn"); }
+      const keep = e.target.selectionStart;
+      drawHostBody();
+      const q = $("#host-addon-q");
+      if (q) { q.focus(); q.setSelectionRange(keep, keep); }
+    }, 350);
+  });
+}
+
+async function hostPlayer(action, player, reason = "") {
+  const s = hostSel();
+  try {
+    await call("host_player", { name: s.name, action, player, reason });
+    // A running server answers through its console; read the lists after it has.
+    setTimeout(async () => { H.players = await call("host_players", { name: s.name }).catch(() => H.players); if (H.tab === "players") drawHostBody(); }, s.running ? 700 : 0);
+  } catch (e) { toast("Couldn't do that", errText(e), "error"); }
+}
+
+function newServerModal() {
+  const st = { kind: "paper", versions: [], version: "", memory: Math.min(4096, Math.max(2048, Math.round(((S.systemRamMb || 8192) / 4) / 1024) * 1024)) };
+  modal(`<h2>New server</h2>
+    <div class="field"><label class="label" for="hn-name">Name</label><input class="input" id="hn-name" maxlength="40" placeholder="Survival with friends" value="My server"></div>
+    <div class="field"><span class="label">Type</span><div class="kind-pick">${SERVER_KINDS.map(([k, l, d]) => `<button class="kind ${k === st.kind ? "on" : ""}" data-k="${k}"><strong>${l}</strong><span>${d}</span></button>`).join("")}</div></div>
+    <div class="row" style="gap:10px">
+      <div class="field grow"><label class="label" for="hn-ver">Minecraft version</label><select class="input" id="hn-ver"><option>Loading</option></select></div>
+      <div class="field"><label class="label" for="hn-mem">Memory</label><select class="input" id="hn-mem">${[1024, 2048, 3072, 4096, 6144, 8192].map((m) => `<option value="${m}" ${m === st.memory ? "selected" : ""}>${m / 1024} GB</option>`).join("")}</select></div>
+    </div>
+    <label class="check"><input type="checkbox" id="hn-eula"> <span>I agree to the <a href="#" data-eula>Minecraft EULA</a></span></label>
+    <div class="side-note" id="hn-progress" hidden></div>
+    <div class="modal-actions"><button class="btn" id="hn-cancel">Cancel</button><button class="btn btn-accent" id="hn-make" disabled>${icon("plus", 12)} Create</button></div>`, (root) => {
+    const ver = $("#hn-ver", root);
+    const make = $("#hn-make", root);
+    const eula = $("#hn-eula", root);
+    const sync = () => { make.disabled = !eula.checked || !ver.value || ver.value === "Loading"; };
+    const loadVers = async () => {
+      ver.innerHTML = `<option>Loading</option>`;
+      sync();
+      try {
+        st.versions = await call("host_versions", { kind: st.kind });
+        ver.innerHTML = st.versions.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+      } catch (e) { ver.innerHTML = `<option value="">Couldn't load versions</option>`; toast("Couldn't load versions", errText(e), "warn"); }
+      sync();
+    };
+    root.querySelectorAll(".kind").forEach((b) => b.addEventListener("click", () => { st.kind = b.dataset.k; root.querySelectorAll(".kind").forEach((x) => x.classList.toggle("on", x === b)); loadVers(); }));
+    root.querySelector("[data-eula]").addEventListener("click", (e) => { e.preventDefault(); call("open_url", { url: "https://aka.ms/MinecraftEULA" }).catch(() => window.open("https://aka.ms/MinecraftEULA")); });
+    eula.addEventListener("change", sync);
+    $("#hn-cancel", root).addEventListener("click", closeModal);
+    make.addEventListener("click", async () => {
+      const name = $("#hn-name", root).value.trim();
+      make.disabled = true;
+      const prog = $("#hn-progress", root);
+      prog.hidden = false;
+      prog.textContent = "Getting the server ready";
+      H.creating = { name, el: prog };
+      try {
+        const v = await call("host_create", { config: { name, kind: st.kind, version: ver.value, memoryMb: Number($("#hn-mem", root).value) }, eula: eula.checked });
+        H.list = [v, ...(H.list || []).filter((x) => x.name !== v.name)];
+        H.sel = v.name;
+        store.set("vortex.hostSel", v.name);
+        H.tab = "console";
+        closeModal();
+        toast("Server created", `${v.name} is ready. Press Start.`, "success");
+        render();
+      } catch (e) {
+        prog.textContent = errText(e);
+        make.disabled = false;
+      }
+      H.creating = null;
+    });
+    loadVers();
+  });
+}
+
+function bindHosting() {
+  on("server-log", (p) => {
+    (H.log[p.name] ||= []).push(p.line);
+    if (H.log[p.name].length > 2000) H.log[p.name].splice(0, H.log[p.name].length - 2000);
+    if (S.route !== "host" || H.tab !== "console" || hostSel()?.name !== p.name) return;
+    const c = $("#host-console");
+    if (!c) return;
+    const stick = c.scrollTop + c.clientHeight >= c.scrollHeight - 30;
+    c.querySelector(".ln.vx:only-child")?.remove();
+    c.insertAdjacentHTML("beforeend", logLine(p.line));
+    while (c.children.length > 2000) c.firstChild.remove();
+    if (stick) c.scrollTop = c.scrollHeight;
+  });
+  let pending = 0;
+  on("server-state", () => {
+    clearTimeout(pending);
+    pending = setTimeout(async () => {
+      await loadHosts();
+      if (H.tab === "players" && hostSel()) H.players = await call("host_players", { name: hostSel().name }).catch(() => H.players);
+      if (H.tab === "backups" && hostSel()) H.backups = await call("host_backups", { name: hostSel().name }).catch(() => H.backups);
+      drawHostAll();
+    }, 150);
+  });
+  on("server-progress", (p) => {
+    H.progress[p.name] = p;
+    if (H.creating && H.creating.name.trim() === p.name.trim()) H.creating.el.textContent = `${p.stage}${p.total ? ` · ${Math.round((p.done / p.total) * 100)}%` : ""}`;
+  });
+  // Uptime and player count tick along.
+  setInterval(() => { if (S.route === "host" && hostSel()?.running && H.tab !== "settings" && !$("#modal-root .scrim")) { const h = $(".host-head .host-sub"); if (h) { const s = hostSel(); const [k, l] = statusOf(s); h.innerHTML = `<span class="h-dot ${k}"></span>${l}${!s.starting ? ` · ${s.players.length} of ${s.maxPlayers} players · up ${uptime(s.startedAt)}` : ""} · ${KIND_NAME[s.kind] || s.kind} ${esc(s.version)} · ${(s.memoryMb / 1024).toFixed(s.memoryMb % 1024 ? 1 : 0)} GB`; } } }, 30000);
+}
+
+const HOST_ACTIONS = {
+  "host-new"() { newServerModal(); },
+  "host-sel"(el) { H.sel = el.dataset.name; store.set("vortex.hostSel", H.sel); H.props = null; H.players = null; H.backups = null; H.addons = null; H.hits = null; H.query = ""; H.dirty = {}; render(); },
+  "host-tab"(el) { H.tab = el.dataset.tab; $$('[data-action="host-tab"]').forEach((b) => b.classList.toggle("on", b === el)); if (H.tab === "settings") H.props = null; drawHostBody(); const s = hostSel(); if (s) loadTab(s); },
+  async "host-start"() {
+    const s = hostSel();
+    H.log[s.name] = [];
+    try { await call("host_start", { name: s.name }); H.tab = "console"; } catch (e) { toast("Couldn't start it", errText(e), "error"); }
+    await loadHosts();
+    drawHostAll();
+  },
+  async "host-stop"() { const s = hostSel(); try { await call("host_stop", { name: s.name }); toast("Stopping", `${s.name} is saving and shutting down.`, "info"); } catch (e) { toast("Couldn't stop it", errText(e), "error"); } },
+  async "host-restart"() {
+    const s = hostSel();
+    try {
+      await call("host_stop", { name: s.name });
+      for (let i = 0; i < 120; i++) { await new Promise((r) => setTimeout(r, 500)); await loadHosts(); if (!hostSel()?.running) break; }
+      await call("host_start", { name: s.name });
+    } catch (e) { toast("Couldn't restart it", errText(e), "error"); }
+    await loadHosts();
+    drawHostAll();
+  },
+  async "host-send"() {
+    const input = $("#host-cmd");
+    const line = input?.value.trim();
+    if (!line) return;
+    H.history.unshift(line);
+    H.history = H.history.slice(0, 50);
+    H.hIdx = -1;
+    input.value = "";
+    try { await call("host_command", { name: hostSel().name, line }); } catch (e) { toast("Couldn't send it", errText(e), "warn"); }
+  },
+  async "host-quick"(el) { try { await call("host_command", { name: hostSel().name, line: el.dataset.cmd }); } catch (e) { toast("Couldn't send it", errText(e), "warn"); } },
+  "host-player"(el) { hostPlayer(el.dataset.act, el.dataset.player); },
+  "host-player-add"(el) { const n = $("#host-pname")?.value.trim(); if (!n) { $("#host-pname")?.focus(); return; } hostPlayer(el.dataset.act, n); $("#host-pname").value = ""; },
+  async "host-props-save"() {
+    const s = hostSel();
+    try { await call("host_set_properties", { name: s.name, changes: H.dirty }); Object.assign(H.props, H.dirty); H.dirty = {}; await loadHosts(); toast("Saved", s.running ? "Restart the server to use the new settings." : "The new settings apply when it starts.", "success"); drawHostAll(); } catch (e) { toast("Couldn't save", errText(e), "error"); }
+  },
+  "host-props-reset"() { H.dirty = {}; drawHostBody(); },
+  async "host-addon-add"(el) {
+    const s = hostSel();
+    el.disabled = true;
+    el.textContent = "Installing";
+    try { const got = await call("host_addon_install", { name: s.name, project: el.dataset.id }); H.addons = await call("host_addons", { name: s.name }); toast("Installed", got.length ? got.join(", ") : "It was already there.", "success"); drawHostBody(); } catch (e) { toast("Couldn't install it", errText(e), "error"); el.disabled = false; el.textContent = "Install"; }
+  },
+  async "host-addon-del"(el) { const s = hostSel(); try { await call("host_addon_toggle", { name: s.name, file: el.dataset.file, enabled: null }); H.addons = await call("host_addons", { name: s.name }); drawHostBody(); } catch (e) { toast("Couldn't delete it", errText(e), "error"); } },
+  async "host-backup"(el) {
+    const s = hostSel();
+    el.disabled = true;
+    try { const b = await call("host_backup", { name: s.name }); H.backups = await call("host_backups", { name: s.name }); toast("Backed up", `${fmtSize(b.size)} saved.`, "success"); drawHostBody(); } catch (e) { toast("Backup failed", errText(e), "error"); el.disabled = false; }
+  },
+  "host-restore"(el) {
+    const s = hostSel();
+    modal(`<h2>Restore this backup?</h2><p class="muted">The world of ${esc(s.name)} goes back to how it was on ${esc(el.closest(".p-row")?.querySelector("span")?.firstChild?.textContent || "that date")}. Anything built since is lost, so back up first if you might want it.</p>
+      <div class="modal-actions"><button class="btn" id="hr-no">Cancel</button><button class="btn btn-accent" id="hr-yes">Restore</button></div>`, (root) => {
+      $("#hr-no", root).addEventListener("click", closeModal);
+      $("#hr-yes", root).addEventListener("click", async () => { try { await call("host_restore", { name: s.name, file: el.dataset.file }); closeModal(); toast("Restored", "The world is back. Start the server to play it.", "success"); } catch (e) { toast("Couldn't restore it", errText(e), "error"); } });
+    });
+  },
+  async "host-backup-del"(el) { const s = hostSel(); try { await call("host_delete_backup", { name: s.name, file: el.dataset.file }); H.backups = await call("host_backups", { name: s.name }); drawHostBody(); } catch (e) { toast("Couldn't delete it", errText(e), "error"); } },
+  "host-copy"(el) { navigator.clipboard?.writeText(el.dataset.v).then(() => toast("Copied", el.dataset.v, "success")).catch(() => {}); },
+  async "host-tunnel"(el) { el.disabled = true; try { await call("host_tunnel"); toast("playit.gg is opening", "Follow the link in its window to finish setting up.", "info"); } catch (e) { toast("Couldn't open playit.gg", errText(e), "error"); } el.disabled = false; },
+  "host-open"(el) { call("open_url", { url: el.dataset.url }).catch(() => window.open(el.dataset.url)); },
+  "host-folder"() { call("host_folder", { name: hostSel().name }).catch((e) => toast("Couldn't open it", errText(e), "warn")); },
+  "host-delete"() {
+    const s = hostSel();
+    modal(`<h2>Delete ${esc(s.name)}?</h2><p class="muted">Its world, settings, plugins and backups are removed from this PC for good.</p>
+      <div class="modal-actions"><button class="btn" id="hd-no">Keep it</button><button class="btn btn-danger" id="hd-yes">${icon("trash", 12)} Delete</button></div>`, (root) => {
+      $("#hd-no", root).addEventListener("click", closeModal);
+      $("#hd-yes", root).addEventListener("click", async () => { try { await call("host_delete", { name: s.name }); closeModal(); H.list = H.list.filter((x) => x.name !== s.name); H.sel = H.list[0]?.name || null; render(); } catch (e) { toast("Couldn't delete it", errText(e), "error"); } });
+    });
+  },
+};
 
 // ---------------------------------------------------------------- actions --
 
@@ -2998,14 +3786,8 @@ async function play(name, server = null) {
 }
 
 const actions = {
-  "music-tab"(el) { M.tab = el.dataset.t; store.set("vortex.musicTab", M.tab); render(); },
-  "music-play"(el) { playAt(Number(el.dataset.i)); },
-  "music-station"(el) { const st = M.stations[Number(el.dataset.i)]; if (st) playStation(st); },
-  "music-toggle"() { musicToggle(); },
-  "music-next"() { musicStep(1); },
-  "music-prev"() { musicStep(-1); },
-  "music-load"() { const v = $("#music-dir")?.value.trim(); M.tracks = M.tracks.filter((t) => t.url); loadLibrary(v); },
-  "music-genre"(el) { M.genre = el.dataset.g; M.radioQuery = ""; const q = $("#radio-q"); if (q) q.value = ""; $$('[data-action="music-genre"]').forEach((b) => b.classList.toggle("on", b === el)); loadStations(); },
+  ...MUSIC_ACTIONS,
+  ...HOST_ACTIONS,
   route(el) { go(el.dataset.route); },
   "join-server"(el, e) {
     e.stopPropagation();
@@ -3209,6 +3991,30 @@ const actions = {
     await gone;
     await loadSkin();
     render();
+  },
+  "skincol-tab"(el) { S.skinCol.tab = el.dataset.tab; render(); },
+  "capes-tab"(el) { S.capeFind.tab = el.dataset.tab; render(); if (el.dataset.tab === "find" && !S.capeFind.results.length && !S.capeFind.loading) findCapes(CAPE_GALLERY); },
+  "cape-find"() { const n = $("#cape-player")?.value.trim(); if (!n) return; S.capeFind.query = n; findCapes([n]); },
+  "cape-gallery"() { S.capeFind.query = ""; findCapes(CAPE_GALLERY); },
+  "cape-add"(el) {
+    if (!selectedAccount() && el.dataset.wear) { toast("Add an account first", "Capes belong to an account.", "warn"); return; }
+    const r = S.capeFind.results[Number(el.dataset.i)];
+    if (r) addCape(r.imageUrl, `${r.player}'s ${r.service} cape`, r.service, !!el.dataset.wear);
+  },
+  async "cape-remove"(el) {
+    try { S.skins = await call("cape_remove", { id: el.dataset.id }); await loadSkin(); render(); } catch (e) { toast("Couldn't remove it", errText(e), "error"); }
+  },
+  async "skin-copy"(el) {
+    const name = el.dataset.name;
+    try {
+      S.skins = await call("skin_from_player", { username: name });
+      toast("Skin added", `${name}'s skin is in your skins.`, "success");
+      render();
+    } catch (e) { toast("Couldn't get that skin", errText(e), "error"); }
+  },
+  "skin-default"(el) {
+    const d = S.skinCol.defaults?.[Number(el.dataset.i)];
+    if (d) call("skin_add", { dataUrl: d.dataUrl, name: d.name.replace(/ \((classic|slim)\)$/, ""), slim: d.slim }).then((v) => { S.skins = v; toast("Skin added", `${d.name} is in your skins.`, "success"); render(); }).catch((e) => toast("Couldn't add it", errText(e), "error"));
   },
   async "skin-player"() {
     const input = $("#skin-player");
@@ -3607,6 +4413,7 @@ function bindChrome() {
   hydrateIcons(document);
   bindLiquid();
   bindMusic();
+  bindHosting();
   applyPhone();
   matchMedia("(max-width: 760px)").addEventListener?.("change", () => { applyPhone(); liquidTabs($("#nav"), true); requestAnimationFrame(placeHero); });
   $$("#nav .tab").forEach((b) => b.addEventListener("click", () => go(b.dataset.route)));
@@ -3678,7 +4485,7 @@ function bindChrome() {
       const fn = actions[el.dataset.action];
       if (fn) fn(el, e);
     }
-    if (!e.target.closest(".popover, #time-chip")) closePopover();
+    if (!e.target.closest(".popover, #time-chip, [data-action=\"music-add\"]")) closePopover();
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {

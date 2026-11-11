@@ -359,7 +359,7 @@ export class Player {
     const block = world ? world.scale * 6 : u * 3;
 
     if (this.preview) {
-      if (!this.dragYaw) this.facing += dt * 18;
+      // Faces you, like a mirror; drag to turn him (he stays where you leave him).
     } else {
       switch (a.type) {
         case "run": {

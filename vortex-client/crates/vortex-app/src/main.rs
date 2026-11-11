@@ -14,6 +14,7 @@ use serde::Serialize;
 mod updater;
 mod installer;
 mod music;
+mod hosting;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{oneshot, Mutex};
 use vortex_core::accounts::{Account, AccountKind, AccountStore};
@@ -703,6 +704,170 @@ async fn music_state(state: State<'_, AppState>, now: serde_json::Value) -> CmdR
     music::write_now_playing(&state.launcher.paths().root, &now).map_err(|e| e.to_string())
 }
 
+/// Trending songs on Audius (free streaming).
+#[tauri::command]
+async fn music_trending(state: State<'_, AppState>, genre: String, time: String) -> CmdResult<Vec<music::Song>> {
+    music::trending(state.launcher.http(), &genre, &time).await.map_err(fail)
+}
+
+/// Songs on Audius matching a search.
+#[tauri::command]
+async fn music_search(state: State<'_, AppState>, query: String) -> CmdResult<Vec<music::Song>> {
+    music::search(state.launcher.http(), &query).await.map_err(fail)
+}
+
+/// Audius playlists: trending, or matching a search.
+#[tauri::command]
+async fn music_playlists(state: State<'_, AppState>, query: String) -> CmdResult<Vec<music::Playlist>> {
+    music::playlists(state.launcher.http(), &query).await.map_err(fail)
+}
+
+/// The songs in an Audius playlist.
+#[tauri::command]
+async fn music_playlist(state: State<'_, AppState>, id: String) -> CmdResult<Vec<music::Song>> {
+    music::playlist_tracks(state.launcher.http(), &id).await.map_err(fail)
+}
+
+// --------------------------------------------------------------- hosting --
+
+fn host_root(state: &AppState) -> std::path::PathBuf {
+    hosting::root(&state.launcher)
+}
+
+#[tauri::command]
+async fn host_list(state: State<'_, AppState>) -> CmdResult<Vec<hosting::ServerView>> {
+    Ok(hosting::list(&host_root(&state)))
+}
+
+#[tauri::command]
+async fn host_versions(state: State<'_, AppState>, kind: String) -> CmdResult<Vec<String>> {
+    hosting::versions(&state.launcher, &kind).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_create(app: AppHandle, state: State<'_, AppState>, config: hosting::ServerConfig, eula: bool) -> CmdResult<hosting::ServerView> {
+    if !eula {
+        return Err("accept the Minecraft EULA to host a server".into());
+    }
+    let name = config.name.clone();
+    let progress: ProgressFn = Arc::new(move |p: Progress| {
+        let _ = app.emit("server-progress", serde_json::json!({ "name": name, "stage": p.stage, "done": p.done, "total": p.total }));
+    });
+    hosting::create(&state.launcher, &host_root(&state), config, &progress).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_update(state: State<'_, AppState>, name: String, patch: serde_json::Value) -> CmdResult<hosting::ServerView> {
+    hosting::update_config(&host_root(&state), &name, patch).map_err(fail)
+}
+
+#[tauri::command]
+async fn host_delete(state: State<'_, AppState>, name: String) -> CmdResult<()> {
+    hosting::delete(&host_root(&state), &name).map_err(fail)
+}
+
+#[tauri::command]
+async fn host_start(app: AppHandle, state: State<'_, AppState>, name: String) -> CmdResult<()> {
+    hosting::start(app, state.launcher.clone(), host_root(&state), name).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_stop(name: String) -> CmdResult<()> {
+    hosting::stop(&name).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_command(name: String, line: String) -> CmdResult<()> {
+    hosting::command(&name, &line).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_log(name: String) -> CmdResult<Vec<String>> {
+    Ok(hosting::log(&name))
+}
+
+#[tauri::command]
+async fn host_properties(state: State<'_, AppState>, name: String) -> CmdResult<Vec<(String, String)>> {
+    let dir = host_root(&state).join(&name);
+    if !dir.join("vortex-server.json").is_file() {
+        return Err("no such server".into());
+    }
+    Ok(hosting::read_properties(&dir))
+}
+
+#[tauri::command]
+async fn host_set_properties(state: State<'_, AppState>, name: String, changes: HashMap<String, String>) -> CmdResult<()> {
+    let dir = host_root(&state).join(&name);
+    if !dir.join("vortex-server.json").is_file() {
+        return Err("no such server".into());
+    }
+    hosting::write_properties(&dir, &changes).map_err(fail)
+}
+
+#[tauri::command]
+async fn host_players(state: State<'_, AppState>, name: String) -> CmdResult<hosting::Players> {
+    hosting::players(&host_root(&state), &name).map_err(fail)
+}
+
+#[tauri::command]
+async fn host_player(state: State<'_, AppState>, name: String, action: String, player: String, reason: Option<String>) -> CmdResult<()> {
+    hosting::player_action(state.launcher.http(), &host_root(&state), &name, &action, &player, reason.as_deref().unwrap_or("")).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_backups(state: State<'_, AppState>, name: String) -> CmdResult<Vec<hosting::Backup>> {
+    hosting::backups(&host_root(&state), &name).map_err(fail)
+}
+
+#[tauri::command]
+async fn host_backup(app: AppHandle, state: State<'_, AppState>, name: String) -> CmdResult<hosting::Backup> {
+    hosting::backup(&app, &host_root(&state), &name).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_restore(state: State<'_, AppState>, name: String, file: String) -> CmdResult<()> {
+    hosting::restore_backup(&host_root(&state), &name, &file).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_delete_backup(state: State<'_, AppState>, name: String, file: String) -> CmdResult<()> {
+    hosting::delete_backup(&host_root(&state), &name, &file).map_err(fail)
+}
+
+#[tauri::command]
+async fn host_addons(state: State<'_, AppState>, name: String) -> CmdResult<Vec<hosting::AddonFile>> {
+    hosting::addons(&host_root(&state), &name).map_err(fail)
+}
+
+#[tauri::command]
+async fn host_addon_search(state: State<'_, AppState>, name: String, query: String) -> CmdResult<Vec<hosting::AddonHit>> {
+    hosting::addon_search(state.launcher.http(), &host_root(&state), &name, &query).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_addon_install(state: State<'_, AppState>, name: String, project: String) -> CmdResult<Vec<String>> {
+    hosting::addon_install(state.launcher.http(), &host_root(&state), &name, &project).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_addon_toggle(state: State<'_, AppState>, name: String, file: String, enabled: Option<bool>) -> CmdResult<()> {
+    hosting::addon_toggle(&host_root(&state), &name, &file, enabled).map_err(fail)
+}
+
+#[tauri::command]
+async fn host_tunnel(state: State<'_, AppState>) -> CmdResult<()> {
+    hosting::open_tunnel(state.launcher.http(), &host_root(&state)).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn host_folder(state: State<'_, AppState>, name: String) -> CmdResult<()> {
+    let dir = host_root(&state).join(&name);
+    if !dir.join("vortex-server.json").is_file() {
+        return Err("no such server".into());
+    }
+    open_with_os(&dir.to_string_lossy()).map_err(|e| e.to_string())
+}
+
 /// Play/pause, next and previous pressed in the game.
 #[tauri::command]
 async fn music_commands(state: State<'_, AppState>) -> CmdResult<Vec<String>> {
@@ -858,12 +1023,23 @@ struct SkinItem {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct CapeItem {
+    id: String,
+    name: String,
+    source: String,
+    data_url: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SkinLibraryView {
     skins: Vec<SkinItem>,
     /// Skin id chosen for the selected account.
     applied: Option<String>,
     cape: String,
     capes: Vec<&'static str>,
+    /// Capes added to the collection.
+    saved_capes: Vec<CapeItem>,
     /// Whether the selected account is a Microsoft account.
     microsoft: bool,
 }
@@ -885,6 +1061,14 @@ async fn skin_library_view(state: &AppState) -> CmdResult<SkinLibraryView> {
         applied: account.as_ref().and_then(|a| lib.applied.get(&a.uuid).cloned()),
         cape: account.as_ref().map(|a| library.cape_for(&a.uuid)).unwrap_or_else(|| "none".into()),
         capes: skins::CAPES.to_vec(),
+        saved_capes: lib
+            .saved_capes
+            .iter()
+            .filter_map(|c| {
+                let bytes = std::fs::read(library.cape_path(&c.id).ok()?).ok()?;
+                Some(CapeItem { id: c.id.clone(), name: c.name.clone(), source: c.source.clone(), data_url: png_data_url(&bytes) })
+            })
+            .collect(),
         microsoft: account.as_ref().is_some_and(|a| a.is_microsoft()),
     })
 }
@@ -967,6 +1151,50 @@ async fn skin_apply(state: State<'_, AppState>, id: Option<String>) -> CmdResult
 async fn set_cape(state: State<'_, AppState>, cape: String) -> CmdResult<SkinLibraryView> {
     let account = state.accounts.lock().await.selected().cloned().ok_or("add an account first")?;
     Skins::new(&state.launcher).set_cape(&account.uuid, &cape).map_err(fail)?;
+    skin_library_view(&state).await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DefaultSkin {
+    name: String,
+    slim: bool,
+    data_url: String,
+}
+
+/// Minecraft's nine default skins, from a game jar already on this PC.
+#[tauri::command]
+async fn skin_defaults(state: State<'_, AppState>) -> CmdResult<Vec<DefaultSkin>> {
+    let dir = state.launcher.paths().versions();
+    let list = tokio::task::spawn_blocking(move || skins::default_skins(&dir)).await.map_err(|e| e.to_string())?;
+    Ok(list.into_iter().map(|(name, slim, png)| DefaultSkin { name, slim, data_url: png_data_url(&png) }).collect())
+}
+
+/// Capes a player has on the free cape services (via capes.dev).
+#[tauri::command]
+async fn cape_find(state: State<'_, AppState>, username: String) -> CmdResult<Vec<skins::FoundCape>> {
+    skins::find_capes(state.launcher.http(), &username).await.map_err(fail)
+}
+
+/// Save a cape (a PNG data URL, already laid out as a 64×32 cape) to the collection.
+#[tauri::command]
+async fn cape_add(state: State<'_, AppState>, data_url: String, name: String, source: String, wear: bool) -> CmdResult<SkinLibraryView> {
+    use base64::Engine;
+    let b64 = data_url.split_once("base64,").map(|(_, b)| b).ok_or("expected a PNG image")?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(b64.trim()).map_err(|e| e.to_string())?;
+    let library = Skins::new(&state.launcher);
+    let cape = library.add_cape(&bytes, &name, &source).map_err(fail)?;
+    if wear {
+        if let Some(account) = state.accounts.lock().await.selected().cloned() {
+            library.set_cape(&account.uuid, &cape.id).map_err(fail)?;
+        }
+    }
+    skin_library_view(&state).await
+}
+
+#[tauri::command]
+async fn cape_remove(state: State<'_, AppState>, id: String) -> CmdResult<SkinLibraryView> {
+    Skins::new(&state.launcher).remove_cape(&id).map_err(fail)?;
     skin_library_view(&state).await
 }
 
@@ -1167,7 +1395,13 @@ async fn setup_vortex_mod(
             instance.jvm_args.push(format!("-Dvortex.skinSlim={slim}"));
         }
     }
-    instance.jvm_args.push(format!("-Dvortex.cape={}", library.cape_for(&account.uuid)));
+    match library.cape_file_for(&account.uuid) {
+        Some(file) => {
+            instance.jvm_args.push("-Dvortex.cape=custom".to_string());
+            instance.jvm_args.push(format!("-Dvortex.capeFile={}", file.display()));
+        }
+        None => instance.jvm_args.push(format!("-Dvortex.cape={}", library.cape_for(&account.uuid))),
+    }
     instance.jvm_args.push(format!("-Dvortex.accent={}", settings.accent));
     instance.jvm_args.push(format!("-Dvortex.music={}", music::dir(&launcher.paths().root).display()));
     instance.jvm_args.push(format!("-Dvortex.menu={}", settings.vortex_menu));
@@ -1401,6 +1635,10 @@ async fn setup_pack(
     // Render resolution below 100% needs the RenderScale mod (Fabric).
     if settings.render_scale < 100 && matches!(instance.loader, Loader::Fabric { .. }) {
         list.push(("Va8PJBFX", "RenderScale"));
+    }
+    // In-game recording: Replay Mod records every match to watch back or render as a video.
+    if settings.ui.get("replay_mod").and_then(|v| v.as_bool()) == Some(true) && matches!(instance.loader, Loader::Fabric { .. }) {
+        list.push(("Nv2fQJo5", "Replay Mod"));
     }
     let mark = instance.dir.join(PERF_MARK);
     // Already set up once: anything left is a retry of mods that failed.
@@ -1710,8 +1948,10 @@ struct SkinView {
     slim: bool,
     /// `chosen` (from the skin library), `account`, `default` or `none`.
     source: &'static str,
-    /// Vortex cape id, or `none`.
+    /// Vortex cape id, a saved cape id, or `none`.
     cape: String,
+    /// The saved cape's picture, when the cape is one from the collection.
+    cape_url: Option<String>,
 }
 
 fn png_data_url(bytes: &[u8]) -> String {
@@ -1757,9 +1997,10 @@ async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
     let account = state.accounts.lock().await.selected().cloned();
     let library = Skins::new(&state.launcher);
     let cape = account.as_ref().map(|a| library.cape_for(&a.uuid)).unwrap_or_else(|| "none".into());
+    let cape_url = account.as_ref().and_then(|a| library.cape_file_for(&a.uuid)).and_then(|f| std::fs::read(f).ok()).map(|b| png_data_url(&b));
     if let Some((path, slim)) = account.as_ref().and_then(|a| library.applied_for(&a.uuid)) {
         if let Ok(bytes) = std::fs::read(&path) {
-            return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim, source: "chosen", cape });
+            return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim, source: "chosen", cape, cape_url: cape_url.clone() });
         }
     }
     let skins = state.launcher.paths().cache().join("skins");
@@ -1776,11 +2017,11 @@ async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
                 } else {
                     let _ = std::fs::remove_file(&slim_file);
                 }
-                return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim, source: "account", cape: cape.clone() });
+                return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim, source: "account", cape: cape.clone(), cape_url: cape_url.clone() });
             }
             Err(_) => {
                 if let Ok(bytes) = std::fs::read(&file) {
-                    return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: slim_file.is_file(), source: "account", cape: cape.clone() });
+                    return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: slim_file.is_file(), source: "account", cape: cape.clone(), cape_url: cape_url.clone() });
                 }
             }
         }
@@ -1788,7 +2029,7 @@ async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
 
     let cached = skins.join("default.png");
     if let Ok(bytes) = std::fs::read(&cached) {
-        return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default", cape: cape.clone() });
+        return Ok(SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default", cape: cape.clone(), cape_url: cape_url.clone() });
     }
     let paths = state.launcher.paths().clone();
     let found = tauri::async_runtime::spawn_blocking(move || default_skin_from_jars(&paths))
@@ -1797,9 +2038,9 @@ async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
     Ok(match found {
         Some(bytes) => {
             let _ = std::fs::write(&cached, &bytes);
-            SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default", cape: cape.clone() }
+            SkinView { data_url: Some(png_data_url(&bytes)), slim: false, source: "default", cape: cape.clone(), cape_url: cape_url.clone() }
         }
-        None => SkinView { data_url: None, slim: false, source: "none", cape },
+        None => SkinView { data_url: None, slim: false, source: "none", cape, cape_url },
     })
 }
 
@@ -1862,6 +2103,33 @@ fn main() {
             music_radio,
             music_state,
             music_commands,
+            music_trending,
+            music_search,
+            music_playlists,
+            music_playlist,
+            host_list,
+            host_versions,
+            host_create,
+            host_update,
+            host_delete,
+            host_start,
+            host_stop,
+            host_command,
+            host_log,
+            host_properties,
+            host_set_properties,
+            host_players,
+            host_player,
+            host_backups,
+            host_backup,
+            host_restore,
+            host_delete_backup,
+            host_addons,
+            host_addon_search,
+            host_addon_install,
+            host_addon_toggle,
+            host_tunnel,
+            host_folder,
             set_active_packs,
             install_app,
             uninstall_app,
@@ -1889,6 +2157,10 @@ fn main() {
             skin_remove,
             skin_apply,
             set_cape,
+            cape_find,
+            skin_defaults,
+            cape_add,
+            cape_remove,
             save_menu_art,
             player_skin,
             open_path,
@@ -1903,6 +2175,14 @@ fn main() {
                 if busy && ask {
                     api.prevent_close();
                     let _ = window.emit("confirm-close", ());
+                } else if hosting::any_running() {
+                    // Hosted servers save and stop properly before Vortex closes.
+                    api.prevent_close();
+                    let w = window.clone();
+                    tauri::async_runtime::spawn(async move {
+                        hosting::stop_all().await;
+                        let _ = w.destroy();
+                    });
                 }
             }
         })

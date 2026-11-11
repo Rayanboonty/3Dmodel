@@ -14,7 +14,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 
-/** The Vortex mod menu (Right Shift): a grid of cards, each with an options page. */
+/** The Vortex mod menu (Right Shift): the mods, each with an options page, and the client's settings. */
 public class ModMenuScreen extends ScreenBase {
     private interface Action {
         void run(double mx, double my);
@@ -57,6 +57,36 @@ public class ModMenuScreen extends ScreenBase {
     private float dt;
     private String notice;
     private long noticeAt;
+    private long resetArmedAt;
+
+    private static Module client() {
+        return Module.find("client");
+    }
+
+    private static boolean ui(String key) {
+        Module c = client();
+        return c == null || VortexMods.config.bool(c, key);
+    }
+
+    private static String uiChoice(String key, String def) {
+        Module c = client();
+        return c == null ? def : VortexMods.config.str(c, key);
+    }
+
+    @Override
+    protected void drawBackdrop(DrawContext c, int mouseX, int mouseY, float delta) {
+        boolean inWorld = client != null && client.world != null;
+        switch (uiChoice("backdrop", "Dim")) {
+            case "Clear" -> {
+                if (!inWorld) super.drawBackdrop(c, mouseX, mouseY, delta);
+            }
+            case "Dark" -> {
+                if (!inWorld) super.drawBackdrop(c, mouseX, mouseY, delta);
+                c.fill(0, 0, width, height, 0xC8060709);
+            }
+            default -> super.drawBackdrop(c, mouseX, mouseY, delta);
+        }
+    }
 
     public ModMenuScreen(Screen parent) {
         super(Text.literal("Vortex Mods"));
@@ -101,18 +131,19 @@ public class ModMenuScreen extends ScreenBase {
         Hud.tickFrame();
         hits.clear();
 
-        float open = Math.min(1f, (System.currentTimeMillis() - openedAt) / 220f);
+        float open = ui("openanim") ? Math.min(1f, (System.currentTimeMillis() - openedAt) / 220f) : 1f;
         float ease = 1f - (float) Math.pow(1 - open, 3);
         int lift = Math.round((1 - ease) * 10);
         int accent = VortexMods.accent();
 
-        int pw = Math.min(width - 24, 430);
+        int pw = Math.min(width - 24, 520);
         int px = (width - pw) / 2;
         boolean inWorld = client != null && client.world != null;
 
-        // The dock: Mods, Edit HUD, Close.
+        // The dock: Mods, Settings, Edit HUD, Close.
         int dockH = 24, dockY = height - dockH - 6 + lift;
-        String[] labels = {"MODS", "EDIT HUD", "CLOSE"};
+        String[] labels = {"MODS", "SETTINGS", "EDIT HUD", "CLOSE"};
+        boolean onSettings = selected != null && selected == client();
         int[] bw = new int[labels.length];
         int dockW = 6;
         for (int i = 0; i < labels.length; i++) {
@@ -125,7 +156,7 @@ public class ModMenuScreen extends ScreenBase {
         int bx = dockX + 4;
         for (int i = 0; i < labels.length; i++) {
             final int which = i;
-            boolean on = i == 0;
+            boolean on = i == 0 ? !onSettings : i == 1 && onSettings;
             boolean hot = Ui.inside(mx, my, bx, dockY + 3, bw[i], dockH - 6);
             if (on) Ui.rounded(c, bx, dockY + 3, bw[i], dockH - 6, 6, 0x1EFFFFFF);
             else if (hot) Ui.rounded(c, bx, dockY + 3, bw[i], dockH - 6, 6, 0x12FFFFFF);
@@ -134,7 +165,8 @@ public class ModMenuScreen extends ScreenBase {
             Ui.text(c, labels[i], bx + 21, dockY + 8, fg);
             hit(bx, dockY + 3, bw[i], dockH - 6, (x, y) -> {
                 if (which == 0) selected = null;
-                else if (which == 1) {
+                else if (which == 1) openOptions(client());
+                else if (which == 2) {
                     if (inWorld) client.setScreen(new HudEditorScreen(this));
                     else flash("Join a world to move HUD elements");
                 } else close();
@@ -164,8 +196,17 @@ public class ModMenuScreen extends ScreenBase {
         noticeAt = System.currentTimeMillis();
     }
 
-    /** Dock icons: a grid (Mods), arrows (Edit HUD), a cross (Close). */
+    /** Dock icons: a grid (Mods), sliders (Settings), arrows (Edit HUD), a cross (Close). */
     private void dockIcon(DrawContext c, int which, int x, int y, int fg) {
+        if (which == 1) {
+            for (int i = 0; i < 3; i++) {
+                c.fill(x, y + i * 3, x + 7, y + i * 3 + 1, Ui.alpha(fg, 0.55f));
+                int k = x + (i == 1 ? 4 : i == 0 ? 1 : 3);
+                c.fill(k, y + i * 3 - 1, k + 2, y + i * 3 + 2, fg);
+            }
+            return;
+        }
+        if (which > 1) which--;
         if (which == 0) {
             for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++) c.fill(x + i * 4, y + j * 4, x + 3 + i * 4, y + 3 + j * 4, fg);
         } else if (which == 1) {
@@ -219,6 +260,7 @@ public class ModMenuScreen extends ScreenBase {
                 case "Favorites" -> VortexMods.config.favorites.contains(m.id);
                 default -> true;
             };
+            if (m.id.equals("client")) continue;
             if (cat && (q.isEmpty() || m.name.toLowerCase(Locale.ROOT).contains(q) || m.description.toLowerCase(Locale.ROOT).contains(q))) out.add(m);
         }
         return out;
@@ -268,9 +310,10 @@ public class ModMenuScreen extends ScreenBase {
 
         // Rows, in two columns when there's room.
         int gx = px + pad, gy = y + 20, gw = pw - pad * 2, gh = py + ph - 8 - gy;
-        int cols = gw >= 340 ? 2 : 1;
-        int gap = 10;
-        int cw = (gw - gap * (cols - 1) - 4) / cols, ch = 20;
+        String colPref = uiChoice("columns", "Auto");
+        int cols = colPref.equals("One column") ? 1 : colPref.equals("Two columns") ? 2 : (gw >= 360 ? 2 : 1);
+        int gap = 14;
+        int cw = (gw - gap * (cols - 1) - 4) / cols, ch = 21;
         List<Module> list = visible();
         int rows = (list.size() + cols - 1) / cols;
         maxScroll = Math.max(0, rows * ch - gh);
@@ -302,7 +345,7 @@ public class ModMenuScreen extends ScreenBase {
             c.fill(gx + gw - 1, ty, gx + gw, ty + thumb, 0x50FFFFFF);
         }
         // What the row under the mouse does, in one quiet line.
-        if (hovered != null) {
+        if (hovered != null && ui("descriptions")) {
             String d = hovered.description;
             while (Ui.width(d) > pw - pad * 2 && d.length() > 4) d = d.substring(0, d.length() - 2);
             if (!d.equals(hovered.description)) d += "…";
@@ -416,7 +459,8 @@ public class ModMenuScreen extends ScreenBase {
         int top = y + 26;
         c.fill(px + pad, top - 4, px + pw - pad, top - 3, LINE);
         boolean preview = true;
-        int listW = preview ? (pw - pad * 3) * 52 / 100 : pw - pad * 2;
+        boolean settings = m == client();
+        int listW = preview ? (pw - pad * 3) * (settings ? 58 : 55) / 100 : pw - pad * 2;
         int lx = px + pad, right = lx + listW;
 
         listTop = top;
@@ -426,7 +470,7 @@ public class ModMenuScreen extends ScreenBase {
         optScroll = Ui.approach(optScroll, optScrollTarget, 18f, dt);
         c.enableScissor(lx - 3, listTop, right + 3, listBottom);
         int rowY = top + 2 - Math.round(optScroll);
-        rowY = toggleRow(c, mx, my, lx, right, rowY, "Enabled", VortexMods.config.enabled(m), "enabled:" + m.id, accent, v -> {
+        if (!settings) rowY = toggleRow(c, mx, my, lx, right, rowY, "Enabled", VortexMods.config.enabled(m), "enabled:" + m.id, accent, v -> {
             VortexMods.config.state(m).enabled = v;
             VortexMods.applyToggles();
         });
@@ -449,9 +493,77 @@ public class ModMenuScreen extends ScreenBase {
 
         if (preview) {
             int bx = right + pad, bw = px + pw - pad - bx, by = top, bh = py + ph - pad - top;
-            Preview.draw(c, m, bx, by, bw, bh);
+            if (settings) settingsSide(c, mx, my, bx, by, bw, bh, accent);
+            else Preview.draw(c, m, bx, by, bw, bh);
             Ui.roundedOutline(c, bx, by, bw, bh, 4, LINE);
         }
+    }
+
+    /** Settings page, right side: presets, quick actions and the keys. */
+    private void settingsSide(DrawContext c, int mx, int my, int x, int y, int w, int h, int accent) {
+        int ix = x + 8, iw = w - 16, cy = y + 8;
+        Ui.text(c, "HUD PRESETS", ix, cy, DIM);
+        cy += 12;
+        int bx = ix;
+        for (String p : PRESETS) {
+            int bw = Ui.width(p) + 12;
+            if (bx + bw > ix + iw) {
+                bx = ix;
+                cy += 17;
+            }
+            cy = smallButton(c, mx, my, bx, cy, bw, p, accent, () -> {
+                applyPreset(p);
+                flash(p + " HUD preset on");
+            }) - 17;
+            bx += bw + 4;
+        }
+        cy += 23;
+        Ui.text(c, "QUICK", ix, cy, DIM);
+        cy += 12;
+        int half = (iw - 4) / 2;
+        smallButton(c, mx, my, ix, cy, half, "All HUD on", accent, () -> setAllHud(true));
+        cy = smallButton(c, mx, my, ix + half + 4, cy, half, "All HUD off", accent, () -> setAllHud(false));
+        smallButton(c, mx, my, ix, cy, half, "HUD Style", accent, () -> openOptions(Module.find("hudstyle")));
+        cy = smallButton(c, mx, my, ix + half + 4, cy, half, "FPS Boost", accent, () -> openOptions(Module.find("boost")));
+        boolean armed = System.currentTimeMillis() - resetArmedAt < 3000;
+        cy = smallButton(c, mx, my, ix, cy, iw, armed ? "Click again to reset everything" : "Reset every mod", armed ? 0xFFFF5A4F : accent, () -> {
+            if (System.currentTimeMillis() - resetArmedAt < 3000) {
+                for (Module m : Module.ALL) {
+                    VortexMods.config.reset(m);
+                    VortexMods.config.state(m).enabled = m.defaultOn;
+                }
+                VortexMods.config.save();
+                VortexMods.applyToggles();
+                resetArmedAt = 0;
+                flash("Every mod is back to its defaults");
+            } else resetArmedAt = System.currentTimeMillis();
+        });
+        cy += 6;
+        Ui.text(c, "KEYS", ix, cy, DIM);
+        cy += 12;
+        String[][] keys = {{"Menu", "Right Shift"}, {"Edit HUD", "F6"}, {"Copy coords", "F7"}, {"Music", "F8 / F9"}, {"Quick chat", "F10"}, {"Zoom", "C"}, {"Stopwatch", "Y"}, {"Waypoint", "B"}};
+        for (String[] k : keys) {
+            if (cy + 10 > y + h - 4) break;
+            Ui.text(c, k[0], ix, cy, 0xFFB8BEC8);
+            Ui.text(c, k[1], ix + iw - Ui.width(k[1]), cy, TEXT);
+            cy += 11;
+        }
+    }
+
+    /** A small flat button; returns the y below it. */
+    private int smallButton(DrawContext c, int mx, int my, int x, int y, int w, String label, int accent, Runnable onClick) {
+        boolean hot = Ui.inside(mx, my, x, y, w, 14);
+        Ui.rounded(c, x, y, w, 14, 5, hot ? 0x2AFFFFFF : 0x14FFFFFF);
+        Ui.centered(c, label, x + w / 2, y + 3, hot ? TEXT : (accent == 0xFFFF5A4F ? accent : 0xFFD5DAE1));
+        hit(x, y, w, 14, (a, b) -> onClick.run());
+        return y + 17;
+    }
+
+    private void setAllHud(boolean on) {
+        for (Module m : Module.ALL) if (m.hud) VortexMods.config.state(m).enabled = on;
+        VortexMods.config.save();
+        VortexMods.applyToggles();
+        flash(on ? "Every HUD element is on" : "Every HUD element is off");
     }
 
     private int toggleRow(DrawContext c, int mx, int my, int x, int right, int y, String label, boolean value, String key, int accent, java.util.function.Consumer<Boolean> set) {
@@ -556,6 +668,9 @@ public class ModMenuScreen extends ScreenBase {
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit h = hits.get(i);
             if (Ui.inside(mx, my, h.x(), h.y(), h.w(), h.h())) {
+                if (ui("clicksound") && client != null) {
+                    Sounds.click(client);
+                }
                 h.action().run(mx, my);
                 return true;
             }

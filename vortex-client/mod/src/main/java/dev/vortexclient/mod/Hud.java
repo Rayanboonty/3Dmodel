@@ -952,6 +952,9 @@ public final class Hud {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.options.hudHidden || Compat.debugShown()) return;
         if (mc.currentScreen instanceof HudEditorScreen) return;
+        Module client = Module.find("client");
+        if (client != null && mc.currentScreen != null && !(mc.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen)
+                && VortexMods.config.bool(client, "hudscreens")) return;
         int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
         HudPlus.overlays(c, mc, sw, sh);
         if (VortexMods.hudOff) return;

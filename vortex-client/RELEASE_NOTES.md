@@ -1,3 +1,32 @@
+**Vortex 0.11.0: host servers, a real music player, capes and a cleaner look.**
+
+**Host your own server.** A new Host page runs Minecraft servers on your PC.
+- Paper (plugins), Fabric (mods) or Vanilla, any version. Vortex downloads the server and the Java it needs.
+- Console: the live log, with warnings and errors coloured, quick buttons (who's online, save, day, clear weather…) and command history (up and down arrows).
+- Players: who's online with Op, Kick and Ban; add operators, whitelist players, ban players or IPs; turn the whitelist on or off. Works with the server off too.
+- Settings: every server.properties option, grouped (General, Gameplay, World, Security, Network), plus memory, Java flags and restart after a crash.
+- Plugins and mods: search Modrinth for ones that fit your server's version and install them in one click (with what they need).
+- Backups: back up now or every time it stops, keep the newest few, restore with one click.
+- Connect: your address on this PC and on your home network, and a free playit.gg tunnel so friends anywhere can join.
+- Closing Vortex saves and stops your servers properly.
+
+**Music, like a real player.** Home shows trending songs by genre and trending playlists (free streaming from Audius). Search finds songs and playlists. Your library holds liked songs, your own playlists and the songs on your PC. Shuffle, repeat, an Up next queue, volume, media keys and lyrics that follow along. Radio is still there.
+
+**Capes and skins.**
+- Find capes: type a player name and see every free cape they have on OptiFine, LabyMod, MinecraftCapes, 5zig and more (through capes.dev), or open the free gallery. Add them to your capes, or wear one straight away. You can also import a cape picture. Only you see them in-game.
+- Skin collection: Minecraft's nine default skins and famous players' skins, added in one click.
+- The skin preview now faces you.
+
+**In-game recording.** Settings > Game > In-game recording adds Replay Mod: watch any match back from any angle and render clips as videos.
+
+**In-game menu.** A new Settings page (in the menu's dock): accent colour, one or two columns, menu background (dim, dark or clear), descriptions, opening animation, click sounds, the pause-menu and title-screen buttons, and hiding the HUD behind menus. It also has HUD presets, all HUD on/off, reset everything and the list of keys. The menu is wider, so names fit.
+
+**A cleaner look.** No scrollbars (scrolling still works), a running game shows a calm "Playing" button instead of a red Stop, section titles in plain case, and flat buttons without the glow.
+
+---
+
+**From 0.10.1:**
+
 **Vortex 0.10.1: Steve stays put.** When the launcher opens, Steve is simply standing on his spot by the Play button: no running in, no jumps. He no longer jumps by himself when a game starts either. Click him and he still hops.
 
 **From 0.10.0:**

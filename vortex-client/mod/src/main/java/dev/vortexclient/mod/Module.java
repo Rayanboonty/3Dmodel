@@ -75,6 +75,18 @@ public final class Module {
     }
 
     public static final List<Module> ALL = List.of(
+            // Client-wide settings, shown on the menu's Settings page rather than in the list.
+            new Module("client", "Vortex Settings", "How the Vortex menu and HUD behave.",
+                    Category.UTILITY, Items.COMPARATOR, false, true, List.of(
+                            Option.choice("accent", "Accent colour", "Launcher", "Launcher", "Amber", "Diamond", "Emerald", "Amethyst", "Redstone", "Copper", "Rose", "White"),
+                            Option.choice("columns", "Mod list", "Auto", "Auto", "One column", "Two columns"),
+                            Option.choice("backdrop", "Menu background", "Dim", "Dim", "Dark", "Clear"),
+                            Option.bool("descriptions", "Describe the mod under the mouse", true),
+                            Option.bool("openanim", "Menu opening animation", true),
+                            Option.bool("clicksound", "Click sounds", true),
+                            Option.bool("pausebuttons", "Buttons in the pause menu", true),
+                            Option.bool("titlebutton", "Button on the title screen", true),
+                            Option.bool("hudscreens", "Hide the HUD behind menus", false))),
             new Module("boost", "FPS Boost", "More FPS in one switch: fast graphics, shorter view and fewer effects. Your own settings come back when you turn it off.",
                     Category.UTILITY, Items.BLAZE_ROD, false, false, List.of(
                             Option.slider("view", "View distance (chunks)", 8, 4, 16, 1),

@@ -29,9 +29,30 @@ pub struct Library {
     /// Account UUID → chosen skin id.
     #[serde(default)]
     pub applied: std::collections::BTreeMap<String, String>,
-    /// Account UUID → cape id (`none` or a Vortex cape).
+    /// Account UUID → cape id (`none`, a Vortex cape or a saved cape).
     #[serde(default)]
     pub capes: std::collections::BTreeMap<String, String>,
+    /// Capes added to the collection (from capes.dev, a file or a link).
+    #[serde(default)]
+    pub saved_capes: Vec<SavedCape>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedCape {
+    pub id: String,
+    pub name: String,
+    /// Where it came from, e.g. "OptiFine" or "File".
+    pub source: String,
+    pub added: u64,
+}
+
+/// A cape someone has on a free cape service, found through capes.dev.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FoundCape {
+    pub service: String,
+    pub image_url: String,
 }
 
 pub struct Skins {
@@ -61,12 +82,65 @@ impl Skins {
         Ok(self.dir.join("library").join(format!("{id}.png")))
     }
 
+    /// Saved cape ids are "c" and 16 hex digits, so they never clash with Vortex capes.
+    pub fn cape_path(&self, id: &str) -> Result<PathBuf> {
+        let hex = id.strip_prefix('c').unwrap_or("");
+        if hex.len() != 16 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+            bail!("invalid cape id");
+        }
+        Ok(self.dir.join("capes").join(format!("{id}.png")))
+    }
+
+    /// Add a cape PNG (already laid out like a 64×32 cape, or a multiple of it).
+    pub fn add_cape(&self, png: &[u8], name: &str, source: &str) -> Result<SavedCape> {
+        let (w, h) = png_size(png)?;
+        if w < 64 || w % 64 != 0 || h * 2 != w || w > 1024 {
+            bail!("a cape must be 64×32 (or a bigger multiple of it); this one is {w}×{h}");
+        }
+        let id = format!("c{}", &hex::encode(Sha1::digest(png))[..16]);
+        let path = self.cape_path(&id)?;
+        std::fs::create_dir_all(path.parent().expect("has parent"))?;
+        std::fs::write(&path, png)?;
+        let mut lib = self.load();
+        let cape = match lib.saved_capes.iter().find(|c| c.id == id) {
+            Some(c) => c.clone(),
+            None => {
+                let c = SavedCape { id, name: clean_name(name), source: clean_name(source), added: crate::auth::now_secs() };
+                lib.saved_capes.push(c.clone());
+                c
+            }
+        };
+        self.save(&lib)?;
+        Ok(cape)
+    }
+
+    pub fn remove_cape(&self, id: &str) -> Result<Library> {
+        let path = self.cape_path(id)?;
+        let mut lib = self.load();
+        lib.saved_capes.retain(|c| c.id != id);
+        for v in lib.capes.values_mut() {
+            if v == id {
+                *v = "none".into();
+            }
+        }
+        let _ = std::fs::remove_file(path);
+        self.save(&lib)?;
+        Ok(lib)
+    }
+
+    /// The PNG of the saved cape an account wears, if it wears one.
+    pub fn cape_file_for(&self, account_uuid: &str) -> Option<PathBuf> {
+        let id = self.cape_for(account_uuid);
+        self.cape_path(&id).ok().filter(|p| p.is_file())
+    }
+
     pub fn load(&self) -> Library {
         let mut lib: Library = std::fs::read(self.library_file())
             .ok()
             .and_then(|b| serde_json::from_slice(&b).ok())
             .unwrap_or_default();
         lib.skins.retain(|s| self.png_path(&s.id).map(|p| p.is_file()).unwrap_or(false));
+        lib.saved_capes.retain(|c| self.cape_path(&c.id).map(|p| p.is_file()).unwrap_or(false));
         lib
     }
 
@@ -146,10 +220,10 @@ impl Skins {
     }
 
     pub fn set_cape(&self, account_uuid: &str, cape: &str) -> Result<Library> {
-        if !CAPES.contains(&cape) {
+        let mut lib = self.load();
+        if !CAPES.contains(&cape) && !lib.saved_capes.iter().any(|c| c.id == cape) {
             bail!("unknown cape '{cape}'");
         }
-        let mut lib = self.load();
         lib.capes.insert(account_uuid.to_string(), cape.to_string());
         self.save(&lib)?;
         Ok(lib)
@@ -166,6 +240,51 @@ impl Skins {
     pub fn cape_for(&self, account_uuid: &str) -> String {
         self.load().capes.get(account_uuid).cloned().unwrap_or_else(|| "none".into())
     }
+}
+
+/// Every cape a player has on the free cape services capes.dev knows
+/// (OptiFine, LabyMod, MinecraftCapes, 5zig, TLauncher, Cloaks+ and more).
+pub async fn find_capes(http: &reqwest::Client, username: &str) -> Result<Vec<FoundCape>> {
+    let name: String = username.trim().chars().filter(|c| c.is_ascii_alphanumeric() || *c == '_').take(16).collect();
+    if name.len() < 3 {
+        bail!("type a Minecraft username");
+    }
+    let v: serde_json::Value = http
+        .get(format!("https://api.capes.dev/load/{name}"))
+        .send()
+        .await?
+        .error_for_status()
+        .context("capes.dev didn't answer")?
+        .json()
+        .await?;
+    let label = |k: &str| match k {
+        "minecraft" => "Minecraft".to_string(),
+        "optifine" => "OptiFine".to_string(),
+        "labymod" => "LabyMod".to_string(),
+        "minecraftcapes" => "MinecraftCapes".to_string(),
+        "5zig" => "5zig".to_string(),
+        "tlauncher" => "TLauncher".to_string(),
+        "cloaksplus" => "Cloaks+".to_string(),
+        "mantle" => "Mantle".to_string(),
+        "lunar" => "Lunar".to_string(),
+        k => {
+            let mut c = k.chars();
+            c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+        }
+    };
+    let mut out = Vec::new();
+    if let Some(map) = v.as_object() {
+        for (k, c) in map {
+            if c.get("exists").and_then(|e| e.as_bool()) != Some(true) {
+                continue;
+            }
+            let url = c.get("stillImageUrl").or_else(|| c.get("imageUrl")).and_then(|u| u.as_str()).unwrap_or("");
+            if url.starts_with("https://") {
+                out.push(FoundCape { service: label(k), image_url: url.to_string() });
+            }
+        }
+    }
+    Ok(out)
 }
 
 fn clean_name(name: &str) -> String {
@@ -271,6 +390,45 @@ pub fn read_png(path: &Path) -> Result<Vec<u8>> {
     let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
     png_size(&bytes)?;
     Ok(bytes)
+}
+
+/// Minecraft's own default skins (Steve, Alex, Ari, Efe, Kai, Makena, Noor,
+/// Sunny, Zuri), read from the newest game jar already downloaded.
+pub fn default_skins(versions_dir: &Path) -> Vec<(String, bool, Vec<u8>)> {
+    let mut jars: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(versions_dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|d| {
+            let id = d.file_name().to_string_lossy().to_string();
+            let jar = d.path().join(format!("{id}.jar"));
+            let t = jar.metadata().ok()?.modified().ok()?;
+            Some((t, jar))
+        })
+        .collect();
+    jars.sort_by_key(|j| std::cmp::Reverse(j.0));
+    for (_, jar) in jars {
+        let Ok(f) = std::fs::File::open(&jar) else { continue };
+        let Ok(mut zip) = zip::ZipArchive::new(f) else { continue };
+        let mut out = Vec::new();
+        for slim in [false, true] {
+            for name in ["steve", "alex", "ari", "efe", "kai", "makena", "noor", "sunny", "zuri"] {
+                let path = format!("assets/minecraft/textures/entity/player/{}/{name}.png", if slim { "slim" } else { "wide" });
+                if let Ok(mut e) = zip.by_name(&path) {
+                    let mut buf = Vec::new();
+                    if std::io::Read::read_to_end(&mut e, &mut buf).is_ok() {
+                        let mut title = name.to_string();
+                        title[..1].make_ascii_uppercase();
+                        out.push((format!("{title} ({})", if slim { "slim" } else { "classic" }), slim, buf));
+                    }
+                }
+            }
+        }
+        if !out.is_empty() {
+            return out;
+        }
+    }
+    Vec::new()
 }
 
 #[cfg(test)]
