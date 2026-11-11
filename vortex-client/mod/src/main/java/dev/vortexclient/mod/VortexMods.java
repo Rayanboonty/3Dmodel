@@ -51,6 +51,10 @@ public class VortexMods implements ClientModInitializer {
         musicKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.music", GLFW.GLFW_KEY_F8));
         nextKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.musicnext", GLFW.GLFW_KEY_F9));
         prevKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.musicprev", GLFW.GLFW_KEY_UNKNOWN));
+        stopwatchKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.stopwatch", GLFW.GLFW_KEY_Y));
+        waypointKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.waypoint", GLFW.GLFW_KEY_B));
+        chatKey1 = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.quickchat1", GLFW.GLFW_KEY_F10));
+        chatKey2 = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.quickchat2", GLFW.GLFW_KEY_UNKNOWN));
         NetClient.init();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
             if (hintShown) return;
@@ -104,6 +108,15 @@ public class VortexMods implements ClientModInitializer {
         while (hudKey.wasPressed()) {
             hudOff = !hudOff;
         }
+        // Stopwatch, waypoints, quick chat, TPS.
+        boolean swPressed = false;
+        while (stopwatchKey.wasPressed()) swPressed = true;
+        if (on("stopwatch")) Extras.stopwatchKey(stopwatchKey.isPressed(), swPressed);
+        while (waypointKey.wasPressed()) if (on("waypoints")) Extras.addWaypoint(client);
+        while (chatKey1.wasPressed()) Extras.quickChat(client, "msg1");
+        while (chatKey2.wasPressed()) Extras.quickChat(client, "msg2");
+        Extras.tickWaypoints();
+        Extras.tickTps(client);
         // The launcher's music player.
         Music.tick();
         while (musicKey.wasPressed()) Music.send("toggle");
@@ -194,7 +207,7 @@ public class VortexMods implements ClientModInitializer {
     }
 
     private static boolean zoomWasHeld, zoomToggled, flWasHeld, flToggled, snapping, wasDead;
-    public static KeyBinding hudKey, copyKey, musicKey, nextKey, prevKey;
+    public static KeyBinding hudKey, copyKey, musicKey, nextKey, prevKey, stopwatchKey, waypointKey, chatKey1, chatKey2;
 
     /** Nick Hider: the name shown instead of yours. */
     public static String nick() {
@@ -405,6 +418,7 @@ public class VortexMods implements ClientModInitializer {
 
     /** Called from the FOV hook once per frame. */
     public static float applyZoom(float fov) {
+        fov = Extras.fov(fov);
         long now = System.nanoTime();
         float dt = Math.min(0.1f, (now - lastZoomFrame) / 1e9f);
         lastZoomFrame = now;

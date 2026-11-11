@@ -328,9 +328,7 @@ impl Launcher {
             fullscreen: settings.fullscreen,
             join_server: instance.join_server.clone(),
         };
-        // Newer versions take fullscreen from the game's own options.txt over
-        // the --fullscreen flag, so the launcher's choice is written there too.
-        set_game_option(&opts.game_dir, "fullscreen", if settings.fullscreen { "true" } else { "false" });
+        apply_fullscreen(&opts.game_dir, settings.fullscreen);
         crate::extras::apply_game_defaults(&opts.game_dir, &instance.minecraft_version, settings);
         report(progress, "Ready", 1, 1);
         let mut cmd = launch::build_command(&installed, &self.paths, session, &opts)?;
@@ -371,6 +369,22 @@ impl Launcher {
     /// Make the next launch of an instance check and repair every file.
     pub fn forget_launch_plan(&self, instance: &Instance) {
         fastlaunch::forget(&self.paths, instance);
+    }
+}
+
+/// Fullscreen: with the launcher's switch on, every start is fullscreen
+/// (written to options.txt too, which newer versions follow over the
+/// --fullscreen flag). With it off, the game keeps what you chose in-game
+/// (F11 or Video Settings). Turning the switch off after it was on goes
+/// back to windowed once.
+pub fn apply_fullscreen(game_dir: &std::path::Path, launcher_on: bool) {
+    let mark = game_dir.join(".vortex-fullscreen");
+    if launcher_on {
+        set_game_option(game_dir, "fullscreen", "true");
+        let _ = std::fs::write(&mark, b"");
+    } else if mark.exists() {
+        set_game_option(game_dir, "fullscreen", "false");
+        let _ = std::fs::remove_file(&mark);
     }
 }
 
@@ -433,6 +447,28 @@ pub fn set_active_resource_packs(game_dir: &std::path::Path, files: &[String], f
 
 #[cfg(test)]
 mod option_tests {
+    #[test]
+    fn fullscreen_keeps_the_games_own_choice() {
+        let dir = std::env::temp_dir().join(format!("vortex-fs-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let read = || std::fs::read_to_string(dir.join("options.txt")).unwrap_or_default();
+        // Chosen in-game (F11), launcher switch off: kept.
+        std::fs::write(dir.join("options.txt"), "fullscreen:true\n").unwrap();
+        super::apply_fullscreen(&dir, false);
+        assert!(read().contains("fullscreen:true"));
+        // Launcher switch on: always fullscreen.
+        std::fs::write(dir.join("options.txt"), "fullscreen:false\n").unwrap();
+        super::apply_fullscreen(&dir, true);
+        assert!(read().contains("fullscreen:true"));
+        // Switched off again: windowed once, then the game's choice again.
+        super::apply_fullscreen(&dir, false);
+        assert!(read().contains("fullscreen:false"));
+        std::fs::write(dir.join("options.txt"), "fullscreen:true\n").unwrap();
+        super::apply_fullscreen(&dir, false);
+        assert!(read().contains("fullscreen:true"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     use super::{active_resource_packs, set_active_resource_packs, set_game_option};
 
     #[test]

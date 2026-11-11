@@ -8,5 +8,9 @@
   "key.vortex.copycoords": "Copy coordinates",
   "key.vortex.music": "Music: play or pause",
   "key.vortex.musicnext": "Music: next song",
-  "key.vortex.musicprev": "Music: previous song"
+  "key.vortex.musicprev": "Music: previous song",
+  "key.vortex.stopwatch": "Stopwatch: start, stop (hold to reset)",
+  "key.vortex.waypoint": "Save a waypoint here",
+  "key.vortex.quickchat1": "Quick chat 1",
+  "key.vortex.quickchat2": "Quick chat 2"
 }

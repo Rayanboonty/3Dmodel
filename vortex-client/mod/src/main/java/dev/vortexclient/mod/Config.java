@@ -31,6 +31,8 @@ public final class Config {
     public Boolean savedSneakToggle;
     /** The game settings FPS Boost changed, as they were before. */
     public Map<String, String> boostSaved = new LinkedHashMap<>();
+    /** Waypoints per server or world and dimension: {x, y, z}, newest first. */
+    public Map<String, List<double[]>> waypoints = new LinkedHashMap<>();
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Path path() {
@@ -45,6 +47,7 @@ public final class Config {
                 if (c.modules == null) c.modules = new LinkedHashMap<>();
                 if (c.favorites == null) c.favorites = new ArrayList<>();
                 if (c.boostSaved == null) c.boostSaved = new LinkedHashMap<>();
+                if (c.waypoints == null) c.waypoints = new LinkedHashMap<>();
                 return c;
             }
         } catch (IOException | RuntimeException ignored) {

@@ -302,7 +302,31 @@ public final class Module {
                     Category.UTILITY, Items.LEATHER_HELMET, false, false, List.of(
                             Option.choice("name", "Show as", "You", "You", "Me", "Player", "Hidden"))),
             new Module("hitboxes", "Hitboxes", "Boxes around players and mobs, so you see exactly where to hit (F3+B).",
-                    Category.PVP, Items.ARMOR_STAND, false, false, List.of()));
+                    Category.PVP, Items.ARMOR_STAND, false, false, List.of()),
+            new Module("stopwatch", "Stopwatch", "Y starts and stops it, hold Y to reset. For parkour, speedruns and timing anything.",
+                    Category.UTILITY, Items.CLOCK, true, false, List.of(Option.bool("millis", "Hundredths", true))),
+            new Module("tnttimer", "TNT Timer", "Seconds until the nearest lit TNT explodes.",
+                    Category.PVP, Items.TNT, true, true, List.of(Option.slider("range", "Within (blocks)", 16, 4, 48, 4))),
+            new Module("cooldowns", "Cooldowns", "Time left on ender pearls, chorus fruit, shields and wind charges.",
+                    Category.PVP, Items.ENDER_PEARL, true, true, List.of()),
+            new Module("waypoints", "Waypoints", "B saves where you stand. The list shows how far each one is and which way to go.",
+                    Category.UTILITY, Items.LODESTONE, true, true, List.of(
+                            Option.slider("count", "Show up to", 4, 1, 10, 1),
+                            Option.bool("clear", "Clear this world's waypoints", false))),
+            new Module("quickchat", "Quick Chat", "F10 sends your quick message. Pick it here; a second key can be set in Controls.",
+                    Category.UTILITY, Items.WRITABLE_BOOK, false, true, List.of(
+                            Option.choice("msg1", "F10 sends", "gg", "gg", "gl hf", "good game", "/l", "/hub", "/lobby", "/spawn", "/rejoin"),
+                            Option.choice("msg2", "Second key sends", "/l", "gg", "gl hf", "good game", "/l", "/hub", "/lobby", "/spawn", "/rejoin"))),
+            new Module("tps", "Server TPS", "How fast the server runs (20 is perfect). Lag shows here first.",
+                    Category.UTILITY, Items.COMPARATOR, true, false, List.of()),
+            new Module("resources", "Resource Counter", "Iron, gold, diamonds and emeralds you carry (Bed Wars, Sky Wars).",
+                    Category.PVP, Items.EMERALD, true, false, List.of(Option.bool("hidezero", "Hide ones you have none of", true))),
+            new Module("blocks", "Block Counter", "How many blocks you have left to place, for bridging.",
+                    Category.PVP, Items.WHITE_WOOL, true, false, List.of(Option.slider("low", "Red below", 16, 0, 64, 8))),
+            new Module("fovchanger", "FOV Changer", "Your own field of view, which can stay the same while you sprint or have speed.",
+                    Category.UTILITY, Items.SPYGLASS, false, false, List.of(
+                            Option.slider("fov", "Field of view", 90, 30, 120, 1),
+                            Option.bool("static", "Same while sprinting", true))));
 
     /** The module with this id, or null. */
     public static Module find(String id) {

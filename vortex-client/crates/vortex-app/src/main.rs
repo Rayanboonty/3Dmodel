@@ -1096,11 +1096,24 @@ fn progress_emitter(app: &AppHandle, instance: &str) -> ProgressFn {
 /// The Vortex in-game mod, built from `mod/` for each Minecraft version it
 /// supports (`bash mod/build-all.sh`).
 const VORTEX_MODS: &[(&str, &[u8])] = &[
+    ("1.20", include_bytes!("../resources/vortex-mods-1.20.jar")),
     ("1.20.1", include_bytes!("../resources/vortex-mods-1.20.1.jar")),
+    ("1.20.2", include_bytes!("../resources/vortex-mods-1.20.2.jar")),
+    ("1.20.3", include_bytes!("../resources/vortex-mods-1.20.3.jar")),
     ("1.20.4", include_bytes!("../resources/vortex-mods-1.20.4.jar")),
+    ("1.20.5", include_bytes!("../resources/vortex-mods-1.20.5.jar")),
+    ("1.20.6", include_bytes!("../resources/vortex-mods-1.20.6.jar")),
+    ("1.21", include_bytes!("../resources/vortex-mods-1.21.jar")),
     ("1.21.1", include_bytes!("../resources/vortex-mods-1.21.1.jar")),
+    ("1.21.2", include_bytes!("../resources/vortex-mods-1.21.2.jar")),
+    ("1.21.3", include_bytes!("../resources/vortex-mods-1.21.3.jar")),
     ("1.21.4", include_bytes!("../resources/vortex-mods-1.21.4.jar")),
+    ("1.21.5", include_bytes!("../resources/vortex-mods-1.21.5.jar")),
+    ("1.21.6", include_bytes!("../resources/vortex-mods-1.21.6.jar")),
+    ("1.21.7", include_bytes!("../resources/vortex-mods-1.21.7.jar")),
     ("1.21.8", include_bytes!("../resources/vortex-mods-1.21.8.jar")),
+    ("1.21.9", include_bytes!("../resources/vortex-mods-1.21.9.jar")),
+    ("1.21.10", include_bytes!("../resources/vortex-mods-1.21.10.jar")),
     ("1.21.11", include_bytes!("../resources/vortex-mods-1.21.11.jar")),
 ];
 const VORTEX_MOD_FILE: &str = "vortex-mods.jar";
@@ -1317,7 +1330,6 @@ const PVP_FABRIC: &[(&str, &str)] = &[
     ("rI0hvYcd", "Visuality"),
     // 0.10: more PvP, none of them clash with Vortex's own crosshair, zoom or HUD.
     ("MPCX6s5C", "Not Enough Animations"),
-    ("4Hfmgaef", "OverflowAnimations"),
     ("geGZinIB", "Combat Hitboxes"),
     ("T9R7YTnA", "TotemCounter"),
     ("1cfO6J6t", "Totem Tweaks"),

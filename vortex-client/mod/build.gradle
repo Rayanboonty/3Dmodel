@@ -11,6 +11,8 @@ def mc = project.findProperty('mc') ?: '1.21.4'
 def vp = new Properties()
 file(file("versions/${mc}.properties").exists() ? "versions/${mc}.properties" : "versions/${mc}.properties.wip").withInputStream { vp.load(it) }
 def javaVersion = (vp.java ?: '21') as int
+// Versions close to another one share its version-specific code (overlay=).
+def overlay = vp.overlay ?: mc
 
 version = "${project.mod_version}+${mc}"
 group = 'dev.vortexclient'
@@ -19,9 +21,9 @@ base { archivesName = 'vortex-mods' }
 def merged = layout.buildDirectory.dir("merged/${mc}")
 tasks.register('mergeSources', Sync) {
     from('src/main/java') { into 'java' }
-    from("versions/${mc}/java") { into 'java' }
+    from("versions/${overlay}/java") { into 'java' }
     from('src/main/resources') { into 'resources' }
-    from("versions/${mc}/resources") { into 'resources' }
+    from("versions/${overlay}/resources") { into 'resources' }
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     into merged
 }

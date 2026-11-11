@@ -1,3 +1,32 @@
+**Vortex 0.10.0: music, every version, and more mods.**
+
+**Music.** A new Music page plays your own songs (MP3, FLAC, Ogg, Opus, M4A, WAV) or free internet radio, searchable by name or genre.
+- Lyrics follow the song line by line. They come from a .lrc file next to the song, or from LRCLIB (free, no account). Click a line to jump there.
+- In-game, the Music overlay shows the song and the current lyric line. F8 plays or pauses, F9 skips (change them in Controls).
+
+**Vortex in-game mods on every Minecraft 1.20 and 1.21 version.** The Right Shift menu and all its mods used to work on six versions. Now they work on all 19, from 1.20 to 1.21.11. Hitboxes doesn't work on 1.21.9 and newer.
+
+**Fullscreen sticks.** With Start fullscreen on in the launcher, every version starts fullscreen. With it off, the game keeps what you chose in-game (F11 or Video Settings); before, every launch put it back in a window.
+
+**10 new in-game mods:**
+- Waypoints: B saves a spot; the list shows how far and which way.
+- Cooldowns: ender pearl, chorus fruit, shield and wind charge.
+- TNT Timer: seconds until the nearest lit TNT goes off.
+- Stopwatch: Y starts and stops it, hold Y to reset.
+- Quick Chat: F10 sends gg, gl hf, /l, /hub and more.
+- Server TPS, Resource Counter (Bed Wars), Block Counter, and FOV Changer (same FOV while sprinting).
+- Nick Hider and Hitboxes.
+
+**A better in-game menu.** Every mod has its picture, and every options page has a live preview: the crosshair as you shape it, the hit marker, the low-health glow, the block outline, chat features, the Tab list, time and weather, and more.
+
+**More PvP mods** in the PvP pack: Not Enough Animations, Combat Hitboxes, TotemCounter, Totem Tweaks and AppleSkin.
+
+**The look.** The old tab dock and liquid glass look stay. Pages, dialogs and the start screen no longer fade (particles still play). Liquid glass is in Settings > Appearance; the standard is the plain, fastest look.
+
+That makes 88 in-game mods with 141 options.
+
+**From 0.9.0:**
+
 **Vortex 0.9.0: more FPS, a cleaner game, fewer settings.**
 
 **FPS Boost (in-game).** One switch at the top of the mod menu: fast graphics, a shorter view (8 chunks, you can change it), fewest particles, no clouds or shadows, and far-away entities hidden sooner. Turn it off and every setting it changed comes back exactly as you had it, even after a restart.

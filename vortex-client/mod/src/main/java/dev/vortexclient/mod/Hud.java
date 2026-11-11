@@ -43,12 +43,12 @@ public final class Hud {
     static final Map<String, Element> ELEMENTS = new LinkedHashMap<>();
     /** Elements that stack down the left edge by default, in order. */
     private static final List<String> LEFT = List.of("fps", "cps", "ping", "memory", "server", "players", "speed", "reach", "combo", "clock", "day", "saturation", "health", "xp", "light", "biome", "rotation", "chunk", "entities", "forecast", "moon", "fall", "bow", "session", "pack",
-            "kills", "distance", "armorpts", "fire", "air", "attack", "hunger", "elytra", "mount", "lookat", "helditem",
+            "kills", "distance", "armorpts", "stopwatch", "tps", "tnttimer", "cooldowns", "resources", "blocks", "waypoints", "fire", "air", "attack", "hunger", "elytra", "mount", "lookat", "helditem",
             "coords", "deathpos", "durability", "sprint");
     /** Graphs and lists, under the right-hand stack by default. */
     private static final List<String> BOTTOM_LEFT = List.of("fpsgraph", "pinggraph", "nearby");
     /** Elements that stack down the right edge by default, in order. */
-    private static final List<String> RIGHT = List.of("music", "keystrokes", "potions");
+    private static final List<String> RIGHT = List.of("keystrokes", "potions");
 
     private static final Map<String, Float> KEY_ANIM = new java.util.HashMap<>();
     private static long lastFrame = System.nanoTime();
@@ -870,6 +870,7 @@ public final class Hud {
         int rightTop = rightY, rightX = sw - margin, rightColW = 0, rightBottom = sh - 70;
 
         List<Module> order = new ArrayList<>();
+        order.add(Module.get("music"));
         for (List<String> ids : List.of(RIGHT, BOTTOM_LEFT, LEFT)) {
             for (String id : ids) {
                 Module m = Module.find(id);
@@ -911,6 +912,12 @@ public final class Hud {
                 y = rightY;
                 rightY += h + gapY;
                 rightColW = Math.max(rightColW, w);
+            } else if (m.id.equals("music")) {
+                // Top-right corner; the right-hand stack starts under it.
+                x = sw - w - margin;
+                y = margin;
+                rightY = Math.max(rightY, y + h + gapY);
+                rightTop = rightY;
             } else if (m.id.equals("invhud")) {
                 // Centred above the hotbar, health and hunger.
                 x = (sw - w) / 2;

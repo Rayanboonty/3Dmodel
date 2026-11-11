@@ -3,7 +3,7 @@ import { call, on, onFileDrop, isTauri } from "./api.js";
 
 // 0.10: no fades. Entrance and exit animations made in script finish at
 // once (particles are drawn on a canvas and are not affected).
-if (document.documentElement.classList.contains("pro")) {
+{
   const animate = Element.prototype.animate;
   Element.prototype.animate = function (frames, opts) {
     const o = typeof opts === "number" ? { duration: 0 } : { ...(opts || {}), duration: 0, delay: 0, endDelay: 0 };
@@ -94,7 +94,7 @@ addEventListener("resize", () => {
 
 const $ = (sel, root = document) => root.querySelector(sel);
 /** Minecraft versions the Vortex in-game mod is built for (see mod/versions). */
-const VORTEX_MC = ["1.20.1", "1.20.4", "1.21.1", "1.21.4", "1.21.8", "1.21.11"];
+const VORTEX_MC = ["1.20", "1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6", "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"];
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const anims = () => S.settings?.animations !== false;
@@ -347,8 +347,7 @@ const FEATURED_SERVERS = [
  */
 let liquidOn = false, glassWatched = false;
 function applyGlassEffect(s) {
-  // 0.10: one clean look; the glass and liquid effects are retired.
-  const fx = "default";
+  const fx = s.reduce_transparency === true ? "default" : (s.glass_effect || "default");
   document.documentElement.classList.toggle("no-glass", fx === "default");
   document.documentElement.dataset.glass = fx;
   const want = fx === "liquid";
@@ -2041,11 +2040,12 @@ const BOOL = [["true", "On"], ["false", "Off"]];
 const PCT = (vals) => vals.map((v) => [String(v), `${Math.round(v * 100)}%`]);
 /** What's new in this version (shown once after updating). */
 const WHATS_NEW = [
-  "FPS Boost in-game: one switch for more FPS, your settings come back when it's off",
-  "Render resolution: draw the world with fewer pixels on weak graphics cards",
-  "A new minimal in-game mod menu",
-  "Settings cut down to what matters",
-  "The Vortex HUD costs less: its text is worked out once a tick, not every frame",
+  "Music: your songs and free radio, with lyrics that follow along, in the launcher and in-game",
+  "Vortex in-game mods now on every Minecraft 1.20 and 1.21 version",
+  "Fullscreen sticks, whether you set it here or in the game",
+  "10 new in-game mods, like Waypoints, Cooldowns, TNT Timer and Quick Chat",
+  "A picture and a live preview for every in-game setting",
+  "More PvP mods in the PvP pack",
 ];
 const rangeRow = (id, label, value, lo, hi, step, text) => `<div class="field"><label class="label" for="${id}">${label}</label><div class="row"><input class="range grow" id="${id}" type="range" min="${lo}" max="${hi}" step="${step}" value="${value}" style="--fill:${((value - lo) / (hi - lo)) * 100}%"><span class="value" id="${id}-v">${text}</span></div></div>`;
 
@@ -2055,6 +2055,11 @@ function settingsBody(d) {
     const u = { ...UI_DEFAULTS, ...d };
     const wall = u.wall_custom && S.customWallUrl ? S.customWallUrl : "img/birch-forest.jpg";
     return `<div class="settings-grid">
+      <div class="card-pad"><h3>Feel</h3>
+        ${segRow(u, "glass_effect", "Glass", [["default", "Default"], ["blur", "Blur"], ["liquid", "Liquid glass"]], "Default is the fastest: clean panels, no blur. Blur frosts what's behind them. Liquid glass bends it like iOS 26 (needs a strong graphics card)")}
+        ${segRow(u, "radius", "Corners", [["round", "Round"], ["soft", "Soft"], ["sharp", "Sharp"]])}
+        ${segRow(u, "motion", "Motion", [["bouncy", "Bouncy"], ["smooth", "Smooth"]], "How presses, menus and tabs spring")}
+      </div>
       <div class="card-pad"><h3>Theme and colour</h3>
         ${segRow(u, "theme", "Mode", [["dark", "Dark"], ["light", "Light"], ["system", "System"]], "System follows Windows")}
         <div class="setting stack"><div><strong>Accent</strong><span>Buttons, highlights and the in-game mod menu</span></div>

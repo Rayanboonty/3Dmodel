@@ -78,4 +78,8 @@ public final class Compat {
     public static void setHitboxes(net.minecraft.client.MinecraftClient mc, boolean on) {
         if (mc.getEntityRenderDispatcher() != null) mc.getEntityRenderDispatcher().setRenderHitboxes(on);
     }
+    /** How far an item's cooldown has to go (0 = ready). */
+    public static float cooldown(net.minecraft.entity.player.PlayerEntity p, net.minecraft.item.Item item) {
+        return p.getItemCooldownManager().getCooldownProgress(new net.minecraft.item.ItemStack(item), 0f);
+    }
 }

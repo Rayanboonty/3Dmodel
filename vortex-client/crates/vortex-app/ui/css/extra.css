@@ -1,0 +1,47 @@
+/* Vortex 0.10 additions on top of app.css: no fades, and the Music page in
+   the same glass look as the rest of the launcher. */
+
+/* ---- No fades: pages, dialogs and the start screen appear at once.
+   (Particles are drawn on a canvas and still play.) */
+.page.enter > *, .page.enter > .home > *, .page.leave > *,
+body.intro *, body.intro .page > .home > *, body.intro #world, body.intro .sidebar,
+.scrim, .modal, .toast, .popover, .switcher, .boot, .tabpane, .fresh { animation: none !important; }
+.page.leave > * { opacity: 0; }
+
+/* ---- Music. */
+.music { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 16px; align-items: start; }
+.music-list { display: flex; flex-direction: column; min-width: 0; }
+.music-tracks { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; max-height: calc(100vh - 340px); padding-right: 4px; }
+.track { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: var(--r-s); cursor: pointer; color: var(--ink); border: 0; background: transparent; text-align: left; font: inherit; transition: background 0.15s; }
+.track:hover { background: rgba(255, 255, 255, 0.07); }
+.track.on { background: rgba(var(--accent-rgb), 0.14); }
+.track.on .t-n { color: var(--accent); }
+.track .t-n { font-size: 12px; color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; display: flex; justify-content: flex-end; }
+.track .t-title { min-width: 0; font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track .t-artist { display: block; font-size: 12px; color: var(--ink-3); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track .t-len { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.now { position: sticky; top: 0; gap: 14px; }
+.now-title { font-size: 17px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.now-artist { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+.now-bar { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.now-bar input { flex: 1; accent-color: var(--accent); min-width: 0; }
+.now-ctl { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.now-ctl .btn-play { width: 48px; height: 48px; min-height: 0; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+.lyrics { height: clamp(160px, calc(100vh - 480px), 420px); overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding: 40px 2px; scroll-behavior: smooth; -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 84%, transparent); mask-image: linear-gradient(transparent, #000 14%, #000 84%, transparent); }
+.lyric { font-size: 15px; font-weight: 700; color: var(--ink-3); line-height: 1.35; cursor: pointer; transition: color 0.2s; }
+.lyric.past { opacity: 0.6; }
+.lyric.on { color: var(--ink); }
+.lyrics-note { font-size: 12.5px; color: var(--ink-3); }
+.mini-player { display: none; }
+body:not(.m) .mini-player:not([hidden]) {
+  display: flex; align-items: center; gap: 4px; position: fixed; z-index: 6; right: 24px; bottom: var(--nav-b, 36px);
+  max-width: 240px; padding: 6px; border-radius: 16px;
+  background: var(--glass-strong); border: 1px solid var(--glass-edge);
+  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+}
+.mini-player .mp-text { min-width: 0; flex: 1; cursor: pointer; padding: 0 4px; }
+.mini-player strong { display: block; font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-player span { display: block; font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1000px) { .music { grid-template-columns: minmax(0, 1fr); } .now { position: static; } }
+.seg button { display: inline-flex; align-items: center; gap: 6px; }
+body:not(.m) .music-tracks { max-height: calc(100vh - 390px); }

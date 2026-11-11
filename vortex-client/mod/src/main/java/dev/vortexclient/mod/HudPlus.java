@@ -51,6 +51,94 @@ final class HudPlus {
     }
 
     static void register(MinecraftClient mc) {
+        Hud.ELEMENTS.put("stopwatch", Hud.lines(m -> {
+            long ms = Extras.stopwatch();
+            String t = ms >= 3_600_000 ? String.format(Locale.ROOT, "%d:%02d:%02d", ms / 3_600_000, ms / 60_000 % 60, ms / 1000 % 60)
+                    : String.format(Locale.ROOT, "%d:%02d", ms / 60_000, ms / 1000 % 60);
+            if (VortexMods.config.bool(m, "millis")) t += String.format(Locale.ROOT, ".%02d", ms / 10 % 100);
+            return List.<String[]>of(new String[] {"Timer ", t, Extras.stopwatchRunning() ? "FF55FF55" : "FFFFFFFF"});
+        }));
+        Hud.ELEMENTS.put("tps", Hud.lines(m -> {
+            double t = mc.player == null ? 19.8 : Extras.tps();
+            if (t < 0) return List.<String[]>of(new String[] {"TPS ", "…"});
+            String col = t >= 18 ? "FF55FF55" : t >= 15 ? "FFFFFF55" : "FFFF5555";
+            return List.<String[]>of(new String[] {"TPS ", String.format(Locale.ROOT, "%.1f", t), col});
+        }));
+        Hud.ELEMENTS.put("tnttimer", Hud.lines(m -> {
+            if (mc.player == null || mc.world == null) return List.<String[]>of(new String[] {"TNT ", "2.4s", "FFFF5555"});
+            double range = VortexMods.config.num(m, "range");
+            net.minecraft.entity.TntEntity best = null;
+            double bestD = Double.MAX_VALUE;
+            for (Entity e : mc.world.getEntities()) {
+                if (!(e instanceof net.minecraft.entity.TntEntity t)) continue;
+                double d = mc.player.distanceTo(t);
+                if (d <= range && d < bestD) { best = t; bestD = d; }
+            }
+            if (best == null) return List.<String[]>of();
+            double s = best.getFuse() / 20.0;
+            return List.<String[]>of(new String[] {"TNT ", String.format(Locale.ROOT, "%.1fs  %.0fm", s, bestD), s < 1.5 ? "FFFF5555" : "FFFFAA00"});
+        }));
+        Hud.ELEMENTS.put("cooldowns", Hud.lines(m -> {
+            List<String[]> out = new ArrayList<>();
+            if (mc.player == null) {
+                out.add(new String[] {"Ender Pearl ", "0.6s"});
+                return out;
+            }
+            Item[] items = {Items.ENDER_PEARL, Items.CHORUS_FRUIT, Items.SHIELD, Extras.windCharge()};
+            float[] lengths = {1.0f, 1.0f, 5.0f, 0.5f};
+            for (int i = 0; i < items.length; i++) {
+                if (items[i] == null) continue;
+                float k = Compat.cooldown(mc.player, items[i]);
+                if (k <= 0) continue;
+                out.add(new String[] {items[i].getName().getString() + " ", String.format(Locale.ROOT, "%.1fs", k * lengths[i])});
+            }
+            return out;
+        }));
+        Hud.ELEMENTS.put("resources", Hud.lines(m -> {
+            List<String[]> out = new ArrayList<>();
+            Item[] items = {Items.IRON_INGOT, Items.GOLD_INGOT, Items.DIAMOND, Items.EMERALD};
+            String[] names = {"Iron ", "Gold ", "Diamonds ", "Emeralds "};
+            String[] cols = {"FFDDDDDD", "FFFFDD44", "FF55FFFF", "FF55FF55"};
+            for (int i = 0; i < items.length; i++) {
+                int n = mc.player == null ? new int[] {48, 12, 3, 2}[i] : count(mc, items[i]);
+                if (n == 0 && VortexMods.config.bool(m, "hidezero")) continue;
+                out.add(new String[] {names[i], String.valueOf(n), cols[i]});
+            }
+            return out;
+        }));
+        Hud.ELEMENTS.put("blocks", Hud.lines(m -> {
+            int n = 0;
+            if (mc.player == null) n = 128;
+            else {
+                var inv = mc.player.getInventory();
+                for (int s = 0; s < inv.size(); s++) {
+                    ItemStack st = inv.getStack(s);
+                    if (st.getItem() instanceof net.minecraft.item.BlockItem) n += st.getCount();
+                }
+            }
+            return List.<String[]>of(new String[] {"Blocks ", String.valueOf(n), n < VortexMods.config.num(m, "low") ? "FFFF5555" : "FFFFFFFF"});
+        }));
+        Hud.ELEMENTS.put("waypoints", Hud.lines(m -> {
+            List<String[]> out = new ArrayList<>();
+            if (mc.player == null) {
+                out.add(new String[] {"Base ", "↑ 120m"});
+                out.add(new String[] {"Mine ", "→ 46m"});
+                return out;
+            }
+            int max = (int) VortexMods.config.num(m, "count");
+            List<double[]> list = Extras.waypoints();
+            for (int i = 0; i < Math.min(max, list.size()); i++) {
+                double[] w = list.get(i);
+                double dx = w[0] + 0.5 - mc.player.getX(), dz = w[2] + 0.5 - mc.player.getZ();
+                double dist = Math.sqrt(dx * dx + dz * dz);
+                // Which way, relative to where you're looking.
+                double ang = Math.toDegrees(Math.atan2(-dx, dz)) - mc.player.getYaw();
+                ang = ((ang % 360) + 540) % 360 - 180;
+                String arrow = Math.abs(ang) < 22.5 ? "↑" : Math.abs(ang) > 157.5 ? "↓" : ang > 0 ? (ang < 67.5 ? "↗" : ang < 112.5 ? "→" : "↘") : (ang > -67.5 ? "↖" : ang > -112.5 ? "←" : "↙");
+                out.add(new String[] {"#" + (i + 1) + " ", arrow + String.format(Locale.ROOT, " %.0fm", dist)});
+            }
+            return out;
+        }));
         Hud.ELEMENTS.put("music", new NowPlaying());
         Hud.ELEMENTS.put("armorpts", new Bar() {
             String label(Module m) { return "Armor "; }
