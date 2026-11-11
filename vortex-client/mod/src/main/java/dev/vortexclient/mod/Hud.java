@@ -48,7 +48,7 @@ public final class Hud {
     /** Graphs and lists, under the right-hand stack by default. */
     private static final List<String> BOTTOM_LEFT = List.of("fpsgraph", "pinggraph", "nearby");
     /** Elements that stack down the right edge by default, in order. */
-    private static final List<String> RIGHT = List.of("keystrokes", "potions");
+    private static final List<String> RIGHT = List.of("music", "keystrokes", "potions");
 
     private static final Map<String, Float> KEY_ANIM = new java.util.HashMap<>();
     private static long lastFrame = System.nanoTime();

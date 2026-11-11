@@ -242,6 +242,29 @@ export const mock = {
       case "save_settings":
         state.settings = { ...args.settings };
         return state.settings;
+      case "music_library":
+        return { dir: "C:\\Users\\You\\Music", tracks: [] };
+      case "music_lyrics": {
+        // In the preview: LRCLIB straight from the page (if the page may reach it).
+        const q = new URLSearchParams({ artist_name: args.artist || "", track_name: args.title || "" });
+        try {
+          const r = await fetch(`https://lrclib.net/api/get?${q}`);
+          if (!r.ok) return { synced: [], plain: null, source: "" };
+          const j = await r.json();
+          const synced = (j.syncedLyrics || "").split("\n").map((l) => l.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/)).filter(Boolean).map((m) => [Math.round((Number(m[1]) * 60 + Number(m[2])) * 1000), m[3]]);
+          return { synced, plain: j.plainLyrics || null, source: "LRCLIB" };
+        } catch { return { synced: [], plain: null, source: "" }; }
+      }
+      case "music_radio":
+        try {
+          const q = new URLSearchParams({ name: args.query || "", tag: args.tag || "", limit: "40", hidebroken: "true", order: "clickcount", reverse: "true" });
+          const r = await fetch(`https://de1.api.radio-browser.info/json/stations/search?${q}`);
+          return (await r.json()).filter((s) => s.url_resolved).map((s) => ({ name: s.name, url: s.url_resolved, favicon: s.favicon, tags: s.tags, country: s.country, codec: s.codec, bitrate: s.bitrate }));
+        } catch { return []; }
+      case "music_state":
+        return null;
+      case "music_commands":
+        return [];
       case "news":
         return [
           { title: "Minecraft 26.4 Snapshot 6", version: "26.4-snapshot-6", kind: "snapshot", image_url: null, date: "2026-10-27", summary: "A new snapshot is out with fixes and tweaks." },

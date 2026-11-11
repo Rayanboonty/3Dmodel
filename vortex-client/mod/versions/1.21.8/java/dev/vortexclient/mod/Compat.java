@@ -73,4 +73,9 @@ public final class Compat {
 
     /** The value of that option that draws fastest. */
     public static final String GRAPHICS_FAST = "FAST";
+
+    /** Hitboxes module (the F3+B boxes). */
+    public static void setHitboxes(net.minecraft.client.MinecraftClient mc, boolean on) {
+        if (mc.getEntityRenderDispatcher() != null) mc.getEntityRenderDispatcher().setRenderHitboxes(on);
+    }
 }

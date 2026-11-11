@@ -290,7 +290,19 @@ public final class Module {
             new Module("killsound", "Kill Sound", "A sound when you get a kill.",
                     Category.PVP, Items.NOTE_BLOCK, false, false, List.of(Option.choice("sound", "Sound", "Ding", "Ding", "Level up", "Orb"))),
             new Module("autorespawn", "Auto Respawn", "Respawns you straight away when you die.",
-                    Category.UTILITY, Items.RESPAWN_ANCHOR, false, false, List.of()));
+                    Category.UTILITY, Items.RESPAWN_ANCHOR, false, false, List.of()),
+            // ---- 0.10
+            new Module("music", "Music", "What's playing in the launcher's music player, with live lyrics. F8 plays or pauses, F9 skips.",
+                    Category.HUD, Items.MUSIC_DISC_CAT, true, true, List.of(
+                            Option.bool("lyrics", "Live lyrics", true),
+                            Option.bool("nextline", "Next line too", true),
+                            Option.bool("bar", "Progress bar", true),
+                            Option.bool("artist", "Artist", true))),
+            new Module("nickhider", "Nick Hider", "Shows another name instead of yours in chat and the Tab list. Only on your screen.",
+                    Category.UTILITY, Items.LEATHER_HELMET, false, false, List.of(
+                            Option.choice("name", "Show as", "You", "You", "Me", "Player", "Hidden"))),
+            new Module("hitboxes", "Hitboxes", "Boxes around players and mobs, so you see exactly where to hit (F3+B).",
+                    Category.PVP, Items.ARMOR_STAND, false, false, List.of()));
 
     /** The module with this id, or null. */
     public static Module find(String id) {

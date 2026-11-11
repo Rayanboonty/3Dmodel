@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="pro">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Vortex Client</title>
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/pro.css">
 </head>
 <body class="phase-dawn">
   <div class="backdrop" aria-hidden="true"></div>
@@ -35,8 +36,14 @@
       <button class="tab" data-route="instances"><span data-icon="grid" data-size="18"></span><span class="tab-label">Instances</span></button>
       <button class="tab" data-route="mods"><span data-icon="puzzle" data-size="18"></span><span class="tab-label">Mods</span></button>
       <button class="tab" data-route="skins"><span data-icon="shirt" data-size="18"></span><span class="tab-label">Skins</span></button>
+      <button class="tab" data-route="music"><span data-icon="music" data-size="18"></span><span class="tab-label">Music</span></button>
       <button class="tab" data-route="accounts"><span data-icon="user" data-size="18"></span><span class="tab-label">Accounts</span></button>
       <button class="tab" data-route="settings"><span data-icon="gear" data-size="18"></span><span class="tab-label">Settings</span></button>
+      <div class="mini-player" id="mini-player" hidden>
+        <button class="btn btn-sm btn-icon btn-ghost" id="mp-toggle" aria-label="Play or pause"><span data-icon="pause" data-size="12"></span></button>
+        <div class="mp-text" id="mp-open" role="button" tabindex="0"><strong id="mp-title"></strong><span id="mp-artist"></span></div>
+        <button class="btn btn-sm btn-icon btn-ghost" id="mp-next" aria-label="Next"><span data-icon="next" data-size="12"></span></button>
+      </div>
       <span class="side-version" id="side-version"></span>
     </nav>
     <main class="page" id="page"></main>

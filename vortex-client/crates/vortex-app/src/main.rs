@@ -13,6 +13,7 @@ use serde::Serialize;
 
 mod updater;
 mod installer;
+mod music;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{oneshot, Mutex};
 use vortex_core::accounts::{Account, AccountKind, AccountStore};
@@ -668,6 +669,46 @@ async fn toggle_mod(state: State<'_, AppState>, name: String, file: String, enab
     content_views(&inst, kind, &dir)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MusicLibrary {
+    dir: String,
+    tracks: Vec<music::Track>,
+}
+
+/// The songs in a folder (the system Music folder unless one is given).
+#[tauri::command]
+async fn music_library(dir: Option<String>) -> CmdResult<MusicLibrary> {
+    let dir = dir.filter(|d| !d.trim().is_empty()).map(std::path::PathBuf::from).unwrap_or_else(music::default_dir);
+    let d = dir.clone();
+    let tracks = tokio::task::spawn_blocking(move || music::scan(&d)).await.map_err(|e| e.to_string())?;
+    Ok(MusicLibrary { dir: dir.to_string_lossy().into_owned(), tracks })
+}
+
+/// Synced lyrics for a song (an .lrc beside it, or LRCLIB).
+#[tauri::command]
+async fn music_lyrics(state: State<'_, AppState>, path: Option<String>, artist: String, title: String, duration: Option<f64>) -> CmdResult<music::Lyrics> {
+    music::lyrics(state.launcher.http(), path.as_deref(), &artist, &title, duration).await.map_err(fail)
+}
+
+/// Free internet radio stations (radio-browser.info).
+#[tauri::command]
+async fn music_radio(state: State<'_, AppState>, query: String, tag: String) -> CmdResult<Vec<music::Station>> {
+    music::radio(state.launcher.http(), &query, &tag).await.map_err(fail)
+}
+
+/// What's playing, for the game's Now Playing overlay.
+#[tauri::command]
+async fn music_state(state: State<'_, AppState>, now: serde_json::Value) -> CmdResult<()> {
+    music::write_now_playing(&state.launcher.paths().root, &now).map_err(|e| e.to_string())
+}
+
+/// Play/pause, next and previous pressed in the game.
+#[tauri::command]
+async fn music_commands(state: State<'_, AppState>) -> CmdResult<Vec<String>> {
+    Ok(music::take_commands(&state.launcher.paths().root))
+}
+
 /// Texture packs Minecraft will use in an instance (file names, lowest
 /// priority first).
 #[tauri::command]
@@ -1115,6 +1156,7 @@ async fn setup_vortex_mod(
     }
     instance.jvm_args.push(format!("-Dvortex.cape={}", library.cape_for(&account.uuid)));
     instance.jvm_args.push(format!("-Dvortex.accent={}", settings.accent));
+    instance.jvm_args.push(format!("-Dvortex.music={}", music::dir(&launcher.paths().root).display()));
     instance.jvm_args.push(format!("-Dvortex.menu={}", settings.vortex_menu));
     let menu = menu_dir(launcher);
     for (prop, file) in [("menuBg", "background.png"), ("menuLogo", "logo.png")] {
@@ -1273,6 +1315,13 @@ const PVP_FABRIC: &[(&str, &str)] = &[
     ("xv94TkTM", "Controlling"),
     ("aC3cM3Vq", "Mouse Tweaks"),
     ("rI0hvYcd", "Visuality"),
+    // 0.10: more PvP, none of them clash with Vortex's own crosshair, zoom or HUD.
+    ("MPCX6s5C", "Not Enough Animations"),
+    ("4Hfmgaef", "OverflowAnimations"),
+    ("geGZinIB", "Combat Hitboxes"),
+    ("T9R7YTnA", "TotemCounter"),
+    ("1cfO6J6t", "Totem Tweaks"),
+    ("EsAfCjCV", "AppleSkin"),
 ];
 
 const PVP_FORGE: &[(&str, &str)] = &[
@@ -1771,6 +1820,7 @@ fn main() {
         .expect("cannot create the Vortex data folder");
 
     tauri::Builder::default()
+        .register_uri_scheme_protocol("vmusic", |_ctx, request| music::serve(&request))
         .manage(AppState {
             launcher: Arc::new(launcher),
             settings: Mutex::new(settings),
@@ -1795,6 +1845,11 @@ fn main() {
             install_status,
             quit_app,
             active_packs,
+            music_library,
+            music_lyrics,
+            music_radio,
+            music_state,
+            music_commands,
             set_active_packs,
             install_app,
             uninstall_app,

@@ -51,6 +51,7 @@ final class HudPlus {
     }
 
     static void register(MinecraftClient mc) {
+        Hud.ELEMENTS.put("music", new NowPlaying());
         Hud.ELEMENTS.put("armorpts", new Bar() {
             String label(Module m) { return "Armor "; }
             String value(Module m) { return String.valueOf(mc.player != null ? mc.player.getArmor() : 15); }
@@ -167,6 +168,61 @@ final class HudPlus {
             boolean bar(Module m) { return true; }
             boolean hidden(Module m) { return mc.player != null && VortexMods.config.bool(m, "hidefull") && k() >= 1f; }
         });
+    }
+
+    /** The launcher's music: song, artist, progress and the current lyric. */
+    static final class NowPlaying implements Hud.Element {
+        private static final int W = 170;
+
+        boolean sample() {
+            return MinecraftClient.getInstance().player == null && !Music.active();
+        }
+
+        public int[] size(Module m) {
+            if (!Music.active() && !sample()) return new int[] {0, 0};
+            int h = 14;
+            if (VortexMods.config.bool(m, "artist")) h += 10;
+            if (VortexMods.config.bool(m, "bar")) h += 6;
+            if (VortexMods.config.bool(m, "lyrics") && (sample() || !Music.lyricLines.isEmpty())) h += VortexMods.config.bool(m, "nextline") ? 22 : 12;
+            return new int[] {W, h + 2};
+        }
+
+        private static String fit(String s, int w) {
+            if (Ui.width(s) <= w) return s;
+            while (s.length() > 1 && Ui.width(s + "…") > w) s = s.substring(0, s.length() - 1);
+            return s + "…";
+        }
+
+        public void draw(DrawContext c, Module m, int x, int y) {
+            int[] s = size(m);
+            if (s[1] <= 0) return;
+            Hud.panel(c, m, x, y, s[0], s[1]);
+            boolean demo = sample();
+            String title = demo ? "Midnight Drive" : Music.title;
+            String artist = demo ? "Lofi Radio" : Music.artist;
+            int ty = y + 4;
+            String icon = (demo || Music.playing) ? "♪ " : "❚❚ ";
+            c.drawText(Ui.font(), icon, x + 5, ty, Hud.labelColor(m), Hud.shadow(m));
+            c.drawText(Ui.font(), fit(title, W - 14 - Ui.width(icon)), x + 5 + Ui.width(icon), ty, Hud.textColor(m), Hud.shadow(m));
+            ty += 10;
+            if (VortexMods.config.bool(m, "artist")) {
+                c.drawText(Ui.font(), fit(artist, W - 10), x + 5, ty, 0xFFAAB0BA, Hud.shadow(m));
+                ty += 10;
+            }
+            if (VortexMods.config.bool(m, "bar")) {
+                float k = demo ? 0.42f : Music.duration() > 0 ? Math.min(1f, Music.position() / (float) Music.duration()) : 1f;
+                c.fill(x + 5, ty + 1, x + W - 5, ty + 3, 0x40FFFFFF);
+                c.fill(x + 5, ty + 1, x + 5 + Math.round((W - 10) * k), ty + 3, VortexMods.accent());
+                ty += 6;
+            }
+            if (VortexMods.config.bool(m, "lyrics") && (demo || !Music.lyricLines.isEmpty())) {
+                int i = demo ? 0 : Music.line();
+                String now = demo ? "Lights go by, we don't slow down" : i >= 0 ? Music.lyricLines.get(i) : "…";
+                String next = demo ? "City hums along with us" : i + 1 < Music.lyricLines.size() ? Music.lyricLines.get(i + 1) : "";
+                c.drawText(Ui.font(), fit(now.isEmpty() ? "♪" : now, W - 10), x + 5, ty + 2, 0xFFFFFFFF, Hud.shadow(m));
+                if (VortexMods.config.bool(m, "nextline")) c.drawText(Ui.font(), fit(next, W - 10), x + 5, ty + 12, 0xFF8D96A5, Hud.shadow(m));
+            }
+        }
     }
 
     /** A label, a value and an optional bar under them. */

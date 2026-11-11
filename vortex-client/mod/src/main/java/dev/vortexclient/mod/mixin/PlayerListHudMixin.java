@@ -26,6 +26,11 @@ public abstract class PlayerListHudMixin {
                     : ms < 250 ? net.minecraft.util.Formatting.GOLD : net.minecraft.util.Formatting.RED;
             cir.setReturnValue(cir.getReturnValue().copy().append(Text.literal(" " + ms + "ms").formatted(col)));
         }
+        // Nick Hider: your own row shows the other name.
+        net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+        if (VortexMods.on("nickhider") && mc.player != null && mc.player.getUuid().equals(Compat.profileId(entry))) {
+            cir.setReturnValue(Text.literal(VortexMods.nick()));
+        }
         Module m = Module.get("badge");
         if (!VortexMods.config.enabled(m) || !VortexMods.config.bool(m, "tab")) return;
         if (VortexPlayers.isVortex(Compat.profileId(entry))) cir.setReturnValue(VortexPlayers.badge(cir.getReturnValue()));

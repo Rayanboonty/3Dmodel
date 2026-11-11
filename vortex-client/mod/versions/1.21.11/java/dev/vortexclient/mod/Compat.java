@@ -76,4 +76,9 @@ public final class Compat {
 
     /** The value of that option that draws fastest. */
     public static final String GRAPHICS_FAST = "false";
+
+    /** Hitboxes module (the F3+B boxes). */
+    public static void setHitboxes(net.minecraft.client.MinecraftClient mc, boolean on) {
+        // 1.21.11 has no hitbox switch in its renderer.
+    }
 }

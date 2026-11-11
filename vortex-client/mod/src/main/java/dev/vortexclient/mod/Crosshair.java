@@ -14,8 +14,14 @@ public final class Crosshair {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (Compat.debugShown()) return false;
         if (!mc.options.getPerspective().isFirstPerson()) return true;
+        drawAt(c, c.getScaledWindowWidth() / 2, c.getScaledWindowHeight() / 2, false);
+        return true;
+    }
+
+    /** The crosshair centred on (cx, cy); preview = the options page. */
+    public static void drawAt(DrawContext c, int cx, int cy, boolean preview) {
+        Module m = Module.get("crosshair");
         Config cfg = VortexMods.config;
-        int cx = c.getScaledWindowWidth() / 2, cy = c.getScaledWindowHeight() / 2;
         int size = (int) cfg.num(m, "size"), gap = (int) cfg.num(m, "gap"), t = (int) cfg.num(m, "thick");
         int color = switch (cfg.str(m, "color")) {
             case "Accent" -> VortexMods.accent();
@@ -83,7 +89,6 @@ public final class Crosshair {
             }
         }
         if (cfg.bool(m, "center") && !style.equals("Dot")) rect(c, cx - lo, cy - lo, cx + hi, cy + hi, color, outline);
-        return true;
     }
 
     private static void rect(DrawContext c, int x1, int y1, int x2, int y2, int color, boolean outline) {

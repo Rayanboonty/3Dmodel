@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: blob: https://launchercontent.mojang.com https://cdn.modrinth.com https://*.modrinth.com; style-src 'self' 'unsafe-inline'; font-src 'self'; media-src 'self' data:"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: blob: https: https://launchercontent.mojang.com https://cdn.modrinth.com https://*.modrinth.com; style-src 'self' 'unsafe-inline'; font-src 'self'; media-src 'self' data: blob: https: http: vmusic: http://vmusic.localhost https://vmusic.localhost"
     }
   },
   "bundle": {

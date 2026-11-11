@@ -5,5 +5,8 @@
   "key.vortex.freelook": "Freelook (hold)",
   "key.vortex.snaplook": "Snaplook (hold)",
   "key.vortex.hud": "Hide or show the Vortex HUD",
-  "key.vortex.copycoords": "Copy coordinates"
+  "key.vortex.copycoords": "Copy coordinates",
+  "key.vortex.music": "Music: play or pause",
+  "key.vortex.musicnext": "Music: next song",
+  "key.vortex.musicprev": "Music: previous song"
 }

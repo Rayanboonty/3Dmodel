@@ -321,11 +321,17 @@ public class ModMenuScreen extends ScreenBase {
         boolean hasOptions = !m.options.isEmpty();
         int swW = 18, swH = 9, swX = x + w - swW - 4, swY = y + (h - swH) / 2 - 1;
 
+        // The mod's picture: its Minecraft item, half size.
+        Gfx.push(c);
+        Gfx.translate(c, x, y + 3);
+        Gfx.scale(c, 0.75f, 0.75f);
+        c.drawItem(new ItemStack(m.icon), 0, 0);
+        Gfx.pop(c);
         String name = m.name;
-        int maxName = w - swW - 44;
+        int maxName = w - swW - 60;
         while (Ui.width(name) > maxName && name.length() > 3) name = name.substring(0, name.length() - 2);
         if (!name.equals(m.name)) name = name + "…";
-        Ui.text(c, name, x, y + 5, Ui.mix(DIM, TEXT, Math.max(onT, hv * 0.6f)));
+        Ui.text(c, name, x + 17, y + 5, Ui.mix(DIM, TEXT, Math.max(onT, hv * 0.6f)));
 
         // The row opens its options; the heart, gear and switch are on top.
         if (inGrid && hasOptions) hit(x - 4, y, w - swW - 8, h, (a, b) -> openOptions(m));
@@ -409,7 +415,7 @@ public class ModMenuScreen extends ScreenBase {
 
         int top = y + 26;
         c.fill(px + pad, top - 4, px + pw - pad, top - 3, LINE);
-        boolean preview = m.hud && Hud.has(m);
+        boolean preview = true;
         int listW = preview ? (pw - pad * 3) * 52 / 100 : pw - pad * 2;
         int lx = px + pad, right = lx + listW;
 
@@ -443,22 +449,8 @@ public class ModMenuScreen extends ScreenBase {
 
         if (preview) {
             int bx = right + pad, bw = px + pw - pad - bx, by = top, bh = py + ph - pad - top;
-            // A little sky-and-grass backdrop, like a screenshot of the game.
-            c.fillGradient(bx, by, bx + bw, by + bh, 0xFF7FA6D9, 0xFFB9D1EA);
-            int ground = by + bh * 2 / 3;
-            c.fill(bx, ground, bx + bw, ground + 3, 0xFF6DAA3C);
-            c.fill(bx, ground + 3, bx + bw, by + bh, 0xFF7A5537);
-            for (int i = 0; i < bw; i += 6) c.fill(bx + i, ground + 3 + (i * 7 % 5), bx + i + 2, ground + 5 + (i * 7 % 5), 0xFF6A472D);
+            Preview.draw(c, m, bx, by, bw, bh);
             Ui.roundedOutline(c, bx, by, bw, bh, 4, LINE);
-            int[] s = Hud.size(m);
-            float scale = (float) VortexMods.config.num(m, "scale");
-            float fit = Math.min(scale, Math.min((bw - 16f) / Math.max(1, s[0]), (bh - 16f) / Math.max(1, s[1])));
-            int ew = Math.round(s[0] * fit), eh = Math.round(s[1] * fit);
-            c.enableScissor(bx, by, bx + bw, by + bh);
-            Hud.drawAt(c, m, bx + (bw - ew) / 2, by + (bh - eh) / 2, fit);
-            c.disableScissor();
-            Ui.round(c, bx + 4, by + 4, Ui.width("Preview") + 8, 11, 0xA0000000);
-            Ui.text(c, "Preview", bx + 8, by + 6, 0xFFFFFFFF);
         }
     }
 

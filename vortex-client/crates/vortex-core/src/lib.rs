@@ -51,7 +51,7 @@ mod launcher;
 
 pub use launcher::{active_resource_packs, set_active_resource_packs, Launcher};
 // Re-exported so front-ends use the same versions as the core.
-pub use reqwest;
+pub use ::reqwest;
 pub use zip;
 
 /// Value of `${launcher_name}` / `-Dminecraft.launcher.brand`.

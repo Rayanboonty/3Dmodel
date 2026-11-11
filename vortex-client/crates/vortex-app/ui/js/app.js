@@ -1,5 +1,15 @@
 // Vortex Client UI: routing, pages, liquid-glass interactions, live game state.
 import { call, on, onFileDrop, isTauri } from "./api.js";
+
+// 0.10: no fades. Entrance and exit animations made in script finish at
+// once (particles are drawn on a canvas and are not affected).
+if (document.documentElement.classList.contains("pro")) {
+  const animate = Element.prototype.animate;
+  Element.prototype.animate = function (frames, opts) {
+    const o = typeof opts === "number" ? { duration: 0 } : { ...(opts || {}), duration: 0, delay: 0, endDelay: 0 };
+    return animate.call(this, frames, o);
+  };
+}
 import { icon, hydrateIcons, drawAvatar } from "./icons.js";
 import { World, SCENES, sceneThumb, sceneStill, setCustomPicture } from "./scene.js";
 import { initLiquid, setMotion, morphIn, morphOut, pressedSource, swipeToDismiss } from "./liquid.js";
@@ -61,6 +71,7 @@ const ROUTES = {
   skins: renderSkins,
   accounts: renderAccounts,
   settings: renderSettings,
+  music: renderMusic,
 };
 const NAV_OF = { new: "instances" };
 
@@ -234,7 +245,7 @@ function placeNav() {
   requestAnimationFrame(edgeCheck);
   const nav = $("#nav");
   if (!nav) return;
-  if (document.body.classList.contains("m")) { nav.style.removeProperty("--nav-x"); nav.style.removeProperty("--nav-b"); return; }
+  if (document.body.classList.contains("m") || document.documentElement.classList.contains("pro")) { nav.style.removeProperty("--nav-x"); nav.style.removeProperty("--nav-b"); nav.classList.remove("tight"); return; }
   const target = (S.route === "home" && $("#hero")) || $("#page");
   if (!target) return;
   const r = layoutRect(target);
@@ -336,7 +347,8 @@ const FEATURED_SERVERS = [
  */
 let liquidOn = false, glassWatched = false;
 function applyGlassEffect(s) {
-  const fx = s.reduce_transparency === true ? "default" : (s.glass_effect || "default");
+  // 0.10: one clean look; the glass and liquid effects are retired.
+  const fx = "default";
   document.documentElement.classList.toggle("no-glass", fx === "default");
   document.documentElement.dataset.glass = fx;
   const want = fx === "liquid";
@@ -2043,11 +2055,6 @@ function settingsBody(d) {
     const u = { ...UI_DEFAULTS, ...d };
     const wall = u.wall_custom && S.customWallUrl ? S.customWallUrl : "img/birch-forest.jpg";
     return `<div class="settings-grid">
-      <div class="card-pad"><h3>Feel</h3>
-        ${segRow(u, "glass_effect", "Glass", [["default", "Default"], ["blur", "Blur"], ["liquid", "Liquid glass"]], "Default is the fastest: clean panels, no blur. Blur frosts what's behind them. Liquid glass bends it like iOS 26 (needs a strong graphics card)")}
-        ${segRow(u, "radius", "Corners", [["round", "Round"], ["soft", "Soft"], ["sharp", "Sharp"]])}
-        ${segRow(u, "motion", "Motion", [["bouncy", "Bouncy"], ["smooth", "Smooth"]], "How presses, menus and tabs spring")}
-      </div>
       <div class="card-pad"><h3>Theme and colour</h3>
         ${segRow(u, "theme", "Mode", [["dark", "Dark"], ["light", "Light"], ["system", "System"]], "System follows Windows")}
         <div class="setting stack"><div><strong>Accent</strong><span>Buttons, highlights and the in-game mod menu</span></div>
@@ -2505,6 +2512,302 @@ function editModal(inst) {
   });
 }
 
+// ------------------------------------------------------------------ music --
+// One player for the whole launcher: songs from a folder (or files you pick)
+// and free internet radio. Lyrics come from an .lrc beside the song or from
+// LRCLIB and follow the music; the game shows the current line too.
+
+const M = {
+  audio: new Audio(),
+  tab: store.get("vortex.musicTab") || "library",
+  dir: "",
+  tracks: [],
+  filter: "",
+  stations: [],
+  genre: "lofi",
+  radioQuery: "",
+  queue: [],
+  index: -1,
+  now: null, // { kind: "track" | "radio", title, artist, path?, url }
+  lyrics: [],
+  plain: "",
+  lyricsNote: "",
+  line: -1,
+  loaded: false,
+};
+M.audio.preload = "metadata";
+M.audio.volume = Math.max(0, Math.min(1, Number(store.get("vortex.musicVol") ?? 0.8)));
+const GENRES = [["lofi", "Lofi"], ["pop", "Pop"], ["hip hop", "Hip hop"], ["rock", "Rock"], ["electronic", "Electronic"], ["chill", "Chill"], ["jazz", "Jazz"], ["classical", "Classical"]];
+const mmss = (s) => (Number.isFinite(s) && s >= 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "--:--");
+
+function trackSrc(t) {
+  if (t.url) return t.url;
+  const conv = window.__TAURI__?.core?.convertFileSrc;
+  return conv ? conv(t.path, "vmusic") : "";
+}
+
+async function playAt(i) {
+  const t = M.queue[i];
+  if (!t) return;
+  M.index = i;
+  M.now = { kind: "track", ...t };
+  M.lyrics = [];
+  M.plain = "";
+  M.line = -1;
+  M.lyricsNote = "Looking for lyrics";
+  M.audio.src = trackSrc(t);
+  try { await M.audio.play(); } catch (e) { toast("Couldn't play that", errText(e), "warn"); }
+  drawMusic();
+  sendNow();
+}
+
+function playStation(st) {
+  M.index = -1;
+  M.now = { kind: "radio", title: st.name, artist: [st.country, st.tags.split(",").slice(0, 2).join(", ")].filter(Boolean).join(" · "), url: st.url };
+  M.lyrics = [];
+  M.plain = "";
+  M.lyricsNote = "Live radio has no lyrics";
+  M.audio.src = st.url;
+  M.audio.play().catch((e) => toast("This station isn't answering", errText(e), "warn"));
+  drawMusic();
+  sendNow();
+}
+
+function musicToggle() {
+  if (!M.now) { if (M.queue.length) playAt(0); return; }
+  if (M.audio.paused) M.audio.play().catch(() => {}); else M.audio.pause();
+}
+function musicStep(d) {
+  if (M.now?.kind !== "track" || !M.queue.length) return;
+  // Previous: back to the start first, like every player.
+  if (d < 0 && M.audio.currentTime > 3) { M.audio.currentTime = 0; return; }
+  playAt((M.index + d + M.queue.length) % M.queue.length);
+}
+
+async function loadLyrics() {
+  const n = M.now;
+  if (!n || n.kind !== "track") return;
+  try {
+    const l = await call("music_lyrics", { path: n.path || null, artist: n.artist || "", title: n.title || "", duration: Number.isFinite(M.audio.duration) ? M.audio.duration : null });
+    if (M.now !== n) return;
+    M.lyrics = l.synced || [];
+    M.plain = l.plain || "";
+    M.lyricsNote = M.lyrics.length ? "" : M.plain ? "These lyrics aren't timed" : "No lyrics found for this song";
+  } catch {
+    if (M.now === n) M.lyricsNote = "Lyrics couldn't be loaded (offline?)";
+  }
+  drawLyrics();
+  sendNow();
+}
+
+/** The game's Now Playing overlay reads this. */
+let nowTimer = 0;
+function sendNow() {
+  if (!isTauri) return;
+  const n = M.now;
+  call("music_state", { now: n ? {
+    title: n.title, artist: n.artist || "", kind: n.kind, playing: !M.audio.paused,
+    positionMs: Math.round((M.audio.currentTime || 0) * 1000), durationMs: Number.isFinite(M.audio.duration) ? Math.round(M.audio.duration * 1000) : 0,
+    at: Date.now(), lyrics: M.lyrics.slice(0, 400),
+  } : { playing: false } }).catch(() => {});
+}
+
+function currentLine() {
+  const ms = M.audio.currentTime * 1000 + 150;
+  let lo = -1;
+  for (let i = 0; i < M.lyrics.length; i++) { if (M.lyrics[i][0] <= ms) lo = i; else break; }
+  return lo;
+}
+
+function drawLyrics() {
+  const box = $("#lyrics");
+  if (!box) return;
+  if (M.lyrics.length) {
+    box.innerHTML = M.lyrics.map(([ms, t], i) => `<div class="lyric" data-ms="${ms}" data-i="${i}">${esc(t) || "&#9834;"}</div>`).join("");
+    M.line = -1;
+    tickLyrics(true);
+  } else if (M.plain) {
+    box.innerHTML = `<div class="lyrics-note">${esc(M.lyricsNote)}</div>` + M.plain.split("\n").map((t) => `<div class="lyric on">${esc(t)}</div>`).join("");
+  } else {
+    box.innerHTML = `<div class="lyrics-note">${esc(M.lyricsNote || "Play a song to see its lyrics here.")}</div>`;
+  }
+}
+
+function tickLyrics(force = false) {
+  if (!M.lyrics.length) return;
+  const i = currentLine();
+  if (i === M.line && !force) return;
+  M.line = i;
+  const box = $("#lyrics");
+  if (!box) return;
+  box.querySelectorAll(".lyric").forEach((el, k) => { el.classList.toggle("on", k === i); el.classList.toggle("past", k < i); });
+  const el = box.querySelector(`.lyric[data-i="${Math.max(0, i)}"]`);
+  if (el) box.scrollTo({ top: el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2 });
+}
+
+function drawNow() {
+  const n = M.now;
+  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  set("#now-title", n ? n.title : "Nothing playing");
+  set("#now-artist", n ? n.artist || (n.kind === "radio" ? "Radio" : "Unknown artist") : "Pick a song or a station");
+  const playing = n && !M.audio.paused;
+  $$('[data-action="music-toggle"] .icon-slot, #mp-toggle .icon-slot').forEach((s) => { s.innerHTML = icon(playing ? "pause" : "play", s.closest("#mp-toggle") ? 12 : 16); });
+  const seek = $("#now-seek");
+  if (seek) {
+    const d = M.audio.duration;
+    seek.disabled = !n || n.kind === "radio" || !Number.isFinite(d);
+    seek.max = Number.isFinite(d) ? String(Math.round(d)) : "0";
+    if (!seek.matches(":active")) seek.value = String(Math.floor(M.audio.currentTime || 0));
+    set("#now-pos", mmss(M.audio.currentTime));
+    set("#now-len", n?.kind === "radio" ? "Live" : mmss(d));
+  }
+  const mp = $("#mini-player");
+  if (mp) {
+    mp.hidden = !n;
+    set("#mp-title", n ? n.title : "");
+    set("#mp-artist", n ? n.artist || "" : "");
+  }
+  $$(".track").forEach((el) => el.classList.toggle("on", M.now?.kind === "track" && Number(el.dataset.i) === M.index));
+}
+
+function drawMusic() {
+  drawNow();
+  drawLyrics();
+}
+
+function trackRows() {
+  const q = M.filter.toLowerCase();
+  M.queue = M.tracks.filter((t) => !q || `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(q));
+  if (!M.queue.length) return `<div class="empty"><h3>${M.tracks.length ? "Nothing matches" : "No songs here"}</h3><p>${M.tracks.length ? "Try another search." : "Pick the folder with your music, or add songs from anywhere. MP3, FLAC, Ogg, Opus, M4A and WAV all play."}</p></div>`;
+  return M.queue.map((t, i) => `<button class="track" data-action="music-play" data-i="${i}"><span class="t-n">${i + 1}</span><span class="t-title">${esc(t.title)}<span class="t-artist">${esc(t.artist || "Unknown artist")}${t.album ? ` · ${esc(t.album)}` : ""}</span></span><span class="t-len"></span></button>`).join("");
+}
+
+function stationRows() {
+  if (!M.stations.length) return `<div class="side-note">${M.radioLoading ? "Finding stations" : "No stations found."}</div>`;
+  return M.stations.map((s, i) => `<button class="track" data-action="music-station" data-i="${i}"><span class="t-n">${icon("radio", 12)}</span><span class="t-title">${esc(s.name)}<span class="t-artist">${esc([s.country, s.tags.split(",").slice(0, 3).join(", ")].filter(Boolean).join(" · "))}</span></span><span class="t-len">${s.bitrate ? `${s.bitrate} kbps` : ""}</span></button>`).join("");
+}
+
+function renderMusic() {
+  const lib = M.tab === "library";
+  const list = lib
+    ? `<div class="row wrap" style="gap:8px;margin-bottom:10px">
+         <input class="input grow" id="music-dir" placeholder="Music folder" value="${esc(M.dir)}" aria-label="Music folder">
+         <button class="btn btn-sm" data-action="music-load">Load</button>
+         <label class="btn btn-sm" for="music-files">${icon("plus", 12)} Add songs</label><input id="music-files" type="file" accept="audio/*,.mp3,.flac,.ogg,.opus,.m4a,.wav" multiple hidden>
+       </div>
+       <input class="input" id="music-filter" type="search" placeholder="Search songs" value="${esc(M.filter)}" style="margin-bottom:8px" aria-label="Search songs">
+       <div class="music-tracks" id="music-tracks">${trackRows()}</div>`
+    : `<div class="row wrap" style="gap:8px;margin-bottom:10px">
+         <input class="input grow" id="radio-q" type="search" placeholder="Search stations" value="${esc(M.radioQuery)}" aria-label="Search stations">
+       </div>
+       <div class="seg" style="margin-bottom:10px;flex-wrap:wrap">${GENRES.map(([g, l]) => `<button class="${M.genre === g && !M.radioQuery ? "on" : ""}" data-action="music-genre" data-g="${g}">${l}</button>`).join("")}</div>
+       <div class="music-tracks" id="music-tracks">${stationRows()}</div>`;
+  return {
+    html: sheet("Music", "Your own songs and free internet radio, with lyrics that follow the music. In the game, F8 plays or pauses and F9 skips.",
+      `<div class="seg"><button class="${lib ? "on" : ""}" data-action="music-tab" data-t="library">${icon("music", 12)} My music</button><button class="${lib ? "" : "on"}" data-action="music-tab" data-t="radio">${icon("radio", 12)} Radio</button></div>`,
+      `<div class="music">
+        <div class="music-list">${list}</div>
+        <div class="card-pad now">
+          <div><div class="now-title" id="now-title"></div><div class="now-artist" id="now-artist"></div></div>
+          <div class="now-bar"><span id="now-pos">0:00</span><input type="range" id="now-seek" min="0" max="0" value="0" aria-label="Position"><span id="now-len">--:--</span></div>
+          <div class="now-ctl">
+            <button class="btn btn-icon" data-action="music-prev" aria-label="Previous">${icon("prev", 14)}</button>
+            <button class="btn btn-accent btn-play" data-action="music-toggle" aria-label="Play or pause"><span class="icon-slot">${icon("play", 16)}</span></button>
+            <button class="btn btn-icon" data-action="music-next" aria-label="Next">${icon("next", 14)}</button>
+          </div>
+          <div class="now-bar"><span>${icon("music", 11)}</span><input type="range" id="now-vol" min="0" max="100" value="${Math.round(M.audio.volume * 100)}" aria-label="Volume"></div>
+          <div class="lyrics" id="lyrics"></div>
+        </div>
+      </div>`),
+    mount(root) {
+      drawMusic();
+      if (lib && !M.loaded) { M.loaded = true; loadLibrary(M.dir || S.settings?.music_dir || ""); }
+      if (!lib && !M.stations.length) loadStations();
+      $("#music-filter", root)?.addEventListener("input", (e) => { M.filter = e.target.value; $("#music-tracks").innerHTML = trackRows(); drawNow(); });
+      $("#music-dir", root)?.addEventListener("keydown", (e) => { if (e.key === "Enter") actions["music-load"](); });
+      $("#radio-q", root)?.addEventListener("keydown", (e) => { if (e.key === "Enter") { M.radioQuery = e.target.value.trim(); loadStations(); } });
+      $("#music-files", root)?.addEventListener("change", (e) => {
+        const files = [...(e.target.files || [])];
+        const added = files.map((f) => {
+          const stem = f.name.replace(/\.[^.]+$/, "");
+          const [artist, title] = stem.includes(" - ") ? stem.split(" - ", 2) : ["", stem];
+          return { path: null, url: URL.createObjectURL(f), title: title.trim(), artist: artist.trim(), album: "" };
+        });
+        M.tracks = [...added, ...M.tracks];
+        $("#music-tracks").innerHTML = trackRows();
+        if (added.length && !M.now) playAt(0);
+      });
+      const seek = $("#now-seek", root);
+      seek?.addEventListener("input", () => { $("#now-pos").textContent = mmss(Number(seek.value)); });
+      seek?.addEventListener("change", () => { M.audio.currentTime = Number(seek.value); sendNow(); });
+      $("#now-vol", root)?.addEventListener("input", (e) => { M.audio.volume = Number(e.target.value) / 100; store.set("vortex.musicVol", M.audio.volume); });
+      $("#lyrics", root)?.addEventListener("click", (e) => {
+        const el = e.target.closest(".lyric[data-ms]");
+        if (el && M.now?.kind === "track") { M.audio.currentTime = Number(el.dataset.ms) / 1000; sendNow(); }
+      });
+    },
+  };
+}
+
+async function loadLibrary(dir) {
+  const box = $("#music-tracks");
+  if (box) box.innerHTML = `<div class="side-note">Reading your music</div>`;
+  try {
+    const r = await call("music_library", { dir: dir || null });
+    M.dir = r.dir;
+    M.tracks = [...M.tracks.filter((t) => t.url), ...r.tracks];
+    const input = $("#music-dir");
+    if (input) input.value = r.dir;
+    if (dir && dir !== S.settings?.music_dir) saveSettings({ ...S.settings, music_dir: dir }).catch(() => {});
+  } catch (e) {
+    toast("Couldn't read that folder", errText(e), "warn");
+  }
+  const b = $("#music-tracks");
+  if (b) b.innerHTML = trackRows();
+  drawNow();
+}
+
+async function loadStations() {
+  M.radioLoading = true;
+  const box = $("#music-tracks");
+  if (box) box.innerHTML = stationRows();
+  try {
+    M.stations = await call("music_radio", { query: M.radioQuery, tag: M.radioQuery ? "" : M.genre });
+  } catch (e) {
+    M.stations = [];
+    toast("Radio couldn't be reached", errText(e), "warn");
+  }
+  M.radioLoading = false;
+  const b = $("#music-tracks");
+  if (b) b.innerHTML = stationRows();
+  drawNow();
+}
+
+function bindMusic() {
+  const a = M.audio;
+  a.addEventListener("play", () => { drawNow(); sendNow(); });
+  a.addEventListener("pause", () => { drawNow(); sendNow(); });
+  a.addEventListener("loadedmetadata", () => { drawNow(); if (M.now?.kind === "track") loadLyrics(); });
+  a.addEventListener("timeupdate", () => { drawNow(); tickLyrics(); });
+  a.addEventListener("seeked", sendNow);
+  a.addEventListener("ended", () => musicStep(1));
+  a.addEventListener("error", () => { if (M.now) toast("Couldn't play that", "The file or station didn't load.", "warn"); });
+  $("#mp-toggle")?.addEventListener("click", (e) => { e.stopPropagation(); musicToggle(); });
+  $("#mp-next")?.addEventListener("click", (e) => { e.stopPropagation(); musicStep(1); });
+  $("#mp-open")?.addEventListener("click", () => go("music"));
+  // Resync the game now and then, and take its button presses.
+  setInterval(() => { if (M.now && !a.paused) sendNow(); }, 5000);
+  if (isTauri) setInterval(async () => {
+    try {
+      for (const c of await call("music_commands")) {
+        if (c === "toggle") musicToggle();
+        else if (c === "next") musicStep(1);
+        else if (c === "prev") musicStep(-1);
+      }
+    } catch { /* not now */ }
+  }, 400);
+}
+
 // ---------------------------------------------------------------- actions --
 
 async function refreshInstances() {
@@ -2691,6 +2994,14 @@ async function play(name, server = null) {
 }
 
 const actions = {
+  "music-tab"(el) { M.tab = el.dataset.t; store.set("vortex.musicTab", M.tab); render(); },
+  "music-play"(el) { playAt(Number(el.dataset.i)); },
+  "music-station"(el) { const st = M.stations[Number(el.dataset.i)]; if (st) playStation(st); },
+  "music-toggle"() { musicToggle(); },
+  "music-next"() { musicStep(1); },
+  "music-prev"() { musicStep(-1); },
+  "music-load"() { const v = $("#music-dir")?.value.trim(); M.tracks = M.tracks.filter((t) => t.url); loadLibrary(v); },
+  "music-genre"(el) { M.genre = el.dataset.g; M.radioQuery = ""; const q = $("#radio-q"); if (q) q.value = ""; $$('[data-action="music-genre"]').forEach((b) => b.classList.toggle("on", b === el)); loadStations(); },
   route(el) { go(el.dataset.route); },
   "join-server"(el, e) {
     e.stopPropagation();
@@ -3291,6 +3602,7 @@ function updateAccount() {
 function bindChrome() {
   hydrateIcons(document);
   bindLiquid();
+  bindMusic();
   applyPhone();
   matchMedia("(max-width: 760px)").addEventListener?.("change", () => { applyPhone(); liquidTabs($("#nav"), true); requestAnimationFrame(placeHero); });
   $$("#nav .tab").forEach((b) => b.addEventListener("click", () => go(b.dataset.route)));
@@ -3469,9 +3781,8 @@ async function boot() {
   // Let the logo finish building and the bar fill before the burst.
   const bootEl = $("#boot");
   world.rise = 0;
-  // A quick fade instead of the particle build (it lagged on first start).
-  bootEl.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-out", fill: "forwards" });
-  setTimeout(() => bootEl.remove(), 230);
+  // No fade, no particles: the launcher is simply there.
+  bootEl.remove();
   if (false) {
     const stopFlow = () => {};
     // The logo bursts, and its grains fly out and build the launcher: every

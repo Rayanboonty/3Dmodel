@@ -48,6 +48,9 @@ public class VortexMods implements ClientModInitializer {
         snapKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.snaplook", GLFW.GLFW_KEY_V));
         hudKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.hud", GLFW.GLFW_KEY_F6));
         copyKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.copycoords", GLFW.GLFW_KEY_F7));
+        musicKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.music", GLFW.GLFW_KEY_F8));
+        nextKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.musicnext", GLFW.GLFW_KEY_F9));
+        prevKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.musicprev", GLFW.GLFW_KEY_UNKNOWN));
         NetClient.init();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
             if (hintShown) return;
@@ -101,6 +104,11 @@ public class VortexMods implements ClientModInitializer {
         while (hudKey.wasPressed()) {
             hudOff = !hudOff;
         }
+        // The launcher's music player.
+        Music.tick();
+        while (musicKey.wasPressed()) Music.send("toggle");
+        while (nextKey.wasPressed()) Music.send("next");
+        while (prevKey.wasPressed()) Music.send("prev");
         // Copy Coordinates (F7).
         while (copyKey.wasPressed()) {
             Module cc = Module.get("copycoords");
@@ -186,7 +194,29 @@ public class VortexMods implements ClientModInitializer {
     }
 
     private static boolean zoomWasHeld, zoomToggled, flWasHeld, flToggled, snapping, wasDead;
-    public static KeyBinding hudKey, copyKey;
+    public static KeyBinding hudKey, copyKey, musicKey, nextKey, prevKey;
+
+    /** Nick Hider: the name shown instead of yours. */
+    public static String nick() {
+        String n = config.str(Module.get("nickhider"), "name");
+        return n.equals("Hidden") ? "?????" : n;
+    }
+
+    /** Your name replaced in a chat line, keeping its colours. */
+    static Text hideNick(Text message) {
+        Module m = Module.get("nickhider");
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (!config.enabled(m) || mc.player == null) return message;
+        String name = mc.player.getName().getString();
+        if (name.length() < 3 || !message.getString().contains(name)) return message;
+        String nick = nick();
+        net.minecraft.text.MutableText out = Text.empty();
+        message.visit((style, part) -> {
+            out.append(Text.literal(part.replace(name, nick)).setStyle(style));
+            return java.util.Optional.empty();
+        }, net.minecraft.text.Style.EMPTY);
+        return out;
+    }
     /** The Vortex HUD hidden with F6. */
     public static boolean hudOff;
     private static boolean lowWarned;
@@ -321,6 +351,7 @@ public class VortexMods implements ClientModInitializer {
     public static Text stampChat(Text message) {
         watchChat(message);
         message = mention(message);
+        message = hideNick(message);
         Module m = Module.get("timestamps");
         if (!config.enabled(m)) return message;
         boolean sec = config.bool(m, "seconds");
@@ -349,6 +380,7 @@ public class VortexMods implements ClientModInitializer {
     /** Applies modules that change vanilla options (toggle sprint and sneak). */
     public static void applyToggles() {
         Boost.sync();
+        Compat.setHitboxes(MinecraftClient.getInstance(), on("hitboxes"));
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.options == null) return;
         Module sprint = Module.get("sprint");
