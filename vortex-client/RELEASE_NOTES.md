@@ -1,3 +1,7 @@
+**Vortex 0.10.1: Steve stays put.** When the launcher opens, Steve is simply standing on his spot by the Play button: no running in, no jumps. He no longer jumps by himself when a game starts either. Click him and he still hops.
+
+**From 0.10.0:**
+
 **Vortex 0.10.0: music, every version, and more mods.**
 
 **Music.** A new Music page plays your own songs (MP3, FLAC, Ogg, Opus, M4A, WAV) or free internet radio, searchable by name or genre.

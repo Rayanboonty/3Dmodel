@@ -286,6 +286,17 @@ export class Player {
     this.action.delay = delay;
   }
 
+  /** Straight to his spot on the button, already posing (no run-in). */
+  settle() {
+    this.x = 0;
+    this.vx = 0;
+    this.y = 0;
+    this.vy = 0;
+    this.introDone = true;
+    this.start("pose", 1e9);
+    this.action.t = 1;
+  }
+
   chooseNext() {
     if (this.activity === "preparing") return this.start(this.world?.picture ? "idle" : "mine", 999);
     if (this.world?.picture) return this.start(this.introDone === false ? "idle" : "pose", 1e9);
@@ -405,7 +416,6 @@ export class Player {
           const s = Math.sin(Math.min(1, a.t / a.dur) * Math.PI);
           rArmZ = 150 * s; lArmZ = -150 * s;
           lookOverride = { yaw: 0, pitch: -6 };
-          if (a.t > 0.15 && a.t < 0.22) this.jump();
           if (a.t > a.dur) this.start("pose", 1e9), (this.action.t = 1);
           break;
         }
@@ -461,8 +471,6 @@ export class Player {
         case "celebrate":
           rArmZ = 150 + Math.sin(a.t * 12) * 18;
           lArmZ = -150 - Math.sin(a.t * 12) * 18;
-          if (a.t > 0.2 && a.t < 0.3) this.jump();
-          if (a.t > 1.4 && a.t < 1.5) this.jump();
           if (a.t > a.dur) this.start("home", 6);
           break;
         case "look": {

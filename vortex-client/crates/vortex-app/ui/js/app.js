@@ -2069,7 +2069,6 @@ function settingsBody(d) {
         ${swRow(u, "home_recent", "Recent instances", "Under the Launch button")}
         ${swRow(u, "side_labels", "Sidebar labels", "Off for a slim icon sidebar")}
         ${swRow(d, "show_player", "3D player", "Your skin, standing at the Launch button")}
-        ${swRow(u, "intro", "Entrance", "He runs in and catches his breath when the launcher opens")}
       </div>
     </div>`;
   }
@@ -3823,8 +3822,8 @@ async function boot() {
   }
   placeHero();
   const u = { ...UI_DEFAULTS, ...S.settings };
-  if (world.picture && anims() && u.intro !== false) { placeHero(); player.intro(0.45); }
-  else if (world.picture) player.chooseNext();
+  // Steve is simply there, on his spot by the button (no run-in or jumps).
+  if (world.picture) { placeHero(); player.settle(); }
   else setTimeout(() => player.wave(1.8), 1200);
 }
 
