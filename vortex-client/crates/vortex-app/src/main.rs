@@ -15,6 +15,8 @@ mod updater;
 mod installer;
 mod music;
 mod hosting;
+mod recording;
+mod extras_ui;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{oneshot, Mutex};
 use vortex_core::accounts::{Account, AccountKind, AccountStore};
@@ -230,8 +232,23 @@ fn instance_view(inst: &Instance, running: &HashMap<String, oneshot::Sender<()>>
     }
 }
 
+/// Whether you made (or played) this instance. Ones an older Vortex left
+/// behind and that were never played stay hidden; the Instances page can
+/// show or remove them.
+fn made_by_you(inst: &mut Instance) -> bool {
+    if inst.origin.as_deref() == Some("user") {
+        return true;
+    }
+    if inst.last_played.is_some() || inst.playtime_secs > 0 {
+        inst.origin = Some("user".into());
+        let _ = inst.save();
+        return true;
+    }
+    false
+}
+
 async fn instance_views(state: &AppState) -> CmdResult<Vec<InstanceView>> {
-    let list = state.launcher.instances().list().map_err(fail)?;
+    let list: Vec<Instance> = state.launcher.instances().list().map_err(fail)?.into_iter().filter_map(|mut i| made_by_you(&mut i).then_some(i)).collect();
     let running = state.running.lock().await;
     Ok(list.iter().map(|i| instance_view(i, &running)).collect())
 }
@@ -308,6 +325,25 @@ async fn list_instances(state: State<'_, AppState>) -> CmdResult<Vec<InstanceVie
     instance_views(&state).await
 }
 
+/// Instances you didn't make (left by an older Vortex, never played).
+#[tauri::command]
+async fn hidden_instances(state: State<'_, AppState>) -> CmdResult<Vec<String>> {
+    Ok(state.launcher.instances().list().map_err(fail)?.into_iter().filter_map(|mut i| (!made_by_you(&mut i)).then_some(i.name)).collect())
+}
+
+/// Keep (show) or remove one of those.
+#[tauri::command]
+async fn hidden_instance(state: State<'_, AppState>, name: String, keep: bool) -> CmdResult<Vec<InstanceView>> {
+    let mut inst = find_instance(&state, &name)?;
+    if keep {
+        inst.origin = Some("user".into());
+        inst.save().map_err(fail)?;
+    } else if !made_by_you(&mut inst) {
+        state.launcher.instances().delete(&inst).map_err(fail)?;
+    }
+    instance_views(&state).await
+}
+
 #[tauri::command]
 async fn create_instance(
     state: State<'_, AppState>,
@@ -325,7 +361,7 @@ async fn create_instance(
     };
     let mut inst = Instance::new(name.trim(), &version, loader);
     inst.memory_mb = memory_mb;
-    inst.pack = pack.filter(|p| ["pvp", "normal", "performance", "vanilla"].contains(&p.as_str()));
+    inst.pack = pack.filter(|p| ["pvp", "normal", "performance", "youtuber", "vanilla"].contains(&p.as_str()));
     let inst = state.launcher.instances().create(inst).map_err(fail)?;
     let running = state.running.lock().await;
     Ok(instance_view(&inst, &running))
@@ -726,6 +762,71 @@ async fn music_playlists(state: State<'_, AppState>, query: String) -> CmdResult
 #[tauri::command]
 async fn music_playlist(state: State<'_, AppState>, id: String) -> CmdResult<Vec<music::Song>> {
     music::playlist_tracks(state.launcher.http(), &id).await.map_err(fail)
+}
+
+// ---------------------------------------------------- wallpapers, plugins --
+
+#[tauri::command]
+async fn wallpaper_gallery(state: State<'_, AppState>) -> CmdResult<Vec<extras_ui::Wallpaper>> {
+    extras_ui::gallery(state.launcher.http()).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn wallpaper_fetch(state: State<'_, AppState>, url: String) -> CmdResult<String> {
+    extras_ui::fetch(state.launcher.http(), &url).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn plugins_list(state: State<'_, AppState>) -> CmdResult<Vec<extras_ui::Plugin>> {
+    Ok(extras_ui::plugins(&state.launcher.paths().root))
+}
+
+#[tauri::command]
+async fn plugin_toggle(state: State<'_, AppState>, file: String, enabled: Option<bool>) -> CmdResult<Vec<extras_ui::Plugin>> {
+    let root = state.launcher.paths().root.clone();
+    extras_ui::toggle(&root, &file, enabled).map_err(fail)?;
+    Ok(extras_ui::plugins(&root))
+}
+
+#[tauri::command]
+async fn plugin_example(state: State<'_, AppState>) -> CmdResult<Vec<extras_ui::Plugin>> {
+    let root = state.launcher.paths().root.clone();
+    extras_ui::make_example(&root).map_err(fail)?;
+    Ok(extras_ui::plugins(&root))
+}
+
+#[tauri::command]
+async fn plugins_folder(state: State<'_, AppState>) -> CmdResult<()> {
+    let dir = extras_ui::plugin_dir(&state.launcher.paths().root);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    open_with_os(&dir.to_string_lossy()).map_err(|e| e.to_string())
+}
+
+// ------------------------------------------------------------- recording --
+
+#[tauri::command]
+async fn record_start(app: AppHandle, state: State<'_, AppState>, fps: u32, quality: String) -> CmdResult<recording::Status> {
+    let progress: ProgressFn = Arc::new(move |p: Progress| {
+        let _ = app.emit("record-progress", serde_json::json!({ "stage": p.stage, "done": p.done, "total": p.total }));
+    });
+    recording::start(state.launcher.http(), &state.launcher.paths().root, fps, &quality, &progress).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn record_stop(state: State<'_, AppState>) -> CmdResult<Option<String>> {
+    recording::stop(&state.launcher.paths().root).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn record_status(state: State<'_, AppState>) -> CmdResult<recording::Status> {
+    recording::status(&state.launcher.paths().root).await.map_err(fail)
+}
+
+#[tauri::command]
+async fn record_folder() -> CmdResult<()> {
+    let dir = recording::folder();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    open_with_os(&dir.to_string_lossy()).map_err(|e| e.to_string())
 }
 
 // --------------------------------------------------------------- hosting --
@@ -1389,11 +1490,11 @@ async fn setup_vortex_mod(
             .context("could not install Fabric API, which the Vortex mod needs")?;
     }
     let library = Skins::new(launcher);
-    if !account.is_microsoft() {
-        if let Some((path, slim)) = library.applied_for(&account.uuid) {
-            instance.jvm_args.push(format!("-Dvortex.skin={}", path.display()));
-            instance.jvm_args.push(format!("-Dvortex.skinSlim={slim}"));
-        }
+    // The chosen skin, shown in-game by the Vortex mod. Microsoft accounts
+    // get it too: Mojang can take a while to hand out a newly uploaded skin.
+    if let Some((path, slim)) = library.applied_for(&account.uuid) {
+        instance.jvm_args.push(format!("-Dvortex.skin={}", path.display()));
+        instance.jvm_args.push(format!("-Dvortex.skinSlim={slim}"));
     }
     match library.cape_file_for(&account.uuid) {
         Some(file) => {
@@ -1405,6 +1506,8 @@ async fn setup_vortex_mod(
     instance.jvm_args.push(format!("-Dvortex.accent={}", settings.accent));
     instance.jvm_args.push(format!("-Dvortex.music={}", music::dir(&launcher.paths().root).display()));
     instance.jvm_args.push(format!("-Dvortex.menu={}", settings.vortex_menu));
+    let menu_style = settings.ui.get("menu_style").and_then(|v| v.as_str()).unwrap_or("moving");
+    instance.jvm_args.push(format!("-Dvortex.menuStyle={}", if menu_style == "picture" { "picture" } else { "moving" }));
     let menu = menu_dir(launcher);
     for (prop, file) in [("menuBg", "background.png"), ("menuLogo", "logo.png")] {
         let p = menu.join(file);
@@ -1465,6 +1568,47 @@ const PERF_FORGE: &[(&str, &str)] = &[
 ];
 
 /// Normal: the everyday extras on top of the performance set.
+/// The YouTuber pack: what creators use to record and film Minecraft.
+const YOUTUBER_FABRIC: &[(&str, &str)] = &[
+    ("mOgUt4GM", "Mod Menu"),
+    ("4das1Fjq|Nv2fQJo5", "Flashback|Replay Mod"),
+    ("YL57xq9U", "Iris Shaders"),
+    ("uCdwusMi", "Distant Horizons"),
+    ("XeEZ3fK2", "Freecam"),
+    ("m0oRwcZx", "Camera Overhaul"),
+    ("H5XMjpHi", "First-person Model"),
+    ("1IjD5062", "Continuity"),
+    ("yBW8D80W|PxQSWIcD", "LambDynamicLights|Sodium Dynamic Lights"),
+    ("zV5r3pPn", "3D Skin Layers"),
+    ("kYuIpRLv", "Wavey Capes"),
+    ("MPCX6s5C", "Not Enough Animations"),
+    ("4I1XuqiY", "Entity Model Features"),
+    ("BVzZfTc1", "Entity Texture Features"),
+    ("M08ruV16", "Bobby"),
+    ("WhbRG4iK", "Falling Leaves"),
+    ("nrikgvxm", "Particle Rain"),
+    ("rI0hvYcd", "Visuality"),
+    ("5srFLIaK", "Better Clouds"),
+    ("qyVF9oeo", "Sound Physics Remastered"),
+    ("fM515JnW", "AmbientSounds"),
+    ("rcTfTZr3", "Presence Footsteps"),
+    ("JtifUr64", "Traveler's Titles"),
+    ("1KiJRrTg", "Screenshot to Clipboard"),
+    ("qQyHxfxd", "No Chat Reports"),
+];
+
+const YOUTUBER_FORGE: &[(&str, &str)] = &[
+    ("Nv2fQJo5", "Replay Mod"),
+    ("GchcoXML", "Oculus"),
+    ("uCdwusMi", "Distant Horizons"),
+    ("XeEZ3fK2", "Freecam"),
+    ("m0oRwcZx", "Camera Overhaul"),
+    ("H5XMjpHi", "First-person Model"),
+    ("zV5r3pPn", "3D Skin Layers"),
+    ("kYuIpRLv", "Wavey Capes"),
+    ("PxQSWIcD", "Sodium Dynamic Lights"),
+];
+
 const NORMAL_FABRIC: &[(&str, &str)] = &[
     ("mOgUt4GM", "Mod Menu"),
     ("YL57xq9U", "Iris Shaders"),
@@ -1604,6 +1748,8 @@ fn pack_mods(pack: &str, loader: &Loader) -> Vec<(&'static str, &'static str)> {
         ("normal", false) => (PERF_FORGE, NORMAL_FORGE),
         ("pvp", true) => (PERF_FABRIC, PVP_FABRIC),
         ("pvp", false) => (PERF_FORGE, PVP_FORGE),
+        ("youtuber", true) => (PERF_FABRIC, YOUTUBER_FABRIC),
+        ("youtuber", false) => (PERF_FORGE, YOUTUBER_FORGE),
         _ => return Vec::new(),
     };
     perf.iter().chain(extra.iter()).copied().collect()
@@ -1637,7 +1783,8 @@ async fn setup_pack(
         list.push(("Va8PJBFX", "RenderScale"));
     }
     // In-game recording: Replay Mod records every match to watch back or render as a video.
-    if settings.ui.get("replay_mod").and_then(|v| v.as_bool()) == Some(true) && matches!(instance.loader, Loader::Fabric { .. }) {
+    // (The YouTuber pack already records, with Flashback or Replay Mod.)
+    if pack != "youtuber" && settings.ui.get("replay_mod").and_then(|v| v.as_bool()) == Some(true) && matches!(instance.loader, Loader::Fabric { .. }) {
         list.push(("Nv2fQJo5", "Replay Mod"));
     }
     let mark = instance.dir.join(PERF_MARK);
@@ -2006,10 +2153,49 @@ async fn player_skin(state: State<'_, AppState>) -> CmdResult<SkinView> {
     let skins = state.launcher.paths().cache().join("skins");
     let _ = std::fs::create_dir_all(&skins);
 
+    // Offline account named after a real player: wear that player's skin,
+    // looked up once (Settings > Skins can change it any time).
+    if let Some(acc) = account.as_ref().filter(|a| !a.is_microsoft()) {
+        let tried = skins.join(format!("{}.looked-up", acc.uuid));
+        if !tried.exists() {
+            match skins::skin_of_player(state.launcher.http(), &acc.username).await {
+                Ok((name, png, slim)) => {
+                    let _ = std::fs::write(&tried, b"found");
+                    if let Ok(skin) = library.add(&png, &name, slim) {
+                        let _ = library.set_applied(&acc.uuid, Some(&skin.id));
+                        return Ok(SkinView { data_url: Some(png_data_url(&png)), slim, source: "chosen", cape: cape.clone(), cape_url: cape_url.clone() });
+                    }
+                }
+                // No such player: don't ask again. Network trouble: try next time.
+                Err(e) if e.to_string().contains("no Java Edition player") || e.to_string().contains("isn't a valid") => {
+                    let _ = std::fs::write(&tried, b"none");
+                }
+                Err(_) => {}
+            }
+        }
+    }
+
     if let Some(acc) = account.filter(|a| a.is_microsoft()) {
         let file = skins.join(format!("{}.png", acc.uuid));
         let slim_file = skins.join(format!("{}.slim", acc.uuid));
-        match skins::fetch_profile_skin(state.launcher.http(), &acc.uuid).await {
+        // The account's own token sees a new skin at once; the public profile
+        // can lag behind and is rate limited, so it's the fallback.
+        let mut fresh = None;
+        let mut acc2 = acc.clone();
+        let settings = state.settings.lock().await.clone();
+        if let Ok(session) = state.launcher.session_for(&mut acc2, &settings).await {
+            if acc2 != acc {
+                let mut store = state.accounts.lock().await;
+                store.upsert(acc2.clone());
+                let _ = store.save();
+            }
+            fresh = skins::fetch_own_skin(state.launcher.http(), &session.access_token).await.ok();
+        }
+        let fetched = match fresh {
+            Some(v) => Ok(v),
+            None => skins::fetch_profile_skin(state.launcher.http(), &acc.uuid).await,
+        };
+        match fetched {
             Ok((bytes, slim)) => {
                 let _ = std::fs::write(&file, &bytes);
                 if slim {
@@ -2074,6 +2260,10 @@ fn main() {
 
     tauri::Builder::default()
         .register_uri_scheme_protocol("vmusic", |_ctx, request| music::serve(&request))
+        .register_uri_scheme_protocol("vplugin", |ctx, request| {
+            let root = ctx.app_handle().state::<AppState>().launcher.paths().root.clone();
+            extras_ui::serve(&root, &request)
+        })
         .manage(AppState {
             launcher: Arc::new(launcher),
             settings: Mutex::new(settings),
@@ -2107,6 +2297,18 @@ fn main() {
             music_search,
             music_playlists,
             music_playlist,
+            hidden_instances,
+            wallpaper_gallery,
+            wallpaper_fetch,
+            plugins_list,
+            plugin_toggle,
+            plugin_example,
+            plugins_folder,
+            record_start,
+            record_stop,
+            record_status,
+            record_folder,
+            hidden_instance,
             host_list,
             host_versions,
             host_create,
@@ -2175,11 +2377,14 @@ fn main() {
                 if busy && ask {
                     api.prevent_close();
                     let _ = window.emit("confirm-close", ());
-                } else if hosting::any_running() {
-                    // Hosted servers save and stop properly before Vortex closes.
+                } else if hosting::any_running() || recording::busy() {
+                    // Hosted servers save and stop, and a recording is
+                    // finished, before Vortex closes.
                     api.prevent_close();
                     let w = window.clone();
+                    let root = state.launcher.paths().root.clone();
                     tauri::async_runtime::spawn(async move {
+                        let _ = recording::stop(&root).await;
                         hosting::stop_all().await;
                         let _ = w.destroy();
                     });
@@ -2212,7 +2417,7 @@ mod pack_tests {
     #[test]
     fn packs_are_client_side_and_unique() {
         // Server-only mods stay out: Radium, VMP, C2ME.
-        for pack in ["performance", "normal", "pvp"] {
+        for pack in ["performance", "normal", "pvp", "youtuber"] {
             for loader in [Loader::Fabric { version: None }, Loader::Forge { version: None }] {
                 let list = pack_mods(pack, &loader);
                 assert!(!list.is_empty());

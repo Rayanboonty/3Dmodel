@@ -1,3 +1,41 @@
+**Vortex 0.12.0: your skin, your layout, a real music player and recording.**
+
+**Skins fixed.**
+- Your skin shows up the first time you open Vortex. Microsoft accounts read it straight from your account (no more waiting on Mojang's slow profile service, which also timed out). Offline accounts named after a real player now wear that player's skin.
+- Choosing a skin can no longer flip back to the old one or to Steve: an older, slower skin request can't overwrite a newer one any more.
+- You see a skin you just chose in-game straight away, on Microsoft accounts too.
+- HD skins (128×128 and up) draw correctly.
+
+**Only your instances.** Instances an older Vortex left behind that you never played are hidden. A note at the bottom of Instances lets you show or remove them.
+
+**Make it yours** (Settings > Appearance):
+- Tabs at the bottom, top, left or right.
+- Play button (and Steve) on the left, in the middle or on the right; widgets on the left or right; the Vortex logo on the left, in the middle or on the right.
+- Wallpaper size: smaller leaves room for the news under it.
+- Any accent colour, with the new colour picker.
+- Blur is the standard glass now.
+- Widgets: pick what Home shows. New: Play time, Clock, This PC and Now playing.
+
+**Wallpapers.** High-quality Minecraft wallpapers, chosen from the showcase screenshots of the best shader packs on Modrinth (Complementary, Photon, BSL, Bliss and more), or your own picture.
+
+**In-game main menu.** A slowly turning 3D Minecraft world, with warm, shader-style light. Prefer your wallpaper? Settings > Appearance > In-game menu.
+
+**Music, like Spotify.** A sidebar with your library, a greeting with quick picks, a now-playing panel with a lyrics card, a player bar along the bottom, and full-screen lyrics.
+
+**Screen recording.** Record (at the top), or F12 in-game, films your screen to an MP4 in Videos\Vortex, using your graphics card's encoder when it has one. A REC badge shows in-game while it records. The first time, Vortex downloads the recorder (about 80 MB). It records the picture only, without sound.
+
+**YouTuber pack** for new instances: Flashback (or Replay Mod), Iris shaders, Distant Horizons, Freecam, Camera Overhaul, First-person Model, lively animations and more, on top of every performance mod.
+
+**Clean Visuals** (in-game, PvP): no hurt shake, no nausea or portal wobble, no darkness pulse, and optionally no view bobbing, no sprint FOV change and a softer enchant glint. Your own settings come back when it's off.
+
+**Plugins** (Settings > Account & Data): your own JavaScript plugins can add Home widgets, notifications and more. "Make an example" creates one to start from.
+
+**Design fixes.** The version label on instance cards was a box inside a box: fixed (a style from the Host page clashed with it). The New instance step indicator is back to normal. Widget titles, chips, buttons and badges line up.
+
+---
+
+**From 0.11.0:**
+
 **Vortex 0.11.0: host servers, a real music player, capes and a cleaner look.**
 
 **Host your own server.** A new Host page runs Minecraft servers on your PC.

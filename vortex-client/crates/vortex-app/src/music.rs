@@ -397,7 +397,7 @@ pub fn take_commands(data_root: &Path) -> Vec<String> {
     let p = dir(data_root).join("commands.txt");
     let Ok(text) = std::fs::read_to_string(&p) else { return Vec::new() };
     let _ = std::fs::remove_file(&p);
-    text.lines().map(|l| l.trim().to_string()).filter(|l| ["toggle", "next", "prev"].contains(&l.as_str())).collect()
+    text.lines().map(|l| l.trim().to_string()).filter(|l| ["toggle", "next", "prev", "record"].contains(&l.as_str())).collect()
 }
 
 // --------------------------------------------------------- audio server --

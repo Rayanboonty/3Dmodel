@@ -957,6 +957,7 @@ public final class Hud {
                 && VortexMods.config.bool(client, "hudscreens")) return;
         int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
         HudPlus.overlays(c, mc, sw, sh);
+        Rec.draw(c, sw);
         if (VortexMods.hudOff) return;
         if (styled() && VortexMods.config.bool(style(), "hidechat") && mc.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen) return;
         if (VortexMods.zoomHidesHud()) return;

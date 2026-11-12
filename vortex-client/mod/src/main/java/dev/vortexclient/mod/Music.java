@@ -31,6 +31,10 @@ public final class Music {
     public static List<Long> lyricTimes = new ArrayList<>();
     public static List<String> lyricLines = new ArrayList<>();
 
+    static String dir() {
+        return DIR;
+    }
+
     public static boolean available() {
         return !DIR.isEmpty();
     }

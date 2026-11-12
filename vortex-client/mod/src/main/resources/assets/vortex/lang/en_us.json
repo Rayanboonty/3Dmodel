@@ -12,5 +12,6 @@
   "key.vortex.stopwatch": "Stopwatch: start, stop (hold to reset)",
   "key.vortex.waypoint": "Save a waypoint here",
   "key.vortex.quickchat1": "Quick chat 1",
-  "key.vortex.quickchat2": "Quick chat 2"
+  "key.vortex.quickchat2": "Quick chat 2",
+  "key.vortex.record": "Start or stop recording"
 }

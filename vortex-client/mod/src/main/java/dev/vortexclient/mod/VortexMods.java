@@ -30,6 +30,7 @@ public class VortexMods implements ClientModInitializer {
     public static Config config = new Config();
     public static KeyBinding menuKey;
     public static KeyBinding zoomKey;
+    static KeyBinding recordKey;
 
     public static boolean zooming;
     private static double zoomLevel = 4;
@@ -56,6 +57,7 @@ public class VortexMods implements ClientModInitializer {
         waypointKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.waypoint", GLFW.GLFW_KEY_B));
         chatKey1 = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.quickchat1", GLFW.GLFW_KEY_F10));
         chatKey2 = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.quickchat2", GLFW.GLFW_KEY_UNKNOWN));
+        recordKey = KeyBindingHelper.registerKeyBinding(Compat.keyBinding("key.vortex.record", GLFW.GLFW_KEY_F12));
         NetClient.init();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
             if (hintShown) return;
@@ -121,6 +123,8 @@ public class VortexMods implements ClientModInitializer {
         Extras.tickTps(client);
         // The launcher's music player.
         Music.tick();
+        Rec.tick();
+        while (recordKey.wasPressed()) Rec.key();
         while (musicKey.wasPressed()) Music.send("toggle");
         while (nextKey.wasPressed()) Music.send("next");
         while (prevKey.wasPressed()) Music.send("prev");
@@ -395,6 +399,7 @@ public class VortexMods implements ClientModInitializer {
     /** Applies modules that change vanilla options (toggle sprint and sneak). */
     public static void applyToggles() {
         Boost.sync();
+        Visuals.sync();
         Compat.setHitboxes(MinecraftClient.getInstance(), on("hitboxes"));
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.options == null) return;

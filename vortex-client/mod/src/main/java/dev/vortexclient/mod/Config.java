@@ -31,6 +31,8 @@ public final class Config {
     public Boolean savedSneakToggle;
     /** The game settings FPS Boost changed, as they were before. */
     public Map<String, String> boostSaved = new LinkedHashMap<>();
+    /** The game settings Clean Visuals changed, as they were before. */
+    public Map<String, String> visualsSaved = new LinkedHashMap<>();
     /** Waypoints per server or world and dimension: {x, y, z}, newest first. */
     public Map<String, List<double[]>> waypoints = new LinkedHashMap<>();
 
@@ -47,6 +49,7 @@ public final class Config {
                 if (c.modules == null) c.modules = new LinkedHashMap<>();
                 if (c.favorites == null) c.favorites = new ArrayList<>();
                 if (c.boostSaved == null) c.boostSaved = new LinkedHashMap<>();
+                if (c.visualsSaved == null) c.visualsSaved = new LinkedHashMap<>();
                 if (c.waypoints == null) c.waypoints = new LinkedHashMap<>();
                 return c;
             }

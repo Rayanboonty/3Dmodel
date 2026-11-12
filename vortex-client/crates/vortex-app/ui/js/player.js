@@ -40,7 +40,8 @@ function normalise(url) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      if (img.height === 64) return resolve(url);
+      // Square skins (64×64, or HD) are fine as they are; only old 64×32 ones need their left limbs.
+      if (img.height === img.width) return resolve(url);
       const c = document.createElement("canvas");
       c.width = 64; c.height = 64;
       const g = c.getContext("2d");
@@ -212,7 +213,11 @@ export class Player {
   }
 
   async setSkin(url, slim = false) {
-    const src = await normalise(url || defaultSkin());
+    // A newer call wins even if this one's picture loads later.
+    const turn = (this.skinTurn = (this.skinTurn || 0) + 1);
+    let src;
+    try { src = await normalise(url || defaultSkin()); } catch { src = defaultSkin(); }
+    if (turn !== this.skinTurn) return;
     const rebuild = slim !== this.slim;
     this.slim = slim;
     this.skinUrl = src;

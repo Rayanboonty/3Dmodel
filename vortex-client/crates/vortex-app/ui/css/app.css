@@ -2300,7 +2300,7 @@ html.lite #world { will-change: transform; }
 /* ============================================================== packs ===
    New instance, step 2: what the instance is for. */
 .wiz-h { margin: 0 0 2px; font-size: 15px; font-weight: 700; color: var(--ink); }
-.packs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.packs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .pack {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left;
   padding: 16px 16px 14px; border-radius: var(--r-l); border: 1px solid rgba(255, 255, 255, 0.1);
@@ -2324,7 +2324,8 @@ html.lite #world { will-change: transform; }
 .wiz-adv[open] > .loaders { margin-top: 8px; }
 body.theme-light .pack { border-color: rgba(30, 20, 50, 0.1); background: rgba(255, 255, 255, 0.6); }
 body.theme-light .pack-mods i { background: rgba(30, 20, 50, 0.06); }
-@media (max-width: 1100px) { .packs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1240px) { .packs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .packs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 body.m .packs { grid-template-columns: 1fr 1fr; }
 
 /* ==================================================== new setting rows === */

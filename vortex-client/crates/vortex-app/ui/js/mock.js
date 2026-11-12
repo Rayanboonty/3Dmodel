@@ -32,7 +32,12 @@ const state = {
   cape: "vortex",
   installed: {},
   accounts: [{ uuid: "5627dd98e6be3c21b8a8e92344183641", username: "Steve", kind: "offline", selected: true }],
-  instances: [],
+  // Design checks only (index.html#seed): a few instances to look at.
+  instances: typeof location !== "undefined" && location.hash === "#seed" ? [
+    { name: "1.21.5 PvP", minecraftVersion: "1.21.5", loader: "fabric", loaderVersion: "0.16.14", loaderLabel: "Fabric 0.16.14", memoryMb: null, joinServer: null, jvmArgs: "", lastPlayed: Date.now() / 1000 - 3600, gameDir: "", running: false, modCount: 54, pack: "pvp", playtimeSecs: 15400 },
+    { name: "Survival 1.21.11", minecraftVersion: "1.21.11", loader: "fabric", loaderVersion: "0.17.2", loaderLabel: "Fabric 0.17.2", memoryMb: 4096, joinServer: null, jvmArgs: "", lastPlayed: Date.now() / 1000 - 86400, gameDir: "", running: false, modCount: 71, pack: "normal", playtimeSecs: 52000 },
+    { name: "Vanilla 1.8.9", minecraftVersion: "1.8.9", loader: "vanilla", loaderVersion: null, loaderLabel: "Vanilla", memoryMb: null, joinServer: null, jvmArgs: "", lastPlayed: Date.now() / 1000 - 400000, gameDir: "", running: false, modCount: 0, pack: null, playtimeSecs: 2600 },
+  ] : [],
   mods: {},
   running: new Map(),
 };
@@ -166,7 +171,7 @@ export const mock = {
     await wait(60 + Math.random() * 120);
     switch (cmd) {
       case "bootstrap":
-        return { appVersion: "0.11.0", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view), systemRamMb: 8192, cpuCount: 4, autoMemoryMb: 2560, autoMemoryModdedMb: 3072 };
+        return { appVersion: "0.12.0", dataDir: "%APPDATA%\\VortexClient", platform: "windows", settings: { ...state.settings }, accounts: state.accounts, instances: state.instances.map(view), systemRamMb: 8192, cpuCount: 4, autoMemoryMb: 2560, autoMemoryModdedMb: 3072 };
       case "list_versions":
         return versionList();
       case "loader_versions": {
@@ -216,9 +221,9 @@ export const mock = {
       }
       case "check_update":
         return location.search.includes("update")
-          ? { available: true, current: "0.11.0", version: "0.11.1", published: "2026-11-12", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.11.1/Vortex.exe",
+          ? { available: true, current: "0.12.0", version: "0.12.1", published: "2026-11-13", size: 10_700_000, url: "https://github.com/x/y/releases/download/vortex-v0.12.1/Vortex.exe",
               notes: "## What's new\n- Faster instance switching\n- New Servers panel on Home\n- Smoother pop-up animations\n- Fixed the Stop Game button" }
-          : { available: false, current: "0.11.0", version: "0.11.0" };
+          : { available: false, current: "0.12.0", version: "0.12.0" };
       case "install_update":
         for (let i = 0; i <= 20; i++) { emit("update-progress", { stage: "download", done: i * 535000, total: 10_700_000 }); await wait(90); }
         emit("update-progress", { stage: "install", done: 1, total: 1 });
@@ -406,6 +411,35 @@ export const mock = {
       case "host_tunnel":
         throw "the preview can't open programs; in the app this opens playit.gg's agent";
       case "host_folder":
+        return null;
+      case "hidden_instances":
+        return [];
+      case "hidden_instance":
+        return state.instances.map(view);
+      case "wallpaper_gallery": {
+        const ids = JSON.stringify(["complementary-reimagined", "complementary-unbound", "photon-shader", "bsl-shaders", "solas-shader", "bliss-shader", "rethinking-voxels", "sildurs-vibrant-shaders", "nostalgia-shader", "miniature-shader"]);
+        const r = await fetch(`https://api.modrinth.com/v2/projects?ids=${encodeURIComponent(ids)}`);
+        if (!r.ok) throw "the gallery didn't load";
+        return (await r.json()).flatMap((p) => (p.gallery || []).map((g) => ({ thumb: g.url, url: g.raw_url, title: g.title || p.title, source: p.title, page: `https://modrinth.com/shader/${p.slug}` })));
+      }
+      case "wallpaper_fetch": {
+        const r = await fetch(args.url);
+        const blob = await r.blob();
+        return await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+      }
+      case "plugins_list":
+      case "plugin_toggle":
+      case "plugin_example":
+        return [];
+      case "plugins_folder":
+        return null;
+      case "record_status":
+        return { recording: false, started: 0, file: "", folder: "Videos\\Vortex", ready: false };
+      case "record_start":
+        throw "the preview can't record; in the app this films your screen";
+      case "record_stop":
+        return null;
+      case "record_folder":
         return null;
       case "music_state":
         return null;

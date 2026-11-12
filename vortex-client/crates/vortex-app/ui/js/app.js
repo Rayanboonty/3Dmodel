@@ -85,7 +85,8 @@ function applyPhone() {
   const nav = document.getElementById("nav");
   // Desktop and phone portrait: a dock along the bottom. Phone landscape:
   // a slim rail on the left.
-  if (nav) nav.classList.toggle("vertical", land);
+  const side = !m && ["left", "right"].includes(S?.settings?.dock);
+  if (nav) nav.classList.toggle("vertical", land || side);
 }
 addEventListener("resize", () => {
   const before = document.body.className;
@@ -111,6 +112,15 @@ const cover = (id) => coverFor(id, S.art);
 const coverThumb = (inst, cls = "") => `<span class="cover-thumb ${cls}" style="background-image:url('${esc(cover(inst.minecraftVersion))}')">${inst.loader !== "vanilla" ? `<span class="loader-badge ${inst.loader}">${icon(loaderIcon(inst.loader), 10)}</span>` : ""}</span>`;
 const playtime = (s) => (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m` : `${Math.max(1, Math.floor(s / 60))}m`);
 const fmtCount = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(n >= 1e4 ? 0 : 1)}k` : String(n));
+/** Any colour as an accent: the deep shade and the text colour on it are worked out. */
+function customAccent(hex) {
+  const h = /^#[0-9a-f]{6}$/i.test(hex || "") ? hex : "#ffb547";
+  const rgb = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const deep = "#" + rgb.map((c) => Math.round(c * 0.8).toString(16).padStart(2, "0")).join("");
+  const lum = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+  return [h, deep, lum > 0.55 ? "#1a1206" : "#ffffff"];
+}
+
 const ACCENTS = {
   amber: ["#ffb547", "#f08f22", "#2b1600"],
   diamond: ["#4fd8eb", "#1fb3cc", "#03262c"],
@@ -278,8 +288,10 @@ function placeNav() {
   const r = layoutRect(target);
   if (!r.width) return;
   // Too narrow for labelled tabs: icons only.
-  nav.classList.toggle("tight", r.width < 560);
-  nav.style.setProperty("--nav-x", `${Math.round(r.left + r.width / 2)}px`);
+  const dock = { ...UI_DEFAULTS, ...(S.settings || {}) }.dock;
+  nav.classList.toggle("tight", (dock === "top" ? window.innerWidth - 640 : r.width) < 560 && !["left", "right"].includes(dock));
+  nav.style.setProperty("--nav-x", `${Math.round(dock === "top" ? window.innerWidth / 2 : r.left + r.width / 2)}px`);
+  nav.style.setProperty("--nav-y", `${Math.round(r.top + r.height / 2)}px`);
   nav.style.setProperty("--nav-b", `${Math.max(12, Math.round(window.innerHeight - r.bottom + 16))}px`);
 }
 
@@ -350,7 +362,9 @@ function placeAnchor() {
 }
 
 const UI_DEFAULTS = {
-  glass_effect: "default", streamer_mode: false, high_contrast: false, ui_volume: 100, shortcuts: true, confirm_close: true, default_pack: "performance", show_playtime: true,
+  glass_effect: "blur", streamer_mode: false,
+  accent_custom: "#ffb547", dock: "bottom", play_pos: "center", side_pos: "right", logo_pos: "left", wall_size: "full", menu_style: "moving",
+  record_fps: 60, record_quality: "normal", high_contrast: false, ui_volume: 100, shortcuts: true, confirm_close: true, default_pack: "performance", show_playtime: true,
   glass_style: "frosted", radius: "round", motion: "bouncy", wall_blur: 16, wall_dim: 12, wall_custom: false,
   home_news: true, home_quick: true, home_recent: true, side_labels: true, intro: true,
   auto_update: true, servers: null, widgets: null, theme: "dark",
@@ -374,7 +388,7 @@ const FEATURED_SERVERS = [
  */
 let liquidOn = false, glassWatched = false;
 function applyGlassEffect(s) {
-  const fx = s.reduce_transparency === true ? "default" : (s.glass_effect || "default");
+  const fx = s.reduce_transparency === true ? "default" : (s.glass_effect || "blur");
   document.documentElement.classList.toggle("no-glass", fx === "default");
   document.documentElement.dataset.glass = fx;
   const want = fx === "liquid";
@@ -391,7 +405,7 @@ function applyGlassEffect(s) {
 function applyLook(s = S.settings || {}) {
   // Fixed look: the Golden Meadow wallpaper, 40 px corner blur, 60% edge
   // shade, moving light on, frosted glass.
-  s = { ...UI_DEFAULTS, ...s, wall_custom: false, wall_blur: 40, wall_dim: 60, world_life: true, glass_style: "frosted", glass: 60 };
+  s = { ...UI_DEFAULTS, ...s, wall_blur: 40, wall_dim: 60, world_life: true, glass_style: "frosted", glass: 60 };
   world.setScene(s.wall_custom && S.customWall ? "custom" : "golden");
   world.setDim(Math.min(0.6, (s.wall_dim ?? 12) / 100));
   placeAnchor();
@@ -437,7 +451,11 @@ function applyLook(s = S.settings || {}) {
   document.body.classList.toggle("no-anim", s.animations === false);
   document.body.classList.toggle("no-player", s.show_player === false);
   const root = document.documentElement.style;
-  const [acc, deep, ink] = ACCENTS[s.accent] || ACCENTS.amber;
+  const [acc, deep, ink] = s.accent === "custom" ? customAccent(s.accent_custom) : ACCENTS[s.accent] || ACCENTS.amber;
+  for (const [key, vals] of [["dock", ["bottom", "top", "left", "right"]], ["play_pos", ["left", "center", "right"]], ["side_pos", ["left", "right"]], ["logo_pos", ["left", "center", "right"]], ["wall_size", ["full", "large", "medium", "small"]]]) {
+    for (const v of vals) b.toggle(`${key.split("_")[0]}-${v}`, s[key] === v);
+  }
+  { const nav = $("#nav"); const vert = !b.contains("m") && ["left", "right"].includes(s.dock); if (nav && nav.classList.contains("vertical") !== (vert || b.contains("land"))) { nav.classList.toggle("vertical", vert || b.contains("land")); const d = nav.querySelector(".drop"); if (d) { delete d.dataset.top; delete d.dataset.left; d.removeAttribute("style"); } requestAnimationFrame(() => { liquidTabs(nav, true); placeNav(); placeHero(); }); } }
   root.setProperty("--accent", acc);
   root.setProperty("--accent-deep", deep);
   root.setProperty("--accent-ink", ink);
@@ -448,12 +466,19 @@ function applyLook(s = S.settings || {}) {
   tick();
 }
 
+let skinTurn = 0;
 async function loadSkin() {
+  // Only the newest request counts: an older, slower one (say, from before
+  // you switched account or changed skin) must not put the old skin back.
+  const turn = ++skinTurn;
+  let got;
   try {
-    S.skin = await call("player_skin");
+    got = await call("player_skin");
   } catch {
-    S.skin = { dataUrl: null, slim: false, source: "none" };
+    got = { dataUrl: null, slim: false, source: "none" };
   }
+  if (turn !== skinTurn) return;
+  S.skin = got;
   const url = S.skin.dataUrl || defaultSkin();
   const cape = capeUrl(S.skin.cape);
   player.setSkin(url, S.skin.slim);
@@ -473,9 +498,10 @@ function drawHead(canvas, url) {
   img.onload = () => {
     const g = canvas.getContext("2d");
     g.imageSmoothingEnabled = false;
+    const k = Math.max(1, img.width / 64); // HD skins are 128 or more wide
     g.clearRect(0, 0, 8, 8);
-    g.drawImage(img, 8, 8, 8, 8, 0, 0, 8, 8);
-    g.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8);
+    g.drawImage(img, 8 * k, 8 * k, 8 * k, 8 * k, 0, 0, 8, 8);
+    g.drawImage(img, 40 * k, 8 * k, 8 * k, 8 * k, 0, 0, 8, 8);
   };
   img.src = url;
 }
@@ -999,18 +1025,65 @@ const WIDGETS = {
   current: { name: "Selected instance", desc: "Version, loader, mods, memory", zones: ["side", "row"] },
   wardrobe: { name: "Wardrobe", desc: "Your skin and cape", zones: ["side", "row"] },
   quick: { name: "Quick actions", desc: "Mods, Skins, New, Folder", zones: ["row", "side"] },
+  playtime: { name: "Play time", desc: "Hours played, in total and per instance", zones: ["side", "row"] },
+  clock: { name: "Clock", desc: "The time and date", zones: ["side", "row"] },
+  system: { name: "This PC", desc: "Your memory, what Minecraft gets, and your instances", zones: ["side", "row"] },
+  nowplaying: { name: "Now playing", desc: "The song in Music, with play and skip", zones: ["side", "row"] },
+  news: { name: "Minecraft news", desc: "The latest updates from Mojang", zones: ["row"] },
 };
-const DEFAULT_LAYOUT = { side: ["account", "servers", "quick"], row: [] };
+const DEFAULT_LAYOUT = { side: ["account", "playtime", "servers", "quick"], row: [] };
+const pluginWidgets = new Map(); // id -> { title, html, every }
 
 /** The Home layout, from settings (older settings map onto it). */
 function homeLayout(u = { ...UI_DEFAULTS, ...(S.settings || {}) }) {
-  return {
-    side: DEFAULT_LAYOUT.side.filter((id) => id !== "quick" || u.home_quick !== false),
-    row: [...DEFAULT_LAYOUT.row],
-  };
+  const known = (id) => id in WIDGETS || pluginWidgets.has(id);
+  const w = u.widgets && Array.isArray(u.widgets.side) ? u.widgets : DEFAULT_LAYOUT;
+  const side = w.side.filter(known);
+  let row = (Array.isArray(w.row) ? w.row : []).filter(known);
+  // A smaller wallpaper leaves room under it: the news fills it.
+  if (u.wall_size && u.wall_size !== "full" && !row.length) row = ["news"];
+  return { side, row };
+}
+
+const fmtHours = (secs) => (secs >= 3600 ? `${(secs / 3600).toFixed(secs >= 36000 ? 0 : 1)} h` : `${Math.round(secs / 60)} min`);
+
+function widgetCard(cls, title, body, zone) {
+  return zone === "row"
+    ? `<div class="hblock ${cls}"><div class="block-head"><h2>${title}</h2></div><div class="glass hl wcard">${body}</div></div>`
+    : `<div class="glass hl wcard ${cls}"><div class="side-head flat"><h2>${title}</h2></div>${body}</div>`;
 }
 
 function widgetHtml(id, zone, inst, acc) {
+  if (pluginWidgets.has(id)) {
+    const w = pluginWidgets.get(id);
+    let body = "";
+    try { body = String(w.html() ?? ""); } catch (e) { body = `<span class="muted small">This plugin's widget failed: ${esc(errText(e))}</span>`; }
+    return widgetCard(`w-plugin" data-widget="${esc(id)}`, esc(w.title || id), `<div class="plugin-body">${body}</div>`, zone);
+  }
+  if (id === "playtime") {
+    const list = [...S.instances].filter((i) => i.playtimeSecs > 0).sort((a, b) => b.playtimeSecs - a.playtimeSecs);
+    const total = list.reduce((n, i) => n + i.playtimeSecs, 0);
+    const body = `<div class="pt-total"><strong>${total ? fmtHours(total) : "0 min"}</strong><span>played in Vortex</span></div>
+      ${list.length ? `<div class="pt-list">${list.slice(0, 3).map((i) => `<div class="pt-row"><span class="grow">${esc(i.name)}</span><span class="pt-bar"><i style="width:${Math.max(6, Math.round((i.playtimeSecs / list[0].playtimeSecs) * 100))}%"></i></span><span class="pt-h">${fmtHours(i.playtimeSecs)}</span></div>`).join("")}</div>` : `<p class="muted small">Play an instance and your hours show up here.</p>`}`;
+    return widgetCard("w-playtime", "Play time", body, zone);
+  }
+  if (id === "clock") {
+    const d = new Date();
+    const h12 = { ...UI_DEFAULTS, ...(S.settings || {}) }.clock_12h;
+    return widgetCard("w-clock", "Clock", `<div class="clock-big" data-clock="1">${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !!h12 })}</div><div class="muted small">${d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}</div>`, zone);
+  }
+  if (id === "system") {
+    const ram = S.systemRamMb ? gb(S.systemRamMb) : "Unknown";
+    const mem = inst ? gb(inst.memoryMb || defaultMem(inst)) : S.autoMemMb ? gb(S.autoMemMb) : "Auto";
+    return widgetCard("w-system", "This PC", `<dl class="cur-facts"><div><dt>Memory</dt><dd>${esc(ram)}</dd></div><div><dt>Minecraft gets</dt><dd>${esc(mem)}</dd></div><div><dt>Instances</dt><dd>${S.instances.length}</dd></div><div><dt>Version</dt><dd>v${esc(S.appVersion || "")}</dd></div></dl>`, zone);
+  }
+  if (id === "nowplaying") {
+    const n = typeof M !== "undefined" ? M.now : null;
+    const body = n ? `<div class="np-w"><span class="np-art" ${n.artwork ? `style="background-image:url('${esc(n.artwork)}')"` : ""}>${n.artwork ? "" : icon("music", 16)}</span><div class="meta"><strong>${esc(n.title)}</strong><span>${esc(n.artist || "")}</span></div>
+        <button class="btn btn-sm btn-icon btn-ghost" data-action="music-toggle" aria-label="Play or pause"><span class="icon-slot">${icon(M.audio.paused ? "play" : "pause", 12)}</span></button><button class="btn btn-sm btn-icon btn-ghost" data-action="music-next" aria-label="Next">${icon("next", 12)}</button></div>`
+      : `<div class="np-w"><span class="np-art">${icon("music", 16)}</span><div class="meta"><strong>Nothing playing</strong><span>Free music, radio and your songs</span></div><button class="btn btn-sm" data-action="route" data-route="music">Open</button></div>`;
+    return widgetCard("w-nowplaying", "Now playing", body, zone);
+  }
   if (id === "account") return `<div class="acct glass hl w-account">
       <canvas width="8" height="8" data-head="1"></canvas>
       <div class="meta"><strong>${esc(acc?.username || "No account")}</strong><span>${acc ? (acc.kind === "microsoft" ? "Microsoft account" : "Offline account") : "Add one to play"}</span></div>
@@ -1145,8 +1218,28 @@ function renderHome() {
       requestAnimationFrame(placeHero);
       setTimeout(placeHero, 700);
       if (L.side.includes("servers")) refreshServers();
+      tickWidgets();
     },
   };
+}
+
+/** Clock, now playing and plugin widgets keep themselves current. */
+let widgetTimer = 0;
+function tickWidgets() {
+  clearInterval(widgetTimer);
+  let n = 0;
+  widgetTimer = setInterval(() => {
+    if (S.route !== "home") { clearInterval(widgetTimer); return; }
+    n++;
+    const clock = $("[data-clock]");
+    if (clock) clock.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !!{ ...UI_DEFAULTS, ...(S.settings || {}) }.clock_12h });
+    for (const el of $$(".w-plugin[data-widget]")) {
+      const w = pluginWidgets.get(el.dataset.widget);
+      if (!w || !(w.every > 0) || n % Math.max(1, Math.round(w.every)) !== 0) continue;
+      const body = el.querySelector(".plugin-body");
+      try { if (body) body.innerHTML = String(w.html() ?? ""); } catch { /* keep the last */ }
+    }
+  }, 1000);
 }
 
 /** Refresh the live parts without re-rendering (keeps animations smooth). */
@@ -1226,6 +1319,18 @@ function updateRunUI(name) {
 
 // -------------------------------------------------------------- instances --
 
+/** Instances an older Vortex left behind, which you never played: hidden. */
+let HIDDEN = null;
+function hiddenNote() {
+  if (HIDDEN === null) {
+    HIDDEN = [];
+    call("hidden_instances").then((l) => { HIDDEN = l || []; if (HIDDEN.length && S.route === "instances") render(); }).catch(() => {});
+  }
+  if (!HIDDEN.length) return "";
+  return `<div class="hidden-note"><span>${HIDDEN.length} instance${HIDDEN.length > 1 ? "s" : ""} you didn't make ${HIDDEN.length > 1 ? "are" : "is"} hidden (${HIDDEN.map(esc).join(", ")}).</span>
+    <button class="btn btn-sm lq" data-action="hidden-keep">Show</button><button class="btn btn-sm btn-ghost btn-danger lq" data-action="hidden-remove">Remove</button></div>`;
+}
+
 function renderInstances() {
   const q = S.instSearch.toLowerCase();
   const list = S.instances.filter((i) => !q || `${i.name} ${i.minecraftVersion} ${i.loader}`.toLowerCase().includes(q));
@@ -1265,9 +1370,9 @@ function renderInstances() {
       `<input class="input" id="inst-search" type="search" placeholder="Search" value="${esc(S.instSearch)}" aria-label="Search instances" style="width:200px">
        <div class="tabs sm glass"><span class="drop" aria-hidden="true"></span>${["recent", "name", "version", "played"].map((s) => `<button class="tab ${S.instSort === s ? "on" : ""}" data-action="inst-sort" data-sort="${s}">${s}</button>`).join("")}</div>
        <button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New instance</button>`,
-      list.length ? `<div class="cards">${cards}</div>`
+      (list.length ? `<div class="cards">${cards}</div>` : "") + hiddenNote() + (list.length ? ""
         : S.instances.length ? `<div class="empty"><h3>No instances found</h3><p>Nothing matches "${esc(S.instSearch)}".</p></div>`
-        : `<div class="empty"><h3>No instances yet</h3><p>Pick a Minecraft version and Vortex sets it up. It shows here once it's made.</p><button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New instance</button></div>`,
+        : `<div class="empty"><h3>No instances yet</h3><p>Pick a Minecraft version and Vortex sets it up. It shows here once it's made.</p><button class="btn btn-accent lq" data-action="route" data-route="new">${icon("plus", 14)} New instance</button></div>`),
     ),
     mount(root) {
       const input = $("#inst-search", root);
@@ -1292,7 +1397,7 @@ function newWizard() {
     search: "",
     version: S.versions?.latestRelease || null,
     loader: "vanilla",
-    pack: ["pvp", "normal", "performance", "vanilla"].includes({ ...UI_DEFAULTS, ...S.settings }.default_pack) ? { ...UI_DEFAULTS, ...S.settings }.default_pack : "performance",
+    pack: ["pvp", "normal", "performance", "youtuber", "vanilla"].includes({ ...UI_DEFAULTS, ...S.settings }.default_pack) ? { ...UI_DEFAULTS, ...S.settings }.default_pack : "performance",
     loaderVersions: {},
     loaderVersion: null,
     name: "",
@@ -1309,6 +1414,7 @@ const PACKS = {
   pvp: { title: "PvP", icon: "sword", desc: "Vortex PvP mods (keystrokes, CPS, armor, zoom, freelook, toggle sprint), every performance mod, 3D skin layers, wavey capes, chat heads and more.", mods: ["Vortex PvP HUD", "Sodium", "Lithium", "ImmediatelyFast", "EntityCulling", "3D Skin Layers", "Wavey Capes", "Better Ping Display", "Shield Statuses", "Status Effect Bars", "Chat Heads", "Visuality", "Capes", "+ 25 more"] },
   normal: { title: "Normal", icon: "grid", desc: "Shaders, minimap and world map, recipes, item info, connected textures, dynamic lights and more, on top of every performance mod.", mods: ["Iris Shaders", "Xaero's Minimap", "Xaero's World Map", "JEI", "Jade", "AppleSkin", "Continuity", "LambDynamicLights", "Sound Physics", "Not Enough Animations", "Visuality", "Particle Rain", "+ 45 more"] },
   performance: { title: "Performance", icon: "bolt", desc: "Every optimisation mod that works together: much higher FPS, faster loading and less memory. Nothing else changes.", mods: ["Sodium", "Lithium", "FerriteCore", "ModernFix", "ImmediatelyFast", "EntityCulling", "More Culling", "ScalableLux", "Krypton", "Dynamic FPS", "BadOptimizations", "+ 10 more"] },
+  youtuber: { title: "YouTuber", icon: "image", desc: "What creators film with: Flashback or Replay Mod to record and edit, shaders, Distant Horizons, Freecam, smooth camera and lively animations, on top of every performance mod.", mods: ["Flashback", "Iris Shaders", "Distant Horizons", "Freecam", "Camera Overhaul", "First-person Model", "3D Skin Layers", "Not Enough Animations", "Bobby", "Falling Leaves", "Sound Physics", "+ 30 more"] },
   vanilla: { title: "Vanilla", icon: "play", desc: "Minecraft exactly as Mojang ships it, no mods.", mods: [] },
 };
 
@@ -1371,7 +1477,7 @@ function renderWizard() {
     };
     const noLoader = w.pack !== "vanilla" && packLoader(w) === "vanilla";
     body = `<h3 class="wiz-h">What's this instance for?</h3>
-      <div class="packs">${["pvp", "normal", "performance", "vanilla"].map(packCard).join("")}</div>
+      <div class="packs">${["pvp", "normal", "youtuber", "performance", "vanilla"].map(packCard).join("")}</div>
       ${noLoader ? `<p class="muted small">Mods aren't available for Minecraft ${esc(w.version)}, so this one will be Vanilla.</p>` : ""}
       <details class="wiz-adv" ${w.advOpen ? "open" : ""}><summary>Loader${w.pack !== "vanilla" ? `: ${w.loader === "forge" ? "Forge" : w.loader === "fabric" ? "Fabric" : "Vanilla"} (picked for you)` : ""}</summary>
       <div class="loaders">
@@ -1782,12 +1888,13 @@ function drawSkinFront(canvas, url, slim) {
     g.imageSmoothingEnabled = false;
     g.clearRect(0, 0, canvas.width, canvas.height);
     const s = canvas.width / 16;
-    const legacy = img.height === 32;
+    const legacy = img.height * 2 === img.width;
     const aw = slim ? 3 : 4;
+    const k = Math.max(1, img.width / 64);
     const part = (sx, sy, w, h, dx, dy, flip) => {
       g.save();
-      if (flip) { g.translate((dx + w) * s, dy * s); g.scale(-1, 1); g.drawImage(img, sx, sy, w, h, 0, 0, w * s, h * s); }
-      else g.drawImage(img, sx, sy, w, h, dx * s, dy * s, w * s, h * s);
+      if (flip) { g.translate((dx + w) * s, dy * s); g.scale(-1, 1); g.drawImage(img, sx * k, sy * k, w * k, h * k, 0, 0, w * s, h * s); }
+      else g.drawImage(img, sx * k, sy * k, w * k, h * k, dx * s, dy * s, w * s, h * s);
       g.restore();
     };
     const x0 = 4;
@@ -2141,13 +2248,13 @@ const BOOL = [["true", "On"], ["false", "Off"]];
 const PCT = (vals) => vals.map((v) => [String(v), `${Math.round(v * 100)}%`]);
 /** What's new in this version (shown once after updating). */
 const WHATS_NEW = [
-  "Host: run your own Minecraft server (Paper, Fabric or Vanilla) with its console, players, settings, plugins, backups and a free tunnel",
-  "Music is a full player now: free streaming, search, playlists, liked songs, shuffle and repeat",
-  "Find and wear free capes from OptiFine, LabyMod, MinecraftCapes and more, or import your own",
-  "A skin collection: Minecraft's default skins and famous players' skins in one click",
-  "In-game recording with Replay Mod (Settings > Game)",
-  "A Settings page in the in-game menu: accent colour, layout, background, sounds and more",
-]
+  "Your skin shows up straight away, and a new skin no longer flips back to the old one",
+  "Make it yours: tabs on any side, Play button and widgets left or right, wallpaper size, any accent colour",
+  "High-quality Minecraft wallpapers from the best shader packs, and Home widgets (play time, clock, now playing and more)",
+  "Music looks and works like Spotify, with full-screen lyrics",
+  "Screen recording (Record at the top, or F12 in-game), the YouTuber pack and Clean Visuals",
+  "Plugins: add your own widgets and more",
+];
 const rangeRow = (id, label, value, lo, hi, step, text) => `<div class="field"><label class="label" for="${id}">${label}</label><div class="row"><input class="range grow" id="${id}" type="range" min="${lo}" max="${hi}" step="${step}" value="${value}" style="--fill:${((value - lo) / (hi - lo)) * 100}%"><span class="value" id="${id}-v">${text}</span></div></div>`;
 
 function settingsBody(d) {
@@ -2164,12 +2271,35 @@ function settingsBody(d) {
       <div class="card-pad"><h3>Theme and colour</h3>
         ${segRow(u, "theme", "Mode", [["dark", "Dark"], ["light", "Light"], ["system", "System"]], "System follows Windows")}
         <div class="setting stack"><div><strong>Accent</strong><span>Buttons, highlights and the in-game mod menu</span></div>
-          <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${d.accent === k ? "on" : ""}" style="--c:${c}" data-action="set-choice" data-key="accent" data-value="${k}" aria-label="${k}" title="${k[0].toUpperCase() + k.slice(1)}"></button>`).join("")}</div></div>
+          <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${u.accent === k ? "on" : ""}" style="--c:${c}" data-action="set-choice" data-key="accent" data-value="${k}" aria-label="${k}" title="${k[0].toUpperCase() + k.slice(1)}"></button>`).join("")}
+            <label class="swatch custom ${u.accent === "custom" ? "on" : ""}" style="--c:${esc(u.accent_custom)}" title="Your own colour"><input type="color" id="s-accent" value="${esc(u.accent_custom)}" aria-label="Your own accent colour"></label></div></div>
       </div>
-      <div class="card-pad"><h3>Home</h3>
-        ${swRow(u, "home_recent", "Recent instances", "Under the Launch button")}
-        ${swRow(u, "side_labels", "Sidebar labels", "Off for a slim icon sidebar")}
-        ${swRow(d, "show_player", "3D player", "Your skin, standing at the Launch button")}
+      <div class="card-pad wide"><h3>Wallpaper</h3>
+        <div class="wall-pick">
+          <button class="wall-tile ${!u.wall_custom ? "on" : ""}" data-action="wall-default"><span style="background-image:url('img/birch-forest.jpg')"></span><strong>Birch forest</strong></button>
+          <label class="wall-tile ${u.wall_custom ? "on" : ""}"><input type="file" id="s-wall-file" accept="image/*" hidden><span ${u.wall_custom && S.customWallUrl ? `style="background-image:url('${S.customWallUrl}')"` : ""}>${u.wall_custom && S.customWallUrl ? "" : icon("plus", 18)}</span><strong>${u.wall_custom ? "Your picture" : "Your own picture"}</strong></label>
+        </div>
+        <div class="setting stack"><div><strong>High-quality Minecraft wallpapers</strong><span>Screenshots from the best shader packs on Modrinth. Pick one and it's yours, even offline.</span></div>
+          <div class="wall-gallery" id="wall-gallery">${wallGalleryHtml()}</div></div>
+        ${segRow(u, "wall_size", "Wallpaper size", [["full", "Full"], ["large", "Large"], ["medium", "Medium"], ["small", "Small"]], "Smaller leaves room for the news under it")}
+      </div>
+      <div class="card-pad"><h3>Layout</h3>
+        ${segRow(u, "dock", "Tabs", [["bottom", "Bottom"], ["top", "Top"], ["left", "Left"], ["right", "Right"]])}
+        ${segRow(u, "play_pos", "Play button", [["left", "Left"], ["center", "Middle"], ["right", "Right"]], "Steve stands at it")}
+        ${segRow(u, "side_pos", "Widgets", [["left", "Left"], ["right", "Right"]])}
+        ${segRow(u, "logo_pos", "Vortex logo", [["left", "Left"], ["center", "Middle"], ["right", "Right"]])}
+        ${swRow(d, "show_player", "Steve", "Your skin, standing at the Play button")}
+        ${swRow(u, "home_recent", "Recent instances", "Under the Play button")}
+      </div>
+      <div class="card-pad"><h3>Widgets</h3>
+        <p class="muted small">Pick what Home shows next to the wallpaper. Plugins can add their own.</p>
+        <div class="widget-list">${[...Object.entries(WIDGETS).filter(([, w]) => w.zones.includes("side")), ...[...pluginWidgets].map(([id, w]) => [id, { name: w.title || id, desc: "From a plugin" }])].map(([id, w]) => {
+          const on = homeLayout(u).side.includes(id);
+          return `<div class="setting"><div><strong>${esc(w.name)}</strong><span>${esc(w.desc)}</span></div><button class="switch" role="switch" aria-checked="${on}" data-action="widget-toggle" data-id="${esc(id)}" aria-label="${esc(w.name)}"></button></div>`;
+        }).join("")}</div>
+      </div>
+      <div class="card-pad"><h3>In-game menu</h3>
+        ${segRow(u, "menu_style", "Main menu background", [["moving", "Moving 3D world"], ["picture", "This wallpaper"]], "The moving world turns slowly, with shader-style light")}
       </div>
     </div>`;
   }
@@ -2183,8 +2313,14 @@ function settingsBody(d) {
         ${selRow(d, "render_distance", "Render distance", [AUTO, ...[4, 6, 8, 10, 12, 16, 20, 24, 32].map((n) => [String(n), `${n} chunks`])], "", "num")}
         ${selRow(d, "max_fps", "FPS limit", [AUTO, ["60", "60"], ["120", "120"], ["144", "144"], ["165", "165"], ["240", "240"], ["260", "Unlimited"]], "", "num")}
         ${selRow(d, "vsync", "VSync", [AUTO, ["true", "On"], ["false", "Off (lower input lag)"]], "", "bool")}
-        ${swRow(d, "replay_mod", "In-game recording", "Adds Replay Mod: every match is recorded so you can watch it back from any angle and render clips as videos. Fabric")}
+        ${swRow(d, "replay_mod", "Replay recording", "Adds Replay Mod: every match is recorded so you can watch it back from any angle and render clips as videos. Fabric")}
         ${S.platform === "windows" ? swRow(d, "gpu_high_performance", "Use the fast graphics card", "For laptops with two: runs Minecraft on the strong one") : ""}
+      </div>
+      <div class="card-pad"><h3>Screen recording</h3>
+        <p class="muted small">Films your screen to an MP4 in Videos\\\\Vortex, using your graphics card's encoder when it has one. Start it with Record at the top, or F12 in-game. Play fullscreen to record just the game.</p>
+        ${selRow({ ...UI_DEFAULTS, ...d }, "record_fps", "Frame rate", [["30", "30 FPS"], ["60", "60 FPS"]], "", "num")}
+        ${selRow({ ...UI_DEFAULTS, ...d }, "record_quality", "Quality", [["low", "Small files"], ["normal", "Balanced"], ["high", "Best"]])}
+        <div class="row"><button class="btn btn-sm lq" data-action="rec-folder">${icon("folder", 12)} Open recordings</button></div>
       </div>
       <div class="card-pad"><h3>Memory and window</h3>
         ${swRow(d, "auto_memory", "Automatic memory", S.autoMemMb ? `Right for this PC${S.systemRamMb ? ` (${gb(S.systemRamMb)} of RAM)` : ""}: ${gb(S.autoMemMb)}, or ${gb(S.autoMemModdedMb)} with mods` : "Picks the right amount for this PC")}
@@ -2247,6 +2383,11 @@ function settingsBody(d) {
         <div class="row wrap"><button class="btn btn-sm lq" data-action="folder-data">${icon("folder", 12)} Data</button><button class="btn btn-sm lq" data-action="folder-skins">${icon("folder", 12)} Skins</button><button class="btn btn-sm lq" data-action="folder-runtimes">${icon("folder", 12)} Java runtimes</button></div>
         <span class="muted small">Vortex Client ${esc(S.appVersion)}${isTauri ? "" : ", preview mode"}</span>
       </div>
+      <div class="card-pad"><h3>Plugins</h3>
+        <p class="muted small">Your own JavaScript plugins: Home widgets, notifications and more. Files in the plugins folder load when Vortex starts. Only add plugins you trust.</p>
+        <div id="plugin-list">${pluginListHtml()}</div>
+        <div class="row wrap"><button class="btn btn-sm lq" data-action="plugin-example">${icon("plus", 12)} Make an example</button><button class="btn btn-sm lq" data-action="plugins-folder">${icon("folder", 12)} Open folder</button></div>
+      </div>
       <div class="card-pad"><h3>Backups and logs</h3>
         ${swRow(d, "backup_worlds", "Back up worlds before playing", "Zips each instance's worlds into its backups folder")}
         ${selRow(d, "backups_keep", "Backups to keep", [["3", "3"], ["5", "5"], ["10", "10"], ["20", "20"]], "", "num")}
@@ -2271,7 +2412,7 @@ function settingsBody(d) {
     <div class="card-pad"><h3>Launcher</h3>
       ${selRow(g, "ui_scale", "Size", [["90", "Compact (90%)"], ["100", "Normal"], ["110", "Large (110%)"], ["125", "Larger (125%)"]], "", "num")}
       ${selRow(g, "lite_mode", "Lite mode", [["auto", "Auto"], ["on", "Always on"], ["off", "Always off"]], "Lighter effects for slow computers. After a restart")}
-      ${selRow(g, "default_pack", "New instances start with", [["performance", "Performance"], ["pvp", "PvP"], ["normal", "Normal"], ["vanilla", "Vanilla"]])}
+      ${selRow(g, "default_pack", "New instances start with", [["performance", "Performance"], ["pvp", "PvP"], ["normal", "Normal"], ["youtuber", "YouTuber"], ["vanilla", "Vanilla"]])}
       ${swRow(d, "track_playtime", "Count time played", "Shown on each instance")}
     </div>
     <div class="card-pad"><h3>Privacy</h3>
@@ -2398,6 +2539,15 @@ function mountSettings(root, d) {
   text("#s-client", (v) => (d.microsoft_client_id = v.trim() || null));
   text("#s-w", (v) => (d.game_width = Number(v) || null));
   text("#s-h", (v) => (d.game_height = Number(v) || null));
+  $("#s-accent", root)?.addEventListener("input", (e) => {
+    d.accent = "custom";
+    d.accent_custom = e.target.value;
+    e.target.closest(".swatch")?.style.setProperty("--c", e.target.value);
+    $$('.swatches .swatch', root).forEach((x) => x.classList.toggle("on", x.classList.contains("custom")));
+    applyLook(d);
+    markDirty();
+  });
+  $("#s-wall-file", root)?.addEventListener("change", (e) => { const f = e.target.files?.[0]; if (f) useWallpaper(f); });
   $("#s-size", root)?.addEventListener("change", (e) => {
     const v = e.target.value;
     $("#s-custom", root).hidden = v !== "custom";
@@ -2468,6 +2618,114 @@ function setWallImage(blob) {
     img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
     img.src = url;
   });
+}
+
+// ------------------------------------------------------- wallpaper gallery --
+
+const WG = { list: null, busy: null };
+function wallGalleryHtml() {
+  if (WG.list === null) {
+    WG.list = [];
+    call("wallpaper_gallery").then((l) => { WG.list = l; const g = $("#wall-gallery"); if (g) g.innerHTML = wallGalleryHtml(); }).catch(() => { WG.list = false; const g = $("#wall-gallery"); if (g) g.innerHTML = wallGalleryHtml(); });
+    return `<div class="side-note">Loading</div>`;
+  }
+  if (WG.list === false) return `<div class="side-note">The gallery needs the internet.</div>`;
+  if (!WG.list.length) return `<div class="side-note">Loading</div>`;
+  return WG.list.map((w, i) => `<button class="wg-tile ${WG.busy === i ? "busy" : ""}" data-action="wall-gallery" data-i="${i}" title="${esc(w.title)} · ${esc(w.source)}"><img src="${esc(w.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer"><span>${esc(w.source)}</span></button>`).join("");
+}
+
+async function useGalleryWallpaper(i) {
+  const w = WG.list?.[i];
+  if (!w) return;
+  WG.busy = i;
+  const g = $("#wall-gallery");
+  if (g) g.innerHTML = wallGalleryHtml();
+  try {
+    const dataUrl = await call("wallpaper_fetch", { url: w.url });
+    const blob = await (await fetch(dataUrl)).blob();
+    await useWallpaper(new File([blob], "wallpaper"));
+    toast("Wallpaper set", `${w.source} · press Save to keep it.`, "success");
+  } catch (e) {
+    toast("Couldn't load that wallpaper", errText(e), "error");
+  }
+  WG.busy = null;
+  const g2 = $("#wall-gallery");
+  if (g2) g2.innerHTML = wallGalleryHtml();
+}
+
+// --------------------------------------------------------------- recording --
+
+const REC = { on: false, started: 0, timer: 0 };
+function drawRecChip() {
+  const chip = $("#rec-chip");
+  if (!chip) return;
+  chip.classList.toggle("on", REC.on);
+  const s = REC.on ? Math.max(0, Math.floor(Date.now() / 1000 - REC.started)) : 0;
+  $("#rec-time").textContent = REC.on ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Record";
+  chip.setAttribute("aria-label", REC.on ? "Stop recording" : "Start recording (F12 in-game)");
+}
+
+async function toggleRecording() {
+  const u = { ...UI_DEFAULTS, ...(S.settings || {}) };
+  try {
+    if (REC.on) {
+      const file = await call("record_stop");
+      REC.on = false;
+      clearInterval(REC.timer);
+      drawRecChip();
+      if (file) toast("Recording saved", file, "success", 7000, { label: "Open folder", run: () => call("record_folder").catch(() => {}) });
+    } else {
+      toast("Starting the recorder", "The first time, Vortex downloads it (about 80 MB).", "info");
+      const st = await call("record_start", { fps: Number(u.record_fps) || 60, quality: u.record_quality || "normal" });
+      REC.on = st.recording;
+      REC.started = st.started;
+      clearInterval(REC.timer);
+      REC.timer = setInterval(drawRecChip, 1000);
+      drawRecChip();
+    }
+  } catch (e) {
+    toast("Recording didn't work", errText(e), "error", 8000);
+  }
+}
+
+// ----------------------------------------------------------------- plugins --
+
+let PLUGINS = null;
+function pluginListHtml() {
+  if (!isTauri) return `<div class="side-note">Plugins run in the Windows app.</div>`;
+  if (PLUGINS === null) {
+    PLUGINS = [];
+    call("plugins_list").then((l) => { PLUGINS = l; const el = $("#plugin-list"); if (el) { el.innerHTML = pluginListHtml(); hydrateIcons(el); } }).catch(() => {});
+  }
+  if (!PLUGINS.length) return `<div class="side-note">No plugins yet. Make the example to see how they work.</div>`;
+  return PLUGINS.map((p) => `<div class="setting"><div><strong>${esc(p.name)}</strong><span>${esc(p.file)}</span></div>
+    <div class="row" style="gap:6px"><button class="switch" role="switch" aria-checked="${p.enabled}" data-action="plugin-toggle" data-file="${esc(p.file)}" aria-label="${esc(p.name)}"></button>
+    <button class="t-btn" data-action="plugin-delete" data-file="${esc(p.file)}" aria-label="Delete">${icon("trash", 12)}</button></div></div>`).join("");
+}
+
+const PLUGIN_HOOKS = { launch: [], exit: [] };
+async function loadPlugins() {
+  if (!isTauri) return;
+  let list = [];
+  try { list = await call("plugins_list"); } catch { return; }
+  for (const p of list.filter((x) => x.enabled)) {
+    try {
+      const url = window.__TAURI__.core.convertFileSrc(p.file, "vplugin");
+      const mod = await import(url);
+      const api = {
+        addWidget: (w) => { if (w && w.id && typeof w.html === "function") { pluginWidgets.set(`plugin:${p.file}:${w.id}`, w); if (S.route === "home") render(); } },
+        toast: (title, text) => toast(String(title ?? ""), String(text ?? ""), "info"),
+        onLaunch: (fn) => PLUGIN_HOOKS.launch.push(fn),
+        onExit: (fn) => PLUGIN_HOOKS.exit.push(fn),
+        instances: () => JSON.parse(JSON.stringify(S.instances)),
+        settings: () => JSON.parse(JSON.stringify(S.settings)),
+        call: (cmd, args) => call(cmd, args),
+      };
+      await mod.default?.(api);
+    } catch (e) {
+      toast(`Plugin ${p.name} failed`, errText(e), "warn", 7000);
+    }
+  }
 }
 
 /** Shrink a picked image to at most 2560 px wide and keep it. */
@@ -2680,6 +2938,7 @@ function playList(list, i) {
 }
 
 async function playAt(i) {
+  setTimeout(drawUpNext, 50);
   const t = M.queue[i];
   if (!t) return;
   M.index = i;
@@ -2775,15 +3034,15 @@ function currentLine() {
 function drawSide() {
   const box = $("#music-side");
   if (!box) return;
-  $$('[data-action="music-side"]').forEach((b) => b.classList.toggle("on", b.dataset.s === M.side));
-  if (M.side === "queue") {
+  const big = box.classList.contains("big");
+  if (M.side === "queue" && !big) {
     box.className = "music-queue";
     box.innerHTML = M.queue.length
       ? M.queue.map((t, i) => `<button class="qrow ${i === M.index ? "on" : ""}" data-action="music-q" data-i="${i}"><span>${esc(t.title)}</span><small>${esc(t.artist || "")}</small></button>`).join("")
       : `<div class="lyrics-note">Nothing queued. Play a song from a list and the rest of the list follows.</div>`;
     return;
   }
-  box.className = "lyrics";
+  box.className = big ? "lyrics big" : "lyrics";
   if (M.lyrics.length) {
     box.innerHTML = M.lyrics.map(([ms, t], i) => `<div class="lyric" data-ms="${ms}" data-i="${i}">${esc(t) || "&#9834;"}</div>`).join("");
     M.line = -1;
@@ -2834,6 +3093,10 @@ function drawNow() {
     set("#now-pos", mmss(M.audio.currentTime));
     set("#now-len", n?.kind === "radio" ? "Live" : mmss(d));
   }
+  set("#bar-title", n ? n.title : "Nothing playing");
+  set("#bar-artist", n ? n.artist || (n.kind === "radio" ? "Radio" : "") : "");
+  const barArt = $("#bar-art");
+  if (barArt) barArt.style.backgroundImage = n?.artwork ? `url("${n.artwork}")` : "";
   const mp = $("#mini-player");
   if (mp) {
     mp.hidden = !n || S.route === "music";
@@ -2906,9 +3169,14 @@ function listBody() {
     return `${M.lists.length ? `<h2 class="sub-h">Playlists</h2>${playlistTiles(M.lists.slice(0, 8))}` : ""}
       <h2 class="sub-h">Songs</h2><div class="tracks">${songRows(M.songs) || `<div class="side-note">${M.query ? "Nothing found." : "Search for a song, an artist or a playlist."}</div>`}</div>`;
   }
-  return `<div class="chips">${GENRES.map(([g, l]) => `<button class="chip-btn ${M.genre === g ? "on" : ""}" data-action="music-genre" data-g="${esc(g)}">${l}</button>`).join("")}
+  const hour = new Date().getHours();
+  const hello = hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const quick = [{ kind: "liked", name: "Liked songs", art: "" }, ...M.lists.slice(0, 5).map((p, i) => ({ kind: "pl", i, name: p.name, art: p.artwork }))];
+  return `<h1 class="sp-hello">${hello}</h1>
+    ${!M.genre ? `<div class="sp-quick">${quick.map((q) => `<button class="sp-qt" ${q.kind === "liked" ? `data-action="music-lib" data-kind="liked"` : `data-action="music-open" data-i="${q.i}"`}><span class="sp-qa ${q.kind === "liked" ? "liked" : ""}" ${q.art ? `style="background-image:url('${esc(q.art)}')"` : ""}>${q.kind === "liked" ? icon("heart", 16) : ""}</span><strong>${esc(q.name)}</strong></button>`).join("")}</div>` : ""}
+    <div class="chips">${GENRES.map(([g, l]) => `<button class="chip-btn ${M.genre === g ? "on" : ""}" data-action="music-genre" data-g="${esc(g)}">${l}</button>`).join("")}
       <span class="grow"></span><div class="seg sm">${[["week", "This week"], ["month", "Month"], ["year", "Year"]].map(([t, l]) => `<button class="${M.time === t ? "on" : ""}" data-action="music-time" data-t="${t}">${l}</button>`).join("")}</div></div>
-    ${M.lists.length && !M.genre ? `<h2 class="sub-h">Trending playlists</h2>${playlistTiles(M.lists.slice(0, 8))}` : ""}
+    ${M.lists.length > 5 && !M.genre ? `<h2 class="sub-h">Trending playlists</h2>${playlistTiles(M.lists.slice(5, 13))}` : ""}
     <h2 class="sub-h">Trending ${esc(GENRES.find(([g]) => g === M.genre)?.[1] || "")} songs</h2><div class="tracks">${songRows(M.songs)}</div>`;
 }
 
@@ -3017,35 +3285,57 @@ function addToPlaylist(t, anchor) {
 }
 
 function renderMusic() {
-  const tabs = [["home", "Home"], ["search", "Search"], ["library", "Your library"], ["radio", "Radio"]];
+  const nav = [["home", "Home", "home"], ["search", "Search", "search"], ["library", "Your library", "music"], ["radio", "Radio", "radio"]];
+  const lib = [
+    `<button class="sp-lib ${M.open?.kind === "liked" ? "on" : ""}" data-action="music-lib" data-kind="liked"><span class="sp-ic liked">${icon("heart", 13)}</span><span><strong>Liked songs</strong><small>${M.liked.length} songs</small></span></button>`,
+    `<button class="sp-lib ${M.open?.kind === "files" ? "on" : ""}" data-action="music-lib" data-kind="files"><span class="sp-ic">${icon("folder", 13)}</span><span><strong>On this PC</strong><small>Your music folder</small></span></button>`,
+    ...M.mine.map((p) => `<button class="sp-lib ${M.open?.id === p.id ? "on" : ""}" data-action="music-lib" data-kind="mine" data-id="${esc(p.id)}"><span class="sp-ic">${icon("music", 13)}</span><span><strong>${esc(p.name)}</strong><small>${p.tracks.length} songs</small></span></button>`),
+  ].join("");
   return {
-    html: sheet("Music", "Free music from Audius, your own songs and internet radio, with lyrics that follow along. In the game, F8 plays or pauses and F9 skips.",
-      `${M.view === "search" ? `<input class="input" id="music-q" type="search" placeholder="Songs, artists, playlists" value="${esc(M.query)}" aria-label="Search music" style="width:220px">` : ""}
-       <div class="seg">${tabs.map(([v, l]) => `<button class="${M.view === v ? "on" : ""}" data-action="music-view" data-v="${v}">${l}</button>`).join("")}</div>`,
-      `<div class="music">
-        <div class="music-main" id="music-main"></div>
-        <div class="card-pad now">
-          <div class="now-art" id="now-art"></div>
-          <div class="now-head"><div class="now-text"><div class="now-title" id="now-title"></div><div class="now-artist" id="now-artist"></div></div>
-            <button class="t-btn big" id="now-like" data-action="music-likenow" aria-label="Like">${icon("heart", 14)}</button></div>
-          <div class="now-bar"><span id="now-pos">0:00</span><input type="range" class="range" id="now-seek" min="0" max="0" value="0" aria-label="Position"><span id="now-len">--:--</span></div>
+    html: `<section class="glass strong sheet hl spot" aria-label="Music">
+      <aside class="sp-side">
+        <div class="sp-nav">${nav.map(([v, l, ic]) => `<button class="${M.view === v && !M.open ? "on" : ""}" data-action="music-view" data-v="${v}">${icon(ic, 15)}<span>${l}</span></button>`).join("")}</div>
+        <div class="sp-libhead"><span>Your library</span><button class="t-btn" data-action="music-newlist" aria-label="New playlist" title="New playlist">${icon("plus", 12)}</button></div>
+        <div class="sp-libs">${lib}</div>
+      </aside>
+      <section class="sp-main ${M.full ? "lyrics-mode" : ""}">
+        ${M.full ? `<div class="sp-lyrics-head"><strong>Lyrics</strong><button class="btn btn-sm btn-ghost" data-action="music-full">${icon("x", 11)} Close</button></div><div class="lyrics big" id="music-side"></div>`
+          : `${M.view === "search" && !M.open ? `<div class="sp-search"><span>${icon("search", 14)}</span><input class="input" id="music-q" type="search" placeholder="What do you want to listen to?" value="${esc(M.query)}" aria-label="Search music"></div>` : ""}
+             <div class="music-main" id="music-main"></div>`}
+      </section>
+      <aside class="sp-now">
+        <div class="now-art" id="now-art"></div>
+        <div class="now-head"><div class="now-text"><div class="now-title" id="now-title"></div><div class="now-artist" id="now-artist"></div></div>
+          <button class="t-btn big" id="now-like" data-action="music-likenow" aria-label="Like">${icon("heart", 14)}</button></div>
+        ${M.full ? `<div class="sp-card"><strong>Up next</strong><div class="music-queue" id="music-up"></div></div>` : `<div class="sp-card lyr"><div class="sp-card-head"><strong>Lyrics</strong><button class="btn btn-sm btn-ghost" data-action="music-full">Show all</button></div><div class="lyrics" id="music-side"></div></div>`}
+      </aside>
+      <footer class="sp-bar">
+        <div class="sp-bar-now"><span class="np-art" id="bar-art"></span><div class="meta"><strong id="bar-title">Nothing playing</strong><span id="bar-artist"></span></div></div>
+        <div class="sp-bar-mid">
           <div class="now-ctl">
             <button class="t-btn" data-action="music-shuffle" aria-label="Shuffle" title="Shuffle">${icon("shuffle", 13)}</button>
-            <button class="btn btn-icon" data-action="music-prev" aria-label="Previous">${icon("prev", 14)}</button>
-            <button class="btn btn-accent btn-play" data-action="music-toggle" aria-label="Play or pause"><span class="icon-slot">${icon("play", 16)}</span></button>
-            <button class="btn btn-icon" data-action="music-next" aria-label="Next">${icon("next", 14)}</button>
+            <button class="t-btn" data-action="music-prev" aria-label="Previous">${icon("prev", 13)}</button>
+            <button class="btn btn-play" data-action="music-toggle" aria-label="Play or pause"><span class="icon-slot">${icon("play", 14)}</span></button>
+            <button class="t-btn" data-action="music-next" aria-label="Next">${icon("next", 13)}</button>
             <button class="t-btn" data-action="music-repeat" aria-label="Repeat">${icon("repeat", 13)}</button>
           </div>
-          <div class="now-bar"><span>${icon("volume", 12)}</span><input type="range" class="range" id="now-vol" min="0" max="100" value="${Math.round(M.audio.volume * 100)}" aria-label="Volume" style="--fill:${Math.round(M.audio.volume * 100)}%"></div>
-          <div class="seg sm side-tabs"><button class="${M.side === "lyrics" ? "on" : ""}" data-action="music-side" data-s="lyrics">Lyrics</button><button class="${M.side === "queue" ? "on" : ""}" data-action="music-side" data-s="queue">Up next</button></div>
-          <div class="lyrics" id="music-side"></div>
+          <div class="now-bar"><span id="now-pos">0:00</span><input type="range" class="range" id="now-seek" min="0" max="0" value="0" aria-label="Position"><span id="now-len">--:--</span></div>
         </div>
-      </div>`),
+        <div class="sp-bar-end">
+          <button class="t-btn ${M.full ? "on" : ""}" data-action="music-full" aria-label="Lyrics" title="Lyrics">${icon("log", 13)}</button>
+          <span class="vol-ic">${icon("volume", 13)}</span><input type="range" class="range" id="now-vol" min="0" max="100" value="${Math.round(M.audio.volume * 100)}" aria-label="Volume" style="--fill:${Math.round(M.audio.volume * 100)}%">
+        </div>
+      </footer>
+    </section>`,
     mount(root) {
+      M.side = "lyrics";
       drawMusic();
-      if (M.open) drawList();
-      else if (M.view === "home" && M.songs.length && !M.error) drawList();
-      else loadView();
+      drawUpNext();
+      if (!M.full) {
+        if (M.open) drawList();
+        else if (M.view === "home" && M.songs.length && !M.error) drawList();
+        else loadView();
+      }
       const q = $("#music-q", root);
       if (q) {
         q.focus();
@@ -3062,6 +3352,14 @@ function renderMusic() {
       });
     },
   };
+}
+
+/** The queue under the big lyrics. */
+function drawUpNext() {
+  const box = $("#music-up");
+  if (!box) return;
+  const next = M.queue.slice(M.index + 1, M.index + 8);
+  box.innerHTML = next.length ? next.map((t, k) => `<button class="qrow" data-action="music-q" data-i="${M.index + 1 + k}"><span>${esc(t.title)}</span><small>${esc(t.artist || "")}</small></button>`).join("") : `<div class="lyrics-note">Nothing after this song.</div>`;
 }
 
 function bindMusic() {
@@ -3088,7 +3386,8 @@ function bindMusic() {
   if (isTauri) setInterval(async () => {
     try {
       for (const c of await call("music_commands")) {
-        if (c === "toggle") musicToggle();
+        if (c === "record") toggleRecording();
+        else if (c === "toggle") musicToggle();
         else if (c === "next") musicStep(1);
         else if (c === "prev") musicStep(-1);
       }
@@ -3097,7 +3396,8 @@ function bindMusic() {
 }
 
 const MUSIC_ACTIONS = {
-  "music-view"(el) { M.view = el.dataset.v; M.open = null; store.set("vortex.musicView", M.view); if (M.view !== "search") M.query = ""; M.songs = []; M.lists = []; render(); },
+  "music-full"() { M.full = !M.full; render(); },
+  "music-view"(el) { M.full = false; M.view = el.dataset.v; M.open = null; store.set("vortex.musicView", M.view); if (M.view !== "search") M.query = ""; M.songs = []; M.lists = []; render(); },
   "music-play"(el, e) { if (e?.target?.closest(".t-btn")) return; playList(M.songs, Number(el.dataset.i)); },
   "music-like"(el) { toggleLike(M.songs[Number(el.dataset.i)]); },
   "music-likenow"() { if (M.now?.kind === "track") toggleLike(M.now); },
@@ -3113,8 +3413,8 @@ const MUSIC_ACTIONS = {
   "music-genre"(el) { M.genre = el.dataset.g; loadView(); },
   "music-time"(el) { M.time = el.dataset.t; loadView(); },
   "music-rgenre"(el) { M.radioGenre = el.dataset.g; M.radioQuery = ""; loadStations(); },
-  "music-open"(el) { const p = M.lists[Number(el.dataset.i)]; if (p) openList({ kind: "playlist", id: p.id, name: p.name }); },
-  "music-lib"(el) {
+  "music-open"(el) { if (M.full) { M.full = false; render(); } const p = M.lists[Number(el.dataset.i)]; if (p) openList({ kind: "playlist", id: p.id, name: p.name }); },
+  "music-lib"(el) { if (M.full) { M.full = false; render(); }
     const k = el.dataset.kind;
     if (k === "liked") openList({ kind: "liked", name: "Liked songs" });
     else if (k === "files") openList({ kind: "files", name: "On this PC" });
@@ -3325,7 +3625,7 @@ function tabBody(s) {
     </div>
     <div class="card-pad"><h3>Free tunnel with playit.gg</h3>
       <p class="muted small">A tunnel lets friends anywhere join without port forwarding or showing your home IP. playit.gg is free.</p>
-      <ol class="steps"><li>Press the button. playit's agent downloads and opens in its own window.</li><li>Open the link it shows and make a free playit.gg account (or sign in).</li><li>On playit.gg, add a tunnel of type <strong>Minecraft Java</strong> pointing at port <strong>${s.port}</strong>.</li><li>Copy the address playit gives you into <strong>Internet</strong> on the left.</li></ol>
+      <ol class="tunnel-steps"><li>Press the button. playit's agent downloads and opens in its own window.</li><li>Open the link it shows and make a free playit.gg account (or sign in).</li><li>On playit.gg, add a tunnel of type <strong>Minecraft Java</strong> pointing at port <strong>${s.port}</strong>.</li><li>Copy the address playit gives you into <strong>Internet</strong> on the left.</li></ol>
       <div class="row" style="gap:8px"><button class="btn btn-accent lq" data-action="host-tunnel">${icon("link", 13)} Open playit.gg agent</button><button class="btn lq" data-action="host-open" data-url="https://playit.gg/account/tunnels">Tunnels page</button></div>
       <p class="muted small">Prefer your router? Forward TCP port ${s.port} to ${esc(s.lanAddress.split(":")[0] || "this PC")} and share your public IP.</p></div></div>`;
 }
@@ -3443,7 +3743,7 @@ function newServerModal() {
   const st = { kind: "paper", versions: [], version: "", memory: Math.min(4096, Math.max(2048, Math.round(((S.systemRamMb || 8192) / 4) / 1024) * 1024)) };
   modal(`<h2>New server</h2>
     <div class="field"><label class="label" for="hn-name">Name</label><input class="input" id="hn-name" maxlength="40" placeholder="Survival with friends" value="My server"></div>
-    <div class="field"><span class="label">Type</span><div class="kind-pick">${SERVER_KINDS.map(([k, l, d]) => `<button class="kind ${k === st.kind ? "on" : ""}" data-k="${k}"><strong>${l}</strong><span>${d}</span></button>`).join("")}</div></div>
+    <div class="field"><span class="label">Type</span><div class="kind-pick">${SERVER_KINDS.map(([k, l, d]) => `<button class="srv-kind ${k === st.kind ? "on" : ""}" data-k="${k}"><strong>${l}</strong><span>${d}</span></button>`).join("")}</div></div>
     <div class="row" style="gap:10px">
       <div class="field grow"><label class="label" for="hn-ver">Minecraft version</label><select class="input" id="hn-ver"><option>Loading</option></select></div>
       <div class="field"><label class="label" for="hn-mem">Memory</label><select class="input" id="hn-mem">${[1024, 2048, 3072, 4096, 6144, 8192].map((m) => `<option value="${m}" ${m === st.memory ? "selected" : ""}>${m / 1024} GB</option>`).join("")}</select></div>
@@ -3464,7 +3764,7 @@ function newServerModal() {
       } catch (e) { ver.innerHTML = `<option value="">Couldn't load versions</option>`; toast("Couldn't load versions", errText(e), "warn"); }
       sync();
     };
-    root.querySelectorAll(".kind").forEach((b) => b.addEventListener("click", () => { st.kind = b.dataset.k; root.querySelectorAll(".kind").forEach((x) => x.classList.toggle("on", x === b)); loadVers(); }));
+    root.querySelectorAll(".srv-kind").forEach((b) => b.addEventListener("click", () => { st.kind = b.dataset.k; root.querySelectorAll(".srv-kind").forEach((x) => x.classList.toggle("on", x === b)); loadVers(); }));
     root.querySelector("[data-eula]").addEventListener("click", (e) => { e.preventDefault(); call("open_url", { url: "https://aka.ms/MinecraftEULA" }).catch(() => window.open("https://aka.ms/MinecraftEULA")); });
     eula.addEventListener("change", sync);
     $("#hn-cancel", root).addEventListener("click", closeModal);
@@ -3788,6 +4088,32 @@ async function play(name, server = null) {
 const actions = {
   ...MUSIC_ACTIONS,
   ...HOST_ACTIONS,
+  "wall-default"() { S.draft.wall_custom = false; applyLook(S.draft); refreshSettingsPane(); markDirty(); },
+  "wall-gallery"(el) { useGalleryWallpaper(Number(el.dataset.i)); },
+  "widget-toggle"(el) {
+    const u = { ...UI_DEFAULTS, ...S.draft };
+    const L = homeLayout(u);
+    const id = el.dataset.id;
+    const on = el.getAttribute("aria-checked") !== "true";
+    const side = on ? [...L.side.filter((x) => x !== id), id] : L.side.filter((x) => x !== id);
+    S.draft.widgets = { side, row: (u.widgets && Array.isArray(u.widgets.row)) ? u.widgets.row : [] };
+    el.setAttribute("aria-checked", String(on));
+    sound.toggle(on);
+    markDirty();
+  },
+  "rec-toggle"() { toggleRecording(); },
+  "rec-folder"() { call("record_folder").catch((e) => toast("Couldn't open it", errText(e), "warn")); },
+  async "plugin-toggle"(el) { try { PLUGINS = await call("plugin_toggle", { file: el.dataset.file, enabled: el.getAttribute("aria-checked") !== "true" }); const l = $("#plugin-list"); if (l) { l.innerHTML = pluginListHtml(); hydrateIcons(l); } toast("Saved", "Restart Vortex to load or unload it.", "info"); } catch (e) { toast("Couldn't change it", errText(e), "error"); } },
+  async "plugin-delete"(el) { if (!(await confirmModal("Delete this plugin?", el.dataset.file, "Delete"))) return; try { PLUGINS = await call("plugin_toggle", { file: el.dataset.file, enabled: null }); const l = $("#plugin-list"); if (l) { l.innerHTML = pluginListHtml(); hydrateIcons(l); } } catch (e) { toast("Couldn't delete it", errText(e), "error"); } },
+  async "plugin-example"() { try { PLUGINS = await call("plugin_example"); const l = $("#plugin-list"); if (l) { l.innerHTML = pluginListHtml(); hydrateIcons(l); } toast("Example plugin made", "Restart Vortex: a Session clock widget appears on Home. Open the folder to see its code.", "success", 7000); } catch (e) { toast("Couldn't make it", errText(e), "error"); } },
+  "plugins-folder"() { call("plugins_folder").catch((e) => toast("Couldn't open it", errText(e), "warn")); },
+  async "hidden-keep"() { for (const n of HIDDEN || []) { try { S.instances = await call("hidden_instance", { name: n, keep: true }); } catch { /* next */ } } HIDDEN = []; render(); },
+  async "hidden-remove"() {
+    if (!(await confirmModal("Remove these instances?", `${(HIDDEN || []).join(", ")} and their files are deleted.`, "Remove"))) return;
+    for (const n of HIDDEN || []) { try { S.instances = await call("hidden_instance", { name: n, keep: false }); } catch { /* next */ } }
+    HIDDEN = [];
+    render();
+  },
   route(el) { go(el.dataset.route); },
   "join-server"(el, e) {
     e.stopPropagation();
@@ -3968,6 +4294,14 @@ const actions = {
     if (!selectedAccount()) { toast("Add an account first", "Skins belong to an account.", "warn"); go("accounts"); return; }
     try {
       S.skins = await call("skin_apply", { id: el.dataset.id });
+      // Show it straight away; loadSkin confirms it.
+      const chosen = S.skins.skins.find((k) => k.id === el.dataset.id);
+      if (chosen) {
+        S.skin = { ...(S.skin || {}), dataUrl: chosen.dataUrl, slim: chosen.slim, source: "chosen" };
+        player.setSkin(chosen.dataUrl, chosen.slim);
+        S.preview?.setSkin(chosen.dataUrl, chosen.slim);
+        drawHead($("#account-avatar"), chosen.dataUrl);
+      }
       await loadSkin();
       sound.success();
       toast("Skin changed", S.skins.microsoft ? "Uploaded to your Microsoft account." : "You'll wear it in-game with Vortex mods.", "success");
@@ -4325,12 +4659,14 @@ function bindEvents() {
       if (S.settings?.open_log_on_launch) openLog(name);
       S.runs[name] = { phase: "running" };
       S.started[name] = Date.now();
+      for (const fn of PLUGIN_HOOKS.launch) { try { fn(name); } catch { /* a plugin's problem */ } }
       sound.launch();
       toast("Minecraft is running", `${name} started. Have fun.`, "success");
     } else {
       const failed = ev.state === "failed" || (ev.code != null && ev.code !== 0);
       const wasRunning = S.runs[name]?.phase === "running";
       S.runs[name] = { phase: "idle" };
+      if (wasRunning) for (const fn of PLUGIN_HOOKS.exit) { try { fn(name); } catch { /* a plugin's problem */ } }
       delete S.started[name];
       if (failed) {
         sound.error();
@@ -4539,6 +4875,11 @@ async function boot() {
     S.autoMemMb = b.autoMemoryMb || 0;
     S.autoMemModdedMb = b.autoMemoryModdedMb || 0;
     S.settings = { sky: "cycle", day_length_min: 10, background: "golden", vortex_menu: true, fast_launch: true, tuned_jvm: true, ...b.settings };
+    // 0.12: Blur is the standard look now (once; your later choice stays).
+    if (!S.settings.look_v12) {
+      S.settings = { ...S.settings, look_v12: true, glass_effect: "blur" };
+      saveSettings(S.settings).catch(() => {});
+    }
     if (S.settings.wall_custom) await setWallImage(await wallStore.get());
     S.accounts = b.accounts;
     S.instances = b.instances;
@@ -4567,6 +4908,9 @@ async function boot() {
     .then((n) => { S.news = n; refreshNews(); })
     .catch(() => { S.news = []; refreshNews(); });
   warmSelected();
+  loadPlugins();
+  call("record_status").then((st) => { REC.on = st.recording; REC.started = st.started; if (REC.on) REC.timer = setInterval(drawRecChip, 1000); drawRecChip(); }).catch(() => {});
+  $("#rec-chip")?.addEventListener("click", toggleRecording);
   if ({ ...UI_DEFAULTS, ...S.settings }.auto_update !== false) setTimeout(() => checkForUpdate(false), 2500);
   watchForUpdates();
   const seen = store.get("vortex.seenVersion");

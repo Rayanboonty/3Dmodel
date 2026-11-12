@@ -328,8 +328,9 @@ struct SessionProperty {
 /// username or a UUID.
 pub async fn fetch_profile_skin(http: &reqwest::Client, uuid: &str) -> Result<(Vec<u8>, bool)> {
     use base64::Engine;
+    let uuid = uuid.replace('-', "");
     let url = format!("https://sessionserver.mojang.com/session/minecraft/profile/{uuid}");
-    let profile: SessionProfile = http.get(url).send().await?.error_for_status()?.json().await?;
+    let profile: SessionProfile = http.get(url).timeout(TIMEOUT).send().await?.error_for_status()?.json().await?;
     let textures = profile
         .properties
         .iter()
@@ -340,7 +341,32 @@ pub async fn fetch_profile_skin(http: &reqwest::Client, uuid: &str) -> Result<(V
     let skin = &v["textures"]["SKIN"];
     let url = skin["url"].as_str().context("no skin set")?.replacen("http://", "https://", 1);
     let slim = skin["metadata"]["model"].as_str() == Some("slim");
-    let bytes = http.get(url).send().await?.error_for_status()?.bytes().await?;
+    let bytes = http.get(url).timeout(TIMEOUT).send().await?.error_for_status()?.bytes().await?;
+    Ok((bytes.to_vec(), slim))
+}
+
+/// Skin lookups give up after this long, so the launcher never waits on a slow Mojang.
+const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
+
+/// The skin a signed-in Microsoft account wears right now, from
+/// Minecraft services. Unlike the public profile (cached by Mojang for a
+/// while), this shows a new skin the moment it's changed.
+pub async fn fetch_own_skin(http: &reqwest::Client, access_token: &str) -> Result<(Vec<u8>, bool)> {
+    let v: serde_json::Value = http
+        .get("https://api.minecraftservices.com/minecraft/profile")
+        .bearer_auth(access_token)
+        .timeout(TIMEOUT)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    let skins = v["skins"].as_array().context("profile has no skins")?;
+    let skin = skins.iter().find(|s| s["state"].as_str() == Some("ACTIVE")).or(skins.first()).context("no skin set")?;
+    let url = skin["url"].as_str().context("no skin url")?.replacen("http://", "https://", 1);
+    let slim = skin["variant"].as_str().is_some_and(|v| v.eq_ignore_ascii_case("slim"));
+    let bytes = http.get(url).timeout(TIMEOUT).send().await?.error_for_status()?.bytes().await?;
+    png_size(&bytes)?;
     Ok((bytes.to_vec(), slim))
 }
 
@@ -352,6 +378,7 @@ pub async fn skin_of_player(http: &reqwest::Client, username: &str) -> Result<(S
     }
     let resp = http
         .get(format!("https://api.mojang.com/users/profiles/minecraft/{name}"))
+        .timeout(TIMEOUT)
         .send()
         .await
         .context("could not reach Mojang")?;

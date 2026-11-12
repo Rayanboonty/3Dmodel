@@ -96,6 +96,17 @@ public final class Module {
                             Option.bool("shadows", "No entity shadows", true),
                             Option.bool("lighting", "No smooth lighting", false),
                             Option.bool("entities", "Hide far-away entities sooner", true))),
+            new Module("visuals", "Clean Visuals", "Takes distracting screen effects away: hurt shake, nausea and portal wobble, the darkness pulse, view bobbing and more. Yours come back when it's off.",
+                    Category.PVP, Items.SPYGLASS, false, false, List.of(
+                            Option.bool("hurtshake", "No hurt camera shake", true),
+                            Option.bool("distortion", "No nausea or portal wobble", true),
+                            Option.bool("darkness", "No darkness pulse", true),
+                            Option.bool("bobbing", "No view bobbing", false),
+                            Option.bool("fovfx", "No FOV change when sprinting", false),
+                            Option.slider("glint", "Enchant glint (%)", 100, 0, 100, 5))),
+            new Module("recording", "Recording", "F12 starts and stops a screen recording in the launcher (saved to Videos\\Vortex). Shows REC and the time while it records.",
+                    Category.UTILITY, Items.ENDER_EYE, false, true, List.of(
+                            Option.bool("badge", "Show REC on screen", true))),
             new Module("keystrokes", "Keystrokes", "Shows your movement keys and mouse buttons as you press them.",
                     Category.HUD, Items.PISTON, true, true, List.of(
                             Option.bool("mouse", "Mouse buttons", true),

@@ -65,6 +65,10 @@ pub struct Instance {
     /// Seconds played in this instance.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub playtime_secs: u64,
+    /// "user" for instances made in Vortex (or played); instances an older
+    /// version left behind and that were never played have none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
     /// Directory containing `instance.json`. Set when loading.
     #[serde(skip)]
     pub dir: PathBuf,
@@ -85,6 +89,7 @@ impl Instance {
             pack: None,
             last_server: None,
             playtime_secs: 0,
+            origin: Some("user".into()),
             dir: PathBuf::new(),
         }
     }
