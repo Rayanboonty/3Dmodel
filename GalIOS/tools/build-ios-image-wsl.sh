@@ -22,6 +22,7 @@ PROFILE="profiles/ios-27.0.1-iPhone18,2.toml"
 ARCHIVE="OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst"
 LIBDISPATCH_TAG="swift-6.0.3-RELEASE"
 APFS_FUSE_COMMIT="66b86bd525e8cb90f9012543be89b1f092b75cf3"
+BWRAP_TAG="v0.11.2"
 
 say()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok()   { printf '\033[1;32m    %s\033[0m\n' "$*"; }
@@ -81,15 +82,18 @@ fi
 # ---------------------------------------------------------------------------------------------------------------
 # 1. Packages
 # ---------------------------------------------------------------------------------------------------------------
-if ! is_done packages; then
-  say "Installing build packages (asks for your Ubuntu password)"
+PACKAGES=(build-essential clang lld llvm git make cmake ninja-build python3 python3-venv flex bison m4 autoconf
+  automake pkg-config bubblewrap libblocksruntime-dev zstd tmux curl patch unzip xz-utils ca-certificates
+  fuse3 libfuse3-dev zlib1g-dev libbz2-dev libattr1-dev libicu-dev lzfse liblzfse-dev meson libcap-dev)
+# Checked on every run (not a done-marker): a newer version of this script may need packages an older run did not.
+missing=()
+for p in "${PACKAGES[@]}"; do dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q "install ok installed" || missing+=("$p"); done
+if [ ${#missing[@]} -gt 0 ]; then
+  say "Installing build packages: ${missing[*]} (asks for your Ubuntu password)"
   $SUDO apt-get update -q
-  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
-    build-essential clang lld llvm git make cmake ninja-build python3 python3-venv flex bison m4 autoconf automake \
-    pkg-config bubblewrap libblocksruntime-dev zstd tmux curl patch unzip xz-utils ca-certificates \
-    fuse3 libfuse3-dev zlib1g-dev libbz2-dev libattr1-dev libicu-dev lzfse liblzfse-dev
-  done_mark packages
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${missing[@]}"
 fi
+ok "build packages installed"
 python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' || die "python3 3.11 or newer is needed"
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -121,6 +125,24 @@ if ! command -v apfs-fuse >/dev/null; then
   $SUDO install -m 0755 "$WORK/src/apfs-fuse/build/apfs-fuse" /usr/local/bin/apfs-fuse
 fi
 ok "apfs-fuse: $(command -v apfs-fuse)"
+
+# ---------------------------------------------------------------------------------------------------------------
+# 3b. bubblewrap 0.10 or newer: the kernel build overlays /usr/bin with --overlay-src/--tmp-overlay, which Ubuntu
+#     24.04's bubblewrap 0.9.0 does not have. Built into /usr/local/bin, which comes before /usr/bin on PATH.
+# ---------------------------------------------------------------------------------------------------------------
+bwrap_ok() { command -v bwrap >/dev/null && bwrap --help 2>&1 | grep -q -- '--overlay-src'; }
+if ! bwrap_ok; then
+  say "Building bubblewrap ${BWRAP_TAG#v} (the kernel build needs 0.10 or newer)"
+  rm -rf "$WORK/src/bubblewrap"
+  git clone -q --depth 1 -b "$BWRAP_TAG" https://github.com/containers/bubblewrap.git "$WORK/src/bubblewrap"
+  meson setup "$WORK/src/bubblewrap/build" "$WORK/src/bubblewrap" --prefix=/usr/local \
+    -Dman=disabled -Dselinux=disabled -Dtests=false >/dev/null
+  ninja -C "$WORK/src/bubblewrap/build" >/dev/null
+  $SUDO ninja -C "$WORK/src/bubblewrap/build" install >/dev/null
+  hash -r
+fi
+bwrap_ok || die "bubblewrap with --overlay-src is still not first on PATH ($(command -v bwrap))"
+ok "bubblewrap: $(bwrap --version) at $(command -v bwrap)"
 
 # ---------------------------------------------------------------------------------------------------------------
 # 4. Rust (OneiOS's oneios-tool builds the kernel collection)
