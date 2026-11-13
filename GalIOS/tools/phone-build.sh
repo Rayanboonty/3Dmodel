@@ -182,6 +182,10 @@ trap cleanup EXIT
 trap 'cleanup; exit 143' TERM INT HUP
 set -e
 mount --make-rprivate / 2>/dev/null && echo "mount namespace made private" || echo "note: could not make / private; mounts are undone at the end instead"
+# Ubuntu's / must be a mount point: bwrap (the kernel build's sandbox) makes / a slave mount first and fails with
+# "Failed to make / slave" on a plain chroot directory (1.7 on an S25 Ultra). So the folder is bound onto itself,
+# before anything is mounted inside it.
+mnt "\$R" -o bind "\$R" || mnt "\$R" --bind "\$R"
 # Fresh /proc, /sys and a small /dev; where the kernel refuses one, the phone's own is bound in instead.
 mnt "\$R/proc" -t proc proc || mnt "\$R/proc" -o bind /proc
 mnt "\$R/sys" -t sysfs sysfs || mnt "\$R/sys" -o bind /sys
