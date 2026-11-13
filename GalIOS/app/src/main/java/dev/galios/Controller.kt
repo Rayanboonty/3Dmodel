@@ -41,6 +41,14 @@ data class UiState(
     val engineInstalled: Boolean = false,
     val status: StageStatus? = null,
     val release: RuntimeRelease? = null,
+    /** Looking up the newest runtime on GitHub (no root needed). */
+    val releaseLooking: Boolean = false,
+    /** Why the lookup failed, shown inside the runtime step. */
+    val releaseError: String? = null,
+    /** 0..1 while the runtime downloads into GalIOS's own storage; null otherwise. */
+    val runtimeDownload: Float? = null,
+    /** The runtime package already downloaded into GalIOS's storage, ready to add to the phone. */
+    val runtimeFile: String? = null,
     /** OneiOS archives already on the phone (Download, Documents, the top of the storage). */
     val found: List<ImageFinder.Found> = emptyList(),
     /** The folders the last scan actually looked in, for the "nothing found" hint. */
@@ -56,6 +64,17 @@ data class UiState(
     val update: UpdateInfo? = null,
 ) {
     val rootOk get() = checks?.root == true
+    /** Root is active and OneOS's iOS engine is installed: what adding anything to the phone needs. */
+    val canStage get() = rootOk && engine?.hasIos == true
+    /** Why files cannot be added to the phone yet, in words; null when they can. */
+    val stageBlocker: String?
+        get() = when {
+            checks == null -> "Checking root…"
+            !rootOk -> "Root is not active: start your temporary root, then come back."
+            engine == null -> "OneOS (iOS 27 edition) is not installed: it is the boot engine (step 2)."
+            !engine.hasIos -> "This OneOS build is not the iOS 27 edition (step 2)."
+            else -> null
+        }
     val readyToBoot get() = device.supported && checks?.allGood == true && engine?.hasIos == true && status?.ready == true && import == null
     val bootBlocker: String?
         get() = when {
@@ -104,9 +123,30 @@ class Controller(
                 engine = engine, checks = checks, status = status,
                 found = scan?.found ?: emptyList(), scannedFolders = scan?.scanned ?: emptyList(),
                 engineInstalled = status?.stagePresent == true, refreshing = false,
+                runtimeFile = downloadedRuntime()?.path,
             )
         }
+        if (_state.value.release == null && !_state.value.releaseLooking) lookupRelease()
         checkForUpdate()
+    }
+
+    private val runtimeDir get() = File(context.filesDir, "runtime")
+
+    /** The newest runtime package already downloaded into GalIOS's storage. */
+    private fun downloadedRuntime(): File? =
+        runtimeDir.listFiles { f -> f.isFile && f.name.startsWith("oneios-runtime-") && f.name.endsWith("-arm64.tar.zst") }
+            ?.maxByOrNull { it.lastModified() }
+
+    /** Finds the newest OneiOS runtime on GitHub. Needs only the internet, not root. */
+    fun lookupRelease() = scope.launch {
+        _state.update { it.copy(releaseLooking = true, releaseError = null) }
+        val (r, err) = try {
+            val found = RuntimeRelease.latest()
+            found to (if (found == null) "OneiOS has no runtime release yet. Use Choose file if you have one." else null)
+        } catch (e: Exception) {
+            null to "Could not reach GitHub: ${e.message ?: e.javaClass.simpleName}. Check the internet connection and tap Try again."
+        }
+        _state.update { it.copy(release = r ?: it.release, releaseLooking = false, releaseError = err) }
     }
 
     private fun findEngine(): EngineInfo? = try {
@@ -146,15 +186,41 @@ class Controller(
         if (done.switchAdapted) "Boot engine installed. OneOS's phone check now accepts your ${_state.value.device.label}." else "Boot engine installed."
     }
 
-    fun findRelease() = run("Looking for the newest OneiOS runtime") {
-        val r = RuntimeRelease.latest() ?: throw IllegalStateException("No OneiOS release carries a runtime package yet. Choose the file instead.")
-        _state.update { it.copy(release = r) }
-        null
+    fun findRelease() { lookupRelease() }
+
+    /**
+     * Downloads the runtime into GalIOS's own storage (checked against the release's SHA-256), then adds it to the
+     * phone if root and OneOS are ready; otherwise it waits there for "Add to phone".
+     */
+    fun downloadRuntime() {
+        val r = _state.value.release ?: run { lookupRelease(); return }
+        if (_state.value.runtimeDownload != null) return
+        cancelImport = false
+        _state.update { it.copy(runtimeDownload = 0f, message = null) }
+        scope.launch {
+            val file = try {
+                r.download(runtimeDir, { cancelImport }) { done, total ->
+                    if (total > 0) _state.update { it.copy(runtimeDownload = (done.toFloat() / total).coerceIn(0f, 1f)) }
+                }.also { f -> runtimeDir.listFiles()?.filter { it != f }?.forEach { it.delete() } }
+            } catch (e: CancelledException) {
+                _state.update { it.copy(runtimeDownload = null) }; return@launch
+            } catch (e: Exception) {
+                _state.update { it.copy(runtimeDownload = null, message = Message("Runtime download failed: ${e.message}", true)) }
+                return@launch
+            }
+            _state.update { it.copy(runtimeDownload = null, runtimeFile = file.path) }
+            if (_state.value.canStage) addRuntimeToPhone()
+            else _state.update {
+                it.copy(message = Message("OneiOS runtime ${r.version} is downloaded. ${it.stageBlocker ?: ""} Then tap Add to phone.".trim(), false))
+            }
+        }
     }
 
-    fun downloadRuntime() {
-        val r = _state.value.release ?: return findRelease().let { }
-        startImport(StageClient.Kind.RUNTIME, "OneiOS runtime ${r.tag}") { r.open() }
+    /** Adds the downloaded runtime package to the phone's stage (root checks every file). */
+    fun addRuntimeToPhone() {
+        val f = _state.value.runtimeFile?.let(::File)?.takeIf { it.isFile } ?: return
+        val version = Regex("""oneios-runtime-(.+)-arm64\.tar\.zst""").matchEntire(f.name)?.groupValues?.get(1) ?: "?"
+        startImport(StageClient.Kind.RUNTIME, "OneiOS runtime $version") { java.io.FileInputStream(f) to f.length() }
     }
 
     fun importFile(kind: StageClient.Kind, uri: Uri) {
@@ -237,17 +303,8 @@ class Controller(
         }
         run("Downloading GalIOS ${info.version}") {
             val apk = UpdateInstaller.apkFile(context)
-            val (input, total) = Updater.download(info)
-            apk.outputStream().use { out ->
-                val buf = ByteArray(1 shl 20)
-                var done = 0L
-                input.use { s ->
-                    while (true) {
-                        val n = s.read(buf); if (n < 0) break
-                        out.write(buf, 0, n); done += n
-                        if (total > 0) _state.update { it.copy(busy = "Downloading GalIOS ${info.version} · ${(done * 100 / total)}%") }
-                    }
-                }
+            Updater.download(info, apk) { done, total ->
+                if (total > 0) _state.update { it.copy(busy = "Downloading GalIOS ${info.version} · ${done * 100 / total}%") }
             }
             UpdateInstaller.install(context, apk)
             "Opening the installer for GalIOS ${info.version}."

@@ -49,6 +49,7 @@ class SetupActions(
     val howToBuild: () -> Unit,
     val cancelImport: () -> Unit,
     val importFound: (ImageFinder.Found) -> Unit = {},
+    val addRuntime: () -> Unit = {},
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -93,16 +94,50 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             }
         }
 
-        Step(3, "OneiOS runtime", "The program that runs iOS next to One UI's kernel. OneiOS's own code: GalIOS downloads it from OneiOS's releases.", done = s.status?.runtimeVersion != null) {
+        Step(3, "OneiOS runtime", "The program that runs iOS next to One UI's kernel. OneiOS's own code (no Apple files): GalIOS downloads it from OneiOS's releases.", done = s.status?.runtimeVersion != null) {
             s.status?.runtimeVersion?.let { Check("On the phone", "version $it", true) }
-            s.release?.let { Check("Newest release", "${it.name} · ${bytes(it.size)}", true) }
+            val r = s.release
+            when {
+                s.releaseLooking -> Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Spinner(size = 18.dp, stroke = 2.5.dp); Spacer(Modifier.width(10.dp))
+                    Text("Looking for the newest runtime on GitHub…", style = Type.Caption)
+                }
+                r != null -> Check(
+                    "Newest release",
+                    "${r.name} · ${bytes(r.size)}" + if (r.version == s.status?.runtimeVersion) " · already on the phone" else "",
+                    true,
+                )
+                s.releaseError != null -> Check("Newest release", s.releaseError, false)
+            }
+            s.runtimeFile?.let { path ->
+                val name = path.substringAfterLast('/')
+                val onPhone = s.status?.runtimeVersion?.let { v -> name == "oneios-runtime-$v-arm64.tar.zst" } == true
+                if (!onPhone) Check("Downloaded", "$name · ready to add to the phone", true)
+            }
+            s.runtimeDownload?.let { f ->
+                VSpace(8.dp)
+                Text("Downloading… ${(f * 100).toInt()}%", style = Type.Caption.copy(color = Gal.Cyan))
+                VSpace(6.dp)
+                GalProgress(f)
+            }
             FoundList(s, StageClient.Kind.RUNTIME, a)
             VSpace(10.dp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val can = s.rootOk && s.busy == null && s.import == null && e?.hasIos == true
-                if (s.release == null) GlassButton("Find newest", a.findRelease, enabled = s.busy == null, icon = Icons.Rounded.CloudDownload)
-                else GlassButton("Download ${s.release.tag}", a.downloadRuntime, enabled = can, icon = Icons.Rounded.CloudDownload)
-                GlassButton("Choose file", a.pickRuntime, enabled = can, icon = Icons.Rounded.FolderOpen)
+                val idle = s.busy == null && s.import == null && s.runtimeDownload == null
+                val downloadedNotOnPhone = s.runtimeFile != null &&
+                    s.status?.runtimeVersion?.let { v -> s.runtimeFile.endsWith("oneios-runtime-$v-arm64.tar.zst") } != true
+                when {
+                    downloadedNotOnPhone -> GradientButton("Add to phone", a.addRuntime, enabled = idle && s.canStage, height = 46.dp, modifier = Modifier.width(170.dp))
+                    r != null && r.version != s.status?.runtimeVersion ->
+                        GradientButton("Download ${r.version}", a.downloadRuntime, enabled = idle, height = 46.dp, modifier = Modifier.width(190.dp))
+                    r == null -> GlassButton(if (s.releaseError != null) "Try again" else "Look up", a.findRelease, enabled = !s.releaseLooking, icon = Icons.Rounded.Refresh)
+                }
+                GlassButton("Choose file", a.pickRuntime, enabled = idle && s.canStage, icon = Icons.Rounded.FolderOpen)
+            }
+            // Downloading needs only the internet; adding to the phone needs root and OneOS. Say which is missing.
+            if (!s.canStage) s.stageBlocker?.let { why ->
+                VSpace(8.dp)
+                Text(why, style = Type.Caption.copy(color = Gal.Amber))
             }
         }
 

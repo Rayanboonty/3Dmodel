@@ -2,14 +2,9 @@ package dev.galios.core
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
-import java.io.IOException
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
 
 /** A GalIOS release newer than the one installed, found on GitHub. */
 data class UpdateInfo(val version: String, val versionCode: Long, val assetName: String, val url: String, val size: Long, val notes: String)
@@ -23,16 +18,10 @@ data class UpdateInfo(val version: String, val versionCode: Long, val assetName:
 object Updater {
     /** owner/repo that publishes GalIOS releases. Overridable so a fork can point at its own. */
     const val REPO = "Rayanboonty/3Dmodel"
-    private val API = "https://api.github.com/repos/$REPO/releases?per_page=30"
     private val ASSET = Regex("""GalIOS-(\d+)\.apk""", RegexOption.IGNORE_CASE)
 
-    fun check(currentCode: Long, repo: String = REPO): UpdateInfo? {
-        val url = "https://api.github.com/repos/$repo/releases?per_page=30"
-        val c = open(url)
-        c.setRequestProperty("Accept", "application/vnd.github+json")
-        val body = c.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
-        return pick(body, currentCode)
-    }
+    fun check(currentCode: Long, repo: String = REPO, api: String = "https://api.github.com/repos/$repo/releases?per_page=30"): UpdateInfo? =
+        pick(Http.text(api, accept = "application/vnd.github+json"), currentCode)
 
     /** The newest release asset whose versionCode is higher than [currentCode]; null when none is. */
     fun pick(json: String, currentCode: Long): UpdateInfo? {
@@ -59,28 +48,8 @@ object Updater {
         return best
     }
 
-    fun download(info: UpdateInfo): Pair<InputStream, Long> {
-        val c = open(info.url)
-        return c.inputStream to (c.contentLengthLong.takeIf { it > 0 } ?: info.size)
-    }
-
-    private fun open(url: String): HttpURLConnection {
-        var target = URL(url)
-        repeat(5) {
-            val c = (target.openConnection() as HttpURLConnection).apply {
-                instanceFollowRedirects = false
-                connectTimeout = 30_000; readTimeout = 60_000
-                setRequestProperty("User-Agent", "GalIOS")
-            }
-            when (val code = c.responseCode) {
-                200 -> return c
-                in 300..399 -> {
-                    val next = c.getHeaderField("Location") ?: throw IOException("redirect without a target")
-                    c.disconnect(); target = URL(target, next)
-                }
-                else -> throw IOException("GitHub answered HTTP $code")
-            }
-        }
-        throw IOException("too many redirects")
+    /** Downloads the APK to [dest]; [onProgress] gets bytes done and the total when known. */
+    fun download(info: UpdateInfo, dest: java.io.File, onProgress: (Long, Long) -> Unit = { _, _ -> }) {
+        Http.download(info.url, dest, onProgress = onProgress)
     }
 }

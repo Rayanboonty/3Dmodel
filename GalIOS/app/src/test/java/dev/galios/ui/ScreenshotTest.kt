@@ -40,9 +40,13 @@ class ScreenshotTest {
     private val noop = SetupActions({}, {}, {}, {}, {}, {}, {}, {}, {})
     private val actions = AppActions(noop, {}, {}, {}, {}, {}, { _, _ -> }, {})
 
-    private fun shot(name: String, s: UiState, tab: Tab = Tab.BOOT, confirm: Boolean = false, scrollToEnd: Boolean = false) {
+    private fun shot(name: String, s: UiState, tab: Tab = Tab.BOOT, confirm: Boolean = false, scrollToEnd: Boolean = false, scrollPx: Float = 0f) {
         compose.setContent { GalIosApp(s, actions, startTab = tab, showConfirm = confirm) }
         compose.waitForIdle()
+        if (scrollPx > 0f) {
+            compose.onNode(androidx.compose.ui.test.hasScrollAction()).performTouchInput { swipeUp(startY = bottom * 0.9f, endY = bottom * 0.9f - scrollPx, durationMillis = 600) }
+            compose.waitForIdle()
+        }
         if (scrollToEnd) {
             compose.onNode(androidx.compose.ui.test.hasScrollAction()).performTouchInput { swipeUp(startY = bottom * 0.95f, endY = top, durationMillis = 400) }
             compose.waitForIdle()
@@ -103,5 +107,16 @@ class ScreenshotTest {
             device = s25, checks = goodChecks, engine = engine, engineInstalled = true, status = ready,
             update = UpdateInfo("1.3", 3, "GalIOS-3.apk", "https://x", 2_600_000, "notes"),
         ),
+    )
+
+    @Test fun setupRuntimeStates() = shot(
+        "8-setup-runtime",
+        UiState(
+            device = s25, checks = goodChecks.copy(root = false), engine = engine, engineInstalled = false, status = null,
+            release = RuntimeRelease("v0.1.8", "OneiOS runtime 0.1.8", "oneios-runtime-0.1.8-arm64.tar.zst", "u", 745_000, "s"),
+            runtimeFile = "/data/user/0/dev.galios/files/runtime/oneios-runtime-0.1.8-arm64.tar.zst",
+        ),
+        Tab.SETUP,
+        scrollPx = 1500f,
     )
 }

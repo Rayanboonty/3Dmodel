@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
                 howToBuild = { open("https://github.com/akshaynexus/OneiOS/blob/main/docs/building.md") },
                 cancelImport = { controller.cancelImport() },
                 importFound = { controller.importFound(it) },
+                addRuntime = { controller.addRuntimeToPhone() },
             ),
             boot = { controller.boot() },
             returnToOneUi = { controller.returnToOneUi() },
