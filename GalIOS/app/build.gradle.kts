@@ -14,8 +14,8 @@ android {
         // Build.SOC_MODEL is API 31; the Galaxy S25 Ultra ships with Android 15.
         minSdk = 31
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.5"
+        versionCode = 6
+        versionName = "1.6"
         // The Galaxy S25 Ultra and S24 Ultra are arm64: leave out zstd's libraries for other CPUs.
         ndk { abiFilters += "arm64-v8a" }
     }

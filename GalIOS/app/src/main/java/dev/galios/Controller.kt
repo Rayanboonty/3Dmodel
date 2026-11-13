@@ -380,6 +380,12 @@ class Controller(
         }
     }
 
+    /** Opens the whole on-phone build log in the log viewer (with Share). */
+    fun openPhoneBuildLog() = scope.launch {
+        val text = runCatching { PhoneBuild.fullLog(shell, scripts()) }.getOrElse { it.message ?: "" }
+        _state.update { it.copy(openLog = "Phone build log" to text.ifBlank { "(the log is empty)" }) }
+    }
+
     fun stopPhoneBuild() = scope.launch {
         runCatching { PhoneBuild.stop(shell, scripts()) }
         watcher?.cancel()
@@ -399,6 +405,9 @@ class Controller(
             }
             val end = _state.value.phoneBuild
             refresh().join()
+            if (end?.state == PhoneBuild.Status.State.FAILED) {
+                _state.update { it.copy(message = Message("The build stopped: ${end.failedStep ?: end.step ?: "see the log"}. Tap Show full log in step 4 and send it to me.", true)) }
+            }
             if (end?.state == PhoneBuild.Status.State.DONE) {
                 val image = _state.value.found.firstOrNull { it.kind == StageClient.Kind.IMAGE && it.recognised }
                 when {

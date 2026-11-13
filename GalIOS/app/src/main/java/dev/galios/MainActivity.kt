@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
                 addRuntime = { controller.addRuntimeToPhone() },
                 startPhoneBuild = { controller.startPhoneBuild(it) },
                 stopPhoneBuild = { controller.stopPhoneBuild() },
+                openPhoneBuildLog = { controller.openPhoneBuildLog() },
             ),
             boot = { controller.boot() },
             returnToOneUi = { controller.returnToOneUi() },

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.ui.graphics.Brush
@@ -61,6 +62,7 @@ class SetupActions(
     val addRuntime: () -> Unit = {},
     val startPhoneBuild: (String?) -> Unit = {},
     val stopPhoneBuild: () -> Unit = {},
+    val openPhoneBuildLog: () -> Unit = {},
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -210,21 +212,35 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
                 }
                 BuildLog(b.log)
                 VSpace(10.dp)
-                GlassButton("Stop", a.stopPhoneBuild, icon = Icons.Rounded.Close)
+                Row {
+                    GlassButton("Stop", a.stopPhoneBuild, icon = Icons.Rounded.Close)
+                    Spacer(Modifier.width(10.dp))
+                    GlassButton("Full log", a.openPhoneBuildLog, icon = Icons.Rounded.Description)
+                }
             }
             st == dev.galios.core.PhoneBuild.Status.State.DONE -> {
                 Check("Built on this phone", "The image is in your Download folder" + if (s.status?.imageVersion != null) " and imported." else ": import it above.", true)
             }
             st == dev.galios.core.PhoneBuild.Status.State.FAILED || st == dev.galios.core.PhoneBuild.Status.State.STOPPED -> {
+                val neverStarted = st == dev.galios.core.PhoneBuild.Status.State.FAILED && (b.step == null || b.step == "starting")
                 Check(
-                    if (st == dev.galios.core.PhoneBuild.Status.State.STOPPED) "Stopped" else "Stopped by an error",
-                    b.failedStep ?: b.step ?: "", false,
+                    when {
+                        st == dev.galios.core.PhoneBuild.Status.State.STOPPED -> "Stopped"
+                        neverStarted -> "Ubuntu did not start on this phone"
+                        else -> "Stopped by an error"
+                    },
+                    if (neverStarted) "The log says why. Tap Full log, then Share, and send it to me." else b.failedStep ?: b.step ?: "",
+                    false,
                 )
-                BuildLog(b.log)
+                BuildLog(b.log, lines = 8)
                 VSpace(10.dp)
                 Text("Resume continues from the step that stopped; finished steps are kept.", style = Type.Caption)
                 VSpace(8.dp)
-                GradientButton("Resume", { a.startPhoneBuild(s.ipsws.firstOrNull { it.isPinned }?.path) }, enabled = s.rootOk, height = 46.dp, modifier = Modifier.width(150.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    GradientButton("Resume", { a.startPhoneBuild(s.ipsws.firstOrNull { it.isPinned }?.path) }, enabled = s.rootOk, height = 46.dp, modifier = Modifier.width(140.dp))
+                    Spacer(Modifier.width(10.dp))
+                    GlassButton("Full log", a.openPhoneBuildLog, icon = Icons.Rounded.Description)
+                }
             }
             else -> {
                 Text(
@@ -277,8 +293,8 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
 }
 
 @Composable
-private fun BuildLog(lines: List<String>) {
-    val tail = lines.filter { it.isNotBlank() }.takeLast(5)
+private fun BuildLog(log: List<String>, lines: Int = 5) {
+    val tail = log.filter { it.isNotBlank() }.takeLast(lines)
     if (tail.isEmpty()) return
     VSpace(8.dp)
     Column(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(Color(0x99000000)).padding(10.dp)) {

@@ -73,6 +73,11 @@ object PhoneBuild {
         return reply(shell.exec("$vars sh ${shq(scripts.runner.path)} start"))
     }
 
+    /** The whole build log (its last 3000 lines), without terminal colours. */
+    fun fullLog(shell: RootShell, scripts: Scripts): String =
+        shell.exec("${env(scripts)} sh ${shq(scripts.runner.path)} log").lines
+            .filter { it.startsWith("| ") || it == "|" }.joinToString("\n") { it.removePrefix("|").removePrefix(" ") }
+
     fun stop(shell: RootShell, scripts: Scripts): StageClient.Reply =
         reply(shell.exec("${env(scripts)} sh ${shq(scripts.runner.path)} stop"))
 

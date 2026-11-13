@@ -5,6 +5,7 @@
 #                               detached; returns at once
 #   sh phone-build.sh status    state=..., step=..., exit=..., then the log's last lines as "| ..."
 #   sh phone-build.sh stop      end a running build (finished steps are kept: start again resumes)
+#   sh phone-build.sh log       the whole log (last 3000 lines) as "| ..."
 #
 # Env for start:
 #   ROOTFS_TAR    ubuntu-base-24.04.x-base-arm64.tar.gz (GalIOS downloads it and checks its SHA-256); only needed
@@ -50,21 +51,41 @@ do_status() {
   echo "step=$(head -n 1 "$R/galios/progress" 2>/dev/null)"
   echo "exit=$(cat "$H/exit" 2>/dev/null)"
   echo "started=$(cat "$H/started" 2>/dev/null)"
-  [ -f "$H/build.log" ] && tail -n 40 "$H/build.log" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/^/| /'
+  [ -f "$H/build.log" ] && tail -n 40 "$H/build.log" | clean
   echo "@@OK status"
 }
 
+# The log without terminal colours, each line as "| ...". Only tr and a plain sed: Android's toybox has both,
+# but its sed does not know \x escapes (1.5 lost the whole log to that).
+clean() { tr -d '\033\r' | sed -e 's/\[[0-9;]*m//g' -e 's/^/| /'; }
+
+do_log() {
+  [ -f "$H/build.log" ] && tail -n 3000 "$H/build.log" | clean
+  echo "@@OK log"
+}
+
+# Every process running inside Ubuntu: its root directory is the Ubuntu folder.
+inside_pids() {
+  for d in /proc/[0-9]*; do
+    [ "$(readlink "$d/root" 2>/dev/null)" = "$R" ] && echo "${d#/proc/}"
+  done
+}
+
 do_stop() {
-  if pid_alive; then
-    p=$(cat "$H/pid")
-    # The runner is a session leader (setsid): end its whole group, then anything left.
-    kill -TERM -"$p" 2>/dev/null || kill -TERM "$p" 2>/dev/null
-    i=0; while [ -d "/proc/$p" ] && [ $i -lt 20 ]; do sleep 1; i=$((i + 1)); done
-    kill -KILL -"$p" 2>/dev/null; kill -KILL "$p" 2>/dev/null
+  if pid_alive || [ -n "$(inside_pids)" ]; then
+    p=$(cat "$H/pid" 2>/dev/null)
+    r=$(cat "$H/runner.pid" 2>/dev/null)
+    # The build inside Ubuntu, the runner (its trap undoes the mounts) and the detached shell; not only a process
+    # group, which depends on how setsid behaved.
+    for q in $(inside_pids) $r $p; do kill -TERM "$q" 2>/dev/null; done
+    [ -n "$p" ] && kill -TERM -"$p" 2>/dev/null
+    i=0; while { [ -n "$(inside_pids)" ] || { [ -n "$r" ] && [ -d "/proc/$r" ]; }; } && [ $i -lt 20 ]; do sleep 1; i=$((i + 1)); done
+    for q in $(inside_pids) $r $p; do kill -KILL "$q" 2>/dev/null; done
+    sleep 1
     echo stopped > "$H/exit"
     echo "stopped" > "$R/galios/progress" 2>/dev/null
   fi
-  rm -f "$H/pid"
+  rm -f "$H/pid" "$H/runner.pid"
   echo "@@OK stop"
 }
 
@@ -121,25 +142,59 @@ do_start() {
     [ -n "$val" ] && passenv="$passenv $v=$val"
   done
 
-  # 2. The runner: private mounts, a small /dev, then the build in Ubuntu.
+  # 2. How to get a private mount namespace on this phone. Best: unshare with --propagation private (busybox,
+  # util-linux). Android's own toybox unshare has no --propagation: then run.sh makes / private itself. Either way
+  # run.sh records each mount and unmounts it when the build ends, so nothing is left in Android's view.
+  if [ -n "${GALIOS_FORCE_UNSHARE:-}" ]; then umode="$GALIOS_FORCE_UNSHARE"
+  elif [ -n "$BB" ] && "$BB" unshare --help 2>&1 | grep -q -- '--propagation'; then umode=busybox
+  elif command -v unshare >/dev/null 2>&1 && unshare --help 2>&1 | grep -q -- '--propagation'; then umode=system
+  elif [ -n "$BB" ] && "$BB" unshare --help >/dev/null 2>&1; then umode=busybox-plain
+  elif command -v unshare >/dev/null 2>&1; then umode=system-plain
+  else umode=none
+  fi
+  case "$umode" in
+    busybox) US="$BB unshare -m --propagation private" ;;
+    system) US="unshare -m --propagation private" ;;
+    busybox-plain) US="$BB unshare -m" ;;
+    system-plain) US="unshare -m" ;;
+    unchanged) US="unshare -m --propagation unchanged" ;;   # tests: like a toybox unshare
+    *) US="" ;;
+  esac
+  if [ -n "$BB" ]; then SS="$BB setsid"; elif command -v setsid >/dev/null 2>&1; then SS="setsid"; else SS=""; fi
+
+  # 3. The runner: traced, every mount recorded and undone at the end; a small /dev; then the build in Ubuntu.
   cat > "$H/run.sh" <<EOF
-set -e
 R='$R'
-mount -t proc proc "\$R/proc"
-mount -t sysfs sysfs "\$R/sys"
-mount -t tmpfs -o mode=0755,size=64m tmpfs "\$R/dev"
-for n in null zero full random urandom tty fuse; do
-  [ -e "/dev/\$n" ] || continue
-  touch "\$R/dev/\$n" && mount -o bind "/dev/\$n" "\$R/dev/\$n"
-done
+MOUNTED=""
+mnt() { t="\$1"; shift; if mount "\$@" "\$t"; then MOUNTED="\$t \$MOUNTED"; echo "mounted \${t#\$R}"; else echo "FAILED: mount \$* \${t#\$R}"; return 1; fi; }
+cleanup() { set +e; for t in \$MOUNTED; do umount -l "\$t" 2>/dev/null || umount "\$t" 2>/dev/null; done; MOUNTED=""; }
+echo \$\$ > '$H/runner.pid'
+echo "== setting up Ubuntu's mounts (private to this build)"
+trap cleanup EXIT
+trap 'cleanup; exit 143' TERM INT HUP
+set -e
+mount --make-rprivate / 2>/dev/null && echo "mount namespace made private" || echo "note: could not make / private; mounts are undone at the end instead"
+# Fresh /proc, /sys and a small /dev; where the kernel refuses one, the phone's own is bound in instead.
+mnt "\$R/proc" -t proc proc || mnt "\$R/proc" -o bind /proc
+mnt "\$R/sys" -t sysfs sysfs || mnt "\$R/sys" -o bind /sys
+if mnt "\$R/dev" -t tmpfs -o mode=0755,size=64m tmpfs; then
+  for n in null zero full random urandom tty fuse; do
+    [ -e "/dev/\$n" ] || continue
+    touch "\$R/dev/\$n"
+    mnt "\$R/dev/\$n" -o bind "/dev/\$n"
+  done
+else
+  mnt "\$R/dev" -o bind /dev
+fi
 mkdir -p "\$R/dev/pts" "\$R/dev/shm"
-mount -t devpts -o newinstance,ptmxmode=0666 devpts "\$R/dev/pts" 2>/dev/null || true
+mnt "\$R/dev/pts" -t devpts -o newinstance,ptmxmode=0666 devpts || true
 [ -e "\$R/dev/pts/ptmx" ] && ln -sf pts/ptmx "\$R/dev/ptmx"
-mount -t tmpfs -o mode=1777 tmpfs "\$R/dev/shm"
+mnt "\$R/dev/shm" -t tmpfs -o mode=1777 tmpfs
 ln -sf /proc/self/fd "\$R/dev/fd"; ln -sf /proc/self/fd/0 "\$R/dev/stdin"
 ln -sf /proc/self/fd/1 "\$R/dev/stdout"; ln -sf /proc/self/fd/2 "\$R/dev/stderr"
-mount -o bind '$STORAGE' "\$R/sdcard"
-exec chroot "\$R" /usr/bin/env -i HOME=/root TERM=dumb LANG=C.UTF-8 \\
+mnt "\$R/sdcard" -o bind '$STORAGE'
+echo "== Ubuntu is ready; starting the build"
+chroot "\$R" /usr/bin/env -i HOME=/root TERM=dumb LANG=C.UTF-8 \\
   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \\
   GALIOS_WORK=/root/oneios-build GALIOS_OUT_DIR=/sdcard/Download GALIOS_PROGRESS=/galios/progress $passenv \\
   /bin/bash /galios/build.sh $args
@@ -147,10 +202,19 @@ EOF
   rm -f "$H/exit" "$H/pid"
   echo "starting" > "$R/galios/progress"
   date +%s > "$H/started"
+  # What this phone's root looks like, first in the log: most start problems are explained by these lines.
+  {
+    echo "== GalIOS phone build, $(date)"
+    echo "root: uid $(id -u), SELinux $(getenforce 2>/dev/null || echo '?'), context $(tr -d '\0' < /proc/self/attr/current 2>/dev/null)"
+    echo "kernel: $(uname -r) ($(uname -m))"
+    echo "busybox: ${BB:-none}; unshare: $umode; setsid: ${SS:-none}"
+    echo "tools: chroot=$(command -v chroot) mount=$(command -v mount) unshare=$(command -v unshare)"
+    echo "free on /data: $(df -h /data 2>/dev/null | tail -n 1)"
+    echo "ubuntu: $(cat "$R/etc/lsb-release" 2>/dev/null | tr '\n' ' ')"
+  } > "$H/build.log" 2>&1
   # Detached: its own session, so GalIOS (and a closed screen) can go away; the exit code is kept for status.
-  if [ -n "$BB" ]; then US="$BB unshare"; SS="$BB setsid"; else US="unshare"; SS="setsid"; fi
   # The detached shell writes its own pid (setsid may fork, so $! would not always be the session leader).
-  $SS sh -c "echo \$\$ > '$H/pid'; $US -m --propagation private sh '$H/run.sh' > '$H/build.log' 2>&1; echo \$? > '$H/exit'" </dev/null >/dev/null 2>&1 &
+  $SS sh -c "echo \$\$ > '$H/pid'; $US sh '$H/run.sh' >> '$H/build.log' 2>&1; echo \$? > '$H/exit'" </dev/null >/dev/null 2>&1 &
   i=0; while [ ! -s "$H/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
   [ -s "$H/pid" ] || die "the build did not start"
   echo "@@OK start"
@@ -160,5 +224,6 @@ case "${1:-}" in
   start) do_start ;;
   stop) do_stop ;;
   status) do_status ;;
+  log) do_log ;;
   *) sed -n '2,20p' "$0"; exit 2 ;;
 esac

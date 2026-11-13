@@ -141,8 +141,9 @@ class ScreenshotTest {
     @Test fun phoneBuildFailed() = shot(
         "11-phone-build-failed",
         UiState(device = s25, checks = goodChecks, engine = engine, engineInstalled = true, status = noImage, dataFree = 120L shl 30,
-            phoneBuild = dev.galios.core.PhoneBuild.Status(dev.galios.core.PhoneBuild.Status.State.FAILED, "failed: Building the XNU kernel (exit 1)", "1", null,
-                listOf("urllib.error.HTTPError: HTTP Error 403: Forbidden", "build-hosted: FAILED.", "STOPPED during: Building the XNU kernel (exit 1)."))),
+            phoneBuild = dev.galios.core.PhoneBuild.Status(dev.galios.core.PhoneBuild.Status.State.FAILED, "starting", "1", null,
+                listOf("== GalIOS phone build, Fri Nov 13 12:07:41 2026", "root: uid 0, SELinux Enforcing, context u:r:su:s0", "busybox: none; unshare: system-plain; setsid: setsid",
+                    "== setting up Ubuntu's mounts (private to this build)", "mounted /proc", "FAILED: mount -t sysfs sysfs /sys"))),
         Tab.SETUP, scrollToEnd = true,
     )
 }
