@@ -217,7 +217,22 @@ if ! is_done kernel-inputs; then
   scripts/image/kernel-inputs.sh "$PROFILE"
   done_mark kernel-inputs
 fi
+# When the kernel build stops: the first real errors from its logs (make runs many jobs at once, so the line that
+# failed is usually far above the last lines), and a copy of the logs next to the finished image's place.
+kernel_failed() {
+  local logs; logs=$(find "$ONEIOS/out/kernel-hosted-galios" -path '*/logs/*.log' -newer "$WORK/.kernel-start" 2>/dev/null)
+  [ -n "$logs" ] || logs=$(find "$ONEIOS/out/kernel-hosted-galios" -path '*/logs/*.log' 2>/dev/null)
+  printf '\n\033[1;33m── the first errors in the kernel logs ──\033[0m\n'
+  # shellcheck disable=SC2086
+  grep -h -E '(error:|Error [0-9]+|\*\*\*|fatal|No such file|not found|undefined|Permission denied|Traceback|Killed|out of memory)' $logs 2>/dev/null |
+    grep -v -E 'Entering directory|Leaving directory|warning:|-Werror|jobserver' | awk '!seen[$0]++' | head -40 || true
+  local dest="${GALIOS_OUT_DIR:-}"
+  [ -n "$dest" ] && [ -d "$dest" ] || dest="$HOME"
+  mkdir -p "$dest/galios-build-logs" && for f in $logs; do cp -f "$f" "$dest/galios-build-logs/" 2>/dev/null; done
+  printf '\033[1;33mThe full kernel logs are in %s/galios-build-logs (send kernel-bootstrap.log or kernel.log).\033[0m\n' "$dest"
+}
 if ! is_done kernel; then
+  touch "$WORK/.kernel-start"
   say "Building the XNU kernel (10-20 minutes the first time)"
   if [ -n "${GALIOS_CHROOT:-}" ]; then
     # On the phone (GalIOS's own Ubuntu): the kernel build puts four helpers (xcrun, plutil, codesign, csh) in
@@ -230,7 +245,7 @@ if ! is_done kernel; then
     for t in xcrun plutil codesign csh; do install -m 0755 "$TC/unixnu/usrbin/$t" "/usr/bin/$t"; done
     ok "kernel helpers installed in this Ubuntu's /usr/bin (no overlay needed)"
   fi
-  env HOSTED_OUT=galios XNU_FILESET_REFERENCE=1 kernel/build-hosted.sh
+  env HOSTED_OUT=galios XNU_FILESET_REFERENCE=1 kernel/build-hosted.sh || { kernel_failed; false; }
   done_mark kernel
 fi
 if ! is_done prelink; then
