@@ -62,6 +62,9 @@ The staging test runs against OneOS's real scripts on a stand-in phone only when
 
 ## GalIOS Studio (Windows)
 
+Without any app: `tools/WINDOWS.md` (a step-by-step guide) with `tools/galios-adb.sh`, which does the phone side
+from the Ubuntu window over adb.
+
 `studio/` is a Windows program that does the PC side: it builds the image in WSL Ubuntu (`tools/build-ios-image-wsl.sh`,
 which it carries), then over USB installs GalIOS, installs the boot engine (read from the phone's OneOS app, adapted
 for the S25 Ultra), adds the OneiOS runtime and the image, runs the boot check, and boots and returns. It opens as a
