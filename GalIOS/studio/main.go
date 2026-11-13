@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.3"
+const version = "1.4"
 
 type App struct {
 	hub           *Hub
@@ -187,7 +187,7 @@ func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"version": version, "settings": a.store.Get(), "pc": a.pc, "phone": a.phone, "job": a.hub.Job(),
 		"windows": runtime.GOOS == "windows", "dataDir": dataDir(), "restartNeeded": a.restartNeeded.Load(),
-		"ipswFound": ipswFoundCached(), "imageName": imageName, "ipswName": ipswName,
+		"imageName": imageName, "ipswName": ipswName,
 	})
 }
 
@@ -310,32 +310,24 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			start = filepath.Join(home, "Downloads")
 		}
 		p, err := pickPath("Choose "+ipswName, false, "iPhone restore file (*.ipsw)", "*.ipsw", start)
-		if err == nil && p != "" {
-			if cerr := checkIPSW(p); cerr != nil {
-				reply("", cerr)
-				return
-			}
-			s.IPSW = p
-			err = a.store.Set(s)
-		}
-		reply(p, err)
-	case "find.ipsw":
-		p, notes := bestIPSW(s)
-		ipswCache.Store(p)
-		if p == "" {
-			msg := "No " + ipswName + " on this PC: Do everything downloads what it needs from Apple instead."
-			if len(notes) > 0 {
-				msg = strings.Join(notes, " · ")
-			}
-			if s.IPSW != "" && !fileExists(s.IPSW) {
-				s.IPSW = ""
-				a.store.Set(s)
-			}
-			reply("", fmt.Errorf("%s", msg))
+		if err != nil || p == "" {
+			reply("", err)
 			return
 		}
+		// Your choice is kept as it is; a doubt about its contents is said, not enforced (OneiOS checks it again).
 		s.IPSW = p
-		reply("Found and checked: "+p, a.store.Set(s))
+		if err := a.store.Set(s); err != nil {
+			reply("", err)
+			return
+		}
+		if cerr := checkIPSW(p); cerr != nil {
+			reply("Chosen: "+filepath.Base(p)+". Note: "+cerr.Error()+" (OneiOS checks it again when the build reads it).", nil)
+			return
+		}
+		reply("Chosen and checked: "+filepath.Base(p), nil)
+	case "clear.ipsw":
+		s.IPSW = ""
+		reply("No .ipsw chosen: the build reads what it needs from Apple.", a.store.Set(s))
 	case "pick.outdir":
 		p, err := pickPath("Where should the finished image go?", true, "", "", s.OutDir)
 		if err == nil && p != "" {
@@ -364,22 +356,15 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 	case "build.ipsw":
 		start("Build the iOS 27 image from your .ipsw", func(ctx context.Context, j *JobCtx) (string, error) {
 			p, notes := bestIPSW(s)
-			for _, n := range notes {
-				j.Log("skipped: %s", n)
-			}
 			if p == "" {
-				if s.IPSW != "" && !fileExists(s.IPSW) {
+				if len(notes) > 0 {
 					s.IPSW = ""
 					a.store.Set(s)
+					return "", fmt.Errorf("%s", notes[0])
 				}
-				if len(notes) > 0 {
-					return "", fmt.Errorf("%s", strings.Join(notes, " · "))
-				}
-				return "", fmt.Errorf("no %s found in Downloads, Desktop or Documents: press Choose the .ipsw, or use Download from Apple", ipswName)
+				return "", fmt.Errorf("choose your .ipsw first (Choose the .ipsw…), or use Download from Apple and build")
 			}
-			j.Log("using %s", p)
-			s.IPSW = p
-			a.store.Set(s)
+			j.Log("using the .ipsw you chose: %s", p)
 			if restart, err := ensureWSL(ctx, j, s); err != nil || restart {
 				if restart {
 					a.restartNeeded.Store(true)
@@ -517,24 +502,6 @@ func (a *App) startAuto() (string, error) {
 		return a.autoAll(ctx, j, script)
 	})
 	return "started", err
-}
-
-var ipswCache atomic.Value
-
-// ipswFoundCached is the checked .ipsw found on this PC (looked for in the background, at most once a minute).
-func ipswFoundCached() string {
-	v, _ := ipswCache.Load().(string)
-	return v
-}
-
-func init() {
-	go func() {
-		for {
-			p, _ := bestIPSW(LoadStore().Get())
-			ipswCache.Store(p)
-			time.Sleep(time.Minute)
-		}
-	}()
 }
 
 func orNone(s string) string {

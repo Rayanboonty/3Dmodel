@@ -77,10 +77,10 @@ function render() {
     built ? 'built · ' + gb(pc.imageBytes) : { none: 'not started', setup: 'tools ready', partial: 'partly built (resume)', built: 'built in Ubuntu' }[pc.buildState] || '—');
   $('#wslRows').innerHTML = wsl.join('') + row((pc.doneSteps || []).length ? 'ok' : 'off', 'Finished steps', (pc.doneSteps || []).join(', ') || 'none yet');
   $('#imageRows').innerHTML = row(built ? 'ok' : 'off', 'Image', built ? pc.imageOnPC + ' · ' + gb(pc.imageBytes) : 'not built yet') + row('ok', 'Folder', set.outDir);
-  const ipsw = set.ipsw || s.ipswFound;
-  $('#ipswRows').innerHTML = ipsw
-    ? row('ok', 'Firmware file', ipsw + ' · checked')
-    : row('wait', 'Firmware file', 'not found on this PC: the build downloads what it needs from Apple');
+  const ipsw = set.ipsw;
+  const fetched = (pc.doneSteps || []).includes('fetch');
+  $('#ipswRows').innerHTML = row(ipsw || fetched ? 'ok' : 'off', 'Firmware file',
+    ipsw ? ipsw : fetched ? 'already read (from Apple or your .ipsw): nothing more needed' : 'none chosen: the build downloads what it needs from Apple');
 
   const conn = ph.connected
     ? [row(ph.supported ? 'ok' : 'bad', 'Phone', `${ph.label} · ${ph.model} · Android ${ph.android}`), row('ok', 'Serial', ph.serial)]
@@ -115,7 +115,7 @@ function render() {
   const autoRunning = j.running && j.name === 'auto.all';
   const items = [
     ['Ubuntu (WSL)', pc.wsl && pc.distroReady || built, 'installed by Studio'],
-    ['Firmware', built || !!ipsw, ipsw ? 'your .ipsw' : 'from Apple during the build'],
+    ['Firmware', built || fetched || !!ipsw, fetched ? 'already read' : ipsw ? 'your .ipsw' : 'from Apple during the build'],
     ['iOS 27 image', built, built ? gb(pc.imageBytes) : pc.buildState === 'partial' ? 'partly built' : '1–3 hours'],
     ['Phone connected', !!ph.connected, ph.connected ? ph.label : 'USB, debugging on'],
     ['Root', !!ph.root, ph.root ? ph.rootVia : 'start your temporary root'],
@@ -156,7 +156,7 @@ function renderJob(j) {
   $('#taskBar').style.width = known ? j.progress * 100 + '%' : j.running ? '' : j.error ? '0' : j.result ? '100%' : '0';
   $('#stopBtn').disabled = !j.running;
   $$('[data-act]').forEach((b) => {
-    if (!['job.stop', 'quit', 'open.outdir', 'open.data', 'pc.refresh', 'phone.refresh', 'wsl.terminal', 'pc.restart', 'find.ipsw'].includes(b.dataset.act)) b.disabled = !!j.running;
+    if (!['job.stop', 'quit', 'open.outdir', 'open.data', 'pc.refresh', 'phone.refresh', 'wsl.terminal', 'pc.restart'].includes(b.dataset.act)) b.disabled = !!j.running;
   });
 }
 

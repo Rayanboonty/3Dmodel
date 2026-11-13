@@ -61,6 +61,9 @@ func withDefaults(s Settings) Settings {
 	if s.OutDir == "" {
 		s.OutDir = defaultOutDir()
 	}
+	if s.IPSW != "" && !fileExists(s.IPSW) {
+		s.IPSW = "" // moved, renamed or deleted: forgotten, so it is never shown or used again
+	}
 	return s
 }
 

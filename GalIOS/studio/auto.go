@@ -158,16 +158,14 @@ func (a *App) autoAll(ctx context.Context, j *JobCtx, script []byte) (string, er
 				"Free some space (empty the Recycle Bin, move big files), then press Do everything again", pc.FreeGB, need)
 		}
 		mode := "download"
-		ipsw, notes := bestIPSW(s)
-		for _, n := range notes {
-			j.Log("skipped: %s", n)
-		}
-		if ipsw != "" {
-			j.Log("using your firmware file: %s", ipsw)
-			s.IPSW, mode = ipsw, "ipsw"
-			a.store.Set(s)
+		if ipsw, notes := bestIPSW(s); ipsw != "" {
+			j.Log("using the .ipsw you chose: %s", ipsw)
+			mode = "ipsw"
 		} else {
-			j.Log("no %s found on this PC: the build reads the parts it needs straight from Apple instead", ipswName)
+			for _, n := range notes {
+				j.Log("%s", n)
+			}
+			j.Log("no .ipsw chosen: the build reads the parts it needs straight from Apple (once; later runs reuse them)")
 		}
 		if _, err := buildImage(ctx, j, s, mode, script); err != nil {
 			return "", err

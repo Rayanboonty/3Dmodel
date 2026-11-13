@@ -69,11 +69,11 @@
     </div>
     <div class="glass">
       <h3>iOS files</h3>
-      <p class="muted">Studio looks for <code>iPhone18,2_27.0.1_24A446_Restore.ipsw</code> in Downloads, Desktop, Documents and your other drives, and opens it to check it is the right one. Without it, the build reads the parts it needs straight from Apple.</p>
+      <p class="muted">Choose your <code>iPhone18,2_27.0.1_24A446_Restore.ipsw</code> (any name is fine). With none chosen, the build reads the parts it needs straight from Apple. Either way the firmware is read once: later runs reuse it.</p>
       <div class="rows" id="ipswRows"></div>
       <div class="btns">
-        <button class="ghost" data-act="find.ipsw">Find it again</button>
         <button class="ghost" data-act="pick.ipsw">Choose the .ipsw…</button>
+        <button class="ghost" data-act="clear.ipsw">Clear</button>
       </div>
       <div class="btns big">
         <button class="primary" data-act="build.ipsw">Build from my .ipsw</button>
@@ -163,7 +163,7 @@
     <div class="glass form">
       <label>Ubuntu in WSL<input id="s_distro"></label>
       <label>Finished image folder<input id="s_outDir"></label>
-      <label>.ipsw file<input id="s_ipsw" placeholder="empty: found by itself, or downloaded from Apple"></label>
+      <label>.ipsw file<input id="s_ipsw" placeholder="empty: downloaded from Apple"></label>
       <label>GitHub token (optional)<input id="s_githubToken" type="password" placeholder="only if the kernel step says HTTP 403"></label>
       <label>Root on the phone<input id="s_rootCmd" placeholder="auto"><span class="hint">auto (recommended): every usual su over USB, then through GalIOS · galios: only through GalIOS · or your own command, like su -c</span></label>
       <label>adb path<input id="s_adbPath" placeholder="empty: the one Studio downloads"></label>

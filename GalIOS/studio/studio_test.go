@@ -367,13 +367,24 @@ func TestCheckIPSW(t *testing.T) {
 	if err := checkIPSW(small); err == nil || !strings.Contains(err.Error(), "did not finish") {
 		t.Fatalf("a cut-short file was accepted: %v", err)
 	}
-	// Settings still name a file that was renamed: it is forgotten and the renamed one is found.
-	t.Setenv("STUDIO_IPSW_DIRS", dir)
-	p, notes := bestIPSW(Settings{IPSW: filepath.Join(dir, "gone.ipsw")})
-	if p != renamed {
-		t.Fatalf("found %q, notes %v", p, notes)
+	// Only the file you chose is used; nothing is looked for by itself.
+	if p, _ := bestIPSW(Settings{IPSW: renamed}); p != renamed {
+		t.Fatalf("the chosen file was not used: %q", p)
 	}
-	t.Logf("found %s; skipped: %v", p, notes)
+	if p, _ := bestIPSW(Settings{}); p != "" {
+		t.Fatalf("a file was picked by itself: %q", p)
+	}
+	// A chosen file that was moved or renamed is forgotten as soon as Studio loads its settings.
+	gone := filepath.Join(dir, "gone.ipsw")
+	if p, notes := bestIPSW(Settings{IPSW: gone}); p != "" || len(notes) != 1 {
+		t.Fatalf("a missing file: %q %v", p, notes)
+	}
+	t.Setenv("STUDIO_DATA", t.TempDir())
+	st := LoadStore()
+	st.Set(Settings{IPSW: gone})
+	if got := LoadStore().Get().IPSW; got != "" {
+		t.Fatalf("the missing file is still in Settings: %q", got)
+	}
 }
 
 // TestRootHelper: root works over USB (su) only; Studio lends it to GalIOS through galios-rootd.sh, which runs what

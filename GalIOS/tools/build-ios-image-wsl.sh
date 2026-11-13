@@ -106,6 +106,23 @@ if [ ${#missing[@]} -gt 0 ]; then
   $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${missing[@]}"
 fi
 ok "build packages installed"
+
+# OneiOS's kernel is built on Linux with clang 23 (kernel/README.md: "clang 23.1.4 + ld64-956.6"); Ubuntu 24.04's own
+# clang is 18, too old for it. LLVM's own package server has clang 23 for Ubuntu 24.04 (amd64 and arm64).
+LLVM_VER=23
+LLVM_BIN=/usr/lib/llvm-$LLVM_VER/bin
+if [ ! -x "$LLVM_BIN/clang" ] || [ ! -x "$LLVM_BIN/ld.lld" ]; then
+  say "Installing clang $LLVM_VER from apt.llvm.org (the kernel needs it; Ubuntu's clang is 18)"
+  . /etc/os-release
+  $SUDO install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | $SUDO tee /etc/apt/keyrings/apt.llvm.org.asc >/dev/null
+  echo "deb [signed-by=/etc/apt/keyrings/apt.llvm.org.asc] http://apt.llvm.org/$VERSION_CODENAME/ llvm-toolchain-$VERSION_CODENAME-$LLVM_VER main" |
+    $SUDO tee /etc/apt/sources.list.d/llvm-$LLVM_VER.list >/dev/null
+  $SUDO apt-get update -q
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q clang-$LLVM_VER lld-$LLVM_VER llvm-$LLVM_VER
+fi
+export PATH="$LLVM_BIN:$PATH" XNU_LINUX_CLANG="$LLVM_BIN/clang" CROSS_CLANG="$LLVM_BIN/clang"
+ok "compiler: $(clang --version | head -1)"
 python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' || die "python3 3.11 or newer is needed"
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -233,6 +250,14 @@ kernel_failed() {
 }
 if ! is_done kernel; then
   touch "$WORK/.kernel-start"
+  # The toolchain OneiOS lays out remembers which clang it found: after a compiler change (clang 18 -> 23), it and
+  # the half-built kernel are made again, once.
+  want_cc="$(clang --version | head -1)"
+  if [ -f "$WORK/.kernel-clang" ] && [ "$(cat "$WORK/.kernel-clang")" != "$want_cc" ] || { [ ! -f "$WORK/.kernel-clang" ] && [ -d "$ONEIOS/out/toolchain" ]; }; then
+    say "The compiler changed: rebuilding the kernel toolchain (a few minutes, once)"
+    rm -rf "$ONEIOS/out/toolchain" "$ONEIOS/out/kernel-hosted-galios"
+  fi
+  echo "$want_cc" > "$WORK/.kernel-clang"
   say "Building the XNU kernel (10-20 minutes the first time)"
   if [ -n "${GALIOS_CHROOT:-}" ]; then
     # On the phone (GalIOS's own Ubuntu): the kernel build puts four helpers (xcrun, plutil, codesign, csh) in
