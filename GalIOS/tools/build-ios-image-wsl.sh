@@ -148,6 +148,13 @@ if ! is_done references; then
   scripts/setup/get-references.sh
   done_mark references
 fi
+# The kernel's own sources at OneiOS's pinned commits (kernel/pins.sh). kernel/build-hosted.sh does not fetch them
+# itself (only build-linux.sh does), so on a fresh checkout its base, Droid-VM-UniXNU, would be missing.
+if ! is_done kernel-sources || [ ! -d external/Droid-VM-UniXNU ]; then
+  say "Getting the kernel's pinned sources"
+  kernel/fetch.sh
+  done_mark kernel-sources
+fi
 if [ ! -x out/bin/ipsw ]; then
   say "Getting the ipsw tool (decrypts Apple's OS images)"
   scripts/fetch/get-ipsw-cli.sh
