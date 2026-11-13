@@ -710,11 +710,20 @@ public final class ModeManager {
                 if (this.plugin.botHall() != null) {
                     this.plugin.botHall().removeIn(area, w);
                 }
+
+                if (this.plugin.season() != null) {
+                    // the lobby is rebuilt from scratch: the winter record no longer matches it
+                    this.plugin.season().forget();
+                }
             }))
             .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaManager.clearJob(w, area)), Tasks.MAIN)
             .thenComposeAsync(v -> this.plugin.jobs().submit(r.job()), Tasks.MAIN)
             .whenComplete((v, err) -> Tasks.ensureSync(() -> {
                 this.finishBuild(admin, style, role, r, at, radius, err);
+                if (err == null && this.plugin.season() != null) {
+                    this.plugin.season().refresh();
+                }
+
                 Location spawn = r.spawn();
                 for (Map.Entry<UUID, GameMode> e : held.entrySet()) {
                     Player p = Bukkit.getPlayer(e.getKey());

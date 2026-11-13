@@ -221,6 +221,20 @@ public final class Opt<T> {
         "Generate a starter set of biome arenas + FFA arenas when none exist.",
         Material.GRASS_BLOCK
     );
+    public static final Opt<String> LOBBY_SEASON = str(
+        "lobby.season",
+        "OFF",
+        Opt.Section.LOBBY,
+        "Winter Lobby",
+        "WINTER = the whole lobby is snowed in (snow on the ground, roofs and trees, frozen water, snowmen, falling snow). AUTO = winter from 1 December to 15 January. OFF = normal. Every block comes back exactly when winter ends.",
+        Material.SNOW_BLOCK
+    );
+    public static final Opt<Integer> LOBBY_SEASON_RADIUS = integer(
+        "lobby.season-radius", 130, Opt.Section.LOBBY, "Winter Radius", "How far around the lobby the snow reaches (lobbies built by the plugin use their own size).", Material.SNOWBALL, 20, 300, 10
+    );
+    public static final Opt<Boolean> LOBBY_SNOWFALL = bool(
+        "lobby.snowfall", true, Opt.Section.LOBBY, "Falling Snow", "Snowflakes fall around players while the winter lobby is on.", Material.POWDER_SNOW_BUCKET
+    );
     public static final Opt<Boolean> LOBBY_DOUBLE_JUMP = bool(
         "lobby.double-jump", true, Opt.Section.LOBBY, "Double Jump", "Players can double jump in the lobby (per-player toggle in settings).", Material.FEATHER
     );

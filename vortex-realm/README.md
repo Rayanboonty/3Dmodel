@@ -32,6 +32,14 @@ It is meant for a test server. See **[README-VortexPvP.md](README-VortexPvP.md)*
 
 The jars bundle everything they need. PlaceholderAPI, LuckPerms, GrimAC, Vulcan and **Vault** are optional (soft dependencies).
 
+## New in 2.6.0 / 3.6.0: winter lobby
+`/pvpadmin winter on` snows the whole lobby in: snow on the ground, roofs, walls and trees, snowy grass, frozen water,
+plants under the snow, a few snowmen and snow falling around the players. `/pvpadmin winter off` thaws it - every
+block it changed is written down first (`winter-blocks.txt.gz`), so the lobby comes back exactly as it was.
+`/pvpadmin winter auto` makes it winter by itself from 1 December to 15 January. Settings → Lobby: **Winter Lobby**
+(`lobby.season`: OFF / WINTER / AUTO), Winter Radius, Falling Snow. Works with any lobby; a lobby upgrade
+(`/pvpadmin hub upgrade`) snows the new lobby in again when winter is on.
+
 ## New in 2.5.0 / 3.5.0: gardens and the old Bot Practice hall
 - The Town Square has far fewer houses: none next to the spawn, about six near the walls, plus the tavern, guild
   hall, smithy, chapel and windmill. The other plots are **small fenced gardens** with wheat, carrots, potatoes,

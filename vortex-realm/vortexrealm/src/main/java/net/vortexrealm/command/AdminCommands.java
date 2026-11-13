@@ -250,6 +250,26 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         }
                         break;
                 }
+                case "winter": {
+                        net.vortexrealm.lobby.Season se = this.plugin.season();
+                        String what = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status";
+                        if (se == null) {
+                            sender.sendMessage(Text.mm("<red>The winter lobby didn't start - see the console."));
+                        } else if (what.equals("on") || what.equals("off") || what.equals("auto")) {
+                            Cfg.set(Opt.LOBBY_SEASON, what.equals("on") ? "WINTER" : what.toUpperCase(Locale.ROOT));
+                            if (se.wanted() && !se.applied()) {
+                                se.apply(sender);
+                            } else if (!se.wanted() && se.applied()) {
+                                se.revert(sender);
+                            } else {
+                                sender.sendMessage(Text.mm("<gray>Winter lobby: " + Text.esc(se.status())));
+                            }
+                        } else {
+                            sender.sendMessage(Text.mm("<aqua>❄ <gray>Winter lobby: <white>" + Text.esc(se.status())));
+                            sender.sendMessage(Text.mm("<gray>/pvpadmin winter on <dark_gray>| <gray>off <dark_gray>| <gray>auto <dark_gray>(1 Dec - 15 Jan)"));
+                        }
+                        break;
+                }
                 case "hub": {
                         if (p == null) {
                             Msg.send(sender, "general.players-only");

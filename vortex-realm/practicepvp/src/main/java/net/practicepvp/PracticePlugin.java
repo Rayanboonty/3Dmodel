@@ -186,6 +186,7 @@ public final class PracticePlugin extends JavaPlugin {
     private Regions regions;
     private net.practicepvp.update.AutoUpdater updater;
     private net.practicepvp.social.NetworkSync netSync;
+    private net.practicepvp.lobby.Season season;
     private PingEqualizer pingEqualizer;
     private TabColumns tabColumns;
     private volatile boolean packRunning;
@@ -591,6 +592,10 @@ public final class PracticePlugin extends JavaPlugin {
             this.regions.load();
             this.bind("region", this.regions);
             pm.registerEvents(this.regions, this);
+        });
+        this.module("winter lobby", () -> {
+            this.season = new net.practicepvp.lobby.Season(this);
+            this.season.start();
         });
         this.module("auto-update", () -> {
             this.updater = new net.practicepvp.update.AutoUpdater(this, new net.practicepvp.update.AutoUpdater.Host() {
@@ -1786,6 +1791,10 @@ public final class PracticePlugin extends JavaPlugin {
 
     public net.practicepvp.update.AutoUpdater updater() {
         return this.updater;
+    }
+
+    public net.practicepvp.lobby.Season season() {
+        return this.season;
     }
 
     public net.practicepvp.social.NetworkSync netSync() {

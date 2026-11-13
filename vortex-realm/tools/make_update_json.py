@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Town Square: crop gardens instead of most houses, the old Bot Practice hall is back',
-    'PracticePvP': 'Town Square: crop gardens instead of most houses, the old Bot Practice hall is back',
+    'VortexRealm': 'Winter lobby option: /pvpadmin winter on|off|auto',
+    'PracticePvP': 'Winter lobby option: /pvpadmin winter on|off|auto',
     'VortexSMP': 'Auto-updates',
 }
 

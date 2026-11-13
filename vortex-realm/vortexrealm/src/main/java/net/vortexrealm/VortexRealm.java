@@ -186,6 +186,7 @@ public final class VortexRealm extends JavaPlugin {
     private Regions regions;
     private net.vortexrealm.update.AutoUpdater updater;
     private net.vortexrealm.social.NetworkSync netSync;
+    private net.vortexrealm.lobby.Season season;
     private PingEqualizer pingEqualizer;
     private TabColumns tabColumns;
     private volatile boolean packRunning;
@@ -602,6 +603,10 @@ public final class VortexRealm extends JavaPlugin {
             this.regions.load();
             this.bind("region", this.regions);
             pm.registerEvents(this.regions, this);
+        });
+        this.module("winter lobby", () -> {
+            this.season = new net.vortexrealm.lobby.Season(this);
+            this.season.start();
         });
         this.module("auto-update", () -> {
             this.updater = new net.vortexrealm.update.AutoUpdater(this, new net.vortexrealm.update.AutoUpdater.Host() {
@@ -1797,6 +1802,10 @@ public final class VortexRealm extends JavaPlugin {
 
     public net.vortexrealm.update.AutoUpdater updater() {
         return this.updater;
+    }
+
+    public net.vortexrealm.lobby.Season season() {
+        return this.season;
     }
 
     public net.vortexrealm.social.NetworkSync netSync() {
