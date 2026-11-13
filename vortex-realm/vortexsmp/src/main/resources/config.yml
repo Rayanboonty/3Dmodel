@@ -1,0 +1,3 @@
+# VortexSMP - the survival server of the Vortex Realm network.
+# The Practice server (PracticePvP / VortexRealm) sends players here with its server selector (/smp);
+# /hub sends them back. Missing settings are added with their defaults when the server starts.

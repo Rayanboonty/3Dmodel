@@ -1,0 +1,114 @@
+name: VortexSMP
+version: '${project.version}'
+main: net.vortexsmp.VortexSMP
+api-version: '1.21'
+author: Vortex Realm
+description: The Vortex Realm survival SMP - homes, tpa, rtp, warps, back, combat tag, /hub back to the Practice server.
+commands:
+  hub:
+    description: Back to the Practice lobby server.
+    aliases: [lobby, practice, l]
+  setspawn:
+    description: Set the SMP spawn where you stand.
+    permission: vortexsmp.admin
+  oldstuff:
+    description: Take the items you had on the old SMP.
+    aliases: [olditems]
+  link:
+    description: Link your Discord account (your invites earn drills).
+    aliases: [discord]
+  drill:
+    description: Drill pickaxes (2x2, 3x3, 4x4) earned with Discord invites.
+    aliases: [drills]
+  trade:
+    description: Trade safely with a player near you.
+  market:
+    description: Trade offers - post what you give and what you want.
+    aliases: [offers, trades]
+  vortexsmp:
+    description: VortexSMP admin (reload, import, status).
+    aliases: [vsmp]
+    permission: vortexsmp.admin
+  smpadmin:
+    description: SMP control panel (players, positions, inventories, logout spots, web map).
+    aliases: [sa]
+    permission: vortexsmp.admin
+  craft:
+    description: Portable crafting table.
+    aliases: [wb, workbench]
+  enderchest:
+    description: Open your ender chest.
+    aliases: [ec]
+  trash:
+    description: Throw items away.
+    aliases: [disposal]
+  hat:
+    description: Wear the item in your hand.
+  nightvision:
+    description: Toggle night vision.
+    aliases: [nv]
+  near:
+    description: Players near you.
+  playtime:
+    description: Your (or another player's) play time.
+    aliases: [pt]
+  spawn:
+    description: The spawn of the SMP.
+  sethome:
+    description: Set a home.
+  home:
+    description: Teleport to a home.
+    aliases: [h]
+  delhome:
+    description: Delete a home.
+  homes:
+    description: Your homes.
+  back:
+    description: Back to where you were (or died).
+  rtp:
+    description: Random safe spot in this world.
+    aliases: [wild, randomtp]
+  tpa:
+    description: Ask to teleport to a player.
+  tpahere:
+    description: Ask a player to teleport to you.
+  tpaccept:
+    description: Accept a teleport request.
+    aliases: [tpyes]
+  tpdeny:
+    description: Deny a teleport request.
+    aliases: [tpno]
+  tpacancel:
+    description: Cancel your teleport requests.
+  tptoggle:
+    description: Turn teleport requests on or off.
+  warp:
+    description: Go to a warp.
+  warps:
+    description: The server warps.
+  setwarp:
+    description: Create a warp here (icon = item in hand).
+    permission: vortexsmp.warps.admin
+  delwarp:
+    description: Delete a warp.
+    permission: vortexsmp.warps.admin
+permissions:
+  vortexsmp.admin:
+    description: Every admin command (/smpadmin, /setspawn, /vortexsmp, warps).
+    default: op
+    children:
+      vortexsmp.warps.admin: true
+      vortexsmp.teleport.bypass: true
+      vortexsmp.staff: true
+  vortexsmp.staff:
+    description: See staff details in /smpadmin.
+    default: op
+  vortexsmp.warps.admin:
+    description: /setwarp and /delwarp.
+    default: op
+  vortexsmp.teleport.bypass:
+    description: No teleport warmup or cooldown.
+    default: op
+  vortexsmp.homes.unlimited:
+    description: Unlimited homes.
+    default: op

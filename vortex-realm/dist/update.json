@@ -1,0 +1,20 @@
+{
+  "PracticePvP": {
+    "version": "2.4.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.4.0.jar",
+    "sha256": "b3f7ae453c337db9c25d55cd0bccbd2c1baf19123667383c988f5bb8a600f862",
+    "notes": "Castle-town lobby, auto-updates, nearest-region routing"
+  },
+  "VortexRealm": {
+    "version": "3.4.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.4.0.jar",
+    "sha256": "f465938b334ce5b451827c26b1f67219a24c0945477b3cbf532705b1e60f516b",
+    "notes": "Castle-town lobby, auto-updates, nearest-region routing"
+  },
+  "VortexSMP": {
+    "version": "1.3.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexSMP-1.3.0.jar",
+    "sha256": "d0c6f1cf7b48104f83dc68e807eb0638abedcc30220007d1d8d93fee435b8077",
+    "notes": "Auto-updates"
+  }
+}

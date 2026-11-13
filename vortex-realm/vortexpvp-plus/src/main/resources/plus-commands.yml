@@ -1,0 +1,130 @@
+  # ---- VortexPvP add-on systems ----
+  ladder:
+    description: "Your rank card (Coal to Netherite) per kit and overall, or someone else's."
+    aliases: [division, myrank, card]
+  season:
+    description: "Season info, the Hall of Fame (/season hof) and season end (admin)."
+    aliases: [seasons, hof]
+  clan:
+    description: "Clans: create, invite, chat, wars, top."
+    aliases: [clans, guild, g]
+  clanchat:
+    description: "Talk in your clan chat."
+    aliases: [cch, gc]
+  duo:
+    description: "Ranked 2v2 with a duo partner."
+    aliases: [2v2, duos]
+  partywar:
+    description: "Challenge another party to a team fight."
+    aliases: [pvp-party, pw]
+  lastmatch:
+    description: "Analysis of your last matches."
+    aliases: [analysis, lm]
+  replay:
+    description: "Watch match replays."
+    aliases: [replays, rp]
+  drill:
+    description: "Training drills: CPS, aim, W-tap, pearl, crystal, mace."
+    aliases: [drills, practice-drill]
+  coach:
+    description: "Coach a friend: spectate with a live overlay and save notes into the replay."
+  arcade:
+    description: "Arcade games: sumo, boxing, spleef, OITC, KOTH, bridge, parkour race."
+    aliases: [minigames, games]
+  pass:
+    description: "The battle pass."
+    aliases: [battlepass, bp]
+  missions:
+    description: "Daily, weekly and season missions."
+    aliases: [quests, challenges]
+  achievements:
+    description: "Your achievements."
+    aliases: [ach, achievement]
+  titles:
+    description: "Pick the title shown with your name."
+    aliases: [title]
+  daily:
+    description: "The 7-day reward calendar."
+    aliases: [dailyreward, rewards]
+  vfx:
+    description: "Your win effects, death messages, pets and gadgets."
+    aliases: [effects, killeffects, winfx]
+  pet:
+    description: "Pick a hub pet."
+    aliases: [pets]
+  gadget:
+    description: "Pick a hub gadget."
+    aliases: [gadgets]
+  parkour:
+    description: "The hub parkour."
+    aliases: [pk]
+  hud:
+    description: "Turn the match HUD on or off."
+  live:
+    description: "Show a LIVE badge with your stream link."
+    aliases: [stream]
+  streamer:
+    description: "Streamer mode: hides IPs and coordinates in the chat you see."
+    aliases: [streamermode]
+  link:
+    description: "Link your Discord account."
+    aliases: [discordlink, verifydiscord]
+  creator:
+    description: "Creator program (list; add/remove for admins)."
+    aliases: [creators]
+  code:
+    description: "Support a creator with their code."
+    aliases: [supportcode]
+  mentor:
+    description: "Mentor a new player, or accept a mentor."
+    aliases: [mentors]
+  fspec:
+    description: "Watch a friend's match."
+    aliases: [friendspec, watchfriend]
+  cinematic:
+    description: "Cinematic orbit camera on a match."
+    aliases: [cine, streamcam]
+  evidence:
+    description: "Reports and flags with their replays (staff)."
+    aliases: [reportevidence]
+    permission: vortexpvp.staff
+  sslog:
+    description: "Screenshare log (staff)."
+    aliases: [sshistory]
+    permission: vortexpvp.staff
+  alerts:
+    description: "Turn Fair+ alerts on or off (staff)."
+    aliases: [fairalerts]
+    permission: vortexpvp.staff
+  bounty:
+    description: "Bounties on FFA streaks."
+    aliases: [bounties]
+  kitvote:
+    description: "Vote for the player-made kit of the week, or submit yours."
+    aliases: [kotw]
+  motw:
+    description: "The match of the week."
+    aliases: [matchoftheweek]
+  weeklycup:
+    description: "Weekly tournament champions (host: admin)."
+    aliases: [cup, weekly]
+  crate:
+    description: "Open crates with keys."
+    aliases: [crates]
+  bid:
+    description: "The bid house: timed auctions."
+    aliases: [bids, bidhouse]
+  deal:
+    description: "Today's deal in the shard shop."
+    aliases: [dailydeal]
+  ecoevent:
+    description: "Start an Eco SMP event: airdrop, meteor, koth (admin)."
+    aliases: [ecoevents]
+    permission: vortexpvp.admin
+  ecowipe:
+    description: "Eco season wipe with rewards (admin)."
+    permission: vortexpvp.admin
+  plus:
+    description: "VortexPvP add-on admin: status, tests, reload, rollback, web dashboard."
+    aliases: [vortexplus, vpp]
+    permission: vortexpvp.admin

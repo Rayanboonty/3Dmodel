@@ -1,0 +1,1300 @@
+<title>Vortex Realm</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Vortex Realm: competitive Minecraft PvP. Ranked duels with tiers LT5 to HT1, leaderboards, tournaments and SMP worlds.">
+<link rel="icon" href="logo-mark.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Chakra+Petch:wght@500;600;700&display=swap">
+<style>
+/* Layout: an arena broadcast - a framed scoreboard bar, a podium stage under the lights, ladder lists below. */
+:root {
+  color-scheme: dark;
+  --bg: #070A14;
+  --bg-2: #0B1020;
+  --panel: #0F1528;
+  --panel-2: #131B33;
+  --line: #1D2744;
+  --line-2: #2A3762;
+  --text: #ECEFF8;
+  --muted: #8E98B6;
+  --dim: #59638A;
+  --ember: #FF3D1F;
+  --ember-2: #FF7A1A;
+  --amber: #FFB547;
+  --accent: #FFB547;
+  --gold: #FFC93C;
+  --silver: #D3DAE6;
+  --bronze: #DC8A4E;
+  --good: #3DDC84;
+  --bad: #FF5A5A;
+  --f-display: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --f-body: "Outfit", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --f-ui: "Chakra Petch", "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --r: 14px;
+  --wrap: 1180px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.55 var(--f-body); overflow-x: hidden;
+  -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; color: inherit; }
+img { max-width: 100%; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
+.pix { image-rendering: pixelated; }
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.page { position: relative; z-index: 1; padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: var(--wrap); margin: 0 auto; }
+
+/* ---------------------------------------------------------------- nav */
+.navbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; padding-block: 14px 0; }
+.nav { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 58px;
+  --navA: 32%; --navB: 12px;
+  background: color-mix(in srgb, var(--panel) var(--navA), transparent); border: 1px solid var(--line); border-radius: 16px;
+  backdrop-filter: blur(var(--navB)) saturate(190%) brightness(1.05); -webkit-backdrop-filter: blur(var(--navB)) saturate(190%) brightness(1.05);
+  border-color: rgba(255, 255, 255, .09); box-shadow: inset 0 1px 0 var(--top), inset 0 -1px 0 var(--lip), 0 18px 40px -24px #000;
+  transition: box-shadow .3s; }
+.nav.scrolled { box-shadow: inset 0 1px 0 var(--top), inset 0 -1px 0 var(--lip), 0 22px 50px -20px #000, 0 0 0 1px color-mix(in srgb, var(--ember) 18%, transparent); }
+/* ---------------------------------------------------------------- liquid glass
+   Every surface is a pane of glass over the ember field: a faint tint, the field behind it blurred and saturated, a
+   bright rim where the light hits (it follows the pointer), a lit top edge and a darker lower lip for thickness. On
+   Chromium the edges of the main controls also bend what is behind them like a lens (an SVG map made per element). */
+@property --sheen { syntax: "<number>"; inherits: true; initial-value: 0; }
+:root { --glass: color-mix(in srgb, var(--panel) 34%, transparent); --glass-btn: color-mix(in srgb, #ffffff 6%, color-mix(in srgb, var(--panel-2) 40%, transparent));
+  --rim: rgba(255, 255, 255, .58); --rim-2: rgba(255, 255, 255, .14); --lip: rgba(0, 0, 0, .45); --top: rgba(255, 255, 255, .11); }
+.glass, .card, .stage, .col, .search input { background-color: var(--glass) !important;
+  backdrop-filter: blur(20px) saturate(190%) brightness(1.05); -webkit-backdrop-filter: blur(20px) saturate(190%) brightness(1.05); }
+:where(.nav, .logo, .search, .stage, .card, .col, .band, .btn, .stat, .ipcard, .tstate) { position: relative; }
+:where(.card, .col, .stage, .band, .stat, .ipcard, .search input) { box-shadow: inset 0 1px 0 var(--top), inset 0 -1px 0 var(--lip), 0 26px 50px -32px #000; }
+:where(.mrow, .feed li, .row, .chip, .tile, .bm, .kit, .qb .tr) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), inset 0 -1px 0 rgba(0, 0, 0, .3); }
+/* the rim: a thin ring of light, brightest at the top left and wherever the pointer is */
+:is(.nav, .logo, .search, .stage, .card:not(.rank), .col, .band, .btn, .stat, .ipcard)::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 1;
+  background: radial-gradient(200px circle at var(--mx, 25%) var(--my, 0%), rgb(255 255 255 / calc(.18 + var(--sheen) * .62)), transparent 70%),
+    linear-gradient(155deg, var(--rim) 0%, var(--rim-2) 20%, transparent 42%, transparent 64%, rgba(255, 255, 255, .06) 84%, rgba(255, 255, 255, .2) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  transition: --sheen .45s ease; }
+.search { border-radius: 14px; }
+.lit { --sheen: 1; }
+/* buttons are small glass pills that squish when pressed */
+.btn:not(.hot) { background: var(--glass-btn); backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border-color: rgba(255, 255, 255, .1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 -1px 0 var(--lip), 0 10px 22px -14px #000; }
+.btn { transition: transform .4s cubic-bezier(.2, 1.7, .4, 1), box-shadow .25s, border-color .2s, background .2s; }
+.btn:hover { transform: translateY(-1px) scale(1.025); }
+.btn:active { transform: scale(.94); transition-duration: .12s; }
+.btn.hot::before { background: linear-gradient(180deg, rgba(255, 255, 255, .7), rgba(255, 255, 255, .08) 45%, rgba(255, 255, 255, .02) 70%, rgba(255, 210, 180, .35)); }
+.stat, .ipcard { background: color-mix(in srgb, var(--bg-2) 40%, transparent); backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-color: rgba(255, 255, 255, .08); }
+.drawer, .toast { backdrop-filter: blur(22px) saturate(190%); -webkit-backdrop-filter: blur(22px) saturate(190%); }
+.toast { background: color-mix(in srgb, var(--panel-2) 55%, transparent); box-shadow: inset 0 1px 0 var(--top), 0 18px 40px -16px #000; }
+.reveal, .reveal-item { will-change: transform, filter, opacity; }
+/* ---------------------------------------------------------------- live */
+.livehead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.onair { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 99px; font: 700 12px/1 var(--f-ui); letter-spacing: 2px;
+  color: #fff; background: linear-gradient(180deg, #FF4A2A, #C9200E); box-shadow: 0 0 22px -4px var(--ember); }
+.onair i { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1.2s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.updated { font: 600 12px/1 var(--f-ui); color: var(--dim); letter-spacing: 1px; }
+.livegrid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; }
+.panel h3 { margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; font: 600 12px/1 var(--f-ui); letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); }
+.panel h3 b { color: var(--text); font-size: 13px; letter-spacing: 1px; }
+.mrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto minmax(0, 1fr) 62px; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-2) 70%, transparent); border: 1px solid var(--line); margin-bottom: 7px; }
+.mrow .side { display: flex; align-items: center; gap: 8px; min-width: 0; font: 600 14px/1.1 var(--f-body); }
+.mrow .side.r { justify-content: flex-end; text-align: right; }
+.mrow .side span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow .side img { width: 26px; height: 26px; border-radius: 6px; flex: none; }
+.mrow .sc { font: 700 20px/1 var(--f-ui); font-variant-numeric: tabular-nums; letter-spacing: 1px; padding: 0 6px; }
+.mrow .sc em { color: var(--dim); font-style: normal; margin: 0 4px; }
+.mrow .meta { text-align: right; font: 600 11.5px/1.3 var(--f-ui); color: var(--muted); font-variant-numeric: tabular-nums; }
+.mrow .meta b { display: block; color: var(--amber); font-size: 10.5px; letter-spacing: 1px; }
+.feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.feed li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 11px; border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-2) 70%, transparent); border: 1px solid var(--line); font-size: 14px; }
+.feed li > i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--amber)); box-shadow: 0 0 10px var(--c, var(--amber)); }
+.feed li span { min-width: 0; } .feed li b { font-weight: 600; } .feed li small { color: var(--dim); font: 600 11.5px/1 var(--f-ui); white-space: nowrap; }
+.feed li.up { border-color: color-mix(in srgb, var(--c) 45%, var(--line)); background: color-mix(in srgb, var(--c) 9%, var(--bg-2)); }
+.qbars { display: grid; gap: 9px; }
+.qb { display: grid; grid-template-columns: 26px 92px minmax(0, 1fr) 44px; gap: 10px; align-items: center; font: 600 13px/1 var(--f-ui); }
+.qb .tr { height: 10px; border-radius: 10px; background: color-mix(in srgb, var(--line) 80%, transparent); overflow: hidden; display: flex; }
+.qb .tr i { display: block; height: 100%; transition: width .8s cubic-bezier(.2, .8, .2, 1); }
+.qb .tr i.p { background: linear-gradient(90deg, var(--ember), var(--amber)); } .qb .tr i.q { background: color-mix(in srgb, var(--amber) 35%, transparent); }
+.qb .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.qb .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend { display: flex; gap: 14px; margin-top: 10px; font: 600 11.5px/1 var(--f-ui); color: var(--dim); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.marquee { margin-top: 14px; overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.marquee .track { display: flex; gap: 10px; width: max-content; animation: slide 40s linear infinite; }
+.marquee:hover .track { animation-play-state: paused; }
+@keyframes slide { to { transform: translateX(-50%); } }
+.marquee .track.back { animation-direction: reverse; margin-top: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 4px; border-radius: 99px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg-2) 75%, transparent);
+  font: 600 13px/1 var(--f-body); white-space: nowrap; cursor: pointer; }
+.chip img { width: 28px; height: 28px; border-radius: 50%; }
+.chip small { color: var(--dim); font: 600 10.5px/1 var(--f-ui); letter-spacing: 1px; }
+.nolive { color: var(--dim); padding: 16px; text-align: center; font-size: 14px; }
+.nav .side { display: flex; gap: 6px; padding: 0 14px; align-items: center; min-width: 0; }
+.nav .side.right { justify-content: flex-end; }
+.nav a.link { display: inline-flex; align-items: center; gap: 8px; padding: 9px 13px; border-radius: 10px;
+  font: 600 15px/1 var(--f-display); letter-spacing: .4px; color: var(--muted); position: relative; transition: color .2s, background .2s; }
+.nav a.link svg { width: 16px; height: 16px; }
+.nav a.link:hover { color: var(--text); background: var(--panel-2); }
+.nav a.link.on { color: var(--ember-2); }
+.nav a.link.on::before { content: ""; position: absolute; left: 12px; right: 12px; top: -1px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--ember), var(--amber)); box-shadow: 0 0 12px var(--ember); }
+.logo { position: relative; margin-top: -12px; margin-bottom: -12px; padding: 8px 18px 10px; background: color-mix(in srgb, var(--bg-2) 55%, transparent);
+  backdrop-filter: blur(16px) saturate(190%); -webkit-backdrop-filter: blur(16px) saturate(190%); border: 1px solid rgba(255, 255, 255, .1); border-radius: 14px; box-shadow: 0 0 0 6px var(--bg), 0 20px 40px -18px #000; display: block; text-align: center; }
+.logo img { display: block; height: 58px; width: auto; margin: 0 auto; filter: drop-shadow(0 4px 10px #000a);
+  transition: transform .35s cubic-bezier(.2, 1.6, .4, 1), filter .3s; }
+.logo:hover img { transform: translateY(-2px) scale(1.06) rotate(-2deg); filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--ember) 55%, transparent)); }
+.logo .swoosh { display: block; height: 3px; margin: 7px auto 0; width: 78%; border-radius: 4px; transform: skewX(-22deg);
+  background: linear-gradient(90deg, transparent, var(--ember) 20%, var(--amber) 60%, transparent); box-shadow: 0 0 14px var(--ember); }
+.wordmark { display: block; font: 700 34px/1 var(--f-display); letter-spacing: 1px; background:
+  linear-gradient(100deg, #fff 0%, #fff 30%, var(--amber) 42%, var(--ember-2) 55%, var(--ember) 70%, #fff 100%);
+  background-size: 260% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 7s ease-in-out infinite; text-shadow: none; }
+@keyframes shimmer { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0 0; } }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px;
+  border: 1px solid var(--line-2); background: var(--panel-2); font: 600 14px/1 var(--f-ui); letter-spacing: .5px; cursor: pointer;
+  transition: transform .15s, box-shadow .2s, border-color .2s, background .2s; white-space: nowrap; }
+.btn:hover { border-color: var(--amber); transform: translateY(-1px); }
+.btn svg { width: 16px; height: 16px; }
+.btn.hot { border: 0; color: #fff; background: linear-gradient(180deg, #FF5A30, #D92A12); box-shadow: 0 8px 22px -8px var(--ember), inset 0 1px 0 #ffffff40; }
+.btn.hot:hover { box-shadow: 0 10px 28px -6px var(--ember), inset 0 1px 0 #ffffff55; }
+.burger { display: none; }
+
+/* ---------------------------------------------------------------- search + strip */
+.search { margin-top: 18px; position: relative; }
+.search input { width: 100%; height: 52px; padding: 0 18px 0 50px; background: color-mix(in srgb, var(--panel) 90%, transparent);
+  border: 1px solid var(--line); border-radius: 14px; outline: none; font-size: 16px; transition: border-color .2s, box-shadow .2s; }
+.search input::placeholder { color: var(--dim); }
+.search input:focus { border-color: var(--ember-2); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ember) 18%, transparent); }
+.search svg { position: absolute; left: 18px; top: 50%; translate: 0 -50%; width: 18px; height: 18px; color: var(--dim); z-index: 2; pointer-events: none; }
+.search .kbd { z-index: 2; }
+.search .kbd { position: absolute; right: 14px; top: 50%; translate: 0 -50%; font: 600 11px/1 var(--f-ui); color: var(--dim);
+  border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 7px; }
+
+main { padding-block: 22px 40px; min-height: 60vh; }
+.stage { position: relative; background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--ember) 12%, transparent), transparent 55%),
+  linear-gradient(180deg, color-mix(in srgb, var(--panel) 50%, transparent), color-mix(in srgb, var(--bg-2) 40%, transparent)); border: 1px solid var(--line);
+  border-radius: 20px; overflow: hidden; }
+.section { margin-top: 26px; }
+.h { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.h h2 { margin: 0; font: 700 26px/1.1 var(--f-display); letter-spacing: .5px; text-wrap: balance; }
+.h p { margin: 4px 0 0; color: var(--muted); }
+.eyebrow { font: 600 12px/1 var(--f-ui); letter-spacing: 3px; text-transform: uppercase; color: var(--ember-2); }
+
+/* ---------------------------------------------------------------- hero */
+.hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 26px; align-items: center; padding: 34px 34px 30px; }
+.hero h1 { margin: 10px 0 12px; font: 700 clamp(38px, 5.6vw, 64px)/.95 var(--f-display); letter-spacing: 1px; text-wrap: balance; }
+.hero h1 .glow { background: linear-gradient(90deg, var(--amber), var(--ember-2), var(--ember)); -webkit-background-clip: text; background-clip: text;
+  color: transparent; filter: drop-shadow(0 0 18px color-mix(in srgb, var(--ember) 45%, transparent)); }
+.hero .lead { color: var(--muted); font-size: 17px; max-width: 52ch; margin: 0 0 20px; }
+.ipcard { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px; border-radius: 14px; background: var(--bg-2);
+  border: 1px solid var(--line-2); max-width: 520px; }
+.ipcard .ip { font: 700 20px/1 var(--f-ui); letter-spacing: .6px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ipcard .ip small { display: block; font: 600 11px/1 var(--f-ui); color: var(--dim); letter-spacing: 2px; margin-bottom: 6px; }
+.live { display: inline-flex; align-items: center; gap: 8px; font: 600 13px/1 var(--f-ui); color: var(--good); }
+.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 0 var(--good); animation: ping 1.8s infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+.cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat { padding: 16px; border-radius: 14px; background: color-mix(in srgb, var(--bg-2) 80%, transparent); border: 1px solid var(--line); }
+.stat b { display: block; font: 700 30px/1 var(--f-ui); font-variant-numeric: tabular-nums; }
+.stat span { font: 600 11px/1 var(--f-ui); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.stat.hot b { color: var(--amber); }
+/* the server logo floating over an ember glow, tilting toward the cursor */
+.heroArt { position: relative; height: 330px; display: grid; place-items: center; perspective: 900px; isolation: isolate; }
+.heroArt::before { content: ""; position: absolute; inset: 6% 8% 14%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 42%, transparent), color-mix(in srgb, var(--ember) 22%, transparent) 55%, transparent 100%);
+  filter: blur(18px); animation: glowPulse 5s ease-in-out infinite; }
+.heroArt::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 6%; height: 22px; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, #000c, transparent); animation: shadow 5s ease-in-out infinite; }
+.heroArt .tilt { position: relative; width: min(100%, 440px); transform-style: preserve-3d; transition: transform .25s ease-out; will-change: transform;
+  --tx: 0; --ty: 0; }
+/* the logo melts into the scene: a big blurred glow of itself behind, a sharp copy that fades out at the edges, and a
+   blurred copy that only shows in a band along the edges - no hard cut where the picture ends */
+.heroArt .float { position: relative; isolation: isolate; animation: bob 5s ease-in-out infinite; }
+.heroArt .amb { z-index: -1; } .heroArt .soft { z-index: 1; } .heroArt .shine { z-index: 2; } .heroArt .spark { z-index: 3; }
+.heroArt .float img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.heroArt .float img + img, .heroArt .float .amb { position: absolute; inset: 0; }
+.heroArt .amb { filter: blur(34px) saturate(1.7); opacity: .6; transform: translate(calc(var(--tx) * -14px), calc(var(--ty) * -10px)) scale(1.14); }
+.heroArt .soft { filter: blur(6px) saturate(1.2); opacity: .9; }
+.heroArt .soft.x { -webkit-mask: linear-gradient(90deg, transparent 0, #000 3%, #000 9%, transparent 15%, transparent 85%, #000 91%, #000 97%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 5%, #000 95%, transparent 100%); -webkit-mask-composite: source-in;
+  mask: linear-gradient(90deg, transparent 0, #000 3%, #000 9%, transparent 15%, transparent 85%, #000 91%, #000 97%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 5%, #000 95%, transparent 100%); mask-composite: intersect; }
+.heroArt .soft.y { -webkit-mask: linear-gradient(180deg, transparent 0, #000 3%, #000 8%, transparent 13%, transparent 86%, #000 91%, #000 97%, transparent 100%),
+    linear-gradient(90deg, transparent 0, #000 5%, #000 95%, transparent 100%); -webkit-mask-composite: source-in;
+  mask: linear-gradient(180deg, transparent 0, #000 3%, #000 8%, transparent 13%, transparent 86%, #000 91%, #000 97%, transparent 100%),
+    linear-gradient(90deg, transparent 0, #000 5%, #000 95%, transparent 100%); mask-composite: intersect; }
+.heroArt .main { filter: drop-shadow(0 18px 26px #000b) drop-shadow(0 0 30px color-mix(in srgb, var(--ember) 30%, transparent));
+  -webkit-mask: linear-gradient(90deg, transparent 1%, #000 12%, #000 88%, transparent 99%), linear-gradient(180deg, transparent 1%, #000 9%, #000 89%, transparent 99%);
+  -webkit-mask-composite: source-in;
+  mask: linear-gradient(90deg, transparent 1%, #000 12%, #000 88%, transparent 99%), linear-gradient(180deg, transparent 1%, #000 9%, #000 89%, transparent 99%);
+  mask-composite: intersect; }
+.heroArt .shine { position: absolute; inset: 0; pointer-events: none; -webkit-mask: url(logo.png) center / 100% 100% no-repeat; mask: url(logo.png) center / 100% 100% no-repeat;
+  background: linear-gradient(105deg, transparent 38%, #ffffff50 48%, #ffffff10 54%, transparent 62%) -160% 0 / 250% 100% no-repeat;
+  animation: sweep 6.5s ease-in-out 1.2s infinite; mix-blend-mode: screen; }
+/* a few embers drifting up out of the logo */
+.heroArt .spark { position: absolute; bottom: 22%; width: 4px; height: 4px; border-radius: 1px; background: var(--amber); box-shadow: 0 0 8px var(--ember-2);
+  opacity: 0; animation: spark 3.6s ease-out infinite; }
+@keyframes spark { 0% { opacity: 0; translate: 0 0; } 15% { opacity: .9; } 100% { opacity: 0; translate: var(--dx, 10px) -150px; } }
+@keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
+@keyframes glowPulse { 0%, 100% { opacity: .75; scale: 1; } 50% { opacity: 1; scale: 1.06; } }
+@keyframes shadow { 0%, 100% { opacity: .9; scale: 1; } 50% { opacity: .55; scale: .82; } }
+@keyframes sweep { 0%, 55% { background-position: -160% 0; } 100% { background-position: 260% 0; } }
+
+/* ---------------------------------------------------------------- podium */
+.podium { position: relative; padding: 26px 18px 0; }
+.podium .title { text-align: center; font: 700 34px/1 var(--f-display); color: var(--gold); letter-spacing: .5px; margin: 0;
+  text-shadow: 0 0 22px color-mix(in srgb, var(--gold) 55%, transparent); }
+.podium .kitname { text-align: center; color: var(--muted); font: 600 12px/1 var(--f-ui); letter-spacing: 3px; margin-top: 10px; text-transform: uppercase; }
+.laurel { position: absolute; top: 60px; width: 170px; height: 260px; opacity: .85; pointer-events: none; }
+.laurel.l { left: max(2%, calc(50% - 470px)); }
+.laurel.r { right: max(2%, calc(50% - 470px)); transform: scaleX(-1); }
+.steps { display: flex; justify-content: center; align-items: flex-end; gap: 22px; padding: 26px 0 0; perspective: 900px; }
+.step { position: relative; width: 190px; border-radius: 16px 16px 0 0; border: 1px solid var(--line-2); border-bottom: 0; overflow: hidden;
+  background: linear-gradient(180deg, #05070D, #0A0F1E 55%, var(--panel)); transform-style: preserve-3d; cursor: pointer;
+  transition: border-color .25s, box-shadow .25s; }
+.step:hover { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 18px 50px -20px var(--c); }
+.step .nm { text-align: center; font: 600 19px/1.1 var(--f-display); padding: 16px 10px 0; color: var(--c); overflow-wrap: anywhere; }
+.step .who { display: flex; gap: 6px; justify-content: center; align-items: center; margin-top: 6px; min-height: 20px; }
+.step .skin { display: block; margin: 8px auto 0; height: 150px; width: auto; filter: drop-shadow(0 10px 18px #000); transition: transform .35s; }
+.step:hover .skin { transform: translateY(-6px) scale(1.04); }
+.step .base { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font: 700 64px/1 var(--f-ui); color: var(--c);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 34%, transparent), color-mix(in srgb, var(--c) 6%, transparent));
+  border-top: 1px solid color-mix(in srgb, var(--c) 55%, transparent); text-shadow: 0 0 26px color-mix(in srgb, var(--c) 70%, transparent); }
+.step .pts { font: 600 12px/1 var(--f-ui); color: var(--muted); letter-spacing: 1px; text-shadow: none; }
+.step.p1 { --c: var(--gold); width: 210px; } .step.p1 .base { height: 132px; } .step.p1 .skin { height: 172px; }
+.step.p2 { --c: var(--silver); } .step.p2 .base { height: 100px; }
+.step.p3 { --c: var(--bronze); } .step.p3 .base { height: 84px; font-size: 54px; } .step.p3 .skin { height: 138px; }
+.step.p1::after { content: ""; position: absolute; inset: -40% -10% auto; height: 70%; background: radial-gradient(closest-side, color-mix(in srgb, var(--gold) 26%, transparent), transparent);
+  pointer-events: none; animation: breathe 3.2s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .45; } }
+.divider { height: 1px; margin: 0 auto; width: min(680px, 92%); background: linear-gradient(90deg, transparent, var(--line-2), transparent); }
+
+/* ---------------------------------------------------------------- ladder rows */
+.ladder { display: grid; gap: 10px; padding: 18px; max-width: 760px; margin: 0 auto; }
+.row { display: grid; grid-template-columns: 52px 46px 1fr auto; gap: 14px; align-items: center; padding: 10px 16px; border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-2) 92%, transparent); border: 1px solid var(--line); cursor: pointer; transition: transform .2s, border-color .2s, background .2s; }
+.row:hover { transform: translateX(4px); border-color: var(--line-2); background: var(--panel-2); }
+.row .pos { font: 700 22px/1 var(--f-ui); color: var(--dim); text-align: center; font-variant-numeric: tabular-nums; }
+.row img.head { width: 40px; height: 40px; border-radius: 8px; }
+.row .name { display: flex; align-items: center; gap: 8px; min-width: 0; font: 600 16px/1.2 var(--f-body); }
+.row .name span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .right { display: flex; gap: 12px; align-items: center; font: 600 13px/1 var(--f-ui); color: var(--muted); font-variant-numeric: tabular-nums; }
+.row .right b { color: var(--text); font-weight: 700; }
+.wl { display: inline-flex; align-items: center; gap: 8px; }
+.wl .bar { width: 70px; height: 6px; border-radius: 6px; background: color-mix(in srgb, var(--bad) 55%, transparent); overflow: hidden; }
+.wl .bar i { display: block; height: 100%; background: var(--good); }
+
+/* ---------------------------------------------------------------- chips */
+.tier { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; font: 700 12px/1 var(--f-ui); letter-spacing: .5px;
+  color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); }
+.rtag { display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 5px; font: 800 10.5px/1 var(--f-ui); letter-spacing: .8px; color: #fff;
+  text-shadow: 0 1px 0 #0006; }
+.flag { width: 20px; height: 14px; border-radius: 3px; object-fit: cover; box-shadow: 0 0 0 1px #0007; }
+.cc { display: inline-grid; place-items: center; height: 15px; padding: 0 4px; border-radius: 3px; font: 700 9.5px/1 var(--f-ui); color: var(--muted); background: var(--line); }
+.vf { width: 15px; height: 15px; flex: none; }
+.kits { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: thin; }
+.kit { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 8px; border-radius: 11px; border: 1px solid var(--line);
+  background: var(--panel); cursor: pointer; font: 600 14px/1 var(--f-ui); color: var(--muted); white-space: nowrap; transition: all .2s; }
+.kit:hover { color: var(--text); border-color: var(--line-2); }
+.kit.on { color: #fff; border-color: color-mix(in srgb, var(--k) 70%, transparent); background: color-mix(in srgb, var(--k) 16%, var(--panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--k) 35%, transparent), 0 10px 24px -14px var(--k); }
+.ico { width: 26px; height: 26px; display: inline-grid; place-items: center; flex: none; }
+.ico img { width: 24px; height: 24px; image-rendering: pixelated; }
+.ico .let { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font: 700 12px/1 var(--f-display); color: #0b0f1d; background: var(--k); }
+
+/* ---------------------------------------------------------------- cards / grids */
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; min-width: 0; }
+.mode { position: relative; overflow: hidden; transition: transform .25s, border-color .25s; }
+.mode:hover { transform: translateY(-3px); border-color: var(--line-2); }
+.mode .top { display: flex; align-items: center; gap: 12px; }
+.mode .ico { width: 46px; height: 46px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
+.mode .ico img { width: 30px; height: 30px; }
+.mode h3 { margin: 0; font: 700 19px/1.1 var(--f-display); letter-spacing: .5px; }
+.mode p { color: var(--muted); margin: 12px 0 14px; font-size: 14.5px; }
+.mode .foot { display: flex; justify-content: space-between; align-items: center; font: 600 13px/1 var(--f-ui); }
+.status { display: inline-flex; align-items: center; gap: 6px; color: var(--good); }
+.status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.status.soon { color: var(--amber); } .status.maint { color: var(--bad); }
+.mode::after { content: ""; position: absolute; right: -40px; top: -40px; width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ember) 18%, transparent), transparent); }
+.news { display: grid; gap: 8px; }
+.news time { font: 600 12px/1 var(--f-ui); letter-spacing: 1.5px; color: var(--ember-2); }
+.news h3 { margin: 0; font: 600 18px/1.25 var(--f-body); }
+.news p { margin: 0; color: var(--muted); font-size: 14.5px; }
+.band { margin-top: 26px; display: flex; gap: 18px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 26px 28px;
+  border-radius: 18px; border: 1px solid color-mix(in srgb, var(--ember) 40%, var(--line)); background:
+  radial-gradient(80% 140% at 0% 0%, color-mix(in srgb, var(--ember) 22%, transparent), transparent 60%), var(--panel); }
+.band h3 { margin: 0; font: 700 24px/1.15 var(--f-display); text-wrap: balance; }
+.band p { margin: 6px 0 0; color: var(--muted); }
+
+/* ---------------------------------------------------------------- tier board */
+.board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.col { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; min-width: 0; }
+.col header { padding: 14px; text-align: center; border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 22%, transparent), transparent); }
+.col header b { display: block; font: 700 22px/1 var(--f-ui); letter-spacing: 1px; text-transform: uppercase; color: var(--c); }
+.col header span { font: 600 11px/1 var(--f-ui); letter-spacing: 2px; color: var(--muted); }
+.col ul { list-style: none; margin: 0; padding: 8px; display: grid; gap: 6px; }
+.col li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 9px; background: var(--bg-2); cursor: pointer; min-width: 0;
+  border: 1px solid transparent; transition: border-color .2s; }
+.col li:hover { border-color: var(--line-2); }
+.col li img { width: 24px; height: 24px; border-radius: 5px; }
+.col li .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 14px/1 var(--f-body); }
+.col li .s { font: 700 10.5px/1 var(--f-ui); padding: 3px 5px; border-radius: 4px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.col .none { padding: 18px; text-align: center; color: var(--dim); font-size: 13px; }
+
+/* ---------------------------------------------------------------- ranks */
+.ranks { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.rank { position: relative; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+.rank::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, var(--a), var(--b)); }
+.rank .label { font: 700 26px/1 var(--f-display); letter-spacing: 1px; background: linear-gradient(90deg, var(--a), var(--b));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rank .price { font: 700 30px/1 var(--f-ui); }
+.rank .price small { font-size: 13px; color: var(--muted); font-weight: 600; }
+.rank ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; color: var(--muted); font-size: 14.5px; }
+.rank li { display: flex; gap: 8px; align-items: flex-start; }
+.rank li svg { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--b); }
+.rank .btn { margin-top: auto; }
+
+/* ---------------------------------------------------------------- staff / rules */
+.staff { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.member { display: flex; align-items: center; gap: 12px; cursor: pointer; transition: border-color .2s; }
+.member:hover { border-color: var(--line-2); }
+.member img { width: 46px; height: 46px; border-radius: 10px; }
+.member b { display: block; font: 600 16px/1.2 var(--f-body); overflow: hidden; text-overflow: ellipsis; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); display: inline-block; }
+.dot.on { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.rules { display: grid; gap: 10px; max-width: 860px; }
+.rule { display: grid; grid-template-columns: 48px 1fr; gap: 14px; align-items: start; }
+.rule .num { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 11px; font: 700 18px/1 var(--f-ui);
+  color: var(--ember-2); background: color-mix(in srgb, var(--ember) 12%, transparent); border: 1px solid color-mix(in srgb, var(--ember) 30%, transparent); }
+.rule h3 { margin: 2px 0 4px; font: 600 17px/1.3 var(--f-body); }
+.rule p { margin: 0; color: var(--muted); }
+
+/* ---------------------------------------------------------------- profile */
+.profile { display: grid; grid-template-columns: 300px 1fr; gap: 18px; }
+.viewer { position: relative; min-height: 380px; display: grid; place-items: center; background: radial-gradient(70% 60% at 50% 40%, color-mix(in srgb, var(--ember) 16%, transparent), transparent), var(--panel); }
+.viewer canvas, .viewer img { max-width: 100%; }
+.viewer img { height: 300px; width: auto; filter: drop-shadow(0 14px 22px #000); }
+.viewer .hint { position: absolute; bottom: 10px; font: 600 11px/1 var(--f-ui); color: var(--dim); letter-spacing: 1.5px; }
+.pname { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pname h2 { margin: 0; font: 700 34px/1 var(--f-display); letter-spacing: .5px; overflow-wrap: anywhere; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.tile { padding: 14px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); min-width: 0; }
+.tile b { display: block; font: 700 22px/1.1 var(--f-ui); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tile span { font: 600 11px/1 var(--f-ui); color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+.kitstats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); margin-top: 16px; }
+.ks { display: grid; gap: 10px; }
+.ks .top { display: flex; align-items: center; gap: 10px; }
+.ks .top b { font: 700 17px/1 var(--f-display); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ks .pts { font: 700 24px/1 var(--f-ui); font-variant-numeric: tabular-nums; }
+.ks .pts small { font-size: 12px; color: var(--muted); font-weight: 600; }
+.ks .meta { display: flex; justify-content: space-between; font: 600 12.5px/1 var(--f-ui); color: var(--muted); }
+.meter { height: 7px; border-radius: 7px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--ember), var(--amber)); }
+.empty { padding: 34px; text-align: center; color: var(--muted); }
+.skeleton { background: linear-gradient(90deg, var(--panel) 0%, var(--panel-2) 50%, var(--panel) 100%); background-size: 200% 100%; animation: sk 1.2s infinite; border-radius: 12px; }
+@keyframes sk { to { background-position: -200% 0; } }
+
+/* ---------------------------------------------------------------- footer + toast */
+footer { position: relative; z-index: 1; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--bg-2) 85%, transparent); }
+.foot { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 24px; padding-block: 34px 18px; }
+.foot h4 { margin: 0 0 10px; font: 600 12px/1 var(--f-ui); letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase; }
+.foot a { display: block; color: var(--muted); padding: 4px 0; font-size: 15px; } .foot a:hover { color: var(--text); }
+.legal { padding-block: 14px 26px; color: var(--dim); font-size: 13px; border-top: 1px solid var(--line); }
+.toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); translate: -50% 20px; z-index: 50; padding: 12px 18px; border-radius: 12px;
+  background: var(--panel-2); border: 1px solid var(--line-2); font: 600 14px/1 var(--f-ui); opacity: 0; transition: opacity .25s, translate .25s; pointer-events: none; }
+.toast.on { opacity: 1; translate: -50% 0; }
+
+/* ---------------------------------------------------------------- tournaments */
+.tour { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 20px; align-items: center; padding: 24px 26px; }
+.tour .trophy { width: 72px; height: 72px; display: grid; place-items: center; border-radius: 18px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--gold) 34%, transparent), transparent), var(--bg-2); border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--line)); }
+.tour .trophy .ico, .tour .trophy .ico img { width: 44px; height: 44px; }
+.tour h3 { margin: 8px 0 4px; font: 700 30px/1.05 var(--f-display); letter-spacing: .5px; text-wrap: balance; }
+.tour p { margin: 0; color: var(--muted); } .tour .st { margin-top: 6px; color: var(--text); font: 600 14px/1.3 var(--f-ui); }
+.tour .prize { color: var(--gold); }
+.tstate { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px; border-radius: 99px; font: 700 11px/1 var(--f-ui); letter-spacing: 1.6px; text-transform: uppercase;
+  color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.tstate i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: blink 1.2s infinite; }
+.tstate.live { color: #fff; background: linear-gradient(180deg, #FF4A2A, #C9200E); } .tstate.done { color: var(--muted); background: var(--panel-2); } .tstate.done i { animation: none; }
+.tnum { text-align: right; display: grid; justify-items: end; }
+.tnum b { font: 700 34px/1 var(--f-ui); font-variant-numeric: tabular-nums; } .tnum b.cd { color: var(--amber); margin-top: 10px; font-size: 26px; }
+.tnum span { font: 600 11px/1 var(--f-ui); letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.tour.none { grid-template-columns: auto minmax(0, 1fr) auto; }
+.bwrap { padding: 14px 6px 6px; }
+.bracket { display: flex; gap: 30px; overflow-x: auto; padding: 4px 12px 14px; scrollbar-width: thin; }
+.bcol { display: flex; flex-direction: column; justify-content: space-around; gap: 16px; min-width: 220px; flex: 1 0 220px; }
+.bcol h4 { margin: 0 0 2px; font: 600 11.5px/1 var(--f-ui); letter-spacing: 2.4px; text-transform: uppercase; color: var(--ember-2); text-align: center; }
+.bm { position: relative; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--bg-2) 80%, transparent); }
+.bcol:not(:last-child) .bm::after { content: ""; position: absolute; left: 100%; top: 50%; width: 15px; border-top: 1px solid var(--line-2); }
+.bcol:not(:first-child) .bm::before { content: ""; position: absolute; right: 100%; top: 50%; width: 15px; border-top: 1px solid var(--line-2); }
+.bm .p { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 8px 11px; font: 600 14px/1.1 var(--f-body); }
+.bm .p + .p { border-top: 1px solid var(--line); }
+.bm .p img.head, .bm .p .hd { width: 26px; height: 26px; border-radius: 6px; background: var(--line); }
+.bm .p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bm .p .s { font: 700 16px/1 var(--f-ui); font-variant-numeric: tabular-nums; color: var(--muted); }
+.bm .p.win { background: linear-gradient(90deg, color-mix(in srgb, var(--good) 16%, transparent), transparent); } .bm .p.win .s { color: var(--good); }
+.bm .p.lose { opacity: .55; } .bm .p.lose span { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--bad) 70%, transparent); }
+.bm.bye .p:last-child { color: var(--dim); font-style: italic; }
+.bm.bmlive { border-color: color-mix(in srgb, var(--ember) 65%, var(--line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ember) 30%, transparent), 0 10px 30px -12px var(--ember); }
+.bm .lv { position: absolute; top: -9px; left: 50%; translate: -50% 0; display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border-radius: 99px;
+  font: 700 9.5px/1 var(--f-ui); letter-spacing: 1.4px; color: #fff; background: linear-gradient(180deg, #FF4A2A, #C9200E); z-index: 1; }
+.bm .lv i { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: blink 1.2s infinite; }
+.bm.cup { display: grid; justify-items: center; gap: 8px; padding: 16px; border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--gold) 20%, transparent), transparent), var(--bg-2); font: 700 17px/1 var(--f-display); color: var(--gold); }
+.bm.cup img.head { width: 48px; height: 48px; border-radius: 10px; }
+.stand { padding: 0; overflow-x: auto; }
+.stand table { width: 100%; border-collapse: collapse; min-width: 420px; }
+.stand th { text-align: left; font: 600 11px/1 var(--f-ui); letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.stand td { padding: 9px 14px; border-bottom: 1px solid var(--line); font: 600 14px/1 var(--f-ui); font-variant-numeric: tabular-nums; }
+.stand tr { cursor: pointer; } .stand tr:hover td { background: var(--panel-2); }
+.stand tr.in td:first-child { color: var(--good); box-shadow: inset 3px 0 0 var(--good); }
+.stand tr.cut td { border-bottom: 1px dashed color-mix(in srgb, var(--good) 60%, transparent); }
+.stand .who { display: flex; align-items: center; gap: 10px; font-family: var(--f-body); } .stand .who img { width: 28px; height: 28px; border-radius: 6px; }
+.tres em { font-style: normal; color: var(--good); font: 700 13px/1 var(--f-ui); margin-left: 4px; }
+.champcard { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; align-items: center; cursor: pointer; transition: transform .2s, border-color .2s; }
+.champcard:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--gold) 50%, var(--line)); }
+.champcard img.head { width: 56px; height: 56px; border-radius: 12px; }
+.champcard b { display: block; font: 700 18px/1.1 var(--f-display); color: var(--gold); }
+.champcard span { display: block; color: var(--text); font-size: 14px; margin-top: 3px; } .champcard small { display: block; color: var(--dim); font-size: 12.5px; margin-top: 3px; }
+.champcard em { font-style: normal; font-size: 24px; }
+@media (max-width: 820px) {
+  .tour, .tour.none { grid-template-columns: auto minmax(0, 1fr); padding: 20px; }
+  .tour .tnum, .tour.none .btn { grid-column: 1 / -1; justify-items: start; text-align: left; }
+  .tour h3 { font-size: 24px; }
+}
+
+/* ---------------------------------------------------------------- responsive */
+@media (max-width: 980px) {
+  .livegrid { grid-template-columns: 1fr; }
+  .hero { grid-template-columns: 1fr; padding: 26px 20px; }
+  .heroArt { height: 250px; order: -1; } .heroArt .tilt { width: min(100%, 320px); }
+  .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile { grid-template-columns: 1fr; }
+  .foot { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 820px) {
+  .nav { grid-template-columns: auto 1fr auto; height: 56px; }
+  .nav .side.left { display: none; }
+  .nav .side.right .link, .nav .side.right .btn.hot span { display: none; }
+  .logo { margin: 0; padding: 4px 6px; box-shadow: none; border: 0; background: none; text-align: left; }
+  .logo img { height: 42px; margin: 0; } .logo .swoosh { display: none; }
+  .burger { display: inline-flex; }
+  .drawer { display: grid; }
+  .steps { gap: 8px; }
+  .step, .step.p1 { width: 31%; } .step .skin { height: 110px; } .step.p1 .skin { height: 126px; } .step.p3 .skin { height: 100px; }
+  .step .nm { font-size: 13px; padding: 10px 6px 0; } .step .base, .step.p3 .base { font-size: 40px; }
+  .step .who .tier { display: none; } .step .pts { font-size: 10px; }
+  .step.p1 .base { height: 96px; } .step.p2 .base { height: 78px; } .step.p3 .base { height: 66px; }
+  .laurel { display: none; }
+  .mrow { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); } .mrow > .ico, .mrow .meta { display: none; }
+  .qb { grid-template-columns: 24px 70px minmax(0, 1fr) 36px; }
+  .row { grid-template-columns: 34px 36px 1fr; padding: 10px 12px; gap: 10px; }
+  .row .right { grid-column: 2 / -1; justify-content: flex-start; flex-wrap: wrap; }
+  .row img.head { width: 34px; height: 34px; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ipcard .ip { flex: 1 1 100%; font-size: 18px; }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stat b { font-size: 22px; }
+  .board, .grid { grid-template-columns: 1fr; }
+  .foot { grid-template-columns: 1fr; }
+}
+.drawer { display: none; position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px);
+  padding: calc(80px + env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) 24px max(24px, env(safe-area-inset-left, 0px)); align-content: start; gap: 6px; }
+.drawer[hidden] { display: none !important; }
+.drawer a { font: 700 24px/1 var(--f-display); padding: 14px 6px; border-bottom: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
+</style>
+
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="page navbar">
+  <div class="wrap">
+    <nav class="nav" aria-label="Main">
+      <div class="side left" id="navLeft"></div>
+      <a class="logo" href="#home" aria-label="Home"><img src="logo-mark.png" alt="Vortex Realm" id="navLogo" width="241" height="176"><span class="swoosh"></span></a>
+      <div class="side right"><span id="navRight" style="display:contents"></span>
+        <button class="btn hot" id="playBtn" type="button"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Play</span></button>
+        <button class="btn burger" id="burger" type="button" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      </div>
+    </nav>
+    <form class="search" id="searchForm" role="search" autocomplete="off">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" name="q" placeholder="Search a player..." aria-label="Search a player" maxlength="16">
+      <span class="kbd">/</span>
+    </form>
+  </div>
+</div>
+<div class="drawer" id="drawer" hidden></div>
+<div class="page"><main class="wrap" id="view" aria-live="polite"></main></div>
+<footer class="page">
+  <div class="wrap foot">
+    <div><img src="logo-mark.png" alt="" width="241" height="176" style="display:block;height:56px;width:auto;margin-bottom:12px">
+      <span class="wordmark" style="font-size:28px;display:inline-block" id="footName">VORTEX REALM</span>
+      <p style="color:var(--muted);margin:12px 0 0;max-width:40ch" id="footTag"></p></div>
+    <div><h4>Explore</h4><div id="footPages"></div></div>
+    <div><h4>Community</h4><a id="footDiscord" target="_blank" rel="noopener">Discord</a><a id="footStore" target="_blank" rel="noopener">Store</a><div id="footLinks"></div></div>
+    <div><h4>Play</h4><a href="#home" id="footIp">play</a><a href="#rules">Rules</a></div>
+  </div>
+  <div class="wrap legal" id="legal">Not affiliated with Mojang Studios or Microsoft.</div>
+</footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const G = () => (window.gsap && !REDUCED) ? window.gsap : null;
+const ICONS = {
+  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  leaderboards: '<path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/>',
+  tiers: '<path d="M3 7l4 4 5-7 5 7 4-4-2 12H5z"/>',
+  modes: '<path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/>',
+  ranks: '<path d="M12 2l3 6 6 1-4.5 4.4 1 6.6-5.5-3-5.5 3 1-6.6L3 9l6-1z"/>',
+  tournaments: '<path d="M7 3h10v4a5 5 0 0 1-10 0zM4 4h3v3a3 3 0 0 1-3-3zm13 0h3a3 3 0 0 1-3 3zM10.5 12.5h3V16h2.5v2h-8v-2h2.5zM7 19h10v2H7z"/>',
+  staff: '<path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/>',
+  rules: '<path d="M6 3h9l4 4v14H6zM9 11h7M9 15h7M9 7h4"/>'
+};
+const NAMES = {home: "Home", leaderboards: "Leaderboards", tiers: "Tiers", tournaments: "Tournaments", modes: "Modes", ranks: "Ranks", staff: "Staff", rules: "Rules"};
+const svgIcon = k => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${ICONS[k] || ""}</svg>`;
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>';
+const VERIFIED = '<svg class="vf" viewBox="0 0 16 16" aria-label="Verified"><title>Verified</title><path d="M8 .6l1.9 1.3 2.3-.1.8 2.2 1.9 1.2-.6 2.3.6 2.2-1.9 1.3-.8 2.2-2.3-.1L8 15.4l-1.9-1.3-2.3.1-.8-2.2-1.9-1.3.6-2.2-.6-2.3 1.9-1.2.8-2.2 2.3.1z" fill="#2FCB72"/><path d="M4.9 8.1l2.1 2.1 4.2-4.4" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+/* ---------------------------------------------------------------- pixel art fallbacks (no network needed) */
+function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let s = seed || 1; return () => (s = Math.imul(s ^ (s >>> 15), 2246822507) ^ Math.imul(s ^ (s >>> 13), 3266489909), ((s ^= s >>> 16) >>> 0) / 4294967296); }
+const SKINS = ["#F2C49B", "#E0A57A", "#C68A5E", "#8D5B3D", "#5E3A26"];
+const HAIR = ["#2B1B12", "#5A3A1E", "#C9A15A", "#1C1C24", "#7A1F1F", "#E9E2D0", "#3F2A5A"];
+const SHIRT = ["#C0392B", "#E67E22", "#2C3E50", "#16A085", "#8E44AD", "#D35400", "#273746", "#B03A2E", "#1F618D"];
+const avatarCache = new Map();
+function pixelArt(name, kind) {
+  const key = kind + name;
+  if (avatarCache.has(key)) return avatarCache.get(key);
+  const r = rng(hash(name)), pick = a => a[Math.floor(r() * a.length)];
+  const skin = pick(SKINS), hair = pick(HAIR), shirt = pick(SHIRT), pants = pick(["#1B2631", "#34495E", "#4A235A", "#17202A", "#5D4037"]), eye = pick(["#2E86C1", "#1E8449", "#6E2C00", "#212F3D"]);
+  const W = kind === "body" ? 16 : 8, H = kind === "body" ? 32 : 8, c = document.createElement("canvas");
+  c.width = W; c.height = H; const g = c.getContext("2d");
+  const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+  const face = (ox, oy) => {
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) px(ox + x, oy + y, skin);
+    for (let x = 0; x < 8; x++) { px(ox + x, oy, hair); px(ox + x, oy + 1, hair); }
+    if (r() > .4) { px(ox, oy + 2, hair); px(ox + 7, oy + 2, hair); px(ox, oy + 3, hair); px(ox + 7, oy + 3, hair); }
+    px(ox + 1, oy + 4, "#FFFFFF"); px(ox + 2, oy + 4, eye); px(ox + 5, oy + 4, eye); px(ox + 6, oy + 4, "#FFFFFF");
+    px(ox + 3, oy + 6, "#8E5A43"); px(ox + 4, oy + 6, "#8E5A43");
+  };
+  if (kind === "body") {
+    face(4, 0);
+    g.fillStyle = shirt; g.fillRect(4, 8, 8, 12); g.fillRect(0, 8, 4, 12); g.fillRect(12, 8, 4, 12);
+    g.fillStyle = skin; g.fillRect(0, 17, 4, 3); g.fillRect(12, 17, 4, 3);
+    g.fillStyle = pants; g.fillRect(4, 20, 4, 12); g.fillRect(8, 20, 4, 12);
+    g.fillStyle = "#00000033"; g.fillRect(8, 20, 1, 12); g.fillRect(4, 8, 8, 1);
+  } else face(0, 0);
+  const out = document.createElement("canvas"); const S = kind === "body" ? 10 : 8;
+  out.width = W * S; out.height = H * S; const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.drawImage(c, 0, 0, W * S, H * S);
+  const url = out.toDataURL(); avatarCache.set(key, url); return url;
+}
+window.fallbackImg = (img, name, kind) => { if (img.dataset.fb) return; img.dataset.fb = 1; img.classList.add("pix"); img.src = pixelArt(name, kind); };
+const HEAD = (name, s = 64) => `<img class="head" src="https://mc-heads.net/avatar/${encodeURIComponent(name)}/${s}" alt="" loading="lazy" onerror="fallbackImg(this, ${esc(JSON.stringify(name))}, 'head')">`;
+const BODY = (name, cls = "skin") => `<img class="${cls}" src="https://mc-heads.net/body/${encodeURIComponent(name)}/240" alt="${esc(name)}" loading="lazy" onerror="fallbackImg(this, ${esc(JSON.stringify(name))}, 'body')">`;
+const FLAG = (cc, title) => cc ? `<img class="flag" src="/flag/${esc(cc.toLowerCase())}.png" alt="${esc(cc)}" title="${esc(title || cc)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;cc&quot; title=&quot;${esc(title || cc)}&quot;>${esc(cc)}</span>'">` : "";
+const TIER = t => t && t.index >= 0 ? `<span class="tier" style="--c:${esc(t.color)}">${esc(t.label)}</span>` : `<span class="tier" style="--c:var(--dim)">Unranked</span>`;
+const RTAG = r => r ? `<span class="rtag" style="background:linear-gradient(90deg,${esc(r.from)},${esc(r.to)})">${esc(r.label)}</span>` : "";
+function ICON(id, color) {
+  const tex = s => `https://assets.mcasset.cloud/1.21.4/assets/minecraft/textures/${s}/${encodeURIComponent(id)}.png`;
+  return `<span class="ico" style="--k:${esc(color || "#FFB547")}"><img src="${tex("item")}" alt="" loading="lazy"
+    onerror="if(!this.dataset.b){this.dataset.b=1;this.src='${tex("block")}'}else{this.outerHTML='<span class=&quot;let&quot;>${esc(String(id || "?").charAt(0).toUpperCase())}</span>'}"></span>`;
+}
+
+/* ---------------------------------------------------------------- data (live API, or sample data in a preview) */
+let DEMO = false, site = null, kits = [];
+const demoNames = ["EmberFang", "Kaizo", "VoidWalker_", "Nyxie", "SkyHollow", "Rexar", "PixelPrince", "Zentrix", "Frostbyte", "Talonix", "Mirage", "Cobalt_",
+  "Ravenline", "Sorrowz", "Jinxed", "Blazewing", "Nebulon", "Quartzy", "Hexed", "Draxo", "Lumen", "Vexa", "Orbit_", "Scythe", "Kirin", "Shadeborn",
+  "Pyrelight", "Tidal", "Wraithy", "Sable", "Glint", "Aether_", "Crimsy", "Onyxed", "Ripple", "Zephyr_", "Brakk", "Novaflare", "Echoes", "Valkyr"];
+const TIERS = [["LT5", "#9E9E9E"], ["MT5", "#B4B4B4"], ["HT5", "#D0D0D0"], ["LT4", "#8BE08B"], ["MT4", "#62D962"], ["HT4", "#3BE13B"], ["LT3", "#8FDCFF"], ["MT3", "#55C8FF"],
+  ["HT3", "#2E9BFF"], ["LT2", "#DDB0FF"], ["MT2", "#C77DFF"], ["HT2", "#A64DFF"], ["LT1", "#FFE58A"], ["MT1", "#FFD54A"], ["HT1", "#FFAA00"]];
+const THRESH = [0, 150, 300, 700, 950, 1200, 1800, 2150, 2500, 3300, 3750, 4200, 5200, 5850, 6500];
+const tierFor = elo => { let i = 0; THRESH.forEach((t, k) => { if (elo >= t) i = k; }); return {label: TIERS[i][0], color: TIERS[i][1], number: 5 - Math.floor(i / 3), step: i % 3, index: i}; };
+const DEMO_KITS = [{id: "sword", name: "Sword", color: "#55FFFF", icon: "diamond_sword"}, {id: "axe", name: "Axe", color: "#C7CED6", icon: "diamond_axe"},
+  {id: "crystal", name: "Crystal", color: "#FF6BD6", icon: "end_crystal"}, {id: "mace", name: "Mace", color: "#FFAA00", icon: "mace"},
+  {id: "uhc", name: "UHC", color: "#FFD54A", icon: "golden_apple"}, {id: "nodebuff", name: "NoDebuff", color: "#FF5555", icon: "splash_potion"},
+  {id: "smp", name: "SMP", color: "#55FF55", icon: "shield"}, {id: "spear", name: "Spear", color: "#9AD0FF", icon: "trident"}];
+const CC = [["MA", "Morocco"], ["FR", "France"], ["US", "United States"], ["GB", "United Kingdom"], ["DE", "Germany"], ["BR", "Brazil"], ["ES", "Spain"], ["TR", "Turkey"], ["DZ", "Algeria"], ["NL", "Netherlands"]];
+function demoBoard(kit) {
+  const r = rng(hash(kit || "overall"));
+  return demoNames.map((name, i) => {
+    const elo = Math.max(40, Math.round(6900 - i * 165 - r() * 140));
+    const w = Math.round(60 + r() * 240), l = Math.round(w * (0.25 + r() * 0.6)), c = CC[hash(name) % CC.length];
+    return {name, uuid: name, elo, tier: tierFor(elo), wins: w, losses: l, country: c[0], countryName: c[1], verified: hash(name) % 3 !== 0,
+      rank: i === 0 ? {label: "LEGEND", from: "#FFE27A", to: "#FF6F00"} : i === 3 ? {label: "MVP", from: "#FFC14D", to: "#FF7A00"} : i === 6 ? {label: "VIP", from: "#8CFF7A", to: "#2E9B3A"} : null};
+  }).sort((a, b) => b.elo - a.elo).map((e, i) => ({...e, pos: i + 1}));
+}
+function demo(path) {
+  const u = new URL(path, "https://x.y");
+  switch (u.pathname) {
+    case "/api/site": return {name: "Vortex Realm", ip: "play.vortexrealm.net", discord: "https://discord.gg/knHtEeHyk", store: "https://discord.gg/knHtEeHyk",
+      tagline: "The competitive PvP network. Ranked duels from LT5 to HT1, tournaments and SMP worlds, all on one server.", accent: "#FFB547",
+      pages: ["home", "modes", "leaderboards", "tiers", "ranks", "staff", "rules", "player"],
+      news: [{date: "2026-10-19", title: "Skill check placement", text: "Your first three unranked duels in a kit now place you at the tier you play at."},
+        {date: "2026-10-18", title: "New rank-up animation", text: "Rank up and watch your new tier crash down in flames."},
+        {date: "2026-10-17", title: "The website is live", text: "Leaderboards, the tier list, ranks and player profiles are all here."}],
+      rules: [{title: "No cheating", text: "No hacked clients, macros or exploits. Caught players go to the hacker pool."},
+        {title: "Respect everyone", text: "No harassment, slurs or threats in chat, Discord or anywhere else."},
+        {title: "No boosting", text: "Don't throw matches or farm points with alts. Ranks are earned."},
+        {title: "Fair play in screenshares", text: "Logging out during a screenshare counts as admitting."}],
+      links: [], modes: [{id: "practice", name: "PRACTICE", text: "Duels, ranked LT5 to HT1, FFA, parties and tournaments.", players: 24, status: "OPEN", icon: "diamond_sword"},
+        {id: "lifesteal", name: "LIFESTEAL", text: "Kill to steal a heart, die and lose one. Zero hearts and you're out.", players: 12, status: "OPEN", icon: "totem_of_undying"},
+        {id: "survival", name: "SURVIVAL", text: "Classic survival with friends, claims and homes.", players: 8, status: "OPEN", icon: "grass_block"},
+        {id: "strength", name: "STRENGTH", text: "Kills give Strength levels, deaths take them away.", players: 4, status: "OPEN", icon: "blaze_powder"},
+        {id: "ranked", name: "RANKED SMP", text: "Kills earn rank points and tiers, shown on your name.", players: 6, status: "OPEN", icon: "golden_sword"},
+        {id: "eco", name: "ECO SMP", text: "Earn, trade and spend. Auction house and orders.", players: 0, status: "SOON", icon: "emerald"}]};
+    case "/api/server": return {online: 61, max: 200, playing: 28, queued: 7};
+    case "/api/live": return demoLive();
+    case "/api/events": return demoEvents();
+    case "/api/kits": return DEMO_KITS;
+    case "/api/leaderboard": return demoBoard(u.searchParams.get("kit"));
+    case "/api/ranks": return {storeLink: "https://discord.gg/knHtEeHyk", store: [
+      {id: "vip", label: "VIP", from: "#8CFF7A", to: "#2E9B3A", price: "$4.99", description: "The first step up.", perks: ["Green VIP tag in chat and tab", "4 homes", "Queue priority"]},
+      {id: "mvp", label: "MVP", from: "#FFC14D", to: "#FF7A00", price: "$9.99", description: "Stand out in every lobby.", perks: ["Everything in VIP", "6 homes", "Lobby fly", "Custom kill effects"]},
+      {id: "legend", label: "LEGEND", from: "#FFE27A", to: "#FF6F00", price: "$19.99", description: "For the ones who live here.", perks: ["Everything in MVP", "10 homes", "Animated tag", "Host tournaments"]},
+      {id: "media", label: "MEDIA", from: "#FF4D4D", to: "#D40000", price: "", description: "For creators who film on Vortex.", perks: ["Red play-button icon", "Early access to updates"]}], staff: []};
+    case "/api/staff": return [["Kaizo", "OWNER", "#FF5F5F", "#FF9A3D"], ["Nyxie", "ADMIN", "#FF4D4D", "#C40000"], ["Rexar", "MOD", "#6BFF8C", "#1FAF5A"], ["Lumen", "MOD", "#6BFF8C", "#1FAF5A"],
+      ["Sable", "HELPER", "#8FD8FF", "#3D8BFF"], ["Tidal", "BUILDER", "#FFC48A", "#E07B00"]].map(([name, label, from, to], i) => ({name, uuid: name, online: i % 2 === 0, rank: {label, from, to, staff: true}}));
+    case "/api/player": {
+      const name = u.searchParams.get("name") || "";
+      const all = demoBoard(null); const e = all.find(x => x.name.toLowerCase() === name.toLowerCase());
+      if (!e) return {error: "No player called " + name + " has played here."};
+      const r = rng(hash(name));
+      return {name: e.name, uuid: e.name, online: r() > .5, ffaKills: Math.round(200 + r() * 1800), ffaDeaths: Math.round(100 + r() * 700), firstJoin: Date.now() - 86400000 * (30 + r() * 300),
+        lastSeen: Date.now() - r() * 86400000 * 3, country: e.country, countryName: e.countryName, verified: e.verified, rank: e.rank,
+        kits: DEMO_KITS.slice(0, 6).map(k => { const b = demoBoard(k.id).find(x => x.name === e.name); return {id: k.id, name: k.name, color: k.color, elo: b.elo, peak: b.elo + Math.round(r() * 400),
+          tier: b.tier, wins: b.wins, losses: b.losses, casualWins: Math.round(r() * 120), casualLosses: Math.round(r() * 80), bestStreak: Math.round(3 + r() * 20), position: b.pos}; })};
+    }
+  }
+  return null;
+}
+/* sample live data for the preview: matches progress, results and rank-ups keep arriving */
+function demoLive() {
+  const now = Date.now(), tick = Math.floor(now / 5000);
+  const nm = (seed) => demoNames[hash("n" + seed) % demoNames.length];
+  const matches = [];
+  for (let i = 0; i < 6; i++) {
+    const gen = Math.floor((tick + i * 4) / 12), r = rng(hash("m" + i + "-" + gen));
+    const kit = DEMO_KITS[Math.floor(r() * DEMO_KITS.length)], firstTo = [1, 2, 3, 3][Math.floor(r() * 4)];
+    const step = (tick + i * 4) % 12, rounds = Math.min(firstTo * 2 - 1, Math.floor(step / 3));
+    let sa = 0, sb = 0; for (let k = 0; k < rounds; k++) { if (r() > .5 && sa < firstTo - 1) sa++; else if (sb < firstTo - 1) sb++; else sa++; }
+    const an = nm(i * 2 + gen * 13); let bn = nm(i * 2 + 1 + gen * 7); if (bn === an) bn = nm(i * 2 + 5 + gen * 3);
+    matches.push({id: i, kit: kit.name, kitColor: kit.color, icon: kit.icon, ranked: r() > .35, round: sa + sb + 1, firstTo, seconds: step * 5 + Math.floor((now % 5000) / 1000),
+      state: "FIGHTING", a: {name: an, head: an, score: sa}, b: {name: bn, head: bn, score: sb}});
+  }
+  const feed = [];
+  for (let k = 0; k < 10; k++) {
+    const t = tick - k, r = rng(hash("f" + t)), kit = DEMO_KITS[Math.floor(r() * DEMO_KITS.length)];
+    if (r() > .75) { const tr = TIERS[3 + Math.floor(r() * 12)]; feed.push({type: r() > .5 ? "rankup" : "placed", player: nm(t * 3), tier: tr[0], tierColor: tr[1], kit: kit.name, at: t * 5000}); }
+    else { const w = nm(t * 5); let l = nm(t * 5 + 1); if (l === w) l = nm(t + 9);
+      feed.push({type: "match", winner: w, loser: l, kit: kit.name, kitColor: kit.color, score: ["1-0", "2-1", "3-1", "3-2", "2-0"][Math.floor(r() * 5)], delta: Math.round(8 + r() * 22), ranked: r() > .4, at: t * 5000}); }
+  }
+  const queues = DEMO_KITS.map((k, i) => ({...k, ranked: Math.max(0, Math.round(2 + Math.sin(now / 9000 + i) * 3)), unranked: Math.max(0, Math.round(1 + Math.cos(now / 7000 + i) * 2)), playing: Math.max(0, Math.round(5 + Math.sin(now / 12000 + i * 2) * 5))}));
+  const players = demoNames.slice(0, 34).map((n, i) => ({name: n, state: ["LOBBY", "MATCH", "FFA", "QUEUE"][i % 4]}));
+  const online = 58 + Math.round(Math.sin(now / 20000) * 4);
+  return {online, max: 200, playing: matches.length * 2 + 8, queued: queues.reduce((s, q) => s + q.ranked + q.unranked, 0), at: now, players, matches, queues, feed};
+}
+async function api(path) {
+  if (DEMO) return demo(path);
+  try {
+    const r = await fetch(path, {headers: {accept: "application/json"}});
+    if (!r.ok || !(r.headers.get("content-type") || "").includes("json")) throw new Error("not json");
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+/* ---------------------------------------------------------------- shell */
+function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 1900); }
+async function copyIp() {
+  const ip = site.ip || "";
+  try { await navigator.clipboard.writeText(ip); toast("Copied " + ip + " - see you in game!"); } catch (e) { toast(ip); }
+}
+function applySite() {
+  document.documentElement.style.setProperty("--accent", /^#[0-9a-f]{6}$/i.test(site.accent || "") ? site.accent : "#FFB547");
+  $("#navLogo").alt = site.name || "Vortex Realm";
+  $("#footName").textContent = String(site.name).toUpperCase(); $("#footTag").textContent = site.tagline || "";
+  $("#footIp").textContent = site.ip || ""; $("#footDiscord").href = site.discord || "#"; $("#footStore").href = site.store || "#";
+  $("#footLinks").innerHTML = (site.links || []).filter(l => l.url).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)}</a>`).join("");
+  $("#legal").textContent = `© ${new Date().getFullYear()} ${site.name}. Not affiliated with Mojang Studios or Microsoft.`;
+  const pages = [...new Set([...(site.pages || []), "tournaments"])].filter(p => NAMES[p]);
+  site.pages = pages;
+  const left = ["home", "leaderboards", "tiers"].filter(p => p === "home" || pages.includes(p));
+  const right = ["tournaments", "ranks", "modes", "staff", "rules"].filter(p => pages.includes(p));
+  const link = p => `<a class="link" href="#${p}" data-p="${p}">${svgIcon(p)}${NAMES[p]}</a>`;
+  $("#navLeft").innerHTML = left.map(link).join("");
+  $("#navRight").innerHTML = right.slice(0, 2).map(link).join("");
+  $("#drawer").innerHTML = [...left, ...right].map(p => `<a href="#${p}">${NAMES[p]}</a>`).join("");
+  $("#footPages").innerHTML = [...left, ...right].filter(p => p !== "home").map(p => `<a href="#${p}">${NAMES[p]}</a>`).join("");
+  document.title = site.name;
+}
+function markNav(page) { $$(".nav a.link").forEach(a => a.classList.toggle("on", a.dataset.p === page)); }
+
+/* ---------------------------------------------------------------- views */
+const view = $("#view");
+let kitSel = null;
+function open(name) { location.hash = "p-" + name; }
+window.openPlayer = open;
+
+function podium(list, label) {
+  const top = list.slice(0, 3);
+  const order = [top[1], top[0], top[2]];
+  const cls = ["p2", "p1", "p3"], place = [2, 1, 3];
+  return `<div class="podium">
+    <canvas class="laurel l" width="170" height="260" aria-hidden="true"></canvas><canvas class="laurel r" width="170" height="260" aria-hidden="true"></canvas>
+    <h2 class="title">Top Players</h2>${label ? `<div class="kitname">${esc(label)}</div>` : ""}
+    <div class="steps">${order.map((e, i) => e ? `<div class="step ${cls[i]}" data-name="${esc(e.name)}" tabindex="0" role="link" aria-label="${esc(e.name)}, place ${place[i]}">
+      <div class="nm">${esc(e.name)}</div><div class="who">${FLAG(e.country, e.countryName)}${e.verified ? VERIFIED : ""}${TIER(e.tier)}</div>
+      ${BODY(e.name)}<div class="base">${place[i]}<span class="pts">${e.elo.toLocaleString()} pts</span></div></div>` : "").join("")}</div></div>`;
+}
+function rows(list) {
+  return list.map(e => {
+    const games = e.wins + e.losses, wr = games ? Math.round(e.wins / games * 100) : 0;
+    return `<div class="row" data-name="${esc(e.name)}" tabindex="0" role="link"><div class="pos">${e.pos}</div>${HEAD(e.name)}
+      <div class="name">${RTAG(e.rank)}<span class="n">${esc(e.name)}</span>${FLAG(e.country, e.countryName)}${e.verified ? VERIFIED : ""}</div>
+      <div class="right">${TIER(e.tier)}<span><b>${e.elo.toLocaleString()}</b> pts</span><span class="wl" title="${e.wins} wins, ${e.losses} losses"><span class="bar"><i style="width:${wr}%"></i></span>${wr}%</span></div></div>`;
+  }).join("");
+}
+function bindPlayers(root) {
+  root.querySelectorAll("[data-name]").forEach(el => {
+    el.addEventListener("click", () => open(el.dataset.name));
+    el.addEventListener("keydown", ev => { if (ev.key === "Enter") open(el.dataset.name); });
+  });
+  root.querySelectorAll(".step").forEach(tilt);
+  root.querySelectorAll(".laurel").forEach(drawLaurel);
+}
+function tilt(el) {
+  if (REDUCED) return;
+  el.addEventListener("pointermove", ev => {
+    const b = el.getBoundingClientRect(), x = (ev.clientX - b.left) / b.width - .5, y = (ev.clientY - b.top) / b.height - .5;
+    el.style.transform = `rotateY(${x * 10}deg) rotateX(${-y * 8}deg)`;
+  });
+  el.addEventListener("pointerleave", () => { el.style.transform = ""; });
+}
+function drawLaurel(cv) {
+  const g = cv.getContext("2d"), w = cv.width, h = cv.height;
+  g.clearRect(0, 0, w, h);
+  const grad = g.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, "#7A5A1E"); grad.addColorStop(.5, "#D8A74A"); grad.addColorStop(1, "#6E4E18");
+  g.strokeStyle = grad; g.fillStyle = "transparent"; g.lineWidth = 2.2; g.lineCap = "round";
+  const cx = w * 0.95, cy = h * 0.5, R = h * 0.46;
+  g.beginPath(); for (let a = -1.2; a <= 1.25; a += 0.02) { const x = cx - Math.cos(a) * R * .62, y = cy + Math.sin(a) * R; a === -1.2 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
+  for (let i = 0; i < 9; i++) {
+    const a = -1.1 + i * 0.27, x = cx - Math.cos(a) * R * .62, y = cy + Math.sin(a) * R, ang = a + Math.PI * 1.08;
+    for (const side of [-1, 1]) {
+      g.save(); g.translate(x, y); g.rotate(ang + side * 0.75); g.beginPath(); g.ellipse(0, -15, 6.5, 15, 0, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(0, -2); g.lineTo(0, -26); g.globalAlpha = .55; g.stroke(); g.restore();
+    }
+  }
+}
+function enter(sel, opts = {}) {
+  const gs = G(); if (!gs) return;
+  const els = view.querySelectorAll(sel); if (!els.length) return;
+  gs.from(els, {y: opts.y ?? 18, opacity: opts.o ?? 0.3, duration: opts.d ?? .55, ease: opts.ease || "power3.out", stagger: opts.s ?? .05, delay: opts.delay || 0, clearProps: "transform,opacity"});
+}
+function countUp(el, to) {
+  const gs = G(); if (!gs) { el.textContent = to.toLocaleString(); return; }
+  const o = {v: 0}; gs.to(o, {v: to, duration: 1.4, ease: "power2.out", onUpdate: () => { el.textContent = Math.round(o.v).toLocaleString(); }});
+}
+function riseSteps() {
+  const gs = G(); if (!gs) return;
+  const steps = view.querySelectorAll(".step");
+  gs.from(steps, {y: 90, opacity: 0.35, duration: 1, ease: "back.out(1.4)", stagger: {each: .14, from: "center"}, delay: .1, clearProps: "opacity"});
+  gs.from(view.querySelectorAll(".step .base"), {scaleY: 0, transformOrigin: "50% 100%", duration: .8, ease: "power4.out", stagger: .14, delay: .35, clearProps: "transform"});
+  gs.from(view.querySelectorAll(".laurel"), {opacity: 0.3, scale: .8, duration: 1.2, ease: "power2.out", delay: .5, clearProps: "opacity,transform"});
+}
+
+async function home() {
+  const [server, board] = await Promise.all([api("/api/server"), api("/api/leaderboard?kit=overall")]);
+  const list = board || [];
+  const modes = site.modes || [];
+  view.innerHTML = `
+    <section class="stage hero">
+      <div>
+        <span class="eyebrow">Competitive Minecraft PvP</span>
+        <h1>Fight your way to <span class="glow">HT1</span></h1>
+        <p class="lead">${esc(site.tagline || "")}</p>
+        <div class="ipcard"><div class="ip"><small>SERVER ADDRESS</small>${esc(site.ip || "")}</div>
+          <span class="live"><i></i><span id="onl">${server ? server.online : "-"}</span> online</span>
+          <button class="btn hot" id="copyIp" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>Copy IP</button></div>
+        <div class="cta"><a class="btn" href="${esc(site.discord || "#")}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.5 5.3A17 17 0 0 0 15.3 4l-.5 1a15.7 15.7 0 0 0-5.6 0l-.5-1a17 17 0 0 0-4.2 1.3C1.8 9.3 1.1 13.2 1.4 17a17 17 0 0 0 5.2 2.6l1.1-1.7a11 11 0 0 1-1.7-.8l.4-.3a12.2 12.2 0 0 0 11.2 0l.4.3c-.6.3-1.1.6-1.7.8l1.1 1.7A17 17 0 0 0 22.6 17c.4-4.4-.7-8.3-3.1-11.7zM8.8 14.7c-1 0-1.9-1-1.9-2.2S7.7 10.3 8.8 10.3s1.9 1 1.9 2.2-.8 2.2-1.9 2.2zm6.4 0c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2z"/></svg>Join Discord</a>
+          <a class="btn" href="#leaderboards">${svgIcon("leaderboards")}Leaderboards</a></div>
+      </div>
+      <div><div class="heroArt" id="heroArt"><div class="tilt" id="heroTilt"><div class="float">
+          <img class="main" src="logo.png" alt="${esc(site.name || "Vortex Realm")}" width="595" height="420" draggable="false">
+          <img class="amb" src="logo.png" alt="" aria-hidden="true"><img class="soft x" src="logo.png" alt="" aria-hidden="true"><img class="soft y" src="logo.png" alt="" aria-hidden="true">
+          <span class="shine" aria-hidden="true"></span>${[18, 34, 52, 66, 80].map((l, i) => `<i class="spark" style="left:${l}%;animation-delay:${i * .7}s;--dx:${(i % 2 ? -1 : 1) * (8 + i * 4)}px"></i>`).join("")}</div></div></div>
+        <div class="stats"><div class="stat hot"><b id="s1">0</b><span>Online</span></div><div class="stat"><b id="s2">0</b><span>Fighting</span></div><div class="stat"><b id="s3">0</b><span>In queue</span></div></div></div>
+    </section>
+    <section class="section reveal" id="live"><div class="h"><div class="livehead"><span class="onair"><i></i>LIVE</span><h2>Right now on ${esc(site.name)}</h2>
+        <span class="updated" id="upd"></span></div></div>
+      <div class="livegrid"><div class="card panel reveal-item"><h3>Matches being played <b id="mCount">0</b></h3><div id="mList"><div class="skeleton" style="height:180px"></div></div></div>
+        <div class="card panel reveal-item"><h3>Latest results &amp; rank-ups</h3><ul class="feed" id="feed"><li class="skeleton" style="height:180px"></li></ul></div></div>
+      <div class="livegrid"><div class="card panel reveal-item"><h3>Who plays what <b id="qTotal"></b></h3><div class="qbars" id="qbars"></div>
+          <div class="legend"><span><i style="background:linear-gradient(90deg,var(--ember),var(--amber))"></i>In a match</span><span><i style="background:color-mix(in srgb,var(--amber) 35%,transparent)"></i>Queueing</span></div></div>
+        <div class="card panel reveal-item"><h3>Online now <b id="pCount"></b></h3><div class="marquee" id="marquee"><div class="track" id="track"></div><div class="track back" id="track2"></div></div>
+          <p style="color:var(--muted);font-size:14px;margin:14px 0 0">Click anyone to open their profile.</p></div></div></section>
+    <section class="stage section reveal" id="top">${list.length ? podium(list, "Overall") : `<div class="empty">Nobody is ranked yet. Play ranked to be the first on the podium.</div>`}
+      ${list.length > 3 ? `<div class="divider"></div><div class="ladder">${rows(list.slice(3, 10))}</div>` : ""}
+      ${list.length > 3 ? `<div style="text-align:center;padding:0 0 22px"><a class="btn" href="#leaderboards">Full leaderboards</a></div>` : ""}</section>
+    ${modes.length ? `<section class="section reveal"><div class="h"><div><span class="eyebrow">Play</span><h2>Game modes</h2></div><a class="btn" href="#modes">All modes</a></div>
+      <div class="grid">${modes.slice(0, 6).map(modeCard).join("")}</div></section>` : ""}
+    ${(site.news || []).length ? `<section class="section reveal"><div class="h"><div><span class="eyebrow">Updates</span><h2>News</h2></div></div>
+      <div class="grid">${site.news.slice(0, 3).map(n => `<article class="card news"><time>${esc(n.date)}</time><h3>${esc(n.title)}</h3><p>${esc(n.text)}</p></article>`).join("")}</div></section>` : ""}
+    <section class="band reveal"><div><h3>Ready to climb the ladder?</h3><p>Join ${esc(site.ip || "")} and queue ranked. Your first three duels place you.</p></div>
+      <button class="btn hot" id="copyIp2" type="button">Copy IP and play</button></section>`;
+  $("#copyIp").onclick = copyIp; $("#copyIp2").onclick = copyIp;
+  bindPlayers(view);
+  if (server) { countUp($("#s1"), server.online || 0); countUp($("#s2"), server.playing || 0); countUp($("#s3"), server.queued || 0); }
+  heroLogo();
+  enter(".hero > div > *", {s: .08});
+  startLive();
+  heroFocus();
+  revealOnScroll(() => { riseSteps(); });
+}
+
+/* ---------------------------------------------------------------- live data (polled every 4 s while the tab is open) */
+let liveTimer = 0, liveSeen = new Set();
+const ago = t => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? s + "s ago" : s < 3600 ? Math.floor(s / 60) + "m ago" : Math.floor(s / 3600) + "h ago"; };
+const clock = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+/* a number that changed blurs out and the new one sharpens in */
+function swap(el, value) {
+  if (!el) return; const v = String(value);
+  if (el.dataset.v === v) return; const first = el.dataset.v === undefined; el.dataset.v = v;
+  const gs = G(); if (!gs || first || !animClockOk) { el.textContent = v; return; }
+  gs.timeline().to(el, {filter: "blur(8px)", opacity: .2, y: -4, duration: .18, ease: "power2.in"})
+    .add(() => { el.textContent = v; }).fromTo(el, {y: 6}, {filter: "blur(0px)", opacity: 1, y: 0, duration: .32, ease: "power3.out", clearProps: "filter"});
+}
+function startLive() {
+  clearInterval(liveTimer); liveSeen = new Set();
+  const pull = async first => { if ((!first && document.hidden) || !$("#live")) return; const d = await api("/api/live"); if (d && $("#live")) drawLive(d); };
+  pull(true); liveTimer = setInterval(() => pull(false), 4000);
+}
+function drawLive(d) {
+  swap($("#s1"), d.online); swap($("#s2"), d.playing); swap($("#s3"), d.queued); swap($("#onl"), d.online);
+  $("#upd").textContent = "updated " + new Date(d.at || Date.now()).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+  swap($("#mCount"), (d.matches || []).length);
+  const ml = $("#mList");
+  ml.innerHTML = (d.matches || []).length ? d.matches.slice(0, 7).map(m => `<div class="mrow" data-m="${m.id}">${ICON(m.icon, m.kitColor)}
+      <div class="side" data-name="${esc(m.a.head)}" role="link" tabindex="0">${HEAD(m.a.head, 32)}<span>${esc(m.a.name)}</span></div>
+      <div class="sc"><span>${m.a.score}</span><em>-</em><span>${m.b.score}</span></div>
+      <div class="side r" data-name="${esc(m.b.head)}" role="link" tabindex="0"><span>${esc(m.b.name)}</span>${HEAD(m.b.head, 32)}</div>
+      <div class="meta"><b>${m.ranked ? "RANKED" : "CASUAL"}</b>${esc(m.kit)}<br>${clock(m.seconds || 0)} · FT${m.firstTo}</div></div>`).join("")
+    : `<div class="nolive">No match is running this second. Queue one and you're on the board.</div>`;
+  bindPlayers(ml);
+  const feed = d.feed || [];
+  $("#feed").innerHTML = feed.length ? feed.slice(0, 8).map(e => {
+    const key = e.type + e.at + (e.winner || e.player);
+    const fresh = liveSeen.size && !liveSeen.has(key); liveSeen.add(key);
+    if (e.type === "match") return `<li class="${fresh ? "fresh" : ""}" style="--c:${esc(e.kitColor)}"><i></i><span><b>${esc(e.winner)}</b> beat <b>${esc(e.loser)}</b> ${esc(e.score)} in ${esc(e.kit)}${e.ranked && e.delta ? ` <span style="color:var(--good)">+${e.delta}</span>` : ""}</span><small>${ago(e.at)}</small></li>`;
+    return `<li class="up ${fresh ? "fresh" : ""}" style="--c:${esc(e.tierColor)}"><i></i><span><b>${esc(e.player)}</b> ${e.type === "placed" ? "was placed at" : "ranked up to"} <b style="color:${esc(e.tierColor)}">${esc(e.tier)}</b> in ${esc(e.kit)}</span><small>${ago(e.at)}</small></li>`;
+  }).join("") : `<li class="nolive" style="display:block">Results and rank-ups appear here as they happen.</li>`;
+  const gs = G();
+  if (gs && animClockOk) { const fr = $("#feed").querySelectorAll(".fresh"); if (fr.length) gs.from(fr, {x: -18, filter: "blur(10px)", opacity: .2, duration: .6, ease: "power3.out", stagger: .08, clearProps: "filter,transform,opacity"}); }
+  const load = q => q.playing + q.ranked + q.unranked;
+  const qs = (d.queues || []).filter(q => load(q) > 0).sort((a, b) => load(b) - load(a)).slice(0, 7);
+  const top = Math.max(1, ...qs.map(load));
+  const total = (d.queues || []).reduce((s, q) => s + load(q), 0); swap($("#qTotal"), total ? total + " players" : "");
+  const qb = $("#qbars");
+  if (!qs.length) { qb.dataset.keys = ""; qb.innerHTML = `<div class="nolive">Nobody is in a match or a queue right now.</div>`; }
+  else {
+    if (qb.dataset.keys !== qs.map(q => q.id).join()) {
+      qb.dataset.keys = qs.map(q => q.id).join();
+      qb.innerHTML = qs.map(q => `<div class="qb" data-q="${esc(q.id)}">${ICON(q.icon, q.color)}<span class="nm">${esc(q.name)}</span><span class="tr"><i class="p" style="width:0"></i><i class="q" style="width:0"></i></span><span class="n"></span></div>`).join("");
+    }
+    requestAnimationFrame(() => qs.forEach(q => { const row = qb.querySelector(`[data-q="${CSS.escape(q.id)}"]`); if (!row) return;
+      row.querySelector(".p").style.width = (q.playing / top * 100) + "%"; row.querySelector(".q").style.width = ((q.ranked + q.unranked) / top * 100) + "%";
+      swap(row.querySelector(".n"), load(q)); }));
+  }
+  const ps = d.players || [];
+  swap($("#pCount"), ps.length + (d.online > ps.length ? "+" : ""));
+  const names = ps.map(p => p.name).join();
+  const tr = $("#track");
+  if (tr.dataset.names !== names) {
+    tr.dataset.names = names;
+    const label = s => ({MATCH: "FIGHTING", FFA: "FFA", QUEUE: "QUEUE", PREMATCH: "FIGHTING", SPECTATING: "WATCHING"})[s] || "LOBBY";
+    const one = ps.map(p => `<span class="chip" data-name="${esc(p.name)}" role="link" tabindex="0">${HEAD(p.name, 32)}${esc(p.name)} <small>${label(p.state)}</small></span>`).join("");
+    tr.innerHTML = ps.length ? one + one : `<span class="nolive">Nobody is online. Be the first!</span>`;
+    tr.style.animationDuration = Math.max(20, ps.length * 3) + "s";
+    const half = ps.slice(Math.ceil(ps.length / 2)).concat(ps.slice(0, Math.ceil(ps.length / 2)));
+    const two = half.map(p => `<span class="chip" data-name="${esc(p.name)}" role="link" tabindex="0">${HEAD(p.name, 32)}${esc(p.name)} <small>${label(p.state)}</small></span>`).join("");
+    const tr2 = $("#track2"); tr2.innerHTML = ps.length > 6 ? two + two : ""; tr2.style.animationDuration = Math.max(24, ps.length * 3.4) + "s";
+    bindPlayers(tr); bindPlayers(tr2);
+  }
+}
+
+/* ---------------------------------------------------------------- blur + scroll reveal */
+const ST = () => (G() && window.ScrollTrigger) ? window.ScrollTrigger : null;
+let animClockOk = true;
+function revealOnScroll(onPodium) {
+  const gs = G(), st = ST();
+  if (!gs || !st || !animClockOk) { if (onPodium) onPodium(); return; }
+  gs.registerPlugin(st);
+  view.querySelectorAll(".reveal").forEach(sec => {
+    const hasPodium = !!sec.querySelector(".step");
+    const items = sec.querySelectorAll(".reveal-item, .grid > *");
+    const run = () => {
+      gs.fromTo(sec, {filter: "blur(14px)", opacity: .35, y: 40}, {filter: "blur(0px)", opacity: 1, y: 0, duration: .9, ease: "power3.out", clearProps: "filter,transform,opacity"});
+      if (items.length) gs.fromTo(items, {filter: "blur(10px)", y: 24}, {filter: "blur(0px)", y: 0, duration: .8, ease: "power3.out", stagger: .07, delay: .1, clearProps: "filter,transform"});
+      if (hasPodium && onPodium) { onPodium(); enter(".ladder .row", {delay: .45, s: .04, y: 10}); }
+    };
+    if (sec.getBoundingClientRect().top < innerHeight * .9) run();
+    else { gs.set(sec, {filter: "blur(14px)", opacity: .35, y: 40}); st.create({id: "rv", trigger: sec, start: "top 88%", once: true, onEnter: run}); }
+  });
+}
+function heroFocus() {
+  const gs = G(), st = ST(); const hero = view.querySelector(".hero");
+  if (!gs || !st || !hero || !animClockOk) return;
+  gs.registerPlugin(st);
+  gs.to(hero, {filter: "blur(7px)", scale: .97, opacity: .55, ease: "none", scrollTrigger: {id: "rv", trigger: hero, start: "top top+=80", end: "bottom top+=80", scrub: .4}});
+}
+function killReveals() { const st = window.ScrollTrigger; if (st) st.getAll().forEach(t => t.kill()); clearInterval(liveTimer); }
+(function navGlass() {
+  const nav = $(".nav"); let raf = 0;
+  const upd = () => { raf = 0; const k = Math.min(1, scrollY / 160); nav.style.setProperty("--navA", (32 + k * 30) + "%"); nav.style.setProperty("--navB", (12 + k * 12) + "px"); nav.classList.toggle("scrolled", k > .3); };
+  addEventListener("scroll", () => { if (!raf) raf = requestAnimationFrame(upd); }, {passive: true}); upd();
+})();
+/* ---------------------------------------------------------------- liquid glass: light and lens */
+const GLASS = ".nav, .logo, .search, .stage, .card, .col, .band, .btn, .stat, .ipcard";
+(function glassLight() {
+  if (REDUCED || !matchMedia("(hover: hover)").matches) return;
+  let lit = null, raf = 0, ev = null;
+  const upd = () => {
+    raf = 0; const el = ev && ev.target instanceof Element ? ev.target.closest(GLASS) : null;
+    if (el !== lit) { if (lit) lit.classList.remove("lit"); lit = el; if (el) el.classList.add("lit"); }
+    if (el) { const r = el.getBoundingClientRect(); el.style.setProperty("--mx", Math.round(ev.clientX - r.left) + "px"); el.style.setProperty("--my", Math.round(ev.clientY - r.top) + "px"); }
+  };
+  addEventListener("pointermove", e => { ev = e; if (!raf) raf = requestAnimationFrame(upd); }, {passive: true});
+  document.addEventListener("pointerleave", () => { if (lit) lit.classList.remove("lit"); lit = null; });
+})();
+/* Chromium only: the edge of each control refracts what is behind it. A displacement map is drawn per element size: at
+   the rim it pulls the backdrop inward (strongest at the very edge, fading over the bevel), the middle stays clear. */
+const LENS = ".nav, .logo, .search input, .stat, .ipcard, .btn:not(.hot), .band, .tour";
+const lensOk = !REDUCED && matchMedia("(hover: hover) and (pointer: fine)").matches
+  && !!(navigator.userAgentData && navigator.userAgentData.brands.some(b => /Chromium/i.test(b.brand)));
+const lensMaps = new Map();
+let lensDefs = null, lensN = 0;
+function lensMap(w, h, rad, bevel) {
+  const key = [w, h, rad, bevel].join("x"); if (lensMaps.has(key)) return lensMaps.get(key);
+  const s = Math.min(1, 240 / Math.max(w, h)), W = Math.max(8, Math.round(w * s)), H = Math.max(8, Math.round(h * s));
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d"), img = g.createImageData(W, H), d = img.data;
+  const R = Math.min(rad * s, W / 2, H / 2), B = Math.max(1, bevel * s), hw = W / 2, hh = H / 2;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const px = x + .5 - hw, py = y + .5 - hh, qx = Math.abs(px) - (hw - R), qy = Math.abs(py) - (hh - R);
+    const out = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)), dist = out + Math.min(Math.max(qx, qy), 0) - R;
+    const t = Math.min(1, Math.max(0, -dist / B)), k = (1 - t) * (1 - t);
+    let nx = 0, ny = 0;
+    if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy) || 1; nx = qx / l * Math.sign(px); ny = qy / l * Math.sign(py); }
+    else if (qx > qy) nx = Math.sign(px); else ny = Math.sign(py);
+    const i = (y * W + x) * 4;
+    d[i] = 128 - nx * k * 127; d[i + 1] = 128 - ny * k * 127; d[i + 2] = 128; d[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const url = cv.toDataURL(); lensMaps.set(key, url); return url;
+}
+function lens(el) {
+  const r = el.getBoundingClientRect(), w = Math.round(r.width), h = Math.round(r.height);
+  if (w < 24 || h < 18) return;
+  const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 12, bevel = Math.round(Math.min(16, Math.min(w, h) * .3));
+  const key = [w, h, rad].join("x"); if (el._lens === key) return; el._lens = key;
+  if (!lensDefs) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "0"); svg.setAttribute("height", "0"); svg.setAttribute("aria-hidden", "true"); svg.style.position = "absolute";
+    lensDefs = document.createElementNS("http://www.w3.org/2000/svg", "defs"); svg.appendChild(lensDefs); document.body.appendChild(svg);
+  }
+  const id = el._lensId || (el._lensId = "lens" + (++lensN));
+  let f = document.getElementById(id);
+  if (!f) {
+    f = document.createElementNS("http://www.w3.org/2000/svg", "filter"); f.id = id;
+    f.setAttribute("color-interpolation-filters", "sRGB"); f.setAttribute("filterUnits", "userSpaceOnUse"); f.setAttribute("x", "0"); f.setAttribute("y", "0");
+    f.innerHTML = `<feImage x="0" y="0" preserveAspectRatio="none" result="map"/><feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G"/>`;
+    lensDefs.appendChild(f);
+  }
+  f.setAttribute("width", w); f.setAttribute("height", h);
+  const fi = f.querySelector("feImage"); fi.setAttribute("href", lensMap(w, h, rad, bevel)); fi.setAttribute("width", w); fi.setAttribute("height", h);
+  f.querySelector("feDisplacementMap").setAttribute("scale", Math.round(bevel * 1.5));
+  const blur = el.classList.contains("nav") ? "var(--navB)" : el.matches(".btn") ? "10px" : "16px";
+  el.style.backdropFilter = `url(#${id}) blur(${blur}) saturate(190%) brightness(1.05)`;
+}
+function lensAll() { if (lensOk) $$(LENS).forEach(lens); }
+addEventListener("resize", () => { clearTimeout(lensAll.t); lensAll.t = setTimeout(lensAll, 200); });
+function modeCard(m) {
+  const st = m.status === "OPEN" ? ["", "Open"] : m.status === "SOON" ? ["soon", "Coming soon"] : ["maint", "Maintenance"];
+  return `<div class="card mode"><div class="top">${ICON(m.icon)}<h3>${esc(m.name)}</h3></div><p>${esc(m.text)}</p>
+    <div class="foot"><span class="status ${st[0]}"><i></i>${st[1]}</span><span style="color:var(--muted)">${Number(m.players || 0)} playing</span></div></div>`;
+}
+async function modes() {
+  view.innerHTML = `<div class="h"><div><span class="eyebrow">Play</span><h2>Game modes</h2><p>Every world on ${esc(site.name)}. Use the selector in game to travel.</p></div></div>
+    <div class="grid">${(site.modes || []).map(modeCard).join("") || `<div class="card empty">No modes yet.</div>`}</div>`;
+  enter(".grid > *");
+}
+function kitBar(withOverall) {
+  const list = (withOverall ? [{id: "overall", name: "Overall", icon: "nether_star", color: "#FFB547"}] : []).concat(kits);
+  return `<div class="kits" role="tablist">${list.map(k => `<button class="kit ${k.id === kitSel ? "on" : ""}" role="tab" aria-selected="${k.id === kitSel}" data-k="${esc(k.id)}" style="--k:${esc(k.color)}" type="button">${ICON(k.icon, k.color)}${esc(k.name)}</button>`).join("")}</div>`;
+}
+function bindKits(cb) { view.querySelectorAll(".kit").forEach(b => b.onclick = () => { kitSel = b.dataset.k; cb(); }); }
+async function leaderboards() {
+  if (!kitSel || (kitSel !== "overall" && !kits.find(k => k.id === kitSel))) kitSel = "overall";
+  const kit = kits.find(k => k.id === kitSel);
+  view.innerHTML = `<div class="h"><div><span class="eyebrow">Ranked</span><h2>Leaderboards</h2><p>The best players per gamemode, by rank points.</p></div></div>${kitBar(true)}
+    <section class="stage" id="lb"><div class="skeleton" style="height:420px;margin:18px"></div></section>`;
+  bindKits(leaderboards);
+  const list = await api("/api/leaderboard?kit=" + encodeURIComponent(kitSel)) || [];
+  $("#lb").innerHTML = list.length ? podium(list, kit ? kit.name : "Overall") + `<div class="divider"></div><div class="ladder">${rows(list.slice(3, 50))}</div>`
+    : `<div class="empty">Nobody is ranked in ${esc(kit ? kit.name : "this mode")} yet.</div>`;
+  bindPlayers($("#lb")); riseSteps(); enter(".ladder .row", {delay: .45, s: .025, y: 10});
+}
+async function tiers() {
+  if (!kitSel || !kits.find(k => k.id === kitSel)) kitSel = kits[0] ? kits[0].id : null;
+  const kit = kits.find(k => k.id === kitSel);
+  view.innerHTML = `<div class="h"><div><span class="eyebrow">Tier list</span><h2>Tiers</h2><p>Every ranked player by tier, High, Mid and Low inside each tier.</p></div></div>${kitBar(false)}
+    <div class="board" id="board">${[1, 2, 3, 4, 5].map(() => `<div class="col skeleton" style="height:340px"></div>`).join("")}</div>`;
+  bindKits(tiers);
+  if (!kit) { $("#board").innerHTML = `<div class="card empty" style="grid-column:1/-1">No ranked gamemodes yet.</div>`; return; }
+  const list = await api("/api/leaderboard?kit=" + encodeURIComponent(kit.id)) || [];
+  const col = n => {
+    const color = TIERS[(5 - n) * 3 + 2][1];
+    const people = list.filter(e => e.tier && e.tier.index >= 0 && e.tier.number === n).sort((a, b) => b.elo - a.elo);
+    const step = s => ["L", "M", "H"][s];
+    return `<div class="col" style="--c:${color}"><header><b>Tier ${n}</b><span>${people.length} PLAYERS</span></header>
+      ${people.length ? `<ul>${people.map(e => `<li data-name="${esc(e.name)}" tabindex="0" role="link">${HEAD(e.name, 32)}<span class="n">${esc(e.name)}</span><span class="s">${step(e.tier.step)}T${n}</span></li>`).join("")}</ul>` : `<div class="none">Nobody yet</div>`}</div>`;
+  };
+  $("#board").innerHTML = [1, 2, 3, 4, 5].map(col).join("");
+  bindPlayers($("#board")); enter(".col", {s: .07, y: 24}); enter(".col li", {delay: .25, s: .012, y: 6});
+}
+async function ranks() {
+  const r = await api("/api/ranks") || {store: []};
+  const link = r.storeLink || site.store || site.discord || "#";
+  view.innerHTML = `<div class="h"><div><span class="eyebrow">Support the server</span><h2>Ranks</h2><p>Every rank keeps ${esc(site.name)} running. Perks are cosmetic or comfort, never pay-to-win.</p></div>
+      <a class="btn hot" href="${esc(link)}" target="_blank" rel="noopener">Open the store</a></div>
+    <div class="ranks">${(r.store || []).map(k => `<div class="card rank" style="--a:${esc(k.from)};--b:${esc(k.to)}">
+      <div class="label">${esc(k.label)}</div><div class="price">${k.price ? esc(k.price) : "Free"}<small>${k.price ? " one-time" : " on request"}</small></div>
+      ${k.description ? `<div style="color:var(--muted)">${esc(k.description)}</div>` : ""}
+      <ul>${(k.perks || []).map(p => `<li>${CHECK}<span>${esc(p)}</span></li>`).join("")}</ul>
+      <a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${k.price ? "Get " + esc(k.label) : "Ask staff"}</a></div>`).join("") || `<div class="card empty">No ranks for sale yet.</div>`}</div>`;
+  enter(".rank", {s: .08, y: 26});
+}
+async function staff() {
+  const list = await api("/api/staff") || [];
+  const groups = {};
+  list.forEach(m => { const k = m.rank ? m.rank.label : "Staff"; (groups[k] = groups[k] || {rank: m.rank, people: []}).people.push(m); });
+  view.innerHTML = `<div class="h"><div><span class="eyebrow">The team</span><h2>Staff</h2><p>Need help? Message anyone with a green dot in game, or open a ticket on Discord.</p></div></div>
+    ${Object.values(groups).map(gr => `<section class="section"><div class="h">${RTAG(gr.rank)}</div><div class="staff">${gr.people.map(m => `<div class="card member" data-name="${esc(m.name)}" tabindex="0" role="link">
+      ${HEAD(m.name, 64)}<div style="min-width:0"><b>${esc(m.name)}</b><span style="color:var(--muted);font-size:13px"><span class="dot ${m.online ? "on" : ""}"></span> ${m.online ? "Online" : "Offline"}</span></div></div>`).join("")}</div></section>`).join("")
+    || `<div class="card empty">No staff listed yet.</div>`}`;
+  bindPlayers(view); enter(".member", {s: .05});
+}
+/* ---------------------------------------------------------------- tournaments: the live bracket, standings, who beat who */
+async function tournaments() {
+  view.innerHTML = `<div class="skeleton" style="height:360px"></div>`;
+  const draw = d => {
+    const c = d && d.current, past = (d && d.past) || [];
+    const stateTag = c ? ({JOINING: ["open", "Join now"], QUALIFYING: ["live", "Qualifiers"], RUNNING: ["live", "Bracket"], ENDED: ["done", "Finished"]}[c.state] || ["done", c.state]) : null;
+    const pl = (n, w, s) => `<div class="p ${w === true ? "win" : w === false ? "lose" : ""}">${n ? HEAD(n, 32) : `<span class="hd"></span>`}<span>${esc(n || "bye")}</span><b class="s">${s ?? ""}</b></div>`;
+    const bracket = c && (c.rounds || []).length ? `<div class="bracket">${c.rounds.map(r => `<div class="bcol"><h4>${esc(r.name)}</h4>${r.pairs.map(p => {
+        const done = !!p.winner, aw = done && p.winner === p.a;
+        return `<div class="bm ${p.live ? "bmlive" : ""} ${p.b ? "" : "bye"}">${p.live ? `<span class="lv"><i></i>LIVE</span>` : ""}${pl(p.a, done ? aw : null, p.b ? p.scoreA : "")}${pl(p.b, done ? !aw : null, p.b ? p.scoreB : "")}</div>`;
+      }).join("")}</div>`).join("")}${c.champion ? `<div class="bcol champ"><h4>Champion</h4><div class="bm cup">${HEAD(c.champion, 48)}<b>${esc(c.champion)}</b><span>🏆</span></div></div>` : ""}</div>` : "";
+    const stand = c && (c.standings || []).length ? `<section class="section reveal"><div class="h"><div><span class="eyebrow">Qualifiers</span><h2>Standings</h2><p>The best ${c.advance} go on to the bracket.</p></div></div>
+      <div class="card stand"><table><thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Rounds</th></tr></thead><tbody>${c.standings.map((s, i) => `<tr class="${i < c.advance ? "in" : ""}${i === c.advance - 1 ? " cut" : ""}" data-name="${esc(s.name)}" tabindex="0" role="link"><td>${i + 1}</td><td><div class="who">${HEAD(s.name, 32)}<b>${esc(s.name)}</b></div></td><td>${s.wins}</td><td>${s.losses}</td><td>${s.diff > 0 ? "+" : ""}${s.diff}</td></tr>`).join("")}</tbody></table></div></section>` : "";
+    const results = c && (c.results || []).length ? `<section class="section reveal"><div class="h"><div><span class="eyebrow">Results</span><h2>Who beat who</h2></div></div>
+      <ul class="feed tres">${c.results.slice(0, 14).map(r => `<li class="up" style="--c:var(--good)"><i></i><span><b>${esc(r.winner)}</b> beat <b>${esc(r.loser)}</b> <em>${esc(r.score)}</em></span><small>${esc(r.stage)}</small></li>`).join("")}</ul></section>` : "";
+    view.innerHTML = `<div class="h"><div><span class="eyebrow">Compete</span><h2>Tournaments</h2><p>Qualifiers, a knockout bracket in the Champions Colosseum, and a champion. Type <code>/event</code> in game to join.</p></div></div>
+      ${c ? `<section class="stage tour"><div class="trophy">${ICON("golden_helmet", "#FFC93C")}</div><div style="min-width:0"><span class="tstate ${stateTag[0]}"><i></i>${esc(stateTag[1])}</span>
+          <h3>${esc(c.name)}</h3><p>${esc(c.kit)} · ${esc(c.format)} · first to ${c.firstTo}${c.prize ? ` · <span class="prize">Prize: ${esc(c.prize)}</span>` : ""}</p><p class="st">${esc(c.status)}</p></div>
+          <div class="tnum"><b>${c.players}</b><span>of ${c.max} players</span>${c.state === "JOINING" ? `<b class="cd">${clock(c.startsIn || 0)}</b><span>to start</span>` : ""}</div></section>`
+        : `<section class="stage tour none"><div class="trophy">${ICON("golden_helmet", "#FFC93C")}</div><div><h3>No tournament right now</h3><p>They're announced in game and on our Discord. The next one could start any minute.</p></div>
+          <a class="btn hot" href="${esc(site.discord || "#")}" target="_blank" rel="noopener">Get notified on Discord</a></section>`}
+      ${bracket ? `<section class="section reveal"><div class="h"><div><span class="eyebrow">Knockout</span><h2>The bracket</h2></div></div><div class="card bwrap">${bracket}</div></section>` : ""}
+      ${stand}${results}
+      <section class="section reveal"><div class="h"><div><span class="eyebrow">Hall of fame</span><h2>Past champions</h2></div></div>
+        ${past.length ? `<div class="grid">${past.slice(0, 9).map(h => `<article class="card champcard" data-name="${esc(h.winner)}" tabindex="0" role="link">${HEAD(h.winner, 56)}<div style="min-width:0"><b>${esc(h.winner)}</b>
+          <span>${esc(h.name)} · ${esc(h.kit)}</span><small>beat ${esc(h.runnerUp)} in the final · ${h.players} players · ${new Date(h.at).toLocaleDateString([], {day: "numeric", month: "short"})}</small></div><em>🏆</em></article>`).join("")}</div>`
+          : `<div class="card empty">No tournament has finished yet. The first champion's name goes here.</div>`}</section>`;
+    bindPlayers(view);
+    setTimeout(lensAll, 50);
+  };
+  const d = await api("/api/events");
+  draw(d); enter(".tour > *, .bcol", {s: .06}); revealOnScroll();
+  clearInterval(liveTimer);
+  liveTimer = setInterval(async () => { if (document.hidden || !$(".tour")) return; const n = await api("/api/events"); if (n && $(".tour")) { const y = scrollY; draw(n); scrollTo(0, y); } }, 5000);
+}
+function demoEvents() {
+  const n = i => demoNames[i % demoNames.length];
+  const r = (a, b, w, sa, sb, live) => ({a: n(a), b: n(b), winner: w == null ? null : n(w), scoreA: sa, scoreB: sb, live: !!live});
+  const standings = Array.from({length: 12}, (_, i) => ({name: n(i), wins: Math.max(0, 3 - Math.floor(i / 3)), losses: Math.min(3, Math.floor(i / 3)), diff: 6 - i}));
+  return {current: {name: "Sword Cup", kit: "Sword", kitId: "sword", format: "Qualifiers + Knockout", state: "RUNNING", status: "Sword Cup Semi-finals - 4 left", players: 12, max: 32, firstTo: 2,
+    prize: "MVP rank", host: "Kaizo", startsIn: 0, champion: null, advance: 8, standings,
+    rounds: [{name: "Quarter-finals", pairs: [r(0, 7, 0, 2, 0), r(3, 4, 4, 1, 2), r(1, 6, 1, 2, 1), r(2, 5, 2, 2, 0)]},
+      {name: "Semi-finals", pairs: [r(0, 4, null, 1, 1, true), r(1, 2, 1, 2, 0)]}],
+    results: [{winner: n(1), loser: n(2), score: "2-0", stage: "Semi-finals"}, {winner: n(2), loser: n(5), score: "2-0", stage: "Quarter-finals"}, {winner: n(1), loser: n(6), score: "2-1", stage: "Quarter-finals"},
+      {winner: n(4), loser: n(3), score: "2-1", stage: "Quarter-finals"}, {winner: n(0), loser: n(7), score: "2-0", stage: "Quarter-finals"}, {winner: n(8), loser: n(11), score: "1-0", stage: "Qualifiers 3"}]},
+    past: [{name: "Axe Cup", kit: "Axe", winner: n(3), runnerUp: n(9), players: 24, format: "Knockout", at: Date.now() - 864e5},
+      {name: "Mace Masters", kit: "Mace", winner: n(5), runnerUp: n(0), players: 16, format: "Qualifiers + Knockout", at: Date.now() - 2 * 864e5},
+      {name: "Crystal Clash", kit: "Crystal", winner: n(10), runnerUp: n(2), players: 32, format: "Knockout", at: Date.now() - 4 * 864e5}]};
+}
+async function rules() {
+  view.innerHTML = `<div class="h"><div><span class="eyebrow">Fair play</span><h2>Rules</h2><p>Breaking them gets you muted, banned or sent to the hacker pool.</p></div></div>
+    <div class="rules">${(site.rules || []).map((r, i) => `<div class="card rule"><div class="num">${i + 1}</div><div><h3>${esc(r.title)}</h3><p>${esc(r.text)}</p></div></div>`).join("") || `<div class="card empty">No rules listed.</div>`}</div>`;
+  enter(".rule", {s: .06, y: 14});
+}
+async function player(name) {
+  view.innerHTML = `<div class="skeleton" style="height:420px"></div>`;
+  const p = await api("/api/player?name=" + encodeURIComponent(name));
+  if (!p || p.error) { view.innerHTML = `<div class="card empty"><h2 style="font:700 24px var(--f-display);margin:0 0 8px">Player not found</h2>${esc(p && p.error ? p.error : "Check the name and try again.")}</div>`; return; }
+  const ranked = (p.kits || []).filter(k => k.tier && k.tier.index >= 0).sort((a, b) => b.tier.index - a.tier.index);
+  const best = ranked[0];
+  const kd = p.ffaDeaths ? (p.ffaKills / p.ffaDeaths).toFixed(2) : p.ffaKills;
+  const days = p.firstJoin ? Math.max(0, Math.round((Date.now() - p.firstJoin) / 86400000)) : 0;
+  view.innerHTML = `<div class="profile">
+    <div class="card viewer" id="viewer">${BODY(p.name, "")}<span class="hint">DRAG TO ROTATE</span></div>
+    <div style="min-width:0">
+      <div class="card"><div class="pname">${RTAG(p.rank)}<h2>${esc(p.name)}</h2>${FLAG(p.country, p.countryName)}${p.verified ? VERIFIED : ""}
+        <span class="live" style="color:${p.online ? "var(--good)" : "var(--dim)"}">${p.online ? "<i></i>Online now" : "Offline"}</span></div>
+        <div class="tiles"><div class="tile"><b>${best ? TIER(best.tier) : "-"}</b><span>Best tier</span></div><div class="tile"><b>${Number(p.ffaKills || 0).toLocaleString()}</b><span>FFA kills</span></div>
+          <div class="tile"><b>${kd}</b><span>FFA K/D</span></div><div class="tile"><b>${days}d</b><span>Playing for</span></div></div></div>
+      <div class="kitstats">${(p.kits || []).map(k => { const g = k.wins + k.losses, wr = g ? Math.round(k.wins / g * 100) : 0;
+        const next = k.tier && k.tier.index >= 0 && k.tier.index < 14 ? THRESH[k.tier.index + 1] : null, cur = k.tier && k.tier.index >= 0 ? THRESH[k.tier.index] : 0;
+        const prog = next ? Math.max(0, Math.min(100, (k.elo - cur) / (next - cur) * 100)) : 100;
+        return `<div class="card ks"><div class="top">${ICON((kits.find(x => x.id === k.id) || {}).icon || "paper", k.color)}<b>${esc(k.name)}</b>${TIER(k.tier)}</div>
+          <div class="pts">${Number(k.elo).toLocaleString()} <small>pts${k.position > 0 ? " · #" + k.position : ""}</small></div>
+          <div class="meter" title="${next ? "To the next tier" : "Top tier"}"><i style="width:${prog}%"></i></div>
+          <div class="meta"><span>${k.wins}W ${k.losses}L · ${wr}%</span><span>Best streak ${k.bestStreak}</span></div></div>`; }).join("") || `<div class="card empty">No matches yet.</div>`}</div>
+    </div></div>`;
+  enter(".profile > *", {s: .1, y: 20}); enter(".ks", {delay: .2, s: .05});
+  if (G()) view.querySelectorAll(".meter i").forEach(m => G().from(m, {width: 0, duration: 1.1, ease: "power3.out", delay: .35}));
+  skin3d(p.name);
+}
+/* the 3D skin: skinview3d with the player's real skin; their 2D render stays if anything is missing */
+function skin3d(name) {
+  if (DEMO) return;
+  const host = $("#viewer"); if (!host) return;
+  const start = () => {
+    if (!window.skinview3d) return;
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const cv = document.createElement("canvas");
+        const w = Math.min(300, host.clientWidth - 20);
+        const v = new window.skinview3d.SkinViewer({canvas: cv, width: w, height: 360, skin: img});
+        v.animation = new window.skinview3d.WalkingAnimation(); v.animation.speed = .55; v.autoRotate = !REDUCED; v.autoRotateSpeed = .6; v.zoom = .85;
+        const old = host.querySelector("img"); if (old) old.remove(); host.prepend(cv);
+      } catch (e) { /* keep the 2D render */ }
+    };
+    img.src = "https://mc-heads.net/skin/" + encodeURIComponent(name);
+  };
+  if (window.skinview3d) start();
+  else { const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/skinview3d@3.1.0/bundles/skinview3d.bundle.js"; s.onload = start; document.head.appendChild(s); }
+}
+
+/* ---------------------------------------------------------------- hero logo + ember field */
+/* the logo leans toward the cursor; it pops in once with a little bounce */
+function heroLogo() {
+  const box = $("#heroArt"), tilt = $("#heroTilt"); if (!box || !tilt) return;
+  // it materialises: out of a blur, a little small, then settles with a soft overshoot
+  const gs = G(); if (gs) gs.timeline({delay: .1})
+    .from(tilt, {scale: .78, opacity: 0, filter: "blur(18px)", duration: 1.15, ease: "expo.out", clearProps: "scale,opacity,filter"})
+    .from(tilt.querySelector(".amb"), {opacity: 0, duration: 1.4, ease: "power2.out", clearProps: "opacity"}, "<.2");
+  if (REDUCED || matchMedia("(hover: none)").matches) return;
+  const hero = box.closest(".hero");
+  hero.addEventListener("pointermove", e => {
+    const r = box.getBoundingClientRect(), x = Math.max(-1, Math.min(1, (e.clientX - r.left) / r.width - .5)), y = Math.max(-1, Math.min(1, (e.clientY - r.top) / r.height - .5));
+    tilt.style.transform = `rotateY(${x * 14}deg) rotateX(${y * -10}deg)`;
+    // the glow behind drifts the other way: depth
+    tilt.style.setProperty("--tx", x.toFixed(3)); tilt.style.setProperty("--ty", y.toFixed(3));
+  });
+  hero.addEventListener("pointerleave", () => { tilt.style.transform = ""; tilt.style.setProperty("--tx", 0); tilt.style.setProperty("--ty", 0); });
+}
+(function embers() {
+  const cv = $("#fx"), g = cv.getContext("2d"); let w, h; const N = REDUCED ? 0 : 70;
+  const ps = Array.from({length: N}, () => ({x: Math.random(), y: Math.random(), v: .0004 + Math.random() * .0012, s: .6 + Math.random() * 1.8, f: Math.random() * 6}));
+  const size = () => { const d = devicePixelRatio || 1; w = innerWidth; h = innerHeight; cv.width = w * d; cv.height = h * d; g.setTransform(d, 0, 0, d, 0, 0); };
+  size(); addEventListener("resize", size);
+  const draw = () => {
+    g.clearRect(0, 0, w, h);
+    const v = g.createRadialGradient(w / 2, -h * .1, 0, w / 2, -h * .1, h * .9); v.addColorStop(0, "rgba(255,61,31,.10)"); v.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = v; g.fillRect(0, 0, w, h);
+    // slow glowing blobs behind the frosted panels (the glass blurs them live)
+    const tt = performance.now() / 1000;
+    for (let b = 0; b < 3; b++) {
+      const bx = w * (.2 + .6 * (.5 + .5 * Math.sin(tt * .07 + b * 2.1))), by = h * (.25 + .5 * (.5 + .5 * Math.cos(tt * .05 + b * 1.7))), br = Math.min(w, h) * (.28 + b * .06);
+      const bg = g.createRadialGradient(bx, by, 0, bx, by, br);
+      bg.addColorStop(0, b === 1 ? "rgba(255,181,71,.10)" : "rgba(255,61,31,.13)"); bg.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = bg; g.fillRect(0, 0, w, h);
+    }
+    for (const p of ps) {
+      p.y -= p.v; p.f += .02; if (p.y < -.02) { p.y = 1.02; p.x = Math.random(); }
+      const x = (p.x + Math.sin(p.f) * .006) * w, y = p.y * h, a = Math.min(1, (1 - p.y) * 1.4) * .55;
+      g.fillStyle = `rgba(255,${120 + Math.round(Math.sin(p.f) * 40)},40,${a})`; g.fillRect(x, y, p.s, p.s);
+    }
+    if (N) requestAnimationFrame(draw);
+  };
+  draw();
+})();
+
+/* ---------------------------------------------------------------- routing */
+async function route() {
+  const hsh = location.hash.slice(1);
+  let page = hsh.startsWith("p-") ? "player" : (NAMES[hsh] ? hsh : "home");
+  if (page !== "home" && page !== "player" && !(site.pages || []).includes(page)) page = "home";
+  markNav(page); $("#drawer").hidden = true; killReveals();
+  if (hsh && page !== "player") scrollTo({top: 0, behavior: REDUCED ? "auto" : "smooth"});
+  try {
+    if (page === "player") await player(decodeURIComponent(hsh.slice(2)));
+    else await ({home, modes, leaderboards, tiers, tournaments, ranks, staff, rules})[page]();
+  } catch (e) { view.innerHTML = `<div class="card empty">This page couldn't load. Try again in a moment.</div>`; }
+  const gs = G(); if (gs) gs.from(view, {opacity: .5, y: 8, duration: .35, ease: "power2.out", clearProps: "opacity,transform"});
+  settle();
+  // lenses once the entrance has settled (sizes are final)
+  setTimeout(lensAll, 700);
+}
+/* if the animation clock doesn't run (background tab, preview capture), finish every entrance so nothing stays half-shown;
+   scroll-driven tweens (the hero blur) follow the scrollbar and are left alone, or the hero would blur by itself */
+function settle() {
+  clearTimeout(settle.t);
+  settle.t = setTimeout(() => { const gs = window.gsap; if (gs) gs.globalTimeline.getChildren(true, true, false).forEach(tw => { if (!tw.scrollTrigger && tw.progress() < 1) tw.progress(1); }); }, 2400);
+}
+$("#searchForm").addEventListener("submit", e => { e.preventDefault(); const q = $("#q").value.trim(); if (/^[A-Za-z0-9_]{1,16}$/.test(q)) { $("#q").blur(); open(q); } else toast("Type a Minecraft name (letters, numbers, _)"); });
+addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== $("#q")) { e.preventDefault(); $("#q").focus(); } });
+$("#playBtn").onclick = copyIp;
+$("#footIp").onclick = e => { e.preventDefault(); copyIp(); };
+$("#burger").onclick = () => { $("#drawer").hidden = !$("#drawer").hidden; };
+$("#drawer").addEventListener("click", e => { if (e.target === $("#drawer")) $("#drawer").hidden = true; });
+addEventListener("hashchange", route);
+
+(async () => {
+  site = await api("/api/site");
+  if (!site || !site.name) { DEMO = true; site = demo("/api/site"); }
+  kits = await api("/api/kits") || [];
+  applySite();
+  const gs = G(); if (gs) gs.from(".nav, .search", {y: -16, opacity: .4, duration: .7, ease: "power3.out", stagger: .08, clearProps: "opacity,transform"});
+  await route();
+})();
+/* a preview capture or a hidden tab never runs the animation clock: then everything is shown finished and nothing waits for a scroll */
+(function watchClock() {
+  let frames = 0; const t0 = performance.now();
+  const f = () => { frames++; if (performance.now() - t0 < 1500) requestAnimationFrame(f); };
+  requestAnimationFrame(f);
+  setTimeout(() => {
+    if (frames > 8) return;
+    animClockOk = false;
+    const gs = window.gsap; if (!gs) return;
+    if (window.ScrollTrigger) window.ScrollTrigger.getAll().forEach(t => t.kill());
+    gs.globalTimeline.getChildren(true, true, false).forEach(tw => tw.progress(1));
+    gs.set(".reveal, .reveal-item, .hero, .grid > *", {clearProps: "filter,transform,opacity"});
+  }, 1700);
+})();
+</script>

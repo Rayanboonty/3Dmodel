@@ -1,0 +1,245 @@
+name: PracticePvP
+version: '${project.version}'
+main: net.practicepvp.PracticePlugin
+api-version: '1.21.11'
+description: Vortex Realm practice - MCPVP-style ranked/unranked duels, LT5-HT1 tiers, Tier Tests and Tier Defense, friends, FFA, parties, kit editor.
+authors: [PracticePvP, Vortex Realm]
+website: https://vortexrealm.net
+softdepend: [PlaceholderAPI, Vulcan, GrimAC, LuckPerms, Vault]
+
+commands:
+  lobby:
+    description: Go to the PvP lobby (or leave what you're doing).
+  leave:
+    description: Leave your queue, match, FFA or spectating.
+  leavepvp:
+    description: Go back to the SMP world.
+  queue:
+    description: Open the queue menu or join a queue.
+    aliases: [q]
+    usage: /queue [ranked|unranked] [kit]
+  ranked:
+    description: Open the ranked queue menu.
+  unranked:
+    description: Open the unranked queue menu.
+  duel:
+    description: Duel a player.
+    aliases: [1v1, fight]
+    usage: /duel <player> [kit]
+  party:
+    description: Party commands.
+    aliases: [p]
+  partychat:
+    description: Chat with your party.
+    aliases: [pc]
+  spectate:
+    description: Spectate a match.
+    aliases: [spec]
+  leaderboard:
+    description: Top players per kit.
+    aliases: [lb, leaderboards]
+  stats:
+    description: Your (or another player's) ranks and stats.
+    aliases: [profile, elo]
+  settings:
+    description: Your PvP settings.
+    aliases: [prefs, options]
+  kiteditor:
+    description: Arrange your kits.
+    aliases: [editkit, layout]
+  ffa:
+    description: Join a free-for-all arena.
+  pvpinv:
+    description: View a post-match inventory.
+  rematch:
+    description: Rematch your last opponent.
+  rankup:
+    description: Start your promotion series.
+  ping:
+    description: Show ping.
+  pvpadmin:
+    description: PracticePvP admin panel.
+    aliases: [pa, practiceadmin]
+    permission: practice.admin
+  kits:
+    description: Kit management.
+    permission: practice.admin
+  staff:
+    description: PvP staff tools.
+  staffchat:
+    description: PvP staff chat.
+    aliases: [sc]
+  playtime:
+    description: Your (or another player's) play time.
+    aliases: [pt]
+  links:
+    description: Discord, store and website links.
+    aliases: [discord, store]
+  worlds:
+    description: Server selector (Practice, the SMP server...).
+    aliases: [selector, servers]
+  practice:
+    description: Travel to PvP Practice.
+  hub:
+    description: Travel to the server hub.
+    aliases: [spawn]
+  smp:
+    description: Go to the SMP server (another host of the network).
+    aliases: [survival]
+  npc:
+    description: Lobby NPCs (skins, actions, auras).
+    aliases: [npcs]
+    permission: practice.admin
+  msg:
+    description: Private message.
+    aliases: [tell, w, whisper, m, t, pm, dm]
+  reply:
+    description: Reply to your last private message.
+    aliases: [r]
+  ignore:
+    description: Ignore a player (chat, messages, requests).
+  msgtoggle:
+    description: Turn private messages on or off.
+  socialspy:
+    description: See private messages and every mode's chat (staff).
+    aliases: [spy]
+  mutechat:
+    description: Mute / unmute the chat (staff).
+  clearchat:
+    description: Clear the chat (staff).
+    aliases: [cc]
+  mute:
+    description: Mute a player (staff). /mute <player> [10m|2h|1d|perm] [reason]
+  unmute:
+    description: Unmute a player (staff).
+  mutes:
+    description: List muted players (staff).
+  chatfilter:
+    description: Open the chat moderation menu (staff).
+    aliases: [swearfilter, chatmod]
+  learn:
+    description: The Academy - cinematic lessons for every gamemode (/learn [course|lesson], /learn skip, /learn stop).
+    aliases: [academy, lessons, tutorial]
+  bot:
+    description: Fight a practice bot - /bot [kit] [easy|medium|hard|expert], /bot leave.
+    aliases: [bots, practicebot]
+  train:
+    description: Training dummies - /train [shield|crystal|combo|mace|elytra].
+    aliases: [dummy, training]
+  alts:
+    description: Staff - accounts that joined from the same IP as a player.
+    aliases: [altcheck]
+  cosmetics:
+    description: Armor trims and shield designs for your kits.
+    aliases: [trims, shielddesign]
+  event:
+    description: Tournaments - join, watch the bracket, host one (staff).
+    aliases: [events, tournament, tourney]
+  rank:
+    description: Give players server ranks (Owner, Admin, MVP, VIP...).
+    aliases: [ranks, setrank]
+    permission: practice.admin
+  country:
+    description: Pick the country shown next to your name.
+    aliases: [flag]
+  welcome:
+    description: The welcome screen.
+  guide:
+    description: The step-by-step guide (/guide stop to hide it).
+  ai:
+    description: "Ask the AI assistant to change the plugin - /ai <request>, /ai reset, /ai key <key> (admin)."
+    aliases: [assistant]
+  ss:
+    description: "Screenshare: freeze a player to check them on Discord - /ss <player>, /ss end <player> <result>."
+    aliases: [screenshare, freeze, admit]
+  sentinel:
+    description: "Sentinel anti-cheat alerts and player checks (staff)."
+    aliases: [ac, anticheat]
+  deco:
+    description: Place and edit 3D decorations (admin).
+    aliases: [decorations, decor]
+    permission: practice.admin
+  wallimage:
+    description: Put a picture on a wall (admin) - /wallimage <link> [width] | remove.
+    aliases: [wallimg, picture]
+    permission: practice.admin
+  webadmin:
+    description: A private login link to the web admin panel.
+    permission: practice.admin
+  holo:
+    description: Holograms - floating text for the hub (welcome, Discord, tier tests, tournaments). Admin.
+    aliases: [hologram, holograms]
+    permission: practice.admin
+  website:
+    description: The server website (leaderboards, tier list, ranks).
+    aliases: [web, site]
+  verify:
+    description: "Answer the quick human check. Staff can use /verify <player> [off]."
+  hackerpool:
+    description: Put a cheater in the hacker pool (they only play other pooled players).
+    aliases: [hp, pool]
+    permission: practice.staff
+  report:
+    description: Report a player for cheating.
+  reports:
+    description: Open player reports (staff).
+    permission: practice.staff
+  clientinfo:
+    description: A player's client brand, mods and click stats (staff).
+    aliases: [ci]
+    permission: practice.staff
+  friend:
+    description: "Friends - /friend [add|accept|deny|remove|list|requests] <player>."
+    aliases: [friends]
+  follow:
+    description: Follow a player (they show up in your Following group).
+  unfollow:
+    description: Stop following a player.
+  status:
+    description: "Your status - /status <online|invisible|dnd>."
+    aliases: [dnd, appearoffline]
+  challenge:
+    description: Send a ranked Tier Challenge (big Tier Score impact).
+    aliases: [tierchallenge, tc]
+    usage: /challenge <player>
+  region:
+    description: Pick the server region closest to you.
+    aliases: [regions]
+
+permissions:
+  practice.admin:
+    description: All admin features.
+    default: op
+  practice.staff:
+    description: PvP staff (staff chat, spectate any match). Given by the staff role picked in /pvpadmin.
+    default: op
+  practice.staff.mod:
+    description: PvP moderator tools (end matches, send players to the lobby).
+    default: op
+  practice.lobbyfly:
+    description: Fly in the lobby (when enabled in settings).
+    default: op
+  practice.cosmetics:
+    description: Kill effects and projectile trails.
+    default: true
+  practice.staff.alts:
+    description: Use /alts and get alerts about alts of banned players.
+    default: op
+  practice.cosmetics.trims:
+    description: Armor trims on kit armor.
+    default: true
+  practice.cosmetics.shield:
+    description: A custom shield design on kit shields.
+    default: true
+  practice.chat.bypass:
+    description: Ignore chat cooldown, anti-spam and chat mute.
+    default: op
+  practice.chat.filter.bypass:
+    description: Not checked by the swear filter.
+    default: false
+  practice.famous:
+    description: Counts as Famous in request filters and the Creators tab column (or give a rank listed in social.famous-ranks).
+    default: false
+  practice.friends.unlimited:
+    description: No friend limit.
+    default: op
