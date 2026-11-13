@@ -6,6 +6,7 @@ set -eu
 cd "$(dirname "$0")"
 mkdir -p assets dist
 cp ../tools/build-ios-image-wsl.sh assets/build-ios-image-wsl.sh
+cp ../tools/galios-rootd.sh assets/galios-rootd.sh
 cp ../app/build/outputs/apk/release/app-release.apk assets/GalIOS.apk
 cp ../app/src/main/res/drawable-nodpi/bg_nebula.jpg ui/bg.jpg
 cp ../app/src/main/res/drawable-nodpi/glow_orb.png ui/orb.png

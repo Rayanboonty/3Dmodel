@@ -59,8 +59,63 @@ func getRoot(ctx context.Context, s Settings, serial string) (Root, error) {
 		rootMu.Lock()
 		rootCache[serial] = r
 		rootMu.Unlock()
+		if r.Via == "su" {
+			go startRootHelper(context.Background(), nil, s, serial)
+		}
 	}
 	return r, err
+}
+
+const galiosQueue = "/storage/emulated/0/Android/data/dev.galios/files/rootq"
+
+// startRootHelper lends root to the GalIOS app when root works over USB but not for apps (some temporary roots):
+// it starts galios-rootd.sh as root, detached, which runs what GalIOS queues in its own folder until the phone
+// restarts. GalIOS uses it by itself when its own su gives no root. Quietly does nothing when it cannot.
+func startRootHelper(ctx context.Context, j *JobCtx, s Settings, serial string) {
+	say := func(f string, a ...any) {
+		if j != nil {
+			j.Log(f, a...)
+		}
+	}
+	rootMu.Lock()
+	r, ok := rootCache[serial]
+	rootMu.Unlock()
+	if !ok || r.Via != "su" {
+		return
+	}
+	if packageVersionCode(ctx, s, serial, "dev.galios") < bundledGalIOSCode {
+		say("installing GalIOS %s on the phone", bundledGalIOSVersion)
+		if err := installGalIOS(ctx, j, s, serial); err != nil {
+			say("GalIOS could not be installed: %v", err)
+			return
+		}
+	}
+	// GalIOS makes its queue folder when it starts: open it once if the folder is not there yet.
+	hasQ := func() bool {
+		l, _, _ := runLines(ctx, nil, adbExe(s), adbArgs(serial, "shell", "[ -d "+galiosQueue+" ] && echo yes")...)
+		return strings.Contains(strings.Join(l, " "), "yes")
+	}
+	if !hasQ() {
+		runLines(ctx, nil, adbExe(s), adbArgs(serial, "shell", "am start -n dev.galios/.MainActivity")...)
+		for i := 0; i < 20 && !hasQ(); i++ {
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+	script, err := assetFS.ReadFile("assets/galios-rootd.sh")
+	if err != nil || len(script) == 0 {
+		return
+	}
+	remote, err := pushBytes(ctx, s, serial, "galios-rootd.sh", script)
+	if err != nil {
+		say("root helper: %v", err)
+		return
+	}
+	// One helper at a time: a running one is left alone.
+	l, _, _ := rootRun(ctx, s, serial, `p=$(cat `+bridgeDir+`/rootd.pid 2>/dev/null)
+if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then echo running; exit 0; fi
+setsid sh `+remote+` </dev/null >/dev/null 2>&1 &
+echo started`)
+	say("root helper for GalIOS: %s", strings.TrimSpace(strings.Join(l, " ")))
 }
 
 func detectRoot(ctx context.Context, s Settings, serial string, j *JobCtx) (Root, error) {
@@ -97,7 +152,7 @@ func detectRoot(ctx context.Context, s Settings, serial string, j *JobCtx) (Root
 	}
 	// The GalIOS bridge.
 	say("su does not answer over USB; trying root through GalIOS")
-	if v := packageVersionCode(ctx, s, serial, "dev.galios"); v < bridgeVersion {
+	if v := packageVersionCode(ctx, s, serial, "dev.galios"); v < bundledGalIOSCode {
 		say("installing GalIOS %s (its root bridge)", bundledGalIOSVersion)
 		if err := installGalIOS(ctx, nil, s, serial); err != nil {
 			return Root{}, fmt.Errorf("root: su does not answer over USB, and GalIOS could not be installed: %v", err)

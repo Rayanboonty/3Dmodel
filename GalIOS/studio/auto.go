@@ -104,6 +104,7 @@ func waitRoot(ctx context.Context, j *JobCtx, s Settings, serial string) (Root, 
 			rootCache[serial] = r
 			rootMu.Unlock()
 			j.Log("root: %s", r.Detail)
+			startRootHelper(ctx, j, s, serial) // lends root to GalIOS on the phone when only USB has it
 			return r, nil
 		}
 		if ctx.Err() != nil {

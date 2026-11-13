@@ -95,7 +95,8 @@ fi
 # ---------------------------------------------------------------------------------------------------------------
 PACKAGES=(build-essential clang lld llvm git make cmake ninja-build python3 python3-venv flex bison m4 autoconf
   automake pkg-config bubblewrap libblocksruntime-dev zstd tmux curl patch unzip xz-utils ca-certificates
-  fuse3 libfuse3-dev zlib1g-dev libbz2-dev libattr1-dev libicu-dev lzfse liblzfse-dev meson libcap-dev)
+  fuse3 libfuse3-dev zlib1g-dev libbz2-dev libattr1-dev libicu-dev lzfse liblzfse-dev meson libcap-dev
+  libbsd-dev uuid-dev bc libelf-dev libssl-dev)  # libbsd + libuuid: OneiOS kernel/README.md, "Linux"
 # Checked on every run (not a done-marker): a newer version of this script may need packages an older run did not.
 missing=()
 for p in "${PACKAGES[@]}"; do dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q "install ok installed" || missing+=("$p"); done

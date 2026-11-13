@@ -84,3 +84,79 @@ class MeteredStream(input: InputStream, private val onBytes: (Long) -> Unit, pri
 
 /** One shell word: single-quoted, with any single quote inside closed and escaped. */
 fun shq(s: String): String = "'" + s.replace("'", "'\\''") + "'"
+
+/**
+ * Root lent by GalIOS Studio's root helper (tools/galios-rootd.sh), for temporary roots that give root to adb's shell
+ * but not to apps. GalIOS writes a script into [dir] (its own folder on the shared storage, which only GalIOS, adb and
+ * root can write to); the helper, started as root over USB by Studio, runs it and leaves <id>.out and <id>.rc beside
+ * it, and touches [dir]/alive every second while it runs (until the phone restarts).
+ */
+class QueueRootShell(val dir: java.io.File, private val freshMillis: Long = 15_000) : RootShell {
+    fun alive(): Boolean {
+        val f = java.io.File(dir, "alive")
+        return f.exists() && System.currentTimeMillis() - f.lastModified() < freshMillis
+    }
+
+    override fun exec(command: String, stdin: InputStream?): RootShell.Result {
+        if (!alive()) throw IOException("GalIOS Studio's root helper is not running (connect the phone to Studio once)")
+        val id = "q" + System.nanoTime().toString(36) + (100..999).random()
+        val input = java.io.File(dir, "$id.in")
+        var script = command
+        try {
+            if (stdin != null) {
+                input.outputStream().use { out -> stdin.copyTo(out, 1 shl 20) }
+                script = "( $command ) < ${shq(input.absolutePath)}"
+            }
+            val tmp = java.io.File(dir, "$id.sh.tmp")
+            tmp.writeText(script + "\n")
+            if (!tmp.renameTo(java.io.File(dir, "$id.sh"))) throw IOException("could not queue the root command in $dir")
+            val rc = java.io.File(dir, "$id.rc")
+            var wait = 50L
+            while (!rc.exists()) {
+                if (!alive() && !java.io.File(dir, "$id.run").exists() && !rc.exists()) {
+                    // The helper stopped (the phone restarted, or Studio stopped it) before it took the command.
+                    if (java.io.File(dir, "$id.sh").delete()) throw IOException("GalIOS Studio's root helper stopped")
+                }
+                Thread.sleep(wait)
+                if (wait < 500) wait += 50
+            }
+            val code = rc.readText().trim().toIntOrNull() ?: -1
+            val lines = java.io.File(dir, "$id.out").takeIf { it.exists() }?.readLines() ?: emptyList()
+            return RootShell.Result(code, lines)
+        } finally {
+            for (ext in listOf("in", "sh", "sh.tmp", "out", "rc", "run")) java.io.File(dir, "$id.$ext").delete()
+        }
+    }
+
+    companion object {
+        fun works(shell: QueueRootShell): Boolean = shell.alive() && ProcessRootShell.works(shell)
+    }
+}
+
+/** su when it gives root to GalIOS; otherwise Studio's root helper while it runs. Chosen again every 20 s. */
+class AutoRootShell(private val su: RootShell, private val queue: QueueRootShell) : RootShell {
+    @Volatile private var chosen: RootShell? = null
+    @Volatile private var chosenAt = 0L
+
+    /** Which root GalIOS uses: "su", "helper" (lent by Studio), or null (none). */
+    fun via(): String? = when (pick()) {
+        null -> null
+        queue -> "helper"
+        else -> "su"
+    }
+
+    private fun pick(): RootShell? {
+        val now = System.currentTimeMillis()
+        chosen?.let { if (now - chosenAt < 20_000 && (it !== queue || queue.alive())) return it }
+        val c = when {
+            ProcessRootShell.works(su) -> su
+            queue.alive() && ProcessRootShell.works(queue) -> queue
+            else -> null
+        }
+        chosen = c
+        chosenAt = now
+        return c
+    }
+
+    override fun exec(command: String, stdin: InputStream?): RootShell.Result = (pick() ?: su).exec(command, stdin)
+}

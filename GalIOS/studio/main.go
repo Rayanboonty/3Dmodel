@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.1"
+const version = "1.2"
 
 type App struct {
 	hub           *Hub
@@ -325,7 +325,11 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 		if p == "" {
 			msg := "No " + ipswName + " on this PC: Do everything downloads what it needs from Apple instead."
 			if len(notes) > 0 {
-				msg = notes[0]
+				msg = strings.Join(notes, " · ")
+			}
+			if s.IPSW != "" && !fileExists(s.IPSW) {
+				s.IPSW = ""
+				a.store.Set(s)
 			}
 			reply("", fmt.Errorf("%s", msg))
 			return
@@ -360,12 +364,20 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 	case "build.ipsw":
 		start("Build the iOS 27 image from your .ipsw", func(ctx context.Context, j *JobCtx) (string, error) {
 			p, notes := bestIPSW(s)
-			if p == "" {
-				if len(notes) > 0 {
-					return "", fmt.Errorf("%s", notes[0])
-				}
-				return "", fmt.Errorf("no %s found: choose it, or use Download from Apple", ipswName)
+			for _, n := range notes {
+				j.Log("skipped: %s", n)
 			}
+			if p == "" {
+				if s.IPSW != "" && !fileExists(s.IPSW) {
+					s.IPSW = ""
+					a.store.Set(s)
+				}
+				if len(notes) > 0 {
+					return "", fmt.Errorf("%s", strings.Join(notes, " · "))
+				}
+				return "", fmt.Errorf("no %s found in Downloads, Desktop or Documents: press Choose the .ipsw, or use Download from Apple", ipswName)
+			}
+			j.Log("using %s", p)
 			s.IPSW = p
 			a.store.Set(s)
 			if restart, err := ensureWSL(ctx, j, s); err != nil || restart {
@@ -419,6 +431,10 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			rootMu.Lock()
 			rootCache[serial] = r
 			rootMu.Unlock()
+			startRootHelper(ctx, j, s, serial)
+			if r.Via == "su" {
+				return "Root works: " + r.Detail + ". GalIOS on the phone can use it too until the phone restarts.", nil
+			}
 			return "Root works: " + r.Detail + ".", nil
 		})
 	case "phone.install-galios":

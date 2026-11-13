@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf16"
 
 	"github.com/klauspost/compress/zstd"
@@ -322,4 +323,103 @@ func TestRootUnreachable(t *testing.T) {
 		t.Fatalf("%+v", ph)
 	}
 	t.Log(ph.RootMessage)
+}
+
+// fakeIPSW writes a sparse >5 GB file ending in a zip that holds manifest (as BuildManifest.plist).
+func fakeIPSW(t *testing.T, path string, manifest string, restore string) {
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Truncate(5<<30 + 1<<20)
+	f.Seek(0, 2)
+	zw := zip.NewWriter(f)
+	zw.SetOffset(5<<30 + 1<<20)
+	w, _ := zw.Create("BuildManifest.plist")
+	w.Write([]byte(manifest))
+	if restore != "" {
+		w, _ = zw.Create("Restore.plist")
+		w.Write([]byte(restore))
+	}
+	zw.Close()
+	f.Close()
+}
+
+func TestCheckIPSW(t *testing.T) {
+	dir := t.TempDir()
+	big := "<plist><dict><key>BuildIdentities</key><array>" + strings.Repeat("<dict><key>BuildNumber</key><string>24A446</string><key>Pad</key><string>"+strings.Repeat("x", 1000)+"</string></dict>", 20000) +
+		"</array><key>ProductBuildVersion</key><string>24A446</string><key>SupportedProductTypes</key><array><string>iPhone18,2</string></array></dict></plist>"
+	if len(big) < 16<<20 {
+		t.Fatalf("manifest only %d bytes", len(big))
+	}
+	renamed := filepath.Join(dir, "samonios.ipsw") // a renamed file is recognised by its contents
+	fakeIPSW(t, renamed, big, "")
+	if err := checkIPSW(renamed); err != nil {
+		t.Fatalf("the right firmware, renamed, with a big manifest: %v", err)
+	}
+	other := filepath.Join(dir, "iPhone17,1_26.0_23A341_Restore.ipsw")
+	fakeIPSW(t, other, "<string>23A341</string><string>iPhone17,1</string>", "")
+	if err := checkIPSW(other); err == nil || !strings.Contains(err.Error(), "24A446") {
+		t.Fatalf("another firmware was accepted: %v", err)
+	}
+	small := filepath.Join(dir, "iPhone18,2_27.0.1_24A446_Restore.ipsw")
+	os.WriteFile(small, []byte("partial"), 0o644)
+	if err := checkIPSW(small); err == nil || !strings.Contains(err.Error(), "did not finish") {
+		t.Fatalf("a cut-short file was accepted: %v", err)
+	}
+	// Settings still name a file that was renamed: it is forgotten and the renamed one is found.
+	t.Setenv("STUDIO_IPSW_DIRS", dir)
+	p, notes := bestIPSW(Settings{IPSW: filepath.Join(dir, "gone.ipsw")})
+	if p != renamed {
+		t.Fatalf("found %q, notes %v", p, notes)
+	}
+	t.Logf("found %s; skipped: %v", p, notes)
+}
+
+// TestRootHelper: root works over USB (su) only; Studio lends it to GalIOS through galios-rootd.sh, which runs what
+// GalIOS queues in its folder.
+func TestRootHelper(t *testing.T) {
+	adb := os.Getenv("STUDIO_FAKE_ADB")
+	if adb == "" || os.Getenv("FAKE_NO_SU") != "" {
+		t.Skip("needs the stand-in phone with su over USB")
+	}
+	t.Setenv("FAKE_GALIOS_CODE", "11")
+	t.Setenv("STUDIO_DATA", t.TempDir())
+	os.RemoveAll("/storage/emulated/0/Android/data/dev.galios")
+	os.Remove(bridgeDir + "/rootd.pid")
+	s := Settings{ADBPath: adb, RootCmd: "auto"}
+	forgetRoot("R5CY71TEST")
+	r, err := getRoot(context.Background(), s, "R5CY71TEST")
+	if err != nil || r.Via != "su" {
+		t.Fatalf("%+v %v", r, err)
+	}
+	alive := galiosQueue + "/alive"
+	for i := 0; i < 100; i++ {
+		if fileExists(alive) {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !fileExists(alive) {
+		t.Fatal("the root helper did not start")
+	}
+	// What GalIOS's QueueRootShell does.
+	os.WriteFile(galiosQueue+"/t1.sh", []byte("echo helper-uid-$(id -u); exit 5\n"), 0o644)
+	for i := 0; i < 50 && !fileExists(galiosQueue+"/t1.rc"); i++ {
+		time.Sleep(100 * time.Millisecond)
+	}
+	rc, _ := os.ReadFile(galiosQueue + "/t1.rc")
+	out, _ := os.ReadFile(galiosQueue + "/t1.out")
+	if strings.TrimSpace(string(rc)) != "5" || strings.TrimSpace(string(out)) != "helper-uid-0" {
+		t.Fatalf("rc %q out %q", rc, out)
+	}
+	// A second start leaves the running helper alone.
+	forgetRoot("R5CY71TEST")
+	getRoot(context.Background(), s, "R5CY71TEST")
+	time.Sleep(2 * time.Second)
+	os.WriteFile(bridgeDir+"/rootd.stop", nil, 0o644)
+	time.Sleep(1500 * time.Millisecond)
+	if fileExists(bridgeDir + "/rootd.pid") {
+		t.Fatal("the helper did not stop")
+	}
 }

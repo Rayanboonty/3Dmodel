@@ -15,7 +15,9 @@ import dev.galios.core.OneosEngine
 import dev.galios.core.PackageImport
 import dev.galios.core.PhoneBuild
 import dev.galios.core.PhoneChecks
+import dev.galios.core.AutoRootShell
 import dev.galios.core.ProcessRootShell
+import dev.galios.core.QueueRootShell
 import dev.galios.core.RootFileStream
 import dev.galios.core.RootShell
 import dev.galios.core.RuntimeRelease
@@ -40,6 +42,8 @@ import java.io.InputStream
 data class UiState(
     val device: Device = Device(Build.MODEL ?: "", Build.DEVICE ?: "", Build.SOC_MODEL ?: ""),
     val checks: PhoneChecks? = null,
+    /** "su", or "helper" while root is lent by GalIOS Studio's root helper. */
+    val rootVia: String? = null,
     val engine: EngineInfo? = null,
     val engineInstalled: Boolean = false,
     val status: StageStatus? = null,
@@ -83,7 +87,7 @@ data class UiState(
     val stageBlocker: String?
         get() = when {
             checks == null -> "Checking root…"
-            !rootOk -> "Root is not active: start your temporary root, then come back."
+            !rootOk -> "Root is not active: start your temporary root. If your root works only over USB, connect the phone to GalIOS Studio on your PC once: it lends GalIOS its root until the phone restarts."
             engine == null -> "OneOS (iOS 27 edition) is not installed: it is the boot engine (step 2)."
             !engine.hasIos -> "This OneOS build is not the iOS 27 edition (step 2)."
             else -> null
@@ -93,7 +97,7 @@ data class UiState(
         get() = when {
             !device.supported -> "GalIOS boots iOS on the Galaxy S25 Ultra and S24 Ultra (Snapdragon) only; this is ${device.model}."
             checks == null -> "Checking the phone…"
-            !checks.root -> "Root is not active. Start your temporary root, then pull to refresh."
+            !checks.root -> "Root is not active. Start your temporary root (or connect the phone to GalIOS Studio once, if your root works only over USB), then pull to refresh."
             checks.busybox == null || checks.resetprop == null -> "Your root has no busybox or resetprop where the boot engine looks for them (see Setup, step 1)."
             engine == null -> "Install OneOS's iOS 27 edition: it is GalIOS's boot engine."
             !engine.hasIos -> "This OneOS build has no iOS 27 engine: install its iOS 27 edition."
@@ -116,8 +120,15 @@ data class Message(val text: String, val error: Boolean)
 class Controller(
     private val context: Context,
     private val rootPrefix: List<String> = listOf("su", "-c"),
-    private val shell: RootShell = ProcessRootShell(rootPrefix),
+    shellOverride: RootShell? = null,
 ) {
+    /** su when it gives GalIOS root; otherwise the root GalIOS Studio lends over USB (its root helper). */
+    private val queue = QueueRootShell(java.io.File(context.getExternalFilesDir(null) ?: context.filesDir, "rootq").apply { mkdirs() })
+    private val auto = AutoRootShell(ProcessRootShell(rootPrefix), queue)
+    private val shell: RootShell = shellOverride ?: auto
+    /** "helper" while GalIOS uses the root lent by GalIOS Studio. */
+    val rootVia: String? get() = if (shell === auto) auto.via() else "su"
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val stage = StageClient(shell)
     private val _state = MutableStateFlow(UiState())
@@ -135,7 +146,7 @@ class Controller(
         val free = if (checks.root) runCatching { PhoneBuild.dataFree(shell) }.getOrNull() else null
         _state.update {
             it.copy(
-                engine = engine, checks = checks, status = status,
+                engine = engine, checks = checks, status = status, rootVia = rootVia,
                 found = scan?.found ?: emptyList(), scannedFolders = scan?.scanned ?: emptyList(),
                 engineInstalled = status?.stagePresent == true, refreshing = false,
                 runtimeFile = downloadedRuntime()?.path,
@@ -250,7 +261,13 @@ class Controller(
     }
 
     /** One tap: an archive found on the phone, read through root. */
-    fun importFound(f: ImageFinder.Found) = startImport(f.kind, f.label) { RootFileStream(rootPrefix, f.path) to f.size }
+    fun importFound(f: ImageFinder.Found) {
+        if (rootVia == "helper") {
+            _state.update { it.copy(message = Message("With root lent by GalIOS Studio, add the image from Studio on your PC (Boot page, step 3).", true)) }
+            return
+        }
+        startImport(f.kind, f.label) { RootFileStream(rootPrefix, f.path) to f.size }
+    }
 
     private fun startImport(kind: StageClient.Kind, title: String, open: () -> Pair<InputStream, Long>) {
         if (_state.value.import != null) return

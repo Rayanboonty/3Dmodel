@@ -260,7 +260,8 @@ func buildImage(ctx context.Context, j *JobCtx, s Settings, mode string, script 
 	}
 	// setsid: the build gets its own process group, whose id is written down so Stop can end all of it.
 	// (quoted as one word, so folders with spaces or quotes in their names pass through intact)
-	inner := fmt.Sprintf("cd /root && setsid bash -c %s & wait $!", shq(fmt.Sprintf("echo $$ > %s; exec env %s bash %s %s",
+	// setsid --wait: without it setsid may fork and return 0 at once, and the build's exit code is lost.
+	inner := fmt.Sprintf("cd /root && rm -f /root/.galios-progress && setsid --wait bash -c %s & wait $!", shq(fmt.Sprintf("echo $$ > %s; exec env %s bash %s %s",
 		wslPidFile, strings.Join(quoteAll(env), " "), wslScript, shq(arg))))
 	steps := []string{}
 	code, err := stream(ctx, nil, func(l string) {
@@ -277,8 +278,17 @@ func buildImage(ctx context.Context, j *JobCtx, s Settings, mode string, script 
 		stopBuild(context.Background(), s)
 		return "", ctx.Err()
 	}
-	if err != nil || code != 0 {
-		return "", fmt.Errorf("the build stopped (exit %d). Resume continues from the step that stopped", code)
+	// The script writes "done" or "failed: <step>" to its progress file: that, not only the exit code, is the result.
+	pl, _, _ := inWSL(context.Background(), s.Distro, "cat /root/.galios-progress 2>/dev/null")
+	progress := strings.TrimSpace(strings.Join(pl, " "))
+	if err != nil || code != 0 || progress != "done" {
+		if strings.HasPrefix(progress, "failed") {
+			return "", fmt.Errorf("the build stopped (%s). Press the button again to continue from that step; if it stops at the same place, send the Logs page", strings.TrimSpace(strings.TrimPrefix(progress, "failed:")))
+		}
+		return "", fmt.Errorf("the build stopped (exit %d). Press the button again to continue from the step that stopped", code)
+	}
+	if mode != "setup" && !fileExists(joinOut(s.OutDir, imageName)) {
+		return "", fmt.Errorf("the build says it finished, but %s is not in %s", imageName, s.OutDir)
 	}
 	switch mode {
 	case "setup":

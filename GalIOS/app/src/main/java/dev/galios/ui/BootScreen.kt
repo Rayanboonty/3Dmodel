@@ -112,7 +112,8 @@ private fun Readiness(s: UiState) {
         val c = s.checks
         StatusRow(Icons.Rounded.Key, "Root", when {
             c == null -> "Checking…"
-            c.root -> "Active" + if (c.busybox == null || c.resetprop == null) " · tools missing" else ""
+            c.root -> "Active" + (if (s.rootVia == "helper") " · lent by GalIOS Studio" else "") +
+                if (c.busybox == null || c.resetprop == null) " · tools missing" else ""
             else -> "Not active: start temporary root"
         }, when { c == null -> Mark.WAIT; c.root && c.busybox != null && c.resetprop != null -> Mark.OK; c.root -> Mark.WAIT; else -> Mark.BAD })
         Divider()

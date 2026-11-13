@@ -74,7 +74,7 @@ fun SetupScreen(s: UiState, a: SetupActions) {
         val c = s.checks
         Step(1, "Root", "GalIOS needs root for every step. Start your temporary root first, then check.", done = c?.allGood == true) {
             if (c != null) {
-                Check("Root shell", if (c.root) "uid 0" else "not active", c.root)
+                Check("Root shell", if (c.root) (if (s.rootVia == "helper") "uid 0 · lent by GalIOS Studio" else "uid 0") else "not active", c.root)
                 Check("busybox", c.busybox ?: "missing: your root tool must provide it at /data/adb/ksu/bin, /data/adb/ap/bin or /data/adb/magisk", c.busybox != null)
                 Check("resetprop", c.resetprop ?: "missing: needed to put One UI's boot counters back on the return", c.resetprop != null)
                 Check("Volume keys", if (c.volumeUp && c.volumeDown) "both found: the way back works" else "not found", c.volumeUp && c.volumeDown)

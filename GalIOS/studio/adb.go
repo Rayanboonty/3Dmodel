@@ -210,7 +210,8 @@ func adbArgs(serial string, args ...string) []string {
 
 const (
 	bridgeVersion        = 10 // the first GalIOS with the root bridge
-	bundledGalIOSVersion = "1.10"
+	bundledGalIOSCode    = 11 // the GalIOS inside Studio (also takes root from Studio's root helper)
+	bundledGalIOSVersion = "1.11"
 )
 
 // packageVersionCode is an app's versionCode on the phone, or 0 when it is not installed.
