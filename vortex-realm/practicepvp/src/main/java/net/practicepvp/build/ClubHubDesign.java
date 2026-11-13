@@ -473,132 +473,85 @@ public final class ClubHubDesign extends CastleKit {
         this.set(x1 + 1, 1, z1 + 1, kind.equals("chest") ? "chest[facing=south]" : "anvil[facing=east]");
     }
 
-    /** Bot maps shown in the wing's alcoves (the mobs of the Bot Practice hall). */
-    private static final String[] WING_MAPS = {"PLAINS", "DESERT", "SNOWY", "CHERRY", "CRIMSON", "END"};
-
     /**
-     * The Training Grounds wing: a walled yard with a "BOTS" gate, six alcoves with the bot-map mobs, three NPC
-     * stands (find a gamemode, training dummies, academy) and a dummy yard with targets. Placed on the first free
-     * spot around the plaza; its NPCs and mobs are spawned from the features when the hub is built.
+     * The Bot Practice hall, as it first was: a half-round hall cut into a rocky hill, one wall per bot map built from
+     * that biome (badlands, desert, snow, cherry, crimson, end...) with the map's mob on a pedestal, and the search,
+     * training and Academy NPCs in the middle. The real {@link BotHallDesign} is stamped into the town on the first
+     * free spot, with a slope of rock and grass around it, a BOTS board over its entrance and a path to the street.
      */
     private void trainingWing() {
-        int[][] spots = {{-56, -30}, {-56, 40}, {58, 38}, {-30, -58}, {30, 62}};
-        int hw = 13;
-        int hd = 10;
+        int[][] spots = {{-48, -26}, {-50, 40}, {48, 42}};
+        double core = 22.5;
+        double outer = 27.0;
         for (int[] c : spots) {
-            int wx = c[0];
-            int wz = c[1];
-            boolean flat = true;
-            for (int x = wx - hw; x <= wx + hw && flat; x += 3) {
-                for (int z = wz - hd; z <= wz + hd && flat; z += 3) {
-                    int g = this.ground(x, z);
-                    flat = g != Integer.MIN_VALUE && g <= 1;
-                }
-            }
-
-            if (!flat || !this.free(wx - hw, wz - hd, wx + hw, wz + hd, 3)) {
+            int hx = c[0];
+            int hz = c[1];
+            if (!this.free(hx - 23, hz - 23, hx + 23, hz + 23, 1) || Math.hypot(hx - WCX, hz - WCZ) + outer > WR - 3.0) {
                 continue;
             }
 
-            this.claim(wx - hw - 1, wz - hd - 1, wx + hw + 1, wz + hd + 4);
-            this.buildWing(wx, wz, hw, hd);
+            BotHallDesign hall = new BotHallDesign(0, 0, 0, this.seed);
+            for (int x = -26; x <= 26; x++) {
+                for (int z = -26; z <= 26; z++) {
+                    double d = Math.hypot(x, z);
+                    boolean path = Math.abs(x) <= 4 && z > 0;
+                    int wx = hx + x;
+                    int wz = hz + z;
+                    if (d <= core || path) {
+                        for (int y = -6; y <= 24; y++) {
+                            this.set(wx, y, wz, null);
+                        }
+
+                        hall.column(x, z, (bx, by, bz, b) -> {
+                            String id = b.startsWith("minecraft:") ? b.substring(10) : b;
+                            this.set(hx + bx, by, hz + bz, id.equals("bedrock") ? "stone" : id);
+                        });
+                    } else if (d <= outer && !this.inPlaza(wx, wz) && !this.onStreet(wx, wz, 3.6)) {
+                        // the hill falls away from the hall's rock to the town's ground
+                        int h = (int)Math.round((outer - d) / (outer - core) * (10.0 + noise(this.seed + 61L, wx * 0.4, wz * 0.4) * 3.0));
+                        int g = Math.max(0, this.ground(wx, wz));
+                        for (int y = g; y < g + h; y++) {
+                            double v = noise(this.seed + 63L, wx * 1.7 + y, wz * 1.7 - y);
+                            this.set(wx, y, wz, v > 0.72 ? "andesite" : (v < 0.22 ? "cobblestone" : "stone"));
+                        }
+
+                        this.set(wx, g + h, wz, "grass_block");
+                        if (h > 0 && this.hash3(65L, wx, 0, wz) < 0.12) {
+                            this.set(wx, g + h + 1, wz, this.hash3(67L, wx, 1, wz) < 0.5 ? "short_grass" : leaves("azalea"));
+                        }
+                    }
+                }
+            }
+
+            for (Map.Entry<String, double[]> f : hall.features().entrySet()) {
+                double[] v = f.getValue();
+                this.features.put(f.getKey(), new double[]{hx + v[0], v[1], hz + v[2], v[3]});
+            }
+
+            // the BOTS board and target over the entrance, and a path down to the street
+            int bh = this.board("BOTS", hx, 6, hz + 23);
+            this.sprite(TARGET, hx, 6 + bh + 1, hz + 23);
+            for (int z = hz + 24; z <= hz + 40; z++) {
+                if (this.onStreet(hx, z, 2.5)) {
+                    break;
+                }
+
+                for (int x = hx - 3; x <= hx + 3; x++) {
+                    int g = Math.max(0, this.ground(x, z));
+                    this.set(x, g, z, Math.abs(x - hx) == 3 ? "mossy_stone_bricks" : (this.hash3(69L, x, 0, z) < 0.3 ? "cobblestone" : "stone_bricks"));
+                    for (int y = g + 1; y <= g + 4; y++) {
+                        this.set(x, y, z, null);
+                    }
+                }
+            }
+
+            for (int s = -1; s <= 1; s += 2) {
+                this.bracketLamp(hx + 5 * s, 1, hz + 25, s < 0 ? "east" : "west");
+            }
+
+            this.claim(hx - 27, hz - 27, hx + 27, hz + 27);
             return;
         }
-    }
-
-    private void buildWing(int wx, int wz, int hw, int hd) {
-        // the yard: a grid floor like the bot maps, clear above
-        for (int x = wx - hw; x <= wx + hw; x++) {
-            for (int z = wz - hd; z <= wz + hd; z++) {
-                boolean rim = Math.abs(x - wx) == hw || Math.abs(z - wz) == hd;
-                this.set(x, 0, z, rim ? "polished_andesite" : (Math.floorMod(x - wx, 4) == 0 || Math.floorMod(z - wz, 4) == 0 ? "polished_andesite" : "smooth_stone"));
-                this.set(x, -1, z, "stone");
-                for (int y = 1; y <= 12; y++) {
-                    this.set(x, y, z, null);
-                }
-            }
-        }
-
-        // low walls with posts and lanterns, the gate in the south wall (towards the town)
-        for (int x = wx - hw; x <= wx + hw; x++) {
-            for (int z = wz - hd; z <= wz + hd; z++) {
-                boolean rim = Math.abs(x - wx) == hw || Math.abs(z - wz) == hd;
-                boolean gate = z == wz + hd && Math.abs(x - wx) <= 2;
-                if (!rim || gate) {
-                    continue;
-                }
-
-                boolean post = Math.floorMod(x - wx, 4) == 0 && Math.abs(z - wz) == hd || Math.floorMod(z - wz, 4) == 0 && Math.abs(x - wx) == hw;
-                this.set(x, 1, z, "stone_bricks");
-                this.set(x, 2, z, post ? "chiseled_stone_bricks" : "stone_brick_wall");
-                if (post) {
-                    this.set(x, 3, z, "lantern[hanging=false]");
-                }
-            }
-        }
-
-        // the gate: two quartz towers, a BOTS board between them and a target sprite on top
-        int gz = wz + hd;
-        for (int s = -3; s <= 3; s += 6) {
-            for (int y = 1; y <= 9; y++) {
-                this.set(wx + s, y, gz, "quartz_pillar[axis=y]");
-            }
-
-            this.set(wx + s, 10, gz, "chiseled_quartz_block");
-            this.set(wx + s, 11, gz, "sea_lantern");
-        }
-
-        int bh = this.board("BOTS", wx, 6, gz);
-        this.sprite(TARGET, wx, 6 + bh + 1, gz);
-        for (int x = wx - 2; x <= wx + 2; x++) {
-            this.set(x, 0, gz, "light_blue_concrete");
-            this.set(x, 0, gz + 1, "light_blue_concrete");
-            this.set(x, 0, gz + 2, "polished_andesite");
-        }
-
-        // six alcoves along the north wall, each with a bot-map mob on a pedestal
-        for (int i = 0; i < WING_MAPS.length; i++) {
-            int ax = wx - 10 + i * 4;
-            int az = wz - hd + 1;
-            this.set(ax, 0, az + 1, "chiseled_stone_bricks");
-            this.set(ax, 1, az + 1, "polished_andesite_slab[type=bottom]");
-            for (int y = 1; y <= 5; y++) {
-                this.set(ax - 1, y, az, "stone_bricks");
-                this.set(ax + 1, y, az, "stone_bricks");
-            }
-
-            this.set(ax, 6, az, "chiseled_stone_bricks");
-            this.set(ax, 5, az, "lantern[hanging=true]");
-            this.feature("botmap:" + WING_MAPS[i], ax, 1.5, az + 1, ax, az + 8);
-        }
-
-        // three NPC stands in the middle: find a gamemode, training dummies, academy
-        String[] npcs = {"search", "train", "learn"};
-        for (int i = 0; i < 3; i++) {
-            int nx = wx - 5 + i * 5;
-            int nz = wz;
-            this.pedestal(nx, nz);
-            this.feature("botnpc:" + npcs[i], nx, 2.0, nz, nx, nz + 8);
-        }
-
-        // the dummy yard (east side): hay dummies with pumpkin heads and archery targets
-        for (int k = 0; k < 3; k++) {
-            int dx = wx + hw - 3;
-            int dz = wz - 5 + k * 5;
-            this.set(dx, 1, dz, "hay_block");
-            this.set(dx, 2, dz, "hay_block");
-            this.set(dx, 3, dz, "carved_pumpkin[facing=west]");
-            this.set(dx, 2, dz - 1, "oak_fence");
-            this.set(dx, 2, dz + 1, "oak_fence");
-            this.set(wx - hw + 2, 2, dz, "target");
-            this.set(wx - hw + 2, 1, dz, "oak_fence");
-        }
-
-        // a weapon rack by the gate
-        this.set(wx - 6, 1, gz - 1, "barrel[facing=up]");
-        this.set(wx + 6, 1, gz - 1, "barrel[facing=up]");
-        this.set(wx - 6, 2, gz - 1, "lantern[hanging=false]");
-        this.set(wx + 6, 2, gz - 1, "lantern[hanging=false]");
     }
 
     private static final String[] TARGET = new String[]{
@@ -1794,91 +1747,208 @@ public final class ClubHubDesign extends CastleKit {
     }
 
     /**
-     * The town's houses: timber-framed and stone houses of two and three floors with jetties, shutters, flower boxes,
-     * chimneys and dormers, in rings around the plaza, every one a little different. Crates, woodpiles and carts sit
-     * around them.
+     * The town between the plaza and the walls: a few timber-framed houses near the walls (none by the spawn), and
+     * small decorated gardens with crops on the other plots.
      */
     private void townHouses() {
         Tile[] roofs = {Tile.TEAL, Tile.RED, Tile.SLATE, Tile.CLAY, Tile.TEAL, Tile.MOSS};
         String[] plasters = {"calcite", "white_terracotta", "smooth_sandstone", "calcite", "mushroom_stem"};
-        String[] signs = {null, "red_banner[rotation=%d]", null, "lime_banner[rotation=%d]", null, null, "light_blue_banner[rotation=%d]"};
+        double[] rings = {46.0, 58.0, 71.0};
+        int houses = 0;
+        int gardens = 0;
         int i = 0;
 
-        double[] rings = {46.0, 58.0, 71.0};
         for (int ring = 0; ring < rings.length; ring++) {
             double rad = rings[ring];
             double step = Math.toDegrees(17.0 / rad);
 
             for (double a = ring * 5.0; a < 360.0; a += step) {
-                double r = 0.0;
-                int x0 = 0;
-                int z0 = 0;
-                int w = 0;
-                int d = 0;
-                boolean ok = false;
-
-                // try the spot, then a little to either side, and a smaller house
-                for (double shift : new double[]{0.0, step * 0.3, -step * 0.3}) {
-                    for (int shrink = 0; shrink <= 2 && !ok; shrink += 2) {
-                        r = Math.toRadians(a + shift);
-                        int hx = (int)Math.round(WCX + Math.cos(r) * rad);
-                        int hz = (int)Math.round(WCZ + Math.sin(r) * rad);
-                        w = 9 + (int)Math.round(this.n(hx, hz, 31) * 4.0) - shrink;
-                        d = 8 + (int)Math.round(this.n(hz, hx, 32) * 3.0) - shrink / 2;
-                        x0 = hx - w / 2;
-                        z0 = hz - d / 2;
-                        ok = this.buildable(x0, z0, x0 + w - 1, z0 + d - 1);
-                    }
-
-                    if (ok) {
-                        break;
-                    }
-                }
-
-                if (!ok) {
+                double r = Math.toRadians(a);
+                int hx = (int)Math.round(WCX + Math.cos(r) * rad);
+                int hz = (int)Math.round(WCZ + Math.sin(r) * rad);
+                int w = 9 + (int)Math.round(this.n(hx, hz, 31) * 4.0);
+                int d = 8 + (int)Math.round(this.n(hz, hx, 32) * 3.0);
+                int x0 = hx - w / 2;
+                int z0 = hz - d / 2;
+                int x1 = x0 + w - 1;
+                int z1 = z0 + d - 1;
+                if (!this.buildable(x0, z0, x1, z1)) {
                     continue;
                 }
 
-                int x1 = x0 + w - 1;
-                int z1 = z0 + d - 1;
-
                 String front = facing(-Math.cos(r), -Math.sin(r));
-                House h = new House()
-                    .floors(ring < 2 && i % 3 == 0 ? 3 : 2)
-                    .roof(roofs[i % roofs.length])
-                    .front(front)
-                    .plaster(plasters[(i * 3 + ring) % plasters.length])
-                    .stone(i % 7 == 3)
-                    .dormer(i % 2 == 0);
-                String sign = signs[i % signs.length];
-                if (sign != null) {
-                    h.sign(String.format(sign, front.equals("north") ? 8 : (front.equals("east") ? 12 : (front.equals("south") ? 0 : 4))));
+                boolean nearSpawn = Math.hypot(hx, hz - 44) < 32.0;
+                if (ring == 2 && houses < 6 && !nearSpawn && i % 2 == 0) {
+                    House h = new House()
+                        .floors(2)
+                        .roof(roofs[houses % roofs.length])
+                        .front(front)
+                        .plaster(plasters[houses % plasters.length])
+                        .dormer(houses % 2 == 0);
+                    this.timberHouse(x0, z0, w, d, 0, h);
+                    int bx = front.equals("east") ? x0 - 2 : (front.equals("west") ? x1 + 1 : x0);
+                    int bz = front.equals("south") ? z0 - 2 : (front.equals("north") ? z1 + 1 : z0);
+                    this.crates(bx, 1, bz, houses);
+                    houses++;
+                } else if (gardens < 14) {
+                    // a garden is smaller than the plot, so the town stays open
+                    int gw = Math.min(w, 9);
+                    int gd = Math.min(d, 8);
+                    int gx = x0 + (w - gw) / 2;
+                    int gz = z0 + (d - gd) / 2;
+                    this.garden(gx, gz, gw, gd, front, gardens);
+                    gardens++;
+                } else {
+                    continue;
                 }
 
-                if (i % 4 == 1) {
-                    // some ridges run front to back, for a gable facing the street
-                    h.ridge(!h.ridgeX);
-                }
-
-                this.timberHouse(x0, z0, w, d, 0, h);
                 this.claim(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
-                // life around the house: crates at a back corner, firewood along a side, now and then a cart
-                int bx = front.equals("east") ? x0 - 2 : (front.equals("west") ? x1 + 1 : x0);
-                int bz = front.equals("south") ? z0 - 2 : (front.equals("north") ? z1 + 1 : z0);
-                this.crates(bx, 1, bz, i);
-                if (i % 3 == 0) {
-                    boolean alongX = front.equals("east") || front.equals("west");
-                    int wx = alongX ? x0 + 2 : x1 + 2;
-                    int wz = alongX ? z1 + 2 : z0 + 2;
-                    if (this.ground(wx, wz) == 0 && !this.onStreet(wx, wz, 3.0)) {
-                        this.woodpile(wx, 1, wz, alongX);
-                    }
-                }
-
                 i++;
             }
         }
     }
+
+    /**
+     * A small allotment garden: a fence with a gate and lanterns, crop beds (wheat, carrots, potatoes, beetroot) on
+     * farmland with water channels, a pumpkin and melon row at the back, a scarecrow, a beehive, a composter and
+     * barrels or a little tool shed, a flower strip and a bench outside the gate.
+     */
+    private void garden(int x0, int z0, int w, int d, String front, int salt) {
+        int x1 = x0 + w - 1;
+        int z1 = z0 + d - 1;
+        int fx = dx(front);
+        int fz = dz(front);
+        boolean ns = fz != 0;
+        int across = ns ? w : d;
+        int deep = ns ? d : w;
+        int mid = across / 2;
+        String[][] crops = {
+            {"wheat[age=7]", "carrots[age=7]"},
+            {"potatoes[age=7]", "beetroots[age=3]"},
+            {"carrots[age=7]", "wheat[age=7]"},
+            {"beetroots[age=3]", "potatoes[age=7]"}
+        };
+        String[] pair = crops[Math.floorMod(salt, crops.length)];
+
+        for (int x = x0 - 1; x <= x1 + 1; x++) {
+            for (int z = z0 - 1; z <= z1 + 1; z++) {
+                for (int y = 1; y <= 8; y++) {
+                    this.set(x, y, z, null);
+                }
+
+                this.set(x, 0, z, "grass_block");
+            }
+        }
+
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                // a: rows from the gate (front) to the back, b: across
+                int a = ns ? (fz > 0 ? z1 - z : z - z0) : (fx > 0 ? x1 - x : x - x0);
+                int b = ns ? x - x0 : z - z0;
+                boolean edge = a == 0 || a == deep - 1 || b == 0 || b == across - 1;
+                if (edge) {
+                    boolean gate = a == 0 && b == mid;
+                    boolean corner = (a == 0 || a == deep - 1) && (b == 0 || b == across - 1);
+                    this.set(x, 1, z, gate ? "spruce_fence_gate[facing=" + front + ",open=false]" : (corner ? "spruce_log[axis=y]" : "spruce_fence"));
+                    if (corner && a == 0) {
+                        this.set(x, 2, z, "lantern[hanging=false]");
+                    }
+
+                    continue;
+                }
+
+                if (b == mid) {
+                    // the path from the gate to the back
+                    this.set(x, 0, z, this.hash3(201L, x, 0, z) < 0.35 ? "coarse_dirt" : "dirt_path");
+                } else if (a == deep - 2) {
+                    // the back row: pumpkins and melons on their vines
+                    boolean fruit = Math.floorMod(b, 2) == 0;
+                    this.set(x, 0, z, fruit ? "grass_block" : "farmland[moisture=7]");
+                    this.set(x, 1, z, fruit ? (Math.floorMod(b + salt, 4) == 0 ? "melon" : "pumpkin") : (Math.floorMod(b + salt, 4) == 1 ? "melon_stem[age=7]" : "pumpkin_stem[age=7]"));
+                } else if (a % 3 == 0) {
+                    this.set(x, 0, z, "water");
+                    this.set(x, -1, z, "dirt");
+                } else {
+                    this.set(x, 0, z, "farmland[moisture=7]");
+                    this.set(x, 1, z, b < mid ? pair[0] : pair[1]);
+                }
+            }
+        }
+
+        // places inside, given as (a, b)
+        java.util.function.BiFunction<Integer, Integer, int[]> at = (a, b) -> ns
+            ? new int[]{x0 + b, fz > 0 ? z1 - a : z0 + a}
+            : new int[]{fx > 0 ? x1 - a : x0 + a, z0 + b};
+
+        // scarecrow in the left bed
+        int[] sc = at.apply(Math.max(2, deep / 2), Math.max(1, mid / 2));
+        String side = ns ? "east" : "south";
+        this.set(sc[0], 0, sc[1], "farmland[moisture=7]");
+        this.set(sc[0], 1, sc[1], "spruce_fence");
+        this.set(sc[0], 2, sc[1], "hay_block");
+        this.set(sc[0], 3, sc[1], "carved_pumpkin[facing=" + front + "]");
+        this.set(sc[0] + (ns ? 1 : 0), 2, sc[1] + (ns ? 0 : 1), "spruce_fence");
+        this.set(sc[0] - (ns ? 1 : 0), 2, sc[1] - (ns ? 0 : 1), "spruce_fence");
+
+        // the back corners: a beehive on a post, and a composter with barrels or a tool shed
+        int[] hive = at.apply(deep - 1, across - 1);
+        this.set(hive[0], 2, hive[1], "bee_nest[facing=" + front + ",honey_level=3]");
+        int[] corner = at.apply(deep - 2, 1);
+        if (Math.floorMod(salt, 3) == 0 && across >= 7) {
+            // a little shed: plank walls, a door toward the path and a slab roof
+            for (int da = deep - 3; da <= deep - 2; da++) {
+                for (int db = 1; db <= 2; db++) {
+                    int[] p = at.apply(da, db);
+                    this.set(p[0], 0, p[1], "spruce_planks");
+                    for (int y = 1; y <= 2; y++) {
+                        this.set(p[0], y, p[1], db == 2 && da == deep - 3 && y <= 2 ? null : "spruce_planks");
+                    }
+
+                    this.set(p[0], 3, p[1], slab("dark_oak", false));
+                }
+            }
+
+            int[] door = at.apply(deep - 3, 2);
+            String toPath = ns ? "east" : "south";
+            this.set(door[0], 1, door[1], "spruce_door[facing=" + toPath + ",half=lower,hinge=left,open=false]");
+            this.set(door[0], 2, door[1], "spruce_door[facing=" + toPath + ",half=upper,hinge=left,open=false]");
+        } else {
+            this.set(corner[0], 0, corner[1], "grass_block");
+            this.set(corner[0], 1, corner[1], "composter[level=" + (3 + Math.floorMod(salt, 5)) + "]");
+            int[] bar = at.apply(deep - 3, 1);
+            this.set(bar[0], 0, bar[1], "grass_block");
+            this.set(bar[0], 1, bar[1], "barrel[facing=up]");
+        }
+
+        // outside the gate: a bench on one side, a flower strip on the other
+        for (int b = 0; b < across; b++) {
+            int[] p = at.apply(0, b);
+            int ox = p[0] + fx;
+            int oz = p[1] + fz;
+            if (Math.abs(b - mid) <= 1) {
+                this.set(ox, 0, oz, "dirt_path");
+            } else if (b < mid - 1) {
+                this.set(ox, 1, oz, b == mid - 2 || b == 0 ? "spruce_trapdoor[facing=" + side + ",half=bottom,open=true]" : stairs("spruce", opposite(front), false));
+            } else {
+                String[] fl = {"rose_bush", "peony", "lilac", "red_tulip", "allium", "oxeye_daisy", "cornflower"};
+                String f = fl[Math.floorMod(b * 7 + salt, fl.length)];
+                if (f.equals("rose_bush") || f.equals("peony") || f.equals("lilac")) {
+                    this.tallPlant(ox, 1, oz, f);
+                } else {
+                    this.set(ox, 1, oz, f);
+                }
+            }
+        }
+
+        // a berry bush and a small tree at a back corner outside
+        int[] tree = at.apply(deep - 1, 0);
+        int tx = tree[0] - (ns ? 1 : 0) - fx;
+        int tz = tree[1] - (ns ? 0 : 1) - fz;
+        if (this.ground(tx, tz) == 0 && this.free(tx, tz, tx, tz, 0) && !this.onStreet(tx, tz, 4.0)) {
+            this.set(tx, 1, tz, "sweet_berry_bush[age=3]");
+        }
+    }
+
 
     private void marketHall(int cx, int cz) {
         int x0 = cx - 9;

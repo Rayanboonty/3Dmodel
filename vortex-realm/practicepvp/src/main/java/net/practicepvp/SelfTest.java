@@ -553,7 +553,7 @@ public final class SelfTest {
             net.practicepvp.build.ClubHubDesign hub = new net.practicepvp.build.ClubHubDesign(0, 100, 0, 120, 7L);
             long maps = hub.features().keySet().stream().filter(k -> k.startsWith("botmap:")).count();
             long npcs = hub.features().keySet().stream().filter(k -> k.startsWith("botnpc:")).count();
-            this.check("Town Square: Training Grounds wing with " + maps + " bot maps and " + npcs + " NPC stands", maps == 6 && npcs == 3, "maps " + maps + ", npcs " + npcs);
+            this.check("Town Square: the Bot Practice hall with " + maps + " bot maps and " + npcs + " NPC stands", maps == 9 && npcs == 3, "maps " + maps + ", npcs " + npcs);
             designs.add(hub);
             double[] sp = hub.spawn();
             this.check("Town Square: the spawn stays at the same spot (upgrades keep it)", sp[0] == 0.5 && sp[1] == 101.0 && sp[2] == 53.5, java.util.Arrays.toString(sp));

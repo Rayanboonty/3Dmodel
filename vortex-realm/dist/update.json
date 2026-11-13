@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.4.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.4.0.jar",
-    "sha256": "b3f7ae453c337db9c25d55cd0bccbd2c1baf19123667383c988f5bb8a600f862",
-    "notes": "Castle-town lobby, auto-updates, nearest-region routing"
+    "version": "2.5.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.5.0.jar",
+    "sha256": "d795456602fb5326db28b082821cb7fa7842966acd389692091252e66bdebb83",
+    "notes": "Town Square: crop gardens instead of most houses, the old Bot Practice hall is back"
   },
   "VortexRealm": {
-    "version": "3.4.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.4.0.jar",
-    "sha256": "f465938b334ce5b451827c26b1f67219a24c0945477b3cbf532705b1e60f516b",
-    "notes": "Castle-town lobby, auto-updates, nearest-region routing"
+    "version": "3.5.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.5.0.jar",
+    "sha256": "4e5d7d446c2ce1cc1cdf2978c84249c450057c70175795f5a7f7cc8e2edbdee5",
+    "notes": "Town Square: crop gardens instead of most houses, the old Bot Practice hall is back"
   },
   "VortexSMP": {
     "version": "1.3.0",

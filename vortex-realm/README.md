@@ -32,6 +32,15 @@ It is meant for a test server. See **[README-VortexPvP.md](README-VortexPvP.md)*
 
 The jars bundle everything they need. PlaceholderAPI, LuckPerms, GrimAC, Vulcan and **Vault** are optional (soft dependencies).
 
+## New in 2.5.0 / 3.5.0: gardens and the old Bot Practice hall
+- The Town Square has far fewer houses: none next to the spawn, about six near the walls, plus the tavern, guild
+  hall, smithy, chapel and windmill. The other plots are **small fenced gardens** with wheat, carrots, potatoes,
+  beetroot, pumpkins and melons, water channels, a scarecrow, a beehive, a composter or tool shed, flowers and a bench.
+- The **Bot Practice hall is back to its first look**: the round rock hall with one biome wall per bot map (badlands,
+  desert, plains, snow, cherry, mushroom, crimson, end...) and the search, training and Academy NPCs in the middle,
+  now inside the Town Square (west of the plaza, BOTS board over the entrance). The Bot Arena menu stays the same.
+- Servers on 3.4.0 download this update by themselves. Apply the new lobby with `/pvpadmin hub upgrade`.
+
 ## New in 2.4.0 / 3.4.0: castle-town lobby, auto-updates, nearest-region servers
 
 ### The Town Square is now a castle town
