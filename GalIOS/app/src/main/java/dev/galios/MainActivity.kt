@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
                 pickImage = { pickImage.launch(arrayOf("*/*")) },
                 howToBuild = { open("https://github.com/akshaynexus/OneiOS/blob/main/docs/building.md") },
                 cancelImport = { controller.cancelImport() },
+                importFound = { controller.importFound(it) },
             ),
             boot = { controller.boot() },
             returnToOneUi = { controller.returnToOneUi() },

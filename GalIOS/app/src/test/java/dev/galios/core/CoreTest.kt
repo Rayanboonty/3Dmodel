@@ -172,4 +172,27 @@ class CoreTest {
         assertEquals("'a b'", shq("a b"))
         assertEquals("'it'\\''s'", shq("it's"))
     }
+
+    @Test
+    fun archivesOnThePhoneAreFound() {
+        val found = ImageFinder.parse(
+            listOf(
+                "11150000000 /sdcard/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst",
+                "11150000000 /storage/emulated/0/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst", // the same file again
+                "10990000000 /sdcard/Documents/OneiOS_iOS27.0_24A335_iPhone18-2.tar.zst",
+                "41000000 /sdcard/Download/oneios-runtime-0.1.8-arm64.tar.zst",
+                "40000000 /sdcard/Download/oneios-runtime-0.1.10-arm64.tar.zst",
+                "500 /sdcard/Download/something-else.tar.zst",
+                "not a line",
+            ),
+        )
+        assertEquals(4, found.size)
+        val runtimes = found.filter { it.kind == StageClient.Kind.RUNTIME }
+        assertEquals(listOf("0.1.10", "0.1.8"), runtimes.map { it.version })
+        val images = found.filter { it.kind == StageClient.Kind.IMAGE }
+        assertEquals(listOf("27.0.1", "27.0"), images.map { it.version })
+        assertEquals("iOS 27.0.1 (24A446)", images[0].label)
+        assertEquals("/sdcard/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst", images[0].path)
+        assertTrue(ImageFinder.script(listOf("/sdcard/My Files")).contains("'/sdcard/My Files'"))
+    }
 }

@@ -9,11 +9,13 @@ import android.provider.OpenableColumns
 import dev.galios.core.CancelledException
 import dev.galios.core.Device
 import dev.galios.core.EngineSetup
+import dev.galios.core.ImageFinder
 import dev.galios.core.LogInfo
 import dev.galios.core.OneosEngine
 import dev.galios.core.PackageImport
 import dev.galios.core.PhoneChecks
 import dev.galios.core.ProcessRootShell
+import dev.galios.core.RootFileStream
 import dev.galios.core.RootShell
 import dev.galios.core.RuntimeRelease
 import dev.galios.core.StageClient
@@ -36,6 +38,8 @@ data class UiState(
     val engineInstalled: Boolean = false,
     val status: StageStatus? = null,
     val release: RuntimeRelease? = null,
+    /** OneiOS archives already on the phone (Download, Documents, the top of the storage). */
+    val found: List<ImageFinder.Found> = emptyList(),
     val busy: String? = null,
     val import: ImportState? = null,
     val message: Message? = null,
@@ -72,7 +76,8 @@ data class Message(val text: String, val error: Boolean)
 
 class Controller(
     private val context: Context,
-    private val shell: RootShell = ProcessRootShell(),
+    private val rootPrefix: List<String> = listOf("su", "-c"),
+    private val shell: RootShell = ProcessRootShell(rootPrefix),
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val stage = StageClient(shell)
@@ -86,7 +91,8 @@ class Controller(
         val engine = findEngine()
         val checks = PhoneChecks.run(shell)
         val status = if (checks.root) stage.status().takeIf { it.error == null } else null
-        _state.update { it.copy(engine = engine, checks = checks, status = status, engineInstalled = status?.stagePresent == true, refreshing = false) }
+        val found = if (checks.root) runCatching { ImageFinder.scan(shell) }.getOrDefault(emptyList()) else emptyList()
+        _state.update { it.copy(engine = engine, checks = checks, status = status, found = found, engineInstalled = status?.stagePresent == true, refreshing = false) }
     }
 
     private fun findEngine(): EngineInfo? = try {
@@ -145,6 +151,9 @@ class Controller(
             (context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("could not open the file")) to (name?.second ?: -1)
         }
     }
+
+    /** One tap: an archive found on the phone, read through root. */
+    fun importFound(f: ImageFinder.Found) = startImport(f.kind, f.label) { RootFileStream(rootPrefix, f.path) to f.size }
 
     private fun startImport(kind: StageClient.Kind, title: String, open: () -> Pair<InputStream, Long>) {
         if (_state.value.import != null) return

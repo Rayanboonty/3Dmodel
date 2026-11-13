@@ -8,10 +8,14 @@ import dev.galios.ImportState
 import dev.galios.Message
 import dev.galios.UiState
 import dev.galios.core.Device
+import dev.galios.core.ImageFinder
+import dev.galios.core.StageClient
 import dev.galios.core.LogInfo
 import dev.galios.core.PhoneChecks
 import dev.galios.core.RuntimeRelease
 import dev.galios.core.StageStatus
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,9 +39,13 @@ class ScreenshotTest {
     private val noop = SetupActions({}, {}, {}, {}, {}, {}, {}, {}, {})
     private val actions = AppActions(noop, {}, {}, {}, {}, {}, { _, _ -> }, {})
 
-    private fun shot(name: String, s: UiState, tab: Tab = Tab.BOOT, confirm: Boolean = false) {
+    private fun shot(name: String, s: UiState, tab: Tab = Tab.BOOT, confirm: Boolean = false, scrollToEnd: Boolean = false) {
         compose.setContent { GalIosApp(s, actions, startTab = tab, showConfirm = confirm) }
         compose.waitForIdle()
+        if (scrollToEnd) {
+            compose.onNode(androidx.compose.ui.test.hasScrollAction()).performTouchInput { swipeUp(startY = bottom * 0.95f, endY = top, durationMillis = 400) }
+            compose.waitForIdle()
+        }
         captureScreenRoboImage(File("build/screenshots/$name.png").absolutePath)
     }
 
@@ -72,5 +80,19 @@ class ScreenshotTest {
             ),
         ),
         Tab.LOGS,
+    )
+
+    @Test fun setupFoundImage() = shot(
+        "6-setup-found",
+        UiState(
+            device = s25, checks = goodChecks, engine = engine, engineInstalled = true,
+            status = ready.copy(imageVersion = null, imageBuild = null, imageBytes = null, ready = false),
+            found = listOf(
+                ImageFinder.Found("/sdcard/Download/oneios-runtime-0.1.8-arm64.tar.zst", 41_000_000, StageClient.Kind.RUNTIME, "0.1.8", null),
+                ImageFinder.Found("/sdcard/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst", 11_150_000_000, StageClient.Kind.IMAGE, "27.0.1", "24A446"),
+            ),
+        ),
+        Tab.SETUP,
+        scrollToEnd = true,
     )
 }

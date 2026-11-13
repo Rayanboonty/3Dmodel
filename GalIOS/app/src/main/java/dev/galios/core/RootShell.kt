@@ -18,7 +18,7 @@ interface RootShell {
     data class Result(val exitCode: Int, val lines: List<String>)
 }
 
-class ProcessRootShell(private val prefix: List<String> = listOf("su", "-c")) : RootShell {
+class ProcessRootShell(val prefix: List<String> = listOf("su", "-c")) : RootShell {
     override fun exec(command: String, stdin: InputStream?): RootShell.Result {
         val process = ProcessBuilder(prefix + command).redirectErrorStream(true).start()
         val feedError = AtomicReference<Throwable?>(null)

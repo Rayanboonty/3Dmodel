@@ -21,6 +21,8 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.InstallMobile
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.galios.ImportState
 import dev.galios.UiState
+import dev.galios.core.ImageFinder
+import dev.galios.core.StageClient
 
 class SetupActions(
     val refresh: () -> Unit,
@@ -43,6 +47,7 @@ class SetupActions(
     val pickImage: () -> Unit,
     val howToBuild: () -> Unit,
     val cancelImport: () -> Unit,
+    val importFound: (ImageFinder.Found) -> Unit = {},
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -90,6 +95,7 @@ fun SetupScreen(s: UiState, a: SetupActions) {
         Step(3, "OneiOS runtime", "The program that runs iOS next to One UI's kernel. OneiOS's own code: GalIOS downloads it from OneiOS's releases.", done = s.status?.runtimeVersion != null) {
             s.status?.runtimeVersion?.let { Check("On the phone", "version $it", true) }
             s.release?.let { Check("Newest release", "${it.name} · ${bytes(it.size)}", true) }
+            FoundList(s, StageClient.Kind.RUNTIME, a)
             VSpace(10.dp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val can = s.rootOk && s.busy == null && s.import == null && e?.hasIos == true
@@ -100,12 +106,47 @@ fun SetupScreen(s: UiState, a: SetupActions) {
         }
 
         Step(4, "iOS 27 image", "Built by you from Apple's own firmware with OneiOS's scripts on a computer (about 11 GB). Nobody can send you a copy: copy your .tar.zst to the phone and choose it here.", done = s.status?.imageVersion != null) {
-            s.status?.imageVersion?.let { Check("On the phone", "iOS $it (${s.status.imageBuild}) · ${bytes(s.status.imageBytes)}", true) }
+            s.status?.imageVersion?.let { Check("Imported", "iOS $it (${s.status.imageBuild}) · ${bytes(s.status.imageBytes)}", true) }
+            if (s.rootOk && s.found.none { it.kind == StageClient.Kind.IMAGE }) {
+                VSpace(6.dp)
+                Text("No image found in Download or Documents yet. Copy your OneiOS_iOS27…tar.zst there and tap Look again.", style = Type.Caption.copy(color = Gal.Faint))
+            }
+            FoundList(s, StageClient.Kind.IMAGE, a)
             VSpace(10.dp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                GlassButton("Look again", a.refresh, enabled = s.rootOk && !s.refreshing, icon = Icons.Rounded.TravelExplore)
                 GlassButton("Choose image", a.pickImage, enabled = s.rootOk && s.busy == null && s.import == null && e?.hasIos == true, icon = Icons.Rounded.FolderOpen)
                 GlassButton("How to build it", a.howToBuild, icon = Icons.Rounded.OpenInNew)
             }
+        }
+    }
+}
+
+/** Archives of one kind found on the phone, each with one-tap import. The one already imported is marked. */
+@Composable
+private fun FoundList(s: UiState, kind: StageClient.Kind, a: SetupActions) {
+    val list = s.found.filter { it.kind == kind }
+    if (list.isEmpty()) return
+    VSpace(8.dp)
+    Text("FOUND ON THIS PHONE", style = Type.Label.copy(fontSize = 11.sp()))
+    for (f in list) {
+        val imported = when (kind) {
+            StageClient.Kind.IMAGE -> f.version == s.status?.imageVersion && f.build == s.status?.imageBuild
+            StageClient.Kind.RUNTIME -> f.version == s.status?.runtimeVersion
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)).background(Gal.Glass).padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(if (kind == StageClient.Kind.IMAGE) Icons.Rounded.Download else Icons.Rounded.CloudDownload, null, tint = Gal.Cyan, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(f.label, style = Type.Body.copy(fontWeight = FontWeight.Medium))
+                Text("${bytes(f.size)} · ${f.path.removePrefix("/sdcard/")}", style = Type.Caption, maxLines = 1)
+            }
+            Spacer(Modifier.width(8.dp))
+            if (imported) Pill("Imported", Gal.Mint)
+            else GlassButton("Import", { a.importFound(f) }, enabled = s.rootOk && s.busy == null && s.import == null && s.engine?.hasIos == true)
         }
     }
 }

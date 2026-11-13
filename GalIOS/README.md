@@ -24,7 +24,9 @@ OneiOS's scripts (`docs/building.md` there) and imported from a file.
 3. Your iOS 27 image set (`OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst`, about 11 GB) copied to the phone, and
    about 22 GB free while it is imported.
 
-Then in GalIOS: **Setup** → check root → install engine → download the runtime → choose your image. **Boot** → Boot
+Then in GalIOS: **Setup** → check root → install engine → download the runtime → import your image. GalIOS lists the
+OneiOS archives it finds in Download, Documents or the top of the storage (`OneiOS_iOS…tar.zst`,
+`oneios-runtime-…-arm64.tar.zst`) with a one-tap Import; any other place works with Choose image. **Boot** → Boot
 iOS 27. To come back: hold Volume Up + Volume Down for 3 seconds.
 
 ## Build

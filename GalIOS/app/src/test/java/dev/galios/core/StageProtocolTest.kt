@@ -117,6 +117,21 @@ class StageProtocolTest {
         assertTrue("$cancelled", cancelled is CancelledException)
         assertEquals("27.0.1", stage.status().imageVersion)
 
+        // Found on the phone and imported in one tap: a set in a "Download" folder, read through root by cat.
+        val download = File(dir, "Download").apply { mkdirs() }
+        val file = File(download, "OneiOS_iOS27.0.4_24A999_iPhone18-2.tar.zst")
+        file.writeBytes(archive(StageClient.Kind.IMAGE, imageFiles, imageFacts.replace("27.0.1", "27.0.4").replace("24A446", "24A999")))
+        val shell = ProcessRootShell(listOf("sh", "-c"))
+        val found = ImageFinder.scan(shell, listOf(dir.path)).single()
+        assertEquals("27.0.4", found.version)
+        assertEquals(file.length(), found.size)
+        RootFileStream(shell.prefix, found.path).use { PackageImport(stage, found.kind).run(it) }
+        assertEquals("27.0.4", stage.status().imageVersion)
+        assertEquals("24A999", stage.status().imageBuild)
+        // A file root cannot read is an error, not an empty archive.
+        assertTrue(runCatching { RootFileStream(shell.prefix, File(dir, "missing.tar.zst").path).use { PackageImport(stage, StageClient.Kind.IMAGE).run(it) } }.isFailure)
+        assertEquals("27.0.4", stage.status().imageVersion)
+
         // The logs verb answers (no session has run on the stand-in).
         assertTrue(stage.verb("logs").ok)
         dir.deleteRecursively()
