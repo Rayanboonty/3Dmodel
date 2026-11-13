@@ -32,6 +32,16 @@ It is meant for a test server. See **[README-VortexPvP.md](README-VortexPvP.md)*
 
 The jars bundle everything they need. PlaceholderAPI, LuckPerms, GrimAC, Vulcan and **Vault** are optional (soft dependencies).
 
+## New in 2.6.1 / 3.6.1: SMP on a free host
+Free hosts (Tick Hosting, Aternos, Minehut free...) put an empty server to sleep and some need a manual renewal; their
+rules don't allow bots that keep a server online, so the plugins don't include one (it couldn't renew it either).
+Instead the Practice lobby handles a sleeping SMP well - `/pvpadmin` → Server Selector → SMP:
+- **Sleep Note**: shown while the SMP is offline, e.g. "Ask in #smp-start on Discord" or a link (clickable). The
+  selector and NPC then show **● Asleep** and players get the note instead of a failed connection.
+- **Wake On Join**: for hosts that start a sleeping server when someone connects - players are sent anyway, with a
+  "waking it up" message.
+For a real 24/7 SMP: Tick Hosting's paid plan, or a second small server at Bao Host.
+
 ## New in 2.6.0 / 3.6.0: winter lobby
 `/pvpadmin winter on` snows the whole lobby in: snow on the ground, roofs, walls and trees, snowy grass, frozen water,
 plants under the snow, a few snowmen and snow falling around the players. `/pvpadmin winter off` thaws it - every

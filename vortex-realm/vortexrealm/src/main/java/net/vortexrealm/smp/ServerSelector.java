@@ -84,6 +84,9 @@ public final class ServerSelector {
                     e.target = t == null ? "" : String.valueOf(t);
                     Object px = m.get("proxy");
                     e.proxyName = px == null ? "" : String.valueOf(px);
+                    Object sn = m.get("sleep-note");
+                    e.sleepNote = sn == null ? "" : String.valueOf(sn);
+                    e.wakeOnJoin = Boolean.TRUE.equals(m.get("wake-on-join"));
                     if (e.action == ServerSelector.Action.MODE) {
                         // the SMP modes moved to their own server (VortexSMP): their old world entries are dropped
                         dropped++;
@@ -171,6 +174,14 @@ public final class ServerSelector {
             }
 
             m.put("status", e.status.name());
+            if (!e.sleepNote.isBlank()) {
+                m.put("sleep-note", e.sleepNote);
+            }
+
+            if (e.wakeOnJoin) {
+                m.put("wake-on-join", true);
+            }
+
             list.add(m);
         }
 
@@ -272,7 +283,25 @@ public final class ServerSelector {
             return "<gray>Checking…";
         }
 
-        return ping.online() ? "<green>● Online <dark_gray>• <white>" + ping.players() + "<gray>/" + ping.max() : "<red>● Offline";
+        if (ping.online()) {
+            return "<green>● Online <dark_gray>• <white>" + ping.players() + "<gray>/" + ping.max();
+        }
+
+        return e.sleepNote.isBlank() && !e.wakeOnJoin ? "<red>● Offline" : "<yellow>● Asleep" + (e.wakeOnJoin ? " <gray>- click to wake it" : "");
+    }
+
+    /** The sleep note as a chat line: a clickable link when it is one. */
+    public static String sleepNote(ServerSelector.Entry e) {
+        String n = e.sleepNote.trim();
+        if (n.isEmpty()) {
+            return "";
+        }
+
+        if (n.startsWith("http://") || n.startsWith("https://")) {
+            return "<click:open_url:'" + n.replace("'", "") + "'><hover:show_text:'<gray>Open " + Text.esc(n) + "'><aqua><u>" + Text.esc(n) + "</u></hover></click>";
+        }
+
+        return "<white>" + Text.esc(n);
     }
 
     public String live(String id) {
@@ -554,6 +583,16 @@ public final class ServerSelector {
                 this.save();
                 this.edit(p, e);
             })));
+            b.add(this.ui().btn(p, "<yellow>Sleep Note", "<gray>Shown while the server is asleep (free hosts):<newline><gray>how to start it, e.g. a Discord channel or link", () -> this.plugin.dialogs().text(p, Text.mm("<gold><b>Sleep Note"), "e.g. Ask in #smp-start on Discord", e.sleepNote, 200, s -> {
+                e.sleepNote = s.trim();
+                this.save();
+                this.edit(p, e);
+            })));
+            b.add(this.ui().btn(p, (e.wakeOnJoin ? "<green>✔" : "<red>✘") + " <yellow>Wake On Join", "<gray>Send players even while it shows offline,<newline><gray>for hosts that wake a sleeping server when someone connects", () -> {
+                e.wakeOnJoin = !e.wakeOnJoin;
+                this.save();
+                this.edit(p, e);
+            }));
             b.add(this.ui().btn(p, "<aqua>Test Connection", "<gray>Ping the server now", () -> {
                 if (e.host().isBlank()) {
                     p.sendMessage(Text.mm("<red>Set the host first."));
@@ -701,6 +740,10 @@ public final class ServerSelector {
         String target = "";
         String proxyName = "";
         ServerSelector.Status status = ServerSelector.Status.OPEN;
+        /** Shown while this server is offline/asleep (free hosts): how to get it started. A link is clickable. */
+        public String sleepNote = "";
+        /** Send players even while it shows offline: for hosts that wake a sleeping server when someone joins. */
+        public boolean wakeOnJoin;
 
         public String host() {
             if (this.action != ServerSelector.Action.SERVER || this.target.isBlank()) {

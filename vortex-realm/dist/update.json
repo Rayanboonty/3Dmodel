@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.6.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.6.0.jar",
-    "sha256": "234bbeab14681ce5c8ad1d0c2091e24d173525f6ceb304ef93e25af6623cf4d3",
-    "notes": "Winter lobby option: /pvpadmin winter on|off|auto"
+    "version": "2.6.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.6.1.jar",
+    "sha256": "5a15508848b4a934dccd8b5fd7cfa466841a40dc12f033498347e6c27f012147",
+    "notes": "SMP selector: \"Asleep\" status with a sleep note and wake-on-join for free hosts"
   },
   "VortexRealm": {
-    "version": "3.6.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.6.0.jar",
-    "sha256": "c283b89367251c1cb98fbb88fed8b2a6e067c61adbcd32d5d69b590a044a6ae2",
-    "notes": "Winter lobby option: /pvpadmin winter on|off|auto"
+    "version": "3.6.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.6.1.jar",
+    "sha256": "e0276feb2be32dd9314cd330b7ab953b6199f6da7168a445f444b26f6ba47530",
+    "notes": "SMP selector: \"Asleep\" status with a sleep note and wake-on-join for free hosts"
   },
   "VortexSMP": {
     "version": "1.3.0",

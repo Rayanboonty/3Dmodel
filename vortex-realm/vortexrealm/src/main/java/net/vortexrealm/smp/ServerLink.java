@@ -183,10 +183,22 @@ public final class ServerLink {
         }
 
         ServerLink.Ping ping = this.ping(e);
-        if (!proxy && ping != null && !ping.online() && System.currentTimeMillis() - ping.at() < 30000L && !p.hasPermission("vortex.admin")) {
-            p.sendMessage(Text.mm("<red>" + Text.plain(Text.mm(e.name)) + " is offline right now. <gray>Try again in a minute."));
+        boolean down = !proxy && ping != null && !ping.online() && System.currentTimeMillis() - ping.at() < 30000L;
+        if (down && !e.wakeOnJoin && !p.hasPermission("vortex.admin")) {
+            String note = ServerSelector.sleepNote(e);
+            if (note.isEmpty()) {
+                p.sendMessage(Text.mm("<red>" + Text.esc(Text.plain(Text.mm(e.name))) + " is offline right now. <gray>Try again in a minute."));
+            } else {
+                p.sendMessage(Text.mm("<yellow>☾ " + Text.esc(Text.plain(Text.mm(e.name))) + " is asleep right now. <gray>To start it: " + note));
+            }
+
             Snd.error(p);
             return;
+        }
+
+        if (down && e.wakeOnJoin) {
+            p.sendMessage(Text.mm("<yellow>☾ <gray>Waking " + Text.esc(Text.plain(Text.mm(e.name))) + " up - this can take a minute. If it doesn't let you in, try again shortly."
+                + (ServerSelector.sleepNote(e).isEmpty() ? "" : " <gray>" + ServerSelector.sleepNote(e))));
         }
 
         this.sending.put(p.getUniqueId(), System.currentTimeMillis());
