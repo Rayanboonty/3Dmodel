@@ -143,6 +143,22 @@ public final class Essentials implements Listener, TabExecutor {
         }
     }
 
+    /** Moves the homes of a player whose ID changed (moved to a host with another online-mode). */
+    public void rekeyHomes(UUID from, UUID to) {
+        Map<String, Map<String, String>> old = this.homes.remove(from);
+        if (old == null) {
+            return;
+        }
+
+        Map<String, Map<String, String>> mine = this.homes.computeIfAbsent(to, k -> new HashMap<>());
+        for (Map.Entry<String, Map<String, String>> e : old.entrySet()) {
+            Map<String, String> m = mine.computeIfAbsent(e.getKey(), k -> new LinkedHashMap<>());
+            e.getValue().forEach(m::putIfAbsent);
+        }
+
+        this.saveData();
+    }
+
     private void saveData() {
         YamlConfiguration y = new YamlConfiguration();
         y.options().setHeader(List.of("Player homes per mode (SURVIVAL, LIFESTEAL, ...) and /tptoggle."));

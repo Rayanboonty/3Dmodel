@@ -12,9 +12,9 @@
     "notes": "SMP selector: \"Asleep\" status with a sleep note and wake-on-join for free hosts"
   },
   "VortexSMP": {
-    "version": "1.3.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexSMP-1.3.0.jar",
-    "sha256": "d0c6f1cf7b48104f83dc68e807eb0638abedcc30220007d1d8d93fee435b8077",
-    "notes": "Auto-updates"
+    "version": "1.4.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexSMP-1.4.0.jar",
+    "sha256": "0a85b7c9008ad065a5b480bba95c70f90121cada6a2ebbc10308d71c5cf70ed1",
+    "notes": "Old SMP inventories and ender chests come back after moving hosts (changed player IDs, other modes, folder in plugins/)"
   }
 }

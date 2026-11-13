@@ -19,6 +19,26 @@
 2. SMP server: in `plugins/VortexSMP/config.yml`, set `network.hub.host` and `network.hub.port` to the Practice server.
 3. Practice server: `/pvpadmin` → Server Selector → SURVIVAL SMP → Host & Port = the SMP server. Use Test Connection to check it.
 
+## New in 1.4.0: items missing after moving the SMP to another host
+If players arrive with **empty inventories and ender chests** after copying the old world and plugin folder to a new
+host, their items are still in the copied files - they just weren't matched. 1.4.0 fixes the usual causes by itself:
+- **The old folder can stay where you copied it**: `plugins/VortexRealm` (or PracticePvP / VortexPvP) next to
+  VortexSMP is found too, not only `plugins/VortexSMP/import/`.
+- **Changed player IDs**: when the old and the new host use a different `online-mode` (cracked vs premium), every
+  player gets a new ID. VortexSMP finds their old ID from their name (the old plugin's player list, usercache.json,
+  offline/premium IDs) and moves their old player file (inventory, ender chest, XP, position), saved inventory,
+  /oldstuff items and homes to the new ID the first time they join.
+- **Other old modes**: items saved in other old SMP worlds (eco, lifesteal...) wait in `/oldstuff` instead of being
+  left behind.
+- Each player gets their items **once** - a second import never duplicates them.
+
+Commands (admins):
+- `/vortexsmp import check [player]` - where the old data is, what was found, this server's online-mode, and for a
+  player what is saved under their current and old IDs, with the next step to take.
+- `/vortexsmp import relink <player>` - for players who already joined empty: their old data is put back (they
+  rejoin once); what they gathered since the move goes to `/oldstuff`.
+- `/vortexsmp import give <player>` - give an online player what is saved for them right away.
+
 ## New in 1.3.0: auto-updates
 VortexSMP updates itself like the Practice plugin: it checks `update.json` (GitHub, `updates.sources`) every 30
 minutes, downloads a new version, checks its SHA-256 and installs it on a restart - as soon as nobody is online, or

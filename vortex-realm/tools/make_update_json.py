@@ -12,7 +12,7 @@ BASE = sys.argv[1] if len(sys.argv) > 1 else \
 NOTES = {
     'VortexRealm': 'SMP selector: "Asleep" status with a sleep note and wake-on-join for free hosts',
     'PracticePvP': 'SMP selector: "Asleep" status with a sleep note and wake-on-join for free hosts',
-    'VortexSMP': 'Auto-updates',
+    'VortexSMP': 'Old SMP inventories and ender chests come back after moving hosts (changed player IDs, other modes, folder in plugins/)',
 }
 
 

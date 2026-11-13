@@ -96,12 +96,17 @@ public final class OldImport implements Listener, CommandExecutor {
             }
         }
 
+        File root = this.findRoot();
         if (this.state.getBoolean("done")) {
             this.summary = this.state.getString("summary", "done");
-            return;
+            int had = this.state.contains("inventories") ? this.state.getInt("inventories") : parse(this.summary.replaceAll(".* (\\d+) inventories.*", "$1"));
+            if (root == null || had > 0 || modeCounts(root).isEmpty()) {
+                return;
+            }
+
+            this.plugin.getLogger().info("Import: the old folder with saved inventories is here now (" + root.getPath() + ") - importing the inventories again.");
         }
 
-        File root = this.findRoot();
         if (root != null) {
             this.run(root, false, null);
         }
@@ -138,7 +143,44 @@ public final class OldImport implements Listener, CommandExecutor {
             }
         }
 
-        return search(this.dir, 0);
+        File r = search(this.dir, 0);
+        if (r != null) {
+            return r;
+        }
+
+        // the old folder copied as it was: plugins/VortexRealm (or PracticePvP / VortexPvP) next to VortexSMP's own
+        File plugins = this.plugin.getDataFolder().getParentFile();
+        File[] siblings = plugins == null ? null : plugins.listFiles(File::isDirectory);
+        if (siblings != null) {
+            for (File f : siblings) {
+                if (isOld(f.getName())) {
+                    r = search(f, 0);
+                    if (r != null) {
+                        return r;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** Players with saved inventories in an old folder, per old mode file name ("survival" -> 12). */
+    private static Map<String, Integer> modeCounts(File root) {
+        Map<String, Integer> out = new java.util.TreeMap<>();
+        File[] players = new File(root, "inventories/groups").listFiles(File::isDirectory);
+        if (players != null) {
+            for (File pd : players) {
+                File[] fs = pd.listFiles((d, n) -> n.endsWith(".yml") && !n.contains("-unsorted-") && !n.endsWith(".prev.yml"));
+                if (fs != null) {
+                    for (File f : fs) {
+                        out.merge(f.getName().substring(0, f.getName().length() - 4).toUpperCase(Locale.ROOT), 1, Integer::sum);
+                    }
+                }
+            }
+        }
+
+        return out;
     }
 
     private static File search(File d, int depth) {
@@ -524,7 +566,8 @@ public final class OldImport implements Listener, CommandExecutor {
                 }
 
                 File[] files = pd.listFiles((d, n) -> n.endsWith(".yml") && !n.endsWith(".prev.yml") && !n.endsWith(".tmp"));
-                if (files == null) {
+                if (files == null || !preview && this.state.getBoolean("imported." + u)) {
+                    // already brought over once: never twice
                     continue;
                 }
 
@@ -548,6 +591,12 @@ public final class OldImport implements Listener, CommandExecutor {
                         unsorted |= n.startsWith(m.toLowerCase(Locale.ROOT) + "-unsorted-");
                     }
 
+                    // the other old SMP modes (eco, lifesteal...): their items wait in /oldstuff, so nothing is left behind
+                    for (String m : OLD_MODES) {
+                        String base = m.toLowerCase(Locale.ROOT);
+                        unsorted |= !modes.contains(m) && (n.equals(base + ".yml") || n.startsWith(base + "-unsorted-"));
+                    }
+
                     if (!unsorted) {
                         continue;
                     }
@@ -564,6 +613,7 @@ public final class OldImport implements Listener, CommandExecutor {
                 if (main != null || !inv.isEmpty() || !ender.isEmpty()) {
                     inventories++;
                     if (!preview) {
+                        this.state.set("imported." + u, true);
                         if (!inv.isEmpty() || !ender.isEmpty()) {
                             this.writePending(u, inv, ender, 0);
                         }
@@ -578,6 +628,14 @@ public final class OldImport implements Listener, CommandExecutor {
 
         String report = homes + " homes, " + warps + " warps, " + spots + " last spots, " + inventories + " inventories"
             + " (modes " + String.join("/", modes) + "; worlds " + worlds + ")";
+        Map<String, Integer> counts = modeCounts(root);
+        boolean anyChosen = counts.keySet().stream().anyMatch(modes::contains);
+        if (!anyChosen && !counts.isEmpty()) {
+            String hint = "No saved inventories for import.mode " + String.join("/", modes) + ", but there are some for " + counts
+                + " - set import.mode in config.yml to one of those (or ALL) and run /vortexsmp import run again.";
+            report = report + ". " + hint;
+            this.plugin.getLogger().warning("Import: " + hint);
+        }
         if (preview) {
             if (who != null) {
                 who.sendMessage(Text.mm("<gold>Import preview <gray>from <white>" + Text.esc(root.getPath()) + "<gray>: <white>" + Text.esc(report)));
@@ -599,6 +657,7 @@ public final class OldImport implements Listener, CommandExecutor {
         this.state.set("from", root.getPath());
         this.state.set("at", System.currentTimeMillis());
         this.state.set("summary", this.summary);
+        this.state.set("inventories", inventories);
         this.save();
         this.plugin.getLogger().info("Import from " + root.getPath() + ": " + report + ".");
         if (who != null) {
@@ -730,7 +789,220 @@ public final class OldImport implements Listener, CommandExecutor {
         });
     }
 
+    // ------------------------------------------------------------------ players whose ID changed
+
+    /** Premium IDs looked up by name (offline-mode servers), so Mojang is asked once per name. */
+    private final Map<String, java.util.Optional<UUID>> premium = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static File playerData() {
+        return new File(Bukkit.getWorlds().get(0).getWorldFolder(), "playerdata");
+    }
+
+    private static UUID offlineId(String name) {
+        return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private java.util.Optional<UUID> premiumId(String name) {
+        return this.premium.computeIfAbsent(name.toLowerCase(Locale.ROOT), k -> {
+            try {
+                java.net.http.HttpResponse<String> res = java.net.http.HttpClient.newHttpClient().send(
+                    java.net.http.HttpRequest.newBuilder(java.net.URI.create("https://api.mojang.com/users/profiles/minecraft/" + name))
+                        .timeout(java.time.Duration.ofSeconds(5)).GET().build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() != 200) {
+                    return java.util.Optional.empty();
+                }
+
+                String id = com.google.gson.JsonParser.parseString(res.body()).getAsJsonObject().get("id").getAsString();
+                return java.util.Optional.of(UUID.fromString(id.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5")));
+            } catch (Exception e) {
+                return java.util.Optional.empty();
+            }
+        });
+    }
+
+    /** IDs from usercache.json files: this server's, the old server's (next to the old plugin folder) and the import folder's. */
+    private List<UUID> cachedIds(String name) {
+        List<File> caches = new ArrayList<>();
+        caches.add(new File(Bukkit.getWorldContainer(), "usercache.json"));
+        File root = this.findRoot();
+        if (root != null && root.getParentFile() != null && root.getParentFile().getParentFile() != null) {
+            caches.add(new File(root.getParentFile().getParentFile(), "usercache.json"));
+        }
+
+        try (java.util.stream.Stream<java.nio.file.Path> st = Files.walk(this.dir.toPath(), 4)) {
+            st.filter(x -> x.getFileName().toString().equals("usercache.json")).forEach(x -> caches.add(x.toFile()));
+        } catch (IOException | RuntimeException ignored) {
+        }
+
+        List<UUID> out = new ArrayList<>();
+        // the old plugin's own player list (data.db: pp_players uuid/name)
+        File db = root == null ? null : new File(root, "data.db");
+        if (db != null && db.isFile()) {
+            try (java.sql.Connection c = java.sql.DriverManager.getConnection("jdbc:sqlite:file:" + db.getAbsolutePath() + "?mode=ro");
+                 java.sql.PreparedStatement ps = c.prepareStatement("SELECT uuid FROM pp_players WHERE lower(name) = lower(?)")) {
+                ps.setString(1, name);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(UUID.fromString(rs.getString(1)));
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        for (File f : caches) {
+            if (!f.isFile()) {
+                continue;
+            }
+
+            try {
+                for (com.google.gson.JsonElement el : com.google.gson.JsonParser.parseString(Files.readString(f.toPath())).getAsJsonArray()) {
+                    com.google.gson.JsonObject o = el.getAsJsonObject();
+                    if (o.get("name").getAsString().equalsIgnoreCase(name)) {
+                        out.add(UUID.fromString(o.get("uuid").getAsString()));
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return out;
+    }
+
+    /** The IDs this name may have had on the old server (other than the one it has now). */
+    private List<UUID> oldIds(UUID now, String name) {
+        java.util.LinkedHashSet<UUID> out = new java.util.LinkedHashSet<>();
+        out.add(offlineId(name));
+        out.addAll(this.cachedIds(name));
+        if (!Bukkit.getOnlineMode()) {
+            this.premiumId(name).ifPresent(out::add);
+        }
+
+        out.remove(now);
+        return new ArrayList<>(out);
+    }
+
+    private boolean hasOldData(UUID u) {
+        File root = this.findRoot();
+        return new File(playerData(), u + ".dat").isFile() || this.exactFile(u).isFile() || this.pendingFile(u).isFile()
+            || this.state.getBoolean("imported." + u) || root != null && new File(root, "inventories/groups/" + u).isDirectory();
+    }
+
+    /** The old ID of a player whose ID changed, or null. */
+    private UUID findOld(UUID now, String name) {
+        return this.findOld(now, name, false);
+    }
+
+    /** {@code ignoreCurrent}: an admin relink - the (empty) data they got on the new server doesn't count. */
+    private UUID findOld(UUID now, String name, boolean ignoreCurrent) {
+        String linked = this.state.getString("linked." + now);
+        if (linked != null) {
+            return UUID.fromString(linked);
+        }
+
+        if (!ignoreCurrent && this.hasOldData(now)) {
+            return null; // their data is under this ID already
+        }
+
+        for (UUID o : this.oldIds(now, name)) {
+            if (this.hasOldData(o)) {
+                return o;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Before the server loads a player: when their ID changed with the move (the old and new host use a different
+     * online-mode), their old player file (inventory, ender chest, XP, position) is copied to the new ID, and their
+     * saved import files and homes follow. Also finishes an admin's /vortexsmp import relink.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPreLogin(org.bukkit.event.player.AsyncPlayerPreLoginEvent e) {
+        if (e.getLoginResult() != org.bukkit.event.player.AsyncPlayerPreLoginEvent.Result.ALLOWED || !Cfg.bool(Opt.IMPORT_INVENTORIES)) {
+            return;
+        }
+
+        try {
+            synchronized (this) {
+                this.relink(e.getUniqueId(), e.getName(), false);
+            }
+        } catch (Exception ex) {
+            this.plugin.getLogger().log(Level.WARNING, "Import: couldn't move the old data of " + e.getName() + " to their new ID", ex);
+        }
+    }
+
+    /** Links a new ID to the old one. {@code force}: replace the player file they already have (after a relink). */
+    private UUID relink(UUID now, String name, boolean force) throws IOException {
+        String stage = this.state.getString("relink." + now);
+        boolean swap = force || "swap".equals(stage);
+        if (this.state.isSet("linked." + now) && !swap) {
+            return null;
+        }
+
+        UUID old = this.findOld(now, name, swap || stage != null);
+        if (old == null || "save".equals(stage)) {
+            return old;
+        }
+
+        File oldDat = new File(playerData(), old + ".dat");
+        File newDat = new File(playerData(), now + ".dat");
+        if (oldDat.isFile() && (!newDat.exists() || swap)) {
+            if (newDat.exists()) {
+                File keep = new File(this.plugin.getDataFolder(), "backups/relinked/" + now + "-" + System.currentTimeMillis() + ".dat");
+                keep.getParentFile().mkdirs();
+                Files.copy(newDat.toPath(), keep.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            Files.copy(oldDat.toPath(), newDat.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+
+        // the saved import files and the last spot follow the player to the new ID
+        if (this.exactFile(old).isFile() && !this.exactFile(now).exists()) {
+            Files.move(this.exactFile(old).toPath(), this.exactFile(now).toPath());
+        }
+
+        if (this.pendingFile(old).isFile()) {
+            YamlConfiguration y = YamlConfiguration.loadConfiguration(this.pendingFile(old));
+            this.writePending(now, read(y, "inventory"), read(y, "enderchest"), y.getInt("level"));
+            Files.delete(this.pendingFile(old).toPath());
+        }
+
+        String spot = this.state.getString("spots." + old);
+        if (spot != null && !this.state.isSet("spots." + now)) {
+            this.state.set("spots." + now, spot);
+            this.state.set("spots." + old, null);
+        }
+
+        this.state.set("linked." + now, old.toString());
+        this.state.set("relink." + now, null);
+        this.save();
+        UUID o = old;
+        Bukkit.getScheduler().runTask(this.plugin, () -> this.plugin.essentials().rekeyHomes(o, now));
+        this.plugin.getLogger().info("Import: " + name + " has a new ID (" + now + "); their old data (" + old + ") was moved to it"
+            + (oldDat.isFile() ? " - inventory, ender chest, XP and position included." : "."));
+        return old;
+    }
+
     private void welcome(Player p) {
+        if ("save".equals(this.state.getString("relink." + p.getUniqueId()))) {
+            // step 1 of a relink: what they carry now goes to /oldstuff, then the old player file is put in at the next login
+            List<ItemStack> inv = new ArrayList<>();
+            List<ItemStack> ender = new ArrayList<>();
+            addAll(inv, p.getInventory().getContents());
+            addAll(ender, p.getEnderChest().getContents());
+            if (!inv.isEmpty() || !ender.isEmpty()) {
+                this.writePending(p.getUniqueId(), inv, ender, 0);
+            }
+
+            this.state.set("relink." + p.getUniqueId(), "swap");
+            this.save();
+            p.kick(Text.mm("<green><b>Your old SMP inventory is ready</b>\n<gray>Join again to get it back.\n<gray>What you had since the move is in <yellow>/oldstuff</yellow>."));
+            return;
+        }
+
         // hub/lobby items that came along in a copied world's player data are not survival items
         int removed = 0;
         ItemStack[] c = p.getInventory().getContents();
@@ -754,6 +1026,18 @@ public final class OldImport implements Listener, CommandExecutor {
             Location spawn = p.getWorld().getSpawnLocation();
             boolean atSpawn = !p.hasPlayedBefore() || p.getWorld().equals(spawn.getWorld()) && p.getLocation().distanceSquared(spawn) < 32 * 32;
             if (l != null && l.getWorld() != null && atSpawn) {
+                // only onto solid ground: a spot over a drop (other terrain, a removed build) would kill them with their items
+                World w = l.getWorld();
+                boolean ground = false;
+                for (int k = 1; k <= 3 && !ground; k++) {
+                    ground = w.getBlockAt(l.getBlockX(), l.getBlockY() - k, l.getBlockZ()).getType().isSolid();
+                }
+
+                if (!ground) {
+                    l.setY(w.getHighestBlockYAt(l.getBlockX(), l.getBlockZ()) + 1.0);
+                }
+
+                p.setFallDistance(0.0F);
                 Tp.to(p, l);
                 p.sendMessage(Text.mm("<green>Welcome back! <gray>You're where you last were on the old SMP."));
             }
@@ -1016,6 +1300,121 @@ public final class OldImport implements Listener, CommandExecutor {
         return true;
     }
 
+    private void relinkCommand(CommandSender sender, String name) {
+        Player online = Bukkit.getPlayerExact(name);
+        org.bukkit.OfflinePlayer t = online != null ? online : Bukkit.getOfflinePlayer(name);
+        UUID now = t.getUniqueId();
+        UUID old;
+        synchronized (this) {
+            this.state.set("linked." + now, null);
+            old = this.findOld(now, name, true);
+        }
+
+        if (old == null) {
+            sender.sendMessage(Text.mm("<red>No old data found for " + Text.esc(name) + " under another ID. <gray>Try <white>/vortexsmp import check " + Text.esc(name)));
+            return;
+        }
+
+        boolean oldDat = new File(playerData(), old + ".dat").isFile();
+        try {
+            if (oldDat) {
+                synchronized (this) {
+                    this.state.set("relink." + now, "save");
+                    this.save();
+                }
+
+                sender.sendMessage(Text.mm("<green>" + Text.esc(name) + " will get their old inventory, ender chest and XP back <gray>(old ID " + old + "). "
+                    + (online != null ? "They're asked to rejoin now." : "It happens when they next join (they rejoin once).")
+                    + " What they have now goes to /oldstuff."));
+                if (online != null) {
+                    this.welcome(online);
+                }
+            } else {
+                synchronized (this) {
+                    this.relink(now, name, true);
+                }
+
+                sender.sendMessage(Text.mm("<green>" + Text.esc(name) + "'s saved items moved to their new ID <gray>(from " + old + ")."));
+                if (online != null) {
+                    this.welcome(online);
+                }
+            }
+        } catch (IOException e) {
+            sender.sendMessage(Text.mm("<red>That failed: " + Text.esc(e.getMessage())));
+        }
+    }
+
+    /** /vortexsmp import check [player]: where the old data is, what was found, and what to do next. */
+    private void check(CommandSender s, String name) {
+        File root = this.findRoot();
+        s.sendMessage(Text.mm("<gold><b>Old SMP import check"));
+        if (root == null) {
+            s.sendMessage(Text.mm("<red>✘ No old plugin folder found. <gray>Looked in plugins/VortexSMP/import/ and plugins/VortexRealm, PracticePvP, VortexPvP."));
+            s.sendMessage(Text.mm("<gray>→ Copy the old <white>plugins/VortexRealm</white> folder (with its inventories folder) from the old server into <white>plugins/</white> and restart."));
+        } else {
+            Map<String, Integer> counts = modeCounts(root);
+            s.sendMessage(Text.mm("<green>✔ Old folder: <white>" + Text.esc(root.getPath())));
+            s.sendMessage(Text.mm((counts.isEmpty() ? "<red>✘" : "<green>✔") + " <gray>Saved inventories per mode: <white>" + (counts.isEmpty() ? "none (no inventories/groups folder)" : counts)
+                + " <gray>• import.mode <white>" + Text.esc(Cfg.s(Opt.IMPORT_MODE))));
+            if (!counts.isEmpty() && counts.keySet().stream().noneMatch(this.modes()::contains)) {
+                s.sendMessage(Text.mm("<yellow>→ import.mode doesn't match any of those: set it to one of them (or ALL), then <white>/vortexsmp import run again"));
+            }
+        }
+
+        s.sendMessage(Text.mm("<gray>Import: <white>" + Text.esc(this.summary) + " <gray>• online-mode <white>" + Bukkit.getOnlineMode()
+            + " <gray>• player files in the world: <white>" + java.util.Optional.ofNullable(playerData().list()).map(a -> a.length).orElse(0)));
+        if (name == null) {
+            s.sendMessage(Text.mm("<gray>Add a player name to check one player: <white>/vortexsmp import check <name>"));
+            return;
+        }
+
+        org.bukkit.OfflinePlayer t = Bukkit.getPlayerExact(name) != null ? Bukkit.getPlayerExact(name) : Bukkit.getOfflinePlayer(name);
+        UUID now = t.getUniqueId();
+        s.sendMessage(Text.mm("<gray>" + Text.esc(name) + " now has ID <white>" + now));
+        s.sendMessage(Text.mm("<gray> under this ID: " + this.describe(now)));
+        for (UUID o : this.oldIds(now, name)) {
+            s.sendMessage(Text.mm("<gray> old ID " + o + ": " + this.describe(o)));
+        }
+
+        UUID old = this.state.isSet("linked." + now) ? null : this.findOld(now, name, true);
+        if (old != null) {
+            s.sendMessage(Text.mm("<yellow>→ Their old data is under another ID. <white>/vortexsmp import relink " + Text.esc(name) + "</white> <yellow>gives it back."));
+        } else if (this.exactFile(now).isFile() || this.pendingFile(now).isFile()) {
+            s.sendMessage(Text.mm("<yellow>→ Items are saved for them: they get them when they join, or now with <white>/vortexsmp import give " + Text.esc(name)));
+        } else if (this.hasOldData(now)) {
+            s.sendMessage(Text.mm("<green>✔ Their data is under their current ID - nothing else to do."));
+        } else {
+            s.sendMessage(Text.mm("<red>✘ Nothing saved for them under any ID. <gray>Check that the old world's playerdata and the old inventories folder were copied."));
+        }
+    }
+
+    private String describe(UUID u) {
+        List<String> has = new ArrayList<>();
+        if (new File(playerData(), u + ".dat").isFile()) {
+            has.add("player file");
+        }
+
+        if (this.exactFile(u).isFile()) {
+            has.add("saved inventory (not given yet)");
+        }
+
+        if (this.pendingFile(u).isFile()) {
+            has.add("items for /oldstuff");
+        }
+
+        File[] given = new File(this.pendingDir, "given").listFiles((d, n) -> n.startsWith(u.toString()));
+        if (given != null && given.length > 0) {
+            has.add("<green>already given back</green>");
+        }
+
+        File root = this.findRoot();
+        if (root != null && new File(root, "inventories/groups/" + u).isDirectory()) {
+            has.add("old inventory folder");
+        }
+
+        return has.isEmpty() ? "<dark_gray>nothing" : "<white>" + String.join(", ", has);
+    }
+
     /** /vortexsmp migrate: checks the move of an old SMP (world + plugin folder) and says what is missing. */
     public void migrateGuide(CommandSender s) {
         File root = this.findRoot();
@@ -1054,6 +1453,32 @@ public final class OldImport implements Listener, CommandExecutor {
 
     /** /vortexsmp import [preview|run] */
     public void command(CommandSender sender, String[] args) {
+        String sub = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "";
+        if (sub.equals("check")) {
+            this.check(sender, args.length > 1 ? args[1] : null);
+            return;
+        } else if (sub.equals("relink") || sub.equals("give")) {
+            if (args.length < 2) {
+                sender.sendMessage(Text.mm("<red>Usage: /vortexsmp import " + sub + " <player>"));
+                return;
+            }
+
+            if (sub.equals("give")) {
+                Player t = Bukkit.getPlayerExact(args[1]);
+                if (t == null) {
+                    sender.sendMessage(Text.mm("<red>" + Text.esc(args[1]) + " isn't online."));
+                } else {
+                    this.welcome(t);
+                    sender.sendMessage(Text.mm("<green>Done - " + Text.esc(t.getName()) + " got whatever was saved for them."));
+                }
+
+                return;
+            }
+
+            this.relinkCommand(sender, args[1]);
+            return;
+        }
+
         File root = this.findRoot();
         if (root == null) {
             sender.sendMessage(Text.mm("<red>Nothing to import. <gray>Put the old plugins/VortexRealm folder (or a .zip/.tar.gz of it) into plugins/VortexSMP/import/."));
