@@ -61,5 +61,9 @@ The script stops with a red **STOPPED:** line saying why. Common ones:
 - **"/dev/fuse is missing"**: in PowerShell run `wsl --update`, then `wsl --shutdown`, reopen Ubuntu, run again.
 - **The fetch says the IPSW does not match**: it isn't iPhone 17 Pro Max (iPhone18,2) iOS 27.0.1 build 24A446.
   Download exactly that one.
+- **"HTTP Error 403" during the kernel step**: GitHub limits anonymous downloads per internet connection for an
+  hour. Wait an hour and run again, or use a free GitHub token: on github.com go to Settings → Developer settings →
+  Personal access tokens → Fine-grained → Generate (no permissions needed), then in Ubuntu type
+  `export GITHUB_TOKEN=paste-the-token` and run the script again in the same window.
 
 For anything else, copy the last 20 lines of the Ubuntu window and send them to me.

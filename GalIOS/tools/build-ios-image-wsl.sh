@@ -24,12 +24,15 @@ LIBDISPATCH_TAG="swift-6.0.3-RELEASE"
 APFS_FUSE_COMMIT="66b86bd525e8cb90f9012543be89b1f092b75cf3"
 BWRAP_TAG="v0.11.2"
 
-say()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
+STEP="starting"
+say()  { STEP="$*"; printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok()   { printf '\033[1;32m    %s\033[0m\n' "$*"; }
 die()  { printf '\n\033[1;31mSTOPPED: %s\033[0m\n' "$*" >&2; exit 1; }
 done_mark() { touch "$WORK/.done-$1"; }
 is_done()   { [ -f "$WORK/.done-$1" ]; }
 SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo"
+# Any failing command ends the run with the step it was in; finished steps are kept, so running again resumes.
+trap 'rc=$?; printf "\n\033[1;31mSTOPPED during: %s (exit %s).\033[0m\nRun the same command again to continue from here. If it stops at the same place, send the last 20 lines above.\n" "$STEP" "$rc" >&2' ERR
 
 setup_only=0
 ipsw_arg=""
