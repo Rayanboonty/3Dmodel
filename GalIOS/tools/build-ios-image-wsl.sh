@@ -64,7 +64,7 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
   [ -e /dev/fuse ] || die "/dev/fuse is missing: update WSL from PowerShell with 'wsl --update', then 'wsl --shutdown' and reopen Ubuntu"
 fi
 free_gb=$(df -Pk "$WORK" | awk 'NR==2 {print int($4/1048576)}')
-[ "$free_gb" -ge 60 ] || [ "$setup_only" = 1 ] || die "only ${free_gb} GB free; about 60 GB are needed (on a PC: free space on drive C:; on the phone: internal storage)"
+[ "$free_gb" -ge "${GALIOS_MIN_FREE_GB:-60}" ] || [ "$setup_only" = 1 ] || die "only ${free_gb} GB free; about 60 GB are needed (on a PC: free space on drive C:; on the phone: internal storage)"
 ok "${free_gb} GB free"
 
 IPSW=""
@@ -218,6 +218,17 @@ if ! is_done kernel-inputs; then
 fi
 if ! is_done kernel; then
   say "Building the XNU kernel (10-20 minutes the first time)"
+  if [ -n "${GALIOS_CHROOT:-}" ]; then
+    # On the phone (GalIOS's own Ubuntu): the kernel build puts four helpers (xcrun, plutil, codesign, csh) in
+    # /usr/bin through a bwrap overlay mount, which Android's /data refuses ("Can't make overlay mount", GalIOS 1.8
+    # on an S25 Ultra). This Ubuntu is GalIOS's alone, so they are installed there for good instead; build-hosted.sh
+    # then finds them in place and skips bwrap. The same toolchain steps build-hosted.sh runs first come first here.
+    kernel/linux/setup-toolchain.sh
+    TC="$ONEIOS/out/toolchain"
+    [ -x "$TC/unixnu/CommandLineTools/usr/bin/xnu-host-cc" ] && [ "$TC/unixnu" -nt kernel/linux/clang-wrapper ] || kernel/linux/unixnu-layout.sh
+    for t in xcrun plutil codesign csh; do install -m 0755 "$TC/unixnu/usrbin/$t" "/usr/bin/$t"; done
+    ok "kernel helpers installed in this Ubuntu's /usr/bin (no overlay needed)"
+  fi
   env HOSTED_OUT=galios XNU_FILESET_REFERENCE=1 kernel/build-hosted.sh
   done_mark kernel
 fi

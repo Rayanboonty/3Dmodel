@@ -145,7 +145,7 @@ do_start() {
   args="${BUILD_ARGS:-$args}"
   # Proxy settings to pass into Ubuntu (test hosts); empty on the phone.
   passenv=""
-  for v in http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY; do
+  for v in http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY CARGO_HTTP_CAINFO SSL_CERT_FILE GITHUB_TOKEN GALIOS_MIN_FREE_GB; do
     eval "val=\${$v:-}"
     [ -n "$val" ] && passenv="$passenv $v=$val"
   done
@@ -212,7 +212,7 @@ mnt "\$R/sdcard" -o bind '$STORAGE'
 echo "== Ubuntu is ready; starting the build"
 chroot "\$R" /usr/bin/env -i HOME=/root TERM=dumb LANG=C.UTF-8 \\
   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \\
-  GALIOS_WORK=/root/oneios-build GALIOS_OUT_DIR=/sdcard/Download GALIOS_PROGRESS=/galios/progress $passenv \\
+  GALIOS_CHROOT=1 GALIOS_WORK=/root/oneios-build GALIOS_OUT_DIR=/sdcard/Download GALIOS_PROGRESS=/galios/progress $passenv \\
   /bin/bash /galios/build.sh $args
 EOF
   unmount_stale
