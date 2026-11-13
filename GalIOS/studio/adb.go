@@ -208,38 +208,83 @@ func adbArgs(serial string, args ...string) []string {
 	return append([]string{"-s", serial}, args...)
 }
 
-// rootCmd is the remote command that runs cmd as root (shell -T: no terminal, so stdin and exit codes pass).
-func rootRemote(s Settings, cmd string) string { return s.RootCmd + " " + shq(cmd) }
+const (
+	bridgeVersion        = 10 // the first GalIOS with the root bridge
+	bundledGalIOSVersion = "1.10"
+)
 
-func rootRun(ctx context.Context, s Settings, serial, cmd string, stdin io.Reader) ([]string, int, error) {
-	return runLines(ctx, stdin, adbExe(s), adbArgs(serial, "shell", "-T", rootRemote(s, cmd))...)
+// packageVersionCode is an app's versionCode on the phone, or 0 when it is not installed.
+func packageVersionCode(ctx context.Context, s Settings, serial, pkg string) int {
+	lines, _, _ := runLines(ctx, nil, adbExe(s), adbArgs(serial, "shell", "dumpsys package "+pkg+" | grep -m1 versionCode")...)
+	for _, l := range lines {
+		if i := strings.Index(l, "versionCode="); i >= 0 {
+			f := strings.Fields(l[i+len("versionCode="):])
+			if len(f) > 0 {
+				n, _ := strconv.Atoi(f[0])
+				return n
+			}
+		}
+	}
+	return 0
 }
 
-func rootStream(ctx context.Context, s Settings, serial, cmd string, stdin io.Reader, onLine func(string)) (int, error) {
-	return stream(ctx, stdin, onLine, adbExe(s), adbArgs(serial, "shell", "-T", rootRemote(s, cmd))...)
+// installGalIOS installs (or updates) the GalIOS app Studio carries; an older GalIOS signed differently is
+// replaced (GalIOS keeps nothing that matters on the phone: the stage is root's).
+func installGalIOS(ctx context.Context, j *JobCtx, s Settings, serial string) error {
+	apk, err := assetFS.ReadFile("assets/GalIOS.apk")
+	if err != nil || len(apk) == 0 {
+		return fmt.Errorf("this Studio has no GalIOS inside")
+	}
+	tmp := filepath.Join(dataDir(), "GalIOS.apk")
+	os.MkdirAll(dataDir(), 0o755)
+	if err := os.WriteFile(tmp, apk, 0o644); err != nil {
+		return err
+	}
+	line := func(l string) {
+		if j != nil {
+			j.Line(l)
+		}
+	}
+	var out []string
+	code, err := stream(ctx, nil, func(l string) { out = append(out, l); line(l) }, adbExe(s), adbArgs(serial, "install", "-r", tmp)...)
+	if err == nil && code == 0 && !strings.Contains(strings.Join(out, " "), "Failure") {
+		return nil
+	}
+	if t := strings.Join(out, " "); strings.Contains(t, "UPDATE_INCOMPATIBLE") || strings.Contains(t, "VERSION_DOWNGRADE") {
+		line("replacing the GalIOS that is on the phone")
+		runLines(ctx, nil, adbExe(s), adbArgs(serial, "uninstall", "dev.galios")...)
+		out = nil
+		code, err = stream(ctx, nil, func(l string) { out = append(out, l); line(l) }, adbExe(s), adbArgs(serial, "install", tmp)...)
+		if err == nil && code == 0 && !strings.Contains(strings.Join(out, " "), "Failure") {
+			return nil
+		}
+	}
+	return fmt.Errorf("adb install failed: %s", strings.Join(out, " "))
 }
 
 type PhoneStatus struct {
-	Connected  bool     `json:"connected"`
-	Message    string   `json:"message"`
-	Serial     string   `json:"serial"`
-	Model      string   `json:"model"`
-	Device     string   `json:"device"`
-	SoC        string   `json:"soc"`
-	Android    string   `json:"android"`
-	Supported  bool     `json:"supported"`
-	Label      string   `json:"label"`
-	Root       bool     `json:"root"`
-	Busybox    string   `json:"busybox"`
-	Resetprop  string   `json:"resetprop"`
-	VolKeys    bool     `json:"volKeys"`
-	FreeGB     int      `json:"freeGB"`
-	GPU        string   `json:"gpu"`
-	OneOS      string   `json:"oneos"`
-	GalIOS     string   `json:"galios"`
-	Stage      Stage    `json:"stage"`
-	Devices    []Device `json:"devices"`
-	CheckedAt  int64    `json:"checkedAt"`
+	Connected   bool     `json:"connected"`
+	Message     string   `json:"message"`
+	Serial      string   `json:"serial"`
+	Model       string   `json:"model"`
+	Device      string   `json:"device"`
+	SoC         string   `json:"soc"`
+	Android     string   `json:"android"`
+	Supported   bool     `json:"supported"`
+	Label       string   `json:"label"`
+	Root        bool     `json:"root"`
+	RootVia     string   `json:"rootVia"`
+	RootMessage string   `json:"rootMessage"`
+	Busybox     string   `json:"busybox"`
+	Resetprop   string   `json:"resetprop"`
+	VolKeys     bool     `json:"volKeys"`
+	FreeGB      int      `json:"freeGB"`
+	GPU         string   `json:"gpu"`
+	OneOS       string   `json:"oneos"`
+	GalIOS      string   `json:"galios"`
+	Stage       Stage    `json:"stage"`
+	Devices     []Device `json:"devices"`
+	CheckedAt   int64    `json:"checkedAt"`
 }
 
 const checksScript = `echo "uid=$(id -u)"
@@ -272,7 +317,13 @@ func checkPhone(ctx context.Context, s Settings) PhoneStatus {
 	st.OneOS = packageVersion(ctx, s, serial, oneosPackage)
 	st.GalIOS = packageVersion(ctx, s, serial, "dev.galios")
 	st.Supported, st.Label = phoneKind(st.Model, st.Device, st.SoC)
-	cl, _, _ := rootRun(ctx, s, serial, checksScript, nil)
+	r, err := getRoot(ctx, s, serial)
+	if err != nil {
+		st.RootMessage = err.Error()
+		return st
+	}
+	st.RootVia = r.Detail
+	cl, _, _ := rootRun(ctx, s, serial, checksScript)
 	kv := map[string]string{}
 	for _, l := range cl {
 		if i := strings.IndexByte(l, '='); i > 0 {
@@ -290,7 +341,7 @@ func checkPhone(ctx context.Context, s Settings) PhoneStatus {
 	if st.Root {
 		st.Stage = stageStatus(ctx, s, serial)
 	} else {
-		st.Message = "Root is not active on the phone: start your temporary root (Settings has the root command)."
+		st.RootMessage = "root answered, but not as root (uid " + kv["uid"] + ")"
 	}
 	return st
 }
@@ -326,30 +377,65 @@ func pushFile(ctx context.Context, j *JobCtx, s Settings, serial, local, remote 
 		return err
 	}
 	total := fi.Size()
-	done := make(chan error, 1)
-	go func() {
-		_, code, err := runLines(ctx, nil, adbExe(s), adbArgs(serial, "push", local, remote)...)
-		if err == nil && code != 0 {
-			err = fmt.Errorf("adb push failed (exit %d)", code)
-		}
-		done <- err
-	}()
-	t := time.NewTicker(2 * time.Second)
-	defer t.Stop()
-	for {
-		select {
-		case err := <-done:
-			if err == nil {
-				j.Progress(1, human(total))
+	return pushFileProgress(ctx, s, serial, local, remote, func(n int64) {
+		j.Progress(float64(n)/float64(max(total, 1)), fmt.Sprintf("%s of %s", human(n), human(total)))
+	})
+}
+
+// pushFileProgress copies a file to the phone with adb push (tried up to three times: a USB hiccup is common on long
+// copies), reporting the bytes on the phone so far.
+func pushFileProgress(ctx context.Context, s Settings, serial, local, remote string, onBytes func(int64)) error {
+	fi, err := os.Stat(local)
+	if err != nil {
+		return err
+	}
+	var last error
+	for attempt := 1; attempt <= 3; attempt++ {
+		if attempt > 1 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(3 * time.Second):
 			}
-			return err
-		case <-t.C:
-			lines, _, _ := runLines(ctx, nil, adbExe(s), adbArgs(serial, "shell", "stat -c %s "+shq(remote)+" 2>/dev/null")...)
-			if len(lines) > 0 {
-				if n, err := strconv.ParseInt(strings.TrimSpace(lines[0]), 10, 64); err == nil && total > 0 {
-					j.Progress(float64(n)/float64(total), fmt.Sprintf("%s of %s", human(n), human(total)))
+			if _, err := pickSerial(ctx, s); err != nil {
+				last = err
+				continue
+			}
+		}
+		done := make(chan error, 1)
+		go func() {
+			l, code, err := runLines(ctx, nil, adbExe(s), adbArgs(serial, "push", local, remote)...)
+			if err == nil && code != 0 {
+				err = fmt.Errorf("adb push failed (exit %d): %s", code, strings.Join(l, " "))
+			} else if err != nil {
+				err = fmt.Errorf("adb push failed: %v %s", err, strings.Join(l, " "))
+			}
+			done <- err
+		}()
+		t := time.NewTicker(2 * time.Second)
+	wait:
+		for {
+			select {
+			case err := <-done:
+				last = err
+				break wait
+			case <-t.C:
+				lines, _, _ := runLines(ctx, nil, adbExe(s), adbArgs(serial, "shell", "stat -c %s "+shq(remote)+" 2>/dev/null")...)
+				if len(lines) > 0 {
+					if n, err := strconv.ParseInt(strings.TrimSpace(lines[0]), 10, 64); err == nil {
+						onBytes(n)
+					}
 				}
 			}
 		}
+		t.Stop()
+		if last == nil {
+			onBytes(fi.Size())
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 	}
+	return last
 }

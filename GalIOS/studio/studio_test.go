@@ -70,9 +70,9 @@ func TestParseReplyAndPaths(t *testing.T) {
 		t.Error("OK not read")
 	}
 	for in, want := range map[string]string{
-		`C:\Users\Rayane\Downloads`:               "/mnt/c/Users/Rayane/Downloads",
-		`D:/iOS/iPhone18,2_27.0.1_24A446.ipsw`:    "/mnt/d/iOS/iPhone18,2_27.0.1_24A446.ipsw",
-		"/home/me/x":                              "/home/me/x",
+		`C:\Users\Rayane\Downloads`:            "/mnt/c/Users/Rayane/Downloads",
+		`D:/iOS/iPhone18,2_27.0.1_24A446.ipsw`: "/mnt/d/iOS/iPhone18,2_27.0.1_24A446.ipsw",
+		"/home/me/x":                           "/home/me/x",
 	} {
 		if got := toWSLPath(in); got != want {
 			t.Errorf("toWSLPath(%q) = %q", in, got)
@@ -135,10 +135,18 @@ func writeArchive(t testing.TB, path, kind string, files map[string][]byte, fact
 	f.Close()
 }
 
+// armELF is a stand-in xnuhost with an arm64 ELF header (what OneOS's boot check reads), and nothing else.
+func armELF() []byte {
+	b := make([]byte, 64)
+	copy(b, []byte{0x7f, 'E', 'L', 'F', 2, 1, 1})
+	b[16], b[18] = 2, 0xb7
+	return b
+}
+
 func makeFixtures(t testing.TB, dir string) (runtimeArc, imageArc string) {
 	os.MkdirAll(dir, 0o755)
 	runtimeArc = filepath.Join(dir, "oneios-runtime-0.1.8-test-arm64.tar.zst")
-	writeArchive(t, runtimeArc, "runtime", map[string][]byte{"bin/xnuhost": []byte("#!/bin/sh\necho stand-in\n"), "lib/readme.txt": []byte("x\n")},
+	writeArchive(t, runtimeArc, "runtime", map[string][]byte{"bin/xnuhost": armELF(), "lib/readme.txt": []byte("x\n")},
 		map[string]any{"format": 1, "version": "0.1.8-test", "session_abi": 1, "xnuhost": "bin/xnuhost", "image_formats": []int{1}}, "")
 	img := make([]byte, 300_000)
 	for i := range img {
@@ -207,7 +215,7 @@ func TestBootFromPC(t *testing.T) {
 	if msg, err := installEngine(ctx, j, s, serial, e); err != nil || !strings.Contains(msg, "S25") {
 		t.Fatalf("engine: %q %v", msg, err)
 	}
-	verb(ctx, s, serial, nil, "remove")
+	verb(ctx, s, serial, "", "remove")
 	if _, err := installEngine(ctx, j, s, serial, e); err != nil {
 		t.Fatal(err)
 	}
@@ -226,8 +234,9 @@ func TestBootFromPC(t *testing.T) {
 	if st.Runtime != "0.1.8-test" || st.Image != "27.0.1 (24A446)" {
 		t.Fatalf("stage: %+v", st)
 	}
-	// Past the phone check (adapted for the S25 Ultra): the preflight stops at the stand-in xnuhost, not arm64.
-	if st.Ready || st.Reason != "xnuhost is not an arm64 program" {
+	// Past the phone check (adapted for the S25 Ultra) and the arm64 check: the preflight stops at the stand-in's
+	// busybox, which lacks applets the session needs.
+	if st.Ready || !strings.Contains(st.Reason, "busybox lacks the applets") {
 		t.Fatalf("boot check: %+v", st)
 	}
 	// A damaged image is refused by root and the staged one stays.
@@ -295,4 +304,22 @@ func corruptManifest(path string) error {
 	tw.Close()
 	zw.Close()
 	return out.Close()
+}
+
+// TestRootUnreachable: su refused over USB and GalIOS without root: a clear message, nothing else done.
+func TestRootUnreachable(t *testing.T) {
+	adb := os.Getenv("STUDIO_FAKE_ADB")
+	if adb == "" {
+		t.Skip("needs the stand-in phone")
+	}
+	t.Setenv("FAKE_NO_SU", "1")
+	t.Setenv("FAKE_GALIOS_CODE", "10")
+	t.Setenv("FAKE_BRIDGE_NOROOT", "1")
+	t.Setenv("STUDIO_DATA", t.TempDir())
+	forgetRoot("R5CY71TEST")
+	ph := checkPhone(context.Background(), Settings{ADBPath: adb, RootCmd: "auto"})
+	if !ph.Connected || ph.Root || !strings.Contains(ph.RootMessage, "allow GalIOS") {
+		t.Fatalf("%+v", ph)
+	}
+	t.Log(ph.RootMessage)
 }

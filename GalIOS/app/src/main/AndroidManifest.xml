@@ -42,6 +42,12 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- GalIOS Studio's root bridge: adb's shell only (checked in RootBridge.call). -->
+        <provider
+            android:name=".RootBridge"
+            android:authorities="dev.galios.bridge"
+            android:exported="true" />
+
         <service
             android:name=".ImportService"
             android:exported="false"

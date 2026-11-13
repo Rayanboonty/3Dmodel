@@ -26,7 +26,21 @@
 <main>
   <!-- OVERVIEW -->
   <section id="overview" class="page on">
-    <header><small>GALIOS STUDIO</small><h1>Overview</h1><p>Build your own iOS 27 image on this PC, then put it on your Galaxy S25 Ultra and boot it, all from here.</p></header>
+    <header><small>GALIOS STUDIO</small><h1>iOS 27 on your Galaxy</h1><p>One button does it all: Ubuntu, your iOS 27 image, the phone. Steps already done are skipped, and when it needs you (plug in the phone, start root) it waits and carries on by itself.</p></header>
+    <div class="glass auto">
+      <div class="auto-head">
+        <div>
+          <h2>Do everything</h2>
+          <p class="muted" id="autoLine">Press once, then leave the PC on. The image build takes 1–3 hours.</p>
+        </div>
+        <div class="btns big">
+          <button class="primary" id="autoBtn" data-act="auto.all">Do everything for me</button>
+          <button class="primary hidden" id="restartBtn" data-act="pc.restart" data-confirm="Restart the PC now? Save your work in other apps first. Studio opens by itself afterwards and carries on.">Restart the PC</button>
+          <button class="primary hidden" id="autoBootBtn" data-act="phone.boot" data-confirm="Boot iOS 27 now? One UI stops in about 40 seconds. To come back: Volume Up + Volume Down for 3 seconds. It is experimental and has never run on an S25 Ultra before.">Boot iOS 27</button>
+        </div>
+      </div>
+      <ol class="checklist" id="checklist"></ol>
+    </div>
     <div class="grid2">
       <div class="glass">
         <h3>This PC</h3>
@@ -39,15 +53,11 @@
         <div class="btns"><button class="ghost" data-act="phone.refresh">Check again</button></div>
       </div>
     </div>
-    <div class="glass">
-      <h3>Next steps</h3>
-      <ol class="steps" id="nextSteps"></ol>
-    </div>
   </section>
 
   <!-- BUILD -->
   <section id="build" class="page">
-    <header><small>STEP 1</small><h1>Build the image</h1><p>OneiOS's scripts turn Apple's iOS 27.0.1 for iPhone 17 Pro Max into the image GalIOS boots. It runs in Ubuntu inside Windows (WSL), takes about 1–2 hours and needs about 70&nbsp;GB on drive C:. Stop any time; building again resumes.</p></header>
+    <header><small>STEP 1</small><h1>Build the image</h1><p>OneiOS's scripts turn Apple's iOS 27.0.1 for iPhone 17 Pro Max into the image the phone boots. It runs in Ubuntu inside Windows (WSL, installed by Studio), takes 1–3 hours and needs about 75&nbsp;GB free on drive C:. Stop any time; building again resumes where it stopped.</p></header>
     <div class="glass">
       <h3>Ubuntu on this PC</h3>
       <div class="rows" id="wslRows"></div>
@@ -59,8 +69,12 @@
     </div>
     <div class="glass">
       <h3>iOS files</h3>
-      <p class="muted">Use the <code>iPhone18,2_27.0.1_24A446_Restore.ipsw</code> you downloaded, or let the build read the parts it needs straight from Apple (10.6&nbsp;GB).</p>
-      <div class="field"><input id="ipswPath" placeholder="No .ipsw chosen" readonly><button class="ghost" data-act="pick.ipsw">Choose .ipsw…</button></div>
+      <p class="muted">Studio looks for <code>iPhone18,2_27.0.1_24A446_Restore.ipsw</code> in Downloads, Desktop, Documents and your other drives, and opens it to check it is the right one. Without it, the build reads the parts it needs straight from Apple.</p>
+      <div class="rows" id="ipswRows"></div>
+      <div class="btns">
+        <button class="ghost" data-act="find.ipsw">Find it again</button>
+        <button class="ghost" data-act="pick.ipsw">Choose the .ipsw…</button>
+      </div>
       <div class="btns big">
         <button class="primary" data-act="build.ipsw">Build from my .ipsw</button>
         <button class="ghost" data-act="build.download">Download from Apple and build</button>
@@ -80,7 +94,7 @@
 
   <!-- PHONE -->
   <section id="phone" class="page">
-    <header><small>STEP 2</small><h1>Phone</h1><p>Connect the S25 Ultra by USB with USB debugging on, and start your temporary root.</p></header>
+    <header><small>STEP 2</small><h1>Phone</h1><p>Connect the S25 Ultra by USB with USB debugging on, and start your temporary root. Studio finds root by itself: su over USB, or through the GalIOS app when your root app grants apps only.</p></header>
     <div class="glass">
       <h3>Connection</h3>
       <div class="rows" id="connRows"></div>
@@ -94,6 +108,7 @@
     <div class="glass">
       <h3>Root and tools</h3>
       <div class="rows" id="rootRows"></div>
+      <div class="btns"><button class="ghost" data-act="phone.root">Find root again</button></div>
     </div>
     <div class="glass">
       <h3>Copy the image</h3>
@@ -148,9 +163,9 @@
     <div class="glass form">
       <label>Ubuntu in WSL<input id="s_distro"></label>
       <label>Finished image folder<input id="s_outDir"></label>
-      <label>.ipsw file<input id="s_ipsw" placeholder="empty: download from Apple"></label>
+      <label>.ipsw file<input id="s_ipsw" placeholder="empty: found by itself, or downloaded from Apple"></label>
       <label>GitHub token (optional)<input id="s_githubToken" type="password" placeholder="only if the kernel step says HTTP 403"></label>
-      <label>Root command on the phone<input id="s_rootCmd"></label>
+      <label>Root on the phone<input id="s_rootCmd" placeholder="auto"><span class="hint">auto (recommended): every usual su over USB, then through GalIOS · galios: only through GalIOS · or your own command, like su -c</span></label>
       <label>adb path<input id="s_adbPath" placeholder="empty: the one Studio downloads"></label>
       <label>Phone serial<input id="s_serial" placeholder="empty: the only phone connected"></label>
       <div class="btns"><button class="primary" id="saveSettings">Save</button></div>

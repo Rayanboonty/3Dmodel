@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -31,19 +32,20 @@ func wslExe() string {
 }
 
 type PCStatus struct {
-	OS           string   `json:"os"`
-	WSL          bool     `json:"wsl"`
-	WSLMessage   string   `json:"wslMessage"`
-	Distros      []string `json:"distros"`
-	DistroReady  bool     `json:"distroReady"`
-	FreeGB       int      `json:"freeGB"`
-	MemGB        int      `json:"memGB"`
-	CPUs         int      `json:"cpus"`
-	BuildState   string   `json:"buildState"` // none, setup, partial, built
-	DoneSteps    []string `json:"doneSteps"`
-	ImageOnPC    string   `json:"imageOnPC"`
-	ImageBytes   int64    `json:"imageBytes"`
-	CheckedAt    int64    `json:"checkedAt"`
+	OS          string   `json:"os"`
+	WSL         bool     `json:"wsl"`
+	WSLMessage  string   `json:"wslMessage"`
+	Distros     []string `json:"distros"`
+	DistroReady bool     `json:"distroReady"`
+	FreeGB      int      `json:"freeGB"`
+	MemGB       int      `json:"memGB"`
+	WSLMemGB    int      `json:"wslMemGB"`
+	CPUs        int      `json:"cpus"`
+	BuildState  string   `json:"buildState"` // none, setup, partial, built
+	DoneSteps   []string `json:"doneSteps"`
+	ImageOnPC   string   `json:"imageOnPC"`
+	ImageBytes  int64    `json:"imageBytes"`
+	CheckedAt   int64    `json:"checkedAt"`
 }
 
 func wslList(ctx context.Context) ([]string, error) {
@@ -67,6 +69,16 @@ func inWSL(ctx context.Context, distro, script string) ([]string, int, error) {
 
 func checkPC(ctx context.Context, s Settings) PCStatus {
 	st := PCStatus{OS: runtime.GOOS + "/" + runtime.GOARCH, CheckedAt: time.Now().Unix(), BuildState: "none"}
+	// Ubuntu's disk grows on the Windows drive, so that drive's free space is what counts (not Ubuntu's df).
+	st.FreeGB = int(wslDiskFree() >> 30)
+	st.MemGB = hostMemGB()
+	imageFile, imageSize := "", int64(0)
+	if fi, err := os.Stat(joinOut(s.OutDir, imageName)); err == nil && !fi.IsDir() {
+		imageFile, imageSize = joinOut(s.OutDir, imageName), fi.Size()
+		if imageSize > 1<<30 { // a finished image is about 11 GB; a smaller file is a copy cut short
+			st.ImageOnPC, st.ImageBytes, st.BuildState = imageFile, imageSize, "built"
+		}
+	}
 	ds, err := wslList(ctx)
 	if err != nil {
 		st.WSLMessage = "WSL is not installed (or not turned on). Use Install Ubuntu."
@@ -82,8 +94,7 @@ func checkPC(ctx context.Context, s Settings) PCStatus {
 		st.WSLMessage = fmt.Sprintf("%s is not installed in WSL. Use Install Ubuntu.", s.Distro)
 		return st
 	}
-	lines, _, _ := inWSL(ctx, s.Distro, `df -Pk /root | awk 'NR==2{print "free " int($4/1048576)}'
-awk '/MemTotal/{print "mem " int($2/1048576+0.5)}' /proc/meminfo
+	lines, _, _ := inWSL(ctx, s.Distro, `awk '/MemTotal/{print "mem " int($2/1048576+0.5)}' /proc/meminfo
 echo "cpus $(nproc)"
 for f in packages references kernel-sources fetch kernel-inputs kernel prelink image; do [ -f `+wslWork+`/.done-$f ] && echo "done $f"; done
 [ -d `+wslWork+`/OneiOS/.git ] && echo "setup yes"`)
@@ -93,10 +104,10 @@ for f in packages references kernel-sources fetch kernel-inputs kernel prelink i
 			continue
 		}
 		switch f[0] {
-		case "free":
-			st.FreeGB, _ = strconv.Atoi(f[1])
 		case "mem":
-			st.MemGB, _ = strconv.Atoi(f[1])
+			if n, _ := strconv.Atoi(f[1]); runtime.GOOS != "windows" || n > 0 {
+				st.WSLMemGB = n
+			}
 		case "cpus":
 			st.CPUs, _ = strconv.Atoi(f[1])
 		case "done":
@@ -106,15 +117,15 @@ for f in packages references kernel-sources fetch kernel-inputs kernel prelink i
 		}
 	}
 	for _, d := range st.DoneSteps {
-		if d == "fetch" || d == "kernel" {
+		if d == "image" && imageFile != "" { // the build says it finished and copied it
+			st.ImageOnPC, st.ImageBytes, st.BuildState = imageFile, imageSize, "built"
+		}
+		if st.BuildState == "built" {
+			break
+		}
+		if d == "fetch" || d == "kernel" || d == "kernel-inputs" || d == "prelink" {
 			st.BuildState = "partial"
 		}
-		if d == "image" {
-			st.BuildState = "built"
-		}
-	}
-	if fi, err := os.Stat(joinOut(s.OutDir, imageName)); err == nil {
-		st.ImageOnPC, st.ImageBytes = joinOut(s.OutDir, imageName), fi.Size()
 	}
 	return st
 }
@@ -136,18 +147,74 @@ func toWSLPath(p string) string {
 	return p
 }
 
-// installWSL asks Windows (with an administrator prompt) to install WSL and the Ubuntu the build uses.
-func installWSL(ctx context.Context, j *JobCtx, s Settings) (string, error) {
+// ensureWSL makes sure WSL and the build's Ubuntu are installed and working, installing them when needed. Ubuntu is
+// registered with root as its user, so there is no username or password to choose. It reports when Windows must
+// restart first (the first WSL install turns on a Windows feature).
+func ensureWSL(ctx context.Context, j *JobCtx, s Settings) (restart bool, err error) {
+	ready := func() bool {
+		ds, err := wslList(ctx)
+		if err != nil {
+			return false
+		}
+		for _, d := range ds {
+			if strings.EqualFold(d, s.Distro) {
+				l, code, _ := inWSL(ctx, s.Distro, "echo galios-ok")
+				return code == 0 && strings.Contains(strings.Join(l, " "), "galios-ok")
+			}
+		}
+		return false
+	}
+	if ready() {
+		return false, nil
+	}
 	if runtime.GOOS != "windows" {
-		return "", fmt.Errorf("installing WSL is for Windows")
+		return false, fmt.Errorf("WSL is for Windows")
 	}
-	j.Step("Asking Windows to install WSL and " + s.Distro + " (an administrator prompt appears)")
-	ps := fmt.Sprintf(`Start-Process wsl.exe -ArgumentList '--install','-d','%s' -Verb RunAs -Wait`, s.Distro)
-	code, err := stream(ctx, nil, j.Line, "powershell.exe", "-NoProfile", "-Command", ps)
-	if err != nil && code != 0 {
-		return "", fmt.Errorf("the installer did not run (%v)", err)
+	j.Step("Installing WSL and " + s.Distro + " (Windows asks for permission once)")
+	j.Log("Windows downloads Ubuntu (about 500 MB). This window may look still for a few minutes.")
+	ps := fmt.Sprintf(`$p = Start-Process wsl.exe -ArgumentList '--install','-d','%s','--no-launch','--web-download' -Verb RunAs -Wait -PassThru -WindowStyle Hidden; exit $p.ExitCode`, s.Distro)
+	code, err := stream(ctx, nil, j.Line, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps)
+	if err != nil && code != 0 && code != 1 {
+		if strings.Contains(err.Error(), "canceled") || code == -1 {
+			return false, fmt.Errorf("Windows' permission prompt was declined: press Do everything again and choose Yes")
+		}
 	}
-	return "Windows is installing Ubuntu. If it asks, restart the PC; then open Ubuntu once from the Start menu to choose a username and password, and come back here.", nil
+	j.Log("wsl --install finished (exit %d)", code)
+	// An Ubuntu from the Store is registered by its own launcher; --root makes root its user (no questions).
+	if !ready() {
+		launcher := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(s.Distro, "-", ""), ".", "")) + ".exe" // ubuntu2404.exe
+		j.Log("registering %s", s.Distro)
+		cctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+		stream(cctx, nil, j.Line, launcher, "install", "--root")
+		cancel()
+	}
+	if ready() {
+		return false, nil
+	}
+	// WSL itself was just turned on: Windows must restart before Ubuntu can run.
+	return true, nil
+}
+
+// ensureWSLConfig gives Ubuntu enough memory for the kernel build (only when the user has no .wslconfig yet).
+func ensureWSLConfig(ctx context.Context, j *JobCtx) {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	home, _ := os.UserHomeDir()
+	p := filepath.Join(home, ".wslconfig")
+	if fileExists(p) {
+		return
+	}
+	ram := hostMemGB()
+	mem := ram * 3 / 4
+	if mem < 4 {
+		mem = 4
+	}
+	text := fmt.Sprintf("# Written by GalIOS Studio for the iOS image build: more memory and swap for Ubuntu.\r\n[wsl2]\r\nmemory=%dGB\r\nswap=16GB\r\n", mem)
+	if os.WriteFile(p, []byte(text), 0o644) == nil {
+		j.Log("gave Ubuntu %d GB of memory and 16 GB of swap (%s)", mem, p)
+		runLines(ctx, nil, wslExe(), "--shutdown")
+	}
 }
 
 func openTerminal(s Settings) error {
@@ -171,6 +238,7 @@ func putBuildScript(ctx context.Context, s Settings, script []byte) error {
 // buildImage runs the build in WSL: mode is "setup" (tools only), "ipsw" (from s.IPSW) or "download" (from Apple).
 func buildImage(ctx context.Context, j *JobCtx, s Settings, mode string, script []byte) (string, error) {
 	j.Step("Preparing " + s.Distro)
+	stopBuild(ctx, s) // a build left running by an earlier Studio window: this one resumes it instead
 	if err := putBuildScript(ctx, s, script); err != nil {
 		return "", err
 	}

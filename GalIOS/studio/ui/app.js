@@ -70,14 +70,17 @@ function render() {
   const wsl = [
     row(pc.wsl ? 'ok' : 'bad', 'WSL', pc.wsl ? 'installed' : pc.wslMessage || 'not checked yet'),
     row(pc.distroReady ? 'ok' : 'wait', set.distro, pc.distroReady ? 'ready' : 'not installed'),
-    row(pc.freeGB >= 60 ? 'ok' : pc.freeGB ? 'wait' : 'off', 'Free space', pc.freeGB ? pc.freeGB + ' GB (about 70 needed)' : '—'),
-    row(pc.memGB >= 8 ? 'ok' : pc.memGB ? 'wait' : 'off', 'Memory for Ubuntu', pc.memGB ? pc.memGB + ' GB · ' + pc.cpus + ' cores' : '—'),
+    row(pc.freeGB >= 75 || built ? 'ok' : pc.freeGB ? 'wait' : 'off', 'Free on the Windows drive', pc.freeGB ? pc.freeGB + ' GB (the build needs about 75)' : '—'),
+    row(pc.memGB >= 8 ? 'ok' : pc.memGB ? 'wait' : 'off', 'Memory', pc.memGB ? pc.memGB + ' GB · ' + pc.cpus + ' cores' : '—'),
   ];
   $('#pcRows').innerHTML = wsl.join('') + row(built ? 'ok' : pc.buildState === 'none' ? 'off' : 'wait', 'iOS 27 image',
     built ? 'built · ' + gb(pc.imageBytes) : { none: 'not started', setup: 'tools ready', partial: 'partly built (resume)', built: 'built in Ubuntu' }[pc.buildState] || '—');
   $('#wslRows').innerHTML = wsl.join('') + row((pc.doneSteps || []).length ? 'ok' : 'off', 'Finished steps', (pc.doneSteps || []).join(', ') || 'none yet');
   $('#imageRows').innerHTML = row(built ? 'ok' : 'off', 'Image', built ? pc.imageOnPC + ' · ' + gb(pc.imageBytes) : 'not built yet') + row('ok', 'Folder', set.outDir);
-  $('#ipswPath').value = set.ipsw || '';
+  const ipsw = set.ipsw || s.ipswFound;
+  $('#ipswRows').innerHTML = ipsw
+    ? row('ok', 'Firmware file', ipsw + ' · checked')
+    : row('wait', 'Firmware file', 'not found on this PC: the build downloads what it needs from Apple');
 
   const conn = ph.connected
     ? [row(ph.supported ? 'ok' : 'bad', 'Phone', `${ph.label} · ${ph.model} · Android ${ph.android}`), row('ok', 'Serial', ph.serial)]
@@ -85,15 +88,16 @@ function render() {
   conn.push(row(ph.galios ? 'ok' : 'off', 'GalIOS', ph.galios || 'not installed'));
   conn.push(row(ph.oneos ? 'ok' : 'bad', 'OneOS (boot engine)', ph.oneos || 'not installed: install its iOS 27 edition'));
   $('#connRows').innerHTML = conn.join('');
+  const rootText = ph.root ? 'on · ' + (ph.rootVia || 'su') : ph.connected ? 'on (always) · ' + (ph.rootMessage ? 'waiting: ' + ph.rootMessage : 'checking…') : 'on (always) · connect the phone';
   const root = [
-    row(ph.root ? 'ok' : 'bad', 'Root', ph.root ? 'active' : 'not active: start temporary root'),
+    row(ph.root ? 'ok' : 'wait', 'Root', rootText),
     row(ph.busybox ? 'ok' : 'wait', 'busybox', ph.busybox || 'missing (the boot needs it)'),
     row(ph.resetprop ? 'ok' : 'wait', 'resetprop', ph.resetprop || 'missing (the way back needs it)'),
     row(ph.volKeys ? 'ok' : 'wait', 'Volume keys', ph.volKeys ? 'found: the way back works' : '—'),
     row(ph.freeGB >= 25 ? 'ok' : ph.freeGB ? 'wait' : 'off', 'Free on the phone', ph.freeGB ? ph.freeGB + ' GB' : '—'),
   ];
   $('#rootRows').innerHTML = root.join('');
-  $('#phoneRows').innerHTML = conn.slice(0, 1).join('') + root.slice(0, 1).join('') +
+  $('#phoneRows').innerHTML = conn.slice(0, 1).join('') + row(ph.root ? 'ok' : 'wait', 'Root', ph.root ? 'on · ' + (ph.rootVia || 'su') : 'on (always)') +
     row(st.runtime ? 'ok' : 'off', 'Runtime on phone', st.runtime || 'none') + row(st.image ? 'ok' : 'off', 'Image on phone', st.image || 'none');
   $('#stageRows').innerHTML = [
     row(st.present ? 'ok' : 'off', 'Boot engine', st.present ? 'installed' : 'not installed'),
@@ -106,23 +110,35 @@ function render() {
   pill.classList.toggle('ok', !!st.ready);
   $('#bootLine').textContent = ph.connected ? `${ph.label} · ${st.image ? 'iOS ' + st.image : 'no image yet'}` : 'Connect the phone';
 
-  // next steps
-  const steps = [
-    [pc.wsl && pc.distroReady, 'Install Ubuntu (Build image → Install Ubuntu)'],
-    [built, 'Build the iOS 27 image (Build image)'],
-    [ph.connected, 'Connect the phone with USB debugging on (Phone)'],
-    [ph.root, 'Start temporary root on the phone'],
-    [!!ph.oneos, 'Install OneOS, iOS 27 edition, on the phone (the boot engine)'],
-    [st.present, 'Install the boot engine (Boot → 1)'],
-    [!!st.runtime, 'Add the OneiOS runtime (Boot → 2)'],
-    [!!st.image, 'Add the image (Boot → 3, or copy it and Import in GalIOS)'],
-    [st.ready, 'Boot check passes, then Boot iOS 27'],
+  // Do everything: the checklist
+  const j = s.job || {};
+  const autoRunning = j.running && j.name === 'auto.all';
+  const items = [
+    ['Ubuntu (WSL)', pc.wsl && pc.distroReady || built, 'installed by Studio'],
+    ['Firmware', built || !!ipsw, ipsw ? 'your .ipsw' : 'from Apple during the build'],
+    ['iOS 27 image', built, built ? gb(pc.imageBytes) : pc.buildState === 'partial' ? 'partly built' : '1–3 hours'],
+    ['Phone connected', !!ph.connected, ph.connected ? ph.label : 'USB, debugging on'],
+    ['Root', !!ph.root, ph.root ? ph.rootVia : 'start your temporary root'],
+    ['OneOS (boot engine app)', !!ph.oneos, ph.oneos || 'install its iOS 27 edition'],
+    ['Boot engine', !!st.present, 'from OneOS, S25 check adapted'],
+    ['OneiOS runtime', !!st.runtime, st.runtime || 'from GitHub'],
+    ['Image on the phone', !!st.image, st.image || 'copied from this PC'],
+    ['Boot check', !!st.ready, st.ready ? 'passed' : st.reason || '—'],
   ];
-  let now = false;
-  $('#nextSteps').innerHTML = steps.map(([done, text]) => {
-    const cls = done ? 'done' : now ? '' : ((now = true), 'now');
-    return `<li class="${cls}">${done ? '✓ ' : ''}${esc(text)}</li>`;
+  let cur = false;
+  $('#checklist').innerHTML = items.map(([t, done, sub]) => {
+    let cls = done ? 'done' : '';
+    if (!done && !cur) { cur = true; cls = autoRunning ? 'now' : 'wait'; }
+    return `<li class="${cls}"><i>${done ? '✓' : ''}</i><span>${esc(t)}<small>${esc(sub)}</small></span></li>`;
   }).join('');
+  $('#restartBtn').classList.toggle('hidden', !s.restartNeeded);
+  $('#autoBootBtn').classList.toggle('hidden', !st.ready || autoRunning);
+  $('#autoBtn').classList.toggle('hidden', !!s.restartNeeded);
+  $('#autoBtn').textContent = st.ready ? 'Check everything again' : built ? 'Carry on' : 'Do everything for me';
+  $('#autoLine').textContent = autoRunning ? (j.step || 'Working…')
+    : st.ready ? 'Everything is ready on the phone. Boot whenever you like.'
+    : s.restartNeeded ? 'Windows has to restart to finish installing WSL. Studio opens by itself afterwards and carries on.'
+    : 'Press once, then leave the PC on. The image build takes 1–3 hours; the rest happens by itself.';
 
   renderJob(s.job);
   if (!$('#settings').classList.contains('on')) fillSettings(set);
@@ -140,7 +156,7 @@ function renderJob(j) {
   $('#taskBar').style.width = known ? j.progress * 100 + '%' : j.running ? '' : j.error ? '0' : j.result ? '100%' : '0';
   $('#stopBtn').disabled = !j.running;
   $$('[data-act]').forEach((b) => {
-    if (!['job.stop', 'quit', 'open.outdir', 'open.data', 'pc.refresh', 'phone.refresh', 'wsl.terminal'].includes(b.dataset.act)) b.disabled = !!j.running;
+    if (!['job.stop', 'quit', 'open.outdir', 'open.data', 'pc.refresh', 'phone.refresh', 'wsl.terminal', 'pc.restart', 'find.ipsw'].includes(b.dataset.act)) b.disabled = !!j.running;
   });
 }
 
@@ -186,7 +202,10 @@ async function start() {
       if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; renderLog(false); }); }
     } else if (ev.type === 'job') {
       renderJob(ev.job);
-      if (!ev.job.running) setTimeout(refresh, 800);
+      if (!ev.job.running) {
+        setTimeout(refresh, 800);
+        if (ev.job.name === 'auto.all' && ev.job.result && ev.job.result.startsWith('Everything is ready')) toast(ev.job.result);
+      }
     }
   };
   refresh();

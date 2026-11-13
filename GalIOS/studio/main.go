@@ -1,7 +1,7 @@
 // GalIOS Studio: the Windows side of GalIOS. It builds your own iOS 27 image set in WSL (Ubuntu inside Windows)
 // with OneiOS's scripts, and drives the phone over USB: it puts the runtime and the image in place with the OneOS
-// boot engine already on the phone, boots iOS, brings One UI back and collects the logs. Its window is a page in
-// your browser, served only to this PC (127.0.0.1).
+// boot engine already on the phone, boots iOS, brings One UI back and collects the logs. Its window is a Windows
+// window with WebView2 inside, showing pages served only to this PC (127.0.0.1).
 package main
 
 import (
@@ -29,16 +29,18 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.0"
+const version = "1.1"
 
 type App struct {
-	hub     *Hub
-	store   *Store
-	mu      sync.Mutex
-	pc      PCStatus
-	phone   PhoneStatus
-	engine  *Engine
-	lastPing atomic.Int64
+	hub           *Hub
+	store         *Store
+	mu            sync.Mutex
+	pc            PCStatus
+	phone         PhoneStatus
+	engine        *Engine
+	lastPing      atomic.Int64
+	restartNeeded atomic.Bool
+	windowed      bool
 }
 
 func main() {
@@ -53,27 +55,62 @@ func main() {
 	mux.HandleFunc("/api/settings", app.handleSettings)
 	mux.HandleFunc("/api/events", app.handleEvents)
 	mux.HandleFunc("/api/log", app.handleLog)
-	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) { app.lastPing.Store(time.Now().Unix()); w.WriteHeader(204) })
+	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
+		app.lastPing.Store(time.Now().Unix())
+		w.WriteHeader(204)
+	})
 	mux.HandleFunc("/api/quit", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 		go func() { time.Sleep(300 * time.Millisecond); os.Exit(0) }()
 	})
 
+	mux.HandleFunc("/api/focus", func(w http.ResponseWriter, r *http.Request) { focusWindow(); w.WriteHeader(204) })
+
 	addr := "127.0.0.1:" + envOr("STUDIO_PORT", "47827")
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		// Already running: open its page instead of starting a second one.
+		// Already running: bring its window to the front instead of starting a second one.
+		if resp, err := http.Post("http://"+addr+"/api/focus", "text/plain", nil); err == nil {
+			resp.Body.Close()
+			return
+		}
 		openBrowser("http://" + addr + "/")
 		return
 	}
 	url := "http://" + ln.Addr().String() + "/"
 	log.Printf("GalIOS Studio %s at %s", version, url)
+	go func() { app.refreshPC(); app.refreshPhone() }()
+	resume := false
+	for _, a := range os.Args[1:] {
+		if a == "--resume" {
+			resume = true
+		}
+	}
+	if resume {
+		// Back after the restart WSL asked for: carry on with Do everything.
+		setAutoResume(false)
+		go func() {
+			time.Sleep(4 * time.Second)
+			app.startAuto()
+		}()
+	}
+	go func() { log.Fatal(http.Serve(ln, withHeaders(mux))) }()
 	if os.Getenv("STUDIO_NO_BROWSER") == "" {
+		app.windowed = true
+		if runWindow(url) {
+			// The window was closed: Studio ends with it. A build in Ubuntu is stopped cleanly; Do everything
+			// resumes it from the step it reached.
+			if j := app.hub.Job(); j.Running {
+				app.hub.Stop()
+				stopBuild(context.Background(), app.store.Get())
+			}
+			return
+		}
+		app.windowed = false
 		openBrowser(url)
 	}
-	go app.idleExit()
-	go func() { app.refreshPC(); app.refreshPhone() }()
-	log.Fatal(http.Serve(ln, withHeaders(mux)))
+	app.idleExit()
+	select {}
 }
 
 func envOr(k, d string) string {
@@ -98,7 +135,7 @@ func withHeaders(h http.Handler) http.Handler {
 // idleExit ends Studio a while after its page was closed, unless a task is still running.
 func (a *App) idleExit() {
 	if os.Getenv("STUDIO_NO_IDLE_EXIT") != "" {
-		return
+		select {}
 	}
 	for range time.Tick(20 * time.Second) {
 		if time.Now().Unix()-a.lastPing.Load() > 120 && !a.hub.Job().Running {
@@ -149,7 +186,8 @@ func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
 	defer a.mu.Unlock()
 	writeJSON(w, map[string]any{
 		"version": version, "settings": a.store.Get(), "pc": a.pc, "phone": a.phone, "job": a.hub.Job(),
-		"windows": runtime.GOOS == "windows", "dataDir": dataDir(),
+		"windows": runtime.GOOS == "windows", "dataDir": dataDir(), "restartNeeded": a.restartNeeded.Load(),
+		"ipswFound": ipswFoundCached(), "imageName": imageName, "ipswName": ipswName,
 	})
 }
 
@@ -239,23 +277,63 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 	script, _ := assetFS.ReadFile("assets/build-ios-image-wsl.sh")
 
 	switch req.Name {
+	// ---- everything
+	case "auto.all":
+		reply(a.startAuto())
+
 	// ---- this PC
 	case "pc.refresh":
 		go a.refreshPC()
 		reply("checking", nil)
+	case "pc.restart":
+		reply("Restarting in 5 seconds…", restartPC())
 	case "wsl.install":
-		start("Install WSL and "+s.Distro, func(ctx context.Context, j *JobCtx) (string, error) { return installWSL(ctx, j, s) })
+		start("Install WSL and "+s.Distro, func(ctx context.Context, j *JobCtx) (string, error) {
+			restart, err := ensureWSL(ctx, j, s)
+			if err != nil {
+				return "", err
+			}
+			if restart {
+				setAutoResume(true)
+				a.restartNeeded.Store(true)
+				return "Windows needs to restart to finish installing WSL: press Restart the PC.", nil
+			}
+			ensureWSLConfig(ctx, j)
+			return s.Distro + " is installed and ready.", nil
+		})
 	case "wsl.terminal":
 		reply("opened", openTerminal(s))
 	case "pick.ipsw":
-		p, err := pickFile("Apple restore file (*.ipsw)|*.ipsw|All files (*.*)|*.*")
+		start := filepath.Dir(s.IPSW)
+		if s.IPSW == "" {
+			home, _ := os.UserHomeDir()
+			start = filepath.Join(home, "Downloads")
+		}
+		p, err := pickPath("Choose "+ipswName, false, "iPhone restore file (*.ipsw)", "*.ipsw", start)
 		if err == nil && p != "" {
+			if cerr := checkIPSW(p); cerr != nil {
+				reply("", cerr)
+				return
+			}
 			s.IPSW = p
 			err = a.store.Set(s)
 		}
 		reply(p, err)
+	case "find.ipsw":
+		p, notes := bestIPSW(s)
+		ipswCache.Store(p)
+		if p == "" {
+			msg := "No " + ipswName + " on this PC: Do everything downloads what it needs from Apple instead."
+			if len(notes) > 0 {
+				msg = notes[0]
+			}
+			reply("", fmt.Errorf("%s", msg))
+			return
+		}
+		s.IPSW = p
+		reply("Found and checked: "+p, a.store.Set(s))
 	case "pick.outdir":
-		p, err := pickFolder()
+		p, err := pickPath("Where should the finished image go?", true, "", "", s.OutDir)
 		if err == nil && p != "" {
 			s.OutDir = p
 			err = a.store.Set(s)
@@ -269,11 +347,47 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 
 	// ---- the image build in WSL
 	case "build.setup":
-		start("Set up the build tools", func(ctx context.Context, j *JobCtx) (string, error) { return buildImage(ctx, j, s, "setup", script) })
+		start("Set up the build tools", func(ctx context.Context, j *JobCtx) (string, error) {
+			if restart, err := ensureWSL(ctx, j, s); err != nil || restart {
+				if restart {
+					a.restartNeeded.Store(true)
+					return "Windows needs to restart first: press Restart the PC.", nil
+				}
+				return "", err
+			}
+			return buildImage(ctx, j, s, "setup", script)
+		})
 	case "build.ipsw":
-		start("Build the iOS 27 image from your .ipsw", func(ctx context.Context, j *JobCtx) (string, error) { return buildImage(ctx, j, s, "ipsw", script) })
+		start("Build the iOS 27 image from your .ipsw", func(ctx context.Context, j *JobCtx) (string, error) {
+			p, notes := bestIPSW(s)
+			if p == "" {
+				if len(notes) > 0 {
+					return "", fmt.Errorf("%s", notes[0])
+				}
+				return "", fmt.Errorf("no %s found: choose it, or use Download from Apple", ipswName)
+			}
+			s.IPSW = p
+			a.store.Set(s)
+			if restart, err := ensureWSL(ctx, j, s); err != nil || restart {
+				if restart {
+					a.restartNeeded.Store(true)
+					return "Windows needs to restart first: press Restart the PC.", nil
+				}
+				return "", err
+			}
+			ensureWSLConfig(ctx, j)
+			return buildImage(ctx, j, s, "ipsw", script)
+		})
 	case "build.download":
 		start("Build the iOS 27 image (download from Apple)", func(ctx context.Context, j *JobCtx) (string, error) {
+			if restart, err := ensureWSL(ctx, j, s); err != nil || restart {
+				if restart {
+					a.restartNeeded.Store(true)
+					return "Windows needs to restart first: press Restart the PC.", nil
+				}
+				return "", err
+			}
+			ensureWSLConfig(ctx, j)
 			return buildImage(ctx, j, s, "download", script)
 		})
 	case "build.verify":
@@ -289,22 +403,31 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 	case "adb.get":
 		start("Get adb", getADB)
 	case "phone.refresh":
+		rootMu.Lock()
+		rootCache = map[string]Root{}
+		rootMu.Unlock()
 		go a.refreshPhone()
 		reply("checking", nil)
-	case "phone.install-galios":
-		phone("Install GalIOS on the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			apk, _ := assetFS.ReadFile("assets/GalIOS.apk")
-			tmp := filepath.Join(dataDir(), "GalIOS.apk")
-			os.MkdirAll(dataDir(), 0o755)
-			if err := os.WriteFile(tmp, apk, 0o644); err != nil {
+	case "phone.root":
+		phone("Find root on the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
+			forgetRoot(serial)
+			j.Step("Trying each way to root (a Grant prompt may appear on the phone)")
+			r, err := detectRoot(ctx, s, serial, j)
+			if err != nil {
 				return "", err
 			}
-			j.Step("Installing GalIOS (" + human(int64(len(apk))) + ")")
-			code, err := stream(ctx, nil, j.Line, adbExe(s), adbArgs(serial, "install", "-r", tmp)...)
-			if err != nil || code != 0 {
-				return "", fmt.Errorf("adb install failed (exit %d): if GalIOS was installed from elsewhere, uninstall it first", code)
+			rootMu.Lock()
+			rootCache[serial] = r
+			rootMu.Unlock()
+			return "Root works: " + r.Detail + ".", nil
+		})
+	case "phone.install-galios":
+		phone("Install GalIOS on the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
+			j.Step("Installing GalIOS " + bundledGalIOSVersion)
+			if err := installGalIOS(ctx, j, s, serial); err != nil {
+				return "", err
 			}
-			return "GalIOS is installed on the phone.", nil
+			return "GalIOS " + bundledGalIOSVersion + " is installed on the phone.", nil
 		})
 	case "phone.push-image":
 		phone("Copy the image to the phone's Download folder", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
@@ -320,33 +443,15 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 		})
 	case "phone.engine":
 		phone("Install the boot engine", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			e, err := pullEngine(ctx, j, s, serial)
-			if err != nil {
-				return "", err
-			}
-			a.mu.Lock()
-			a.engine = e
-			a.mu.Unlock()
-			return installEngine(ctx, j, s, serial, e)
+			return stepEngine(ctx, j, s, serial)
 		})
 	case "phone.runtime":
 		phone("Add the OneiOS runtime", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			p, err := latestRuntime(ctx, j)
-			if err != nil {
-				return "", err
-			}
-			return importArchive(ctx, j, s, serial, "runtime", p)
+			return stepRuntime(ctx, j, s, serial)
 		})
 	case "phone.import-image":
 		phone("Add the iOS 27 image to the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			local := req.Args["path"]
-			if local == "" {
-				local = joinOut(s.OutDir, imageName)
-			}
-			if !fileExists(local) {
-				return "", fmt.Errorf("no image at %s: build it first", local)
-			}
-			return importArchive(ctx, j, s, serial, "image", local)
+			return stepImage(ctx, j, s, serial, req.Args["path"])
 		})
 	case "phone.status":
 		phone("Boot check", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
@@ -359,33 +464,23 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 		})
 	case "phone.boot":
 		phone("Boot iOS 27", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			e, err := pullEngine(ctx, j, s, serial)
-			if err != nil {
-				return "", err
-			}
-			j.Step("Staging the session scripts again (S25 Ultra check adapted)")
-			if _, err := stageScripts(ctx, j, s, serial, e); err != nil {
-				return "", err
-			}
-			j.Step("Starting iOS: One UI stops in about 40 seconds")
-			r := verb(ctx, s, serial, nil, "switch", "1", "1")
-			if !r.OK {
-				return "", fmt.Errorf("%s", r.Message)
-			}
-			return "iOS is starting. To come back: Volume Up + Volume Down for 3 seconds, or Return to One UI here.", nil
+			return stepBoot(ctx, j, s, serial)
 		})
 	case "phone.return":
 		phone("Return to One UI", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			r := verb(ctx, s, serial, nil, "return")
+			r := verb(ctx, s, serial, "", "return")
 			if !r.OK {
 				return "", fmt.Errorf("%s", r.Message)
 			}
 			return "The return is on its way (about 45 seconds).", nil
 		})
 	case "phone.logs":
-		phone("Collect the session logs", func(ctx context.Context, j *JobCtx, serial string) (string, error) { return pullLogs(ctx, j, s, serial) })
+		phone("Collect the session logs", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
+			return pullLogs(ctx, j, s, serial)
+		})
 	case "phone.reboot":
 		phone("Restart the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
+			forgetRoot(serial)
 			_, _, err := runLines(ctx, nil, adbExe(s), adbArgs(serial, "reboot")...)
 			return "The phone is restarting into One UI. Start your temporary root again after it is up.", err
 		})
@@ -397,36 +492,38 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// startAuto starts Do everything as the running task.
+func (a *App) startAuto() (string, error) {
+	script, _ := assetFS.ReadFile("assets/build-ios-image-wsl.sh")
+	a.restartNeeded.Store(false)
+	err := a.hub.Start("auto.all", "Do everything", func(ctx context.Context, j *JobCtx) (string, error) {
+		defer func() { go a.refreshPC(); go a.refreshPhone() }()
+		return a.autoAll(ctx, j, script)
+	})
+	return "started", err
+}
+
+var ipswCache atomic.Value
+
+// ipswFoundCached is the checked .ipsw found on this PC (looked for in the background, at most once a minute).
+func ipswFoundCached() string {
+	v, _ := ipswCache.Load().(string)
+	return v
+}
+
+func init() {
+	go func() {
+		for {
+			p, _ := bestIPSW(LoadStore().Get())
+			ipswCache.Store(p)
+			time.Sleep(time.Minute)
+		}
+	}()
+}
+
 func orNone(s string) string {
 	if s == "" {
 		return "none"
 	}
 	return s
-}
-
-// pickFile shows Windows' file dialog (PowerShell, STA) and returns the chosen path, or "" when cancelled.
-func pickFile(filter string) (string, error) {
-	if p := os.Getenv("STUDIO_PICK"); p != "" {
-		return p, nil
-	}
-	if runtime.GOOS != "windows" {
-		return "", fmt.Errorf("type the path in Settings")
-	}
-	ps := `Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.OpenFileDialog; ` +
-		`$d.Filter = '` + filter + `'; $d.Title = 'GalIOS Studio'; if ($d.ShowDialog() -eq 'OK') { $d.FileName }`
-	out, err := exec.Command("powershell.exe", "-NoProfile", "-STA", "-Command", ps).Output()
-	return strings.TrimSpace(string(out)), err
-}
-
-func pickFolder() (string, error) {
-	if p := os.Getenv("STUDIO_PICK_DIR"); p != "" {
-		return p, nil
-	}
-	if runtime.GOOS != "windows" {
-		return "", fmt.Errorf("type the folder in Settings")
-	}
-	ps := `Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; ` +
-		`$d.Description = 'Where GalIOS Studio puts the finished image'; if ($d.ShowDialog() -eq 'OK') { $d.SelectedPath }`
-	out, err := exec.Command("powershell.exe", "-NoProfile", "-STA", "-Command", ps).Output()
-	return strings.TrimSpace(string(out)), err
 }

@@ -75,17 +75,35 @@ func parseReply(lines []string, code int) Reply {
 	return r
 }
 
-func verb(ctx context.Context, s Settings, serial string, stdin io.Reader, args ...string) Reply {
+// verb runs one of OneOS's root-script verbs. in, when given, is a file already on the phone that becomes the
+// verb's input (receive, script).
+func verb(ctx context.Context, s Settings, serial, in string, args ...string) Reply {
 	cmd := "sh " + shq(rootScript)
 	for _, a := range args {
 		cmd += " " + shq(a)
 	}
-	lines, code, _ := rootRun(ctx, s, serial, cmd, stdin)
+	if in != "" {
+		cmd += " < " + shq(in)
+	}
+	lines, code, err := rootRun(ctx, s, serial, cmd)
+	if err != nil && len(lines) == 0 {
+		return Reply{Message: err.Error()}
+	}
 	return parseReply(lines, code)
 }
 
+// verbBytes copies data to the phone and runs a verb with it as input.
+func verbBytes(ctx context.Context, s Settings, serial string, data []byte, args ...string) Reply {
+	remote, err := pushBytes(ctx, s, serial, newID()+".in", data)
+	if err != nil {
+		return Reply{Message: err.Error()}
+	}
+	defer runLines(context.Background(), nil, adbExe(s), adbArgs(serial, "shell", "rm -f "+remote)...)
+	return verb(ctx, s, serial, remote, args...)
+}
+
 func stageStatus(ctx context.Context, s Settings, serial string) Stage {
-	r := verb(ctx, s, serial, nil, "status")
+	r := verb(ctx, s, serial, "", "status")
 	st := Stage{Answered: len(r.Results) > 0}
 	for _, l := range r.Results {
 		f := strings.Fields(l)
@@ -244,11 +262,19 @@ chown 0:0 "$S" && chmod 0700 "$S" || exit 4
 [ -d "$S/bin" ] || mkdir "$S/bin" || exit 4
 chown 0:0 "$S/bin" && chmod 0700 "$S/bin" || exit 4
 rm -f "$F.new"
-head -c %[2]d > "$F.new" || { echo "@@FAILED could not write the root script"; exit 4; }
+cp %[4]s "$F.new" && [ "$(wc -c < "$F.new")" -eq %[2]d ] || { rm -f "$F.new"; echo "@@FAILED could not write the root script"; exit 4; }
 [ "$(sha256sum "$F.new" 2>/dev/null | cut -d' ' -f1)" = %[3]s ] || { rm -f "$F.new"; echo "@@REFUSED the root script did not arrive intact"; exit 2; }
 chown 0:0 "$F.new" && chmod 0700 "$F.new" && mv -f "$F.new" "$F" || exit 4
-echo "@@OK install"`, shq(stageDir), len(rs), sha256hex(rs))
-	lines, code, _ := rootRun(ctx, s, serial, tmpl, bytes.NewReader(rs))
+echo "@@OK install"`, shq(stageDir), len(rs), sha256hex(rs), "%[4]s")
+	remote, err := pushBytes(ctx, s, serial, "oneios_root.sh", rs)
+	if err != nil {
+		return "", err
+	}
+	tmpl = strings.ReplaceAll(tmpl, "%[4]s", shq(remote))
+	lines, code, err := rootRun(ctx, s, serial, tmpl)
+	if err != nil && len(lines) == 0 {
+		return "", err
+	}
 	if r := parseReply(lines, code); !r.OK {
 		return "", fmt.Errorf("installing the root script: %s", r.Message)
 	}
@@ -276,7 +302,7 @@ func stageScripts(ctx context.Context, j *JobCtx, s Settings, serial string, e *
 		{"oneos_boot_icon.png", e.files["oneios/oneos_boot_icon.png"]},
 	}
 	for _, f := range files {
-		r := verb(ctx, s, serial, bytes.NewReader(f.b), "script", f.name, fmt.Sprint(len(f.b)), sha256hex(f.b))
+		r := verbBytes(ctx, s, serial, f.b, "script", f.name, fmt.Sprint(len(f.b)), sha256hex(f.b))
 		if !r.OK {
 			return false, fmt.Errorf("staging %s: %s", f.name, r.Message)
 		}
@@ -365,7 +391,20 @@ func importArchive(ctx context.Context, j *JobCtx, s Settings, serial, kind, pat
 		want[mf.Path] = mf
 		total += mf.Size
 	}
-	if r := verb(ctx, s, serial, nil, "begin", kind); !r.OK {
+	if err := phoneDir(ctx, s, serial); err != nil {
+		return "", err
+	}
+	tmpDir := filepath.Join(dataDir(), "tmp")
+	os.MkdirAll(tmpDir, 0o755)
+	var biggest int64
+	for _, mf := range m.Files {
+		biggest = max(biggest, mf.Size)
+	}
+	if free := diskFree(tmpDir); free > 0 && free < biggest+(1<<30) {
+		return "", fmt.Errorf("not enough free space on this PC to pass the files through (%s needed in %s, %s free)",
+			human(biggest+(1<<30)), tmpDir, human(free))
+	}
+	if r := verb(ctx, s, serial, "", "begin", kind); !r.OK {
 		return "", fmt.Errorf("begin: %s", r.Message)
 	}
 	label := map[string]string{"runtime": "OneiOS runtime " + m.Version, "image": "iOS " + m.Version + " (" + m.Build + ")"}[kind]
@@ -395,12 +434,28 @@ func importArchive(ctx context.Context, j *JobCtx, s Settings, serial, kind, pat
 			return "", fmt.Errorf("%s: %d bytes in the archive, %d in %s", p, h.Size, mf.Size, manName)
 		}
 		seen[p] = true
+		// The file goes to the PC's temp folder, then to the phone with adb push, then root takes it in (it checks
+		// the size and SHA-256 as it copies it into the stage).
+		local := filepath.Join(tmpDir, "part")
+		if err := extractTo(ctx, tr, local, mf.Size, func(n int64) {
+			j.Progress(float64(done+n/2)/float64(max(total, 1)), fmt.Sprintf("%s · unpacking %s of %s", p, human(n), human(mf.Size)))
+		}); err != nil {
+			os.Remove(local)
+			return "", fmt.Errorf("%s: %v", p, err)
+		}
+		remote := bridgeDir + "/part"
 		base := done
-		counter := &progressReader{r: tr, onRead: func(n int64) {
-			done = base + n
-			j.Progress(float64(done)/float64(max(total, 1)), fmt.Sprintf("%s · %s of %s", p, human(done), human(total)))
-		}}
-		if r := verb(ctx, s, serial, counter, "receive", kind, p, fmt.Sprint(mf.Size), mf.SHA256, mf.Mode); !r.OK {
+		err = pushFileProgress(ctx, s, serial, local, remote, func(n int64) {
+			j.Progress(float64(base+mf.Size/2+n/2)/float64(max(total, 1)), fmt.Sprintf("%s · copying %s of %s", p, human(n), human(mf.Size)))
+		})
+		os.Remove(local)
+		if err != nil {
+			return "", fmt.Errorf("%s: %v", p, err)
+		}
+		j.Progress(float64(base+mf.Size)/float64(max(total, 1)), p+" · the phone is checking it")
+		r := verb(ctx, s, serial, remote, "receive", kind, p, fmt.Sprint(mf.Size), mf.SHA256, mf.Mode)
+		runLines(context.Background(), nil, adbExe(s), adbArgs(serial, "shell", "rm -f "+remote)...)
+		if !r.OK {
 			return "", fmt.Errorf("%s: %s", p, r.Message)
 		}
 		done = base + mf.Size
@@ -411,7 +466,7 @@ func importArchive(ctx context.Context, j *JobCtx, s Settings, serial, kind, pat
 			return "", fmt.Errorf("the archive ended without %s", p)
 		}
 	}
-	if r := verb(ctx, s, serial, bytes.NewReader(raw), "receive", kind, manName, fmt.Sprint(len(raw)), sha256hex(raw), "0644"); !r.OK {
+	if r := verbBytes(ctx, s, serial, raw, "receive", kind, manName, fmt.Sprint(len(raw)), sha256hex(raw), "0644"); !r.OK {
 		return "", fmt.Errorf("%s: %s", manName, r.Message)
 	}
 	j.Step("Checking and putting it in place")
@@ -429,10 +484,39 @@ func importArchive(ctx context.Context, j *JobCtx, s Settings, serial, kind, pat
 	} else {
 		args = append(args, m.Format.String(), m.Version, m.Build)
 	}
-	if r := verb(ctx, s, serial, nil, args...); !r.OK {
+	if r := verb(ctx, s, serial, "", args...); !r.OK {
 		return "", fmt.Errorf("finish: %s", r.Message)
 	}
 	return label + " is on the phone.", nil
+}
+
+// extractTo writes the current tar entry to a file, reporting progress.
+func extractTo(ctx context.Context, r io.Reader, path string, size int64, onBytes func(int64)) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	pr := &progressReader{r: r, onRead: onBytes}
+	n, err := io.Copy(f, &ctxReader{ctx, pr})
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil && n != size {
+		err = fmt.Errorf("the archive ended early (%d of %d bytes)", n, size)
+	}
+	return err
+}
+
+type ctxReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (c *ctxReader) Read(b []byte) (int, error) {
+	if err := c.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return c.r.Read(b)
 }
 
 type progressReader struct {
@@ -538,7 +622,7 @@ func fileSHA(p string) (string, error) {
 // pullLogs saves the session logs from the phone's stage into Studio's folder and prints their ends.
 func pullLogs(ctx context.Context, j *JobCtx, s Settings, serial string) (string, error) {
 	j.Step("Reading the session logs from the phone")
-	r := verb(ctx, s, serial, nil, "logs")
+	r := verb(ctx, s, serial, "", "logs")
 	if !r.OK {
 		return "", fmt.Errorf("%s", r.Message)
 	}
@@ -551,7 +635,7 @@ func pullLogs(ctx context.Context, j *JobCtx, s Settings, serial string) (string
 			continue
 		}
 		id := f[1]
-		lr := verb(ctx, s, serial, nil, "logfile", id, "0", "1048576")
+		lr := verb(ctx, s, serial, "", "logfile", id, "0", "1048576")
 		var b strings.Builder
 		for _, l := range lr.Lines {
 			if strings.HasPrefix(l, "| ") || l == "|" {

@@ -42,7 +42,7 @@ func defaultOutDir() string {
 
 func LoadStore() *Store {
 	st := &Store{path: filepath.Join(dataDir(), "settings.json")}
-	st.s = Settings{Distro: "Ubuntu-24.04", OutDir: defaultOutDir(), RootCmd: "su -c"}
+	st.s = Settings{Distro: "Ubuntu-24.04", OutDir: defaultOutDir(), RootCmd: "auto"}
 	if b, err := os.ReadFile(st.path); err == nil {
 		_ = json.Unmarshal(b, &st.s)
 	}
@@ -56,7 +56,7 @@ func withDefaults(s Settings) Settings {
 		s.Distro = "Ubuntu-24.04"
 	}
 	if s.RootCmd == "" {
-		s.RootCmd = "su -c"
+		s.RootCmd = "auto"
 	}
 	if s.OutDir == "" {
 		s.OutDir = defaultOutDir()
