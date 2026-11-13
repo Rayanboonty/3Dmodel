@@ -56,6 +56,10 @@ public final class Opt<T> {
     public static final Opt<Boolean> TRADE = new Opt<>("trade.enabled", true, "/trade <player>: a safe trade window between two players.");
     public static final Opt<Boolean> MARKET = new Opt<>("market.enabled", true, "/market: post what you give and what you want; others fill your offer.");
     public static final Opt<Integer> MARKET_MAX = new Opt<>("market.max-offers", 5, "Most open offers per player.");
+    // keep-online bot (only where your host allows it)
+    public static final Opt<Boolean> KEEPALIVE_BOT = new Opt<>("keepalive.enabled", false, "A keep-online player inside the server so a host that sleeps empty servers keeps it running. Only use it if your host allows it. /vortexsmp bot on|off.");
+    public static final Opt<String> KEEPALIVE_NAME = new Opt<>("keepalive.name", "VortexBot", "Name of the keep-online player (3-16 letters, digits or _).");
+    public static final Opt<Boolean> KEEPALIVE_HIDE = new Opt<>("keepalive.hide-from-tab", true, "Hide the keep-online player from the tab list (it still counts as online).");
     // auto-update
     public static final Opt<Boolean> UPDATES = new Opt<>("updates.enabled", true, "Download new versions of VortexSMP by itself and install them on a restart (a backup is taken first; nothing is lost).");
     public static final Opt<String> UPDATE_SOURCES = new Opt<>("updates.sources", "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json", "Update manifest links (update.json), comma separated, tried in order.");

@@ -19,6 +19,18 @@
 2. SMP server: in `plugins/VortexSMP/config.yml`, set `network.hub.host` and `network.hub.port` to the Practice server.
 3. Practice server: `/pvpadmin` → Server Selector → SURVIVAL SMP → Host & Port = the SMP server. Use Test Connection to check it.
 
+## New in 1.5.0: keep-online bot (24/7 on a host that sleeps empty servers)
+**Only turn this on if your host allows it** - some free hosts forbid keeping a server awake with a bot.
+- `/vortexsmp bot on` (or `keepalive.enabled: true` in config.yml): a player named **VortexBot** (`keepalive.name`)
+  lives inside the server itself - no second machine, no Minecraft account, works with any online-mode - so the
+  server never counts as empty and doesn't go to sleep.
+- It sits invisible in spectator mode above the spawn, is hidden from the tab list (`keepalive.hide-from-tab`), never
+  shows join/leave messages, is ignored for sleeping through the night, and comes back by itself after a restart.
+- The server list and `/list` count it (that is what keeps the server awake). The auto-update still restarts
+  "when empty" because the bot doesn't count as a real player there.
+- It can't do your host's **manual renewal** (Tick Hosting free plan: every 4-8 hours) - that is still yours to do.
+- `/vortexsmp bot off` removes it; `/vortexsmp bot` shows its status.
+
 ## New in 1.4.0: items missing after moving the SMP to another host
 If players arrive with **empty inventories and ender chests** after copying the old world and plugin folder to a new
 host, their items are still in the copied files - they just weren't matched. 1.4.0 fixes the usual causes by itself:

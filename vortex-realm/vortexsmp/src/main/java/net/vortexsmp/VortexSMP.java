@@ -32,6 +32,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabCompleter {
     private net.vortexsmp.update.AutoUpdater updater;
+    private net.vortexsmp.smp.KeepOnlineBot keepOnline;
     private static VortexSMP instance;
     private final VortexSMP.Worlds worlds = new VortexSMP.Worlds();
     private ModeManager modes;
@@ -145,6 +146,10 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
             }
         });
         this.updater.start();
+        this.keepOnline = new net.vortexsmp.smp.KeepOnlineBot(this);
+        pm.registerEvents(this.keepOnline, this);
+        // after the worlds are ready; checked again every minute so it comes back if it ever drops
+        Tasks.timer(100L, 1200L, this.keepOnline::refresh);
         this.bind(this, "vortexsmp");
         this.getLogger().info("VortexSMP " + this.getPluginMeta().getVersion() + " ready: homes, tpa, rtp, warps, back, combat tag"
             + (Cfg.s(net.vortexsmp.config.Opt.HUB_HOST).isBlank() ? " (set network.hub.host in config.yml for /hub)." : ", /hub -> " + Cfg.s(net.vortexsmp.config.Opt.HUB_HOST) + "."));
@@ -182,6 +187,10 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
     public void onDisable() {
         if (this.updater != null) {
             this.updater.stop();
+        }
+
+        if (this.keepOnline != null) {
+            this.keepOnline.despawn();
         }
 
         try {
@@ -243,6 +252,17 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
             case "migrate":
                 this.oldImport.migrateGuide(sender);
                 break;
+            case "bot": {
+                String what = args.length > 1 ? args[1].toLowerCase(java.util.Locale.ROOT) : "status";
+                if (what.equals("on") || what.equals("off")) {
+                    Cfg.set(net.vortexsmp.config.Opt.KEEPALIVE_BOT, what.equals("on"));
+                    this.keepOnline.refresh();
+                }
+
+                sender.sendMessage(Text.mm("<gray>Keep-online bot: <white>" + Text.esc(this.keepOnline.status())));
+                sender.sendMessage(Text.mm("<gray>/vortexsmp bot on <dark_gray>| <gray>off <dark_gray>• <gray>only use it if your host allows it"));
+                break;
+            }
             case "update": {
                 String what = args.length > 1 ? args[1].toLowerCase(java.util.Locale.ROOT) : "status";
                 if (what.equals("check")) {
@@ -273,6 +293,7 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
                 sender.sendMessage(Text.mm(" <gray>/hub → <white>" + (Cfg.s(net.vortexsmp.config.Opt.HUB_HOST).isBlank() ? "<red>not set (network.hub.host)" : Text.esc(Cfg.s(net.vortexsmp.config.Opt.HUB_HOST) + ":" + Cfg.i(net.vortexsmp.config.Opt.HUB_PORT))) + " <dark_gray>(" + Cfg.s(net.vortexsmp.config.Opt.NETWORK_MODE) + ")"));
                 sender.sendMessage(Text.mm(" <gray>Import: <white>" + this.oldImport.status()));
                 sender.sendMessage(Text.mm(" <gray>Discord: <white>" + Text.esc(this.discord.status())));
+                sender.sendMessage(Text.mm(" <gray>Keep-online bot: <white>" + Text.esc(this.keepOnline.status())));
                 sender.sendMessage(Text.mm(" <gray>Update: <white>" + (this.updater.staged() == null ? "up to date" : this.updater.staged() + " ready, installs on the next restart")));
                 sender.sendMessage(Text.mm(" <gray>/vortexsmp reload <dark_gray>• <gray>/vortexsmp migrate <dark_gray>• <gray>/vortexsmp import [preview|run] <dark_gray>• <gray>/vortexsmp update"));
         }
@@ -283,7 +304,7 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 1) {
-            return List.of("status", "reload", "import", "migrate", "update").stream().filter(s -> s.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))).toList();
+            return List.of("status", "reload", "import", "migrate", "update", "bot").stream().filter(s -> s.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))).toList();
         } else if (args.length == 2 && args[0].equalsIgnoreCase("import")) {
             return List.of("preview", "run").stream().filter(s -> s.startsWith(args[1].toLowerCase(java.util.Locale.ROOT))).toList();
         }

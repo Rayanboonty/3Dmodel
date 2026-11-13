@@ -987,6 +987,10 @@ public final class OldImport implements Listener, CommandExecutor {
     }
 
     private void welcome(Player p) {
+        if (net.vortexsmp.smp.KeepOnlineBot.isBot(p)) {
+            return;
+        }
+
         if ("save".equals(this.state.getString("relink." + p.getUniqueId()))) {
             // step 1 of a relink: what they carry now goes to /oldstuff, then the old player file is put in at the next login
             List<ItemStack> inv = new ArrayList<>();

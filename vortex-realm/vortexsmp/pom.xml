@@ -7,7 +7,7 @@
     <!-- The Vortex Realm SMP server: plain survival (homes, tpa, rtp, warps, claims, combat tag) on its own host. -->
     <groupId>net.vortexsmp</groupId>
     <artifactId>VortexSMP</artifactId>
-    <version>1.4.0</version>
+    <version>1.5.0</version>
     <packaging>jar</packaging>
     <name>VortexSMP</name>
 

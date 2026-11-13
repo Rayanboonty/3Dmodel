@@ -294,7 +294,8 @@ public final class AutoUpdater {
             return;
         }
 
-        if (Bukkit.getOnlinePlayers().isEmpty()) {
+        // keep-online bots and other NPC players don't count
+        if (Bukkit.getOnlinePlayers().stream().allMatch(p -> p.hasMetadata("NPC"))) {
             this.restart();
             return;
         }
