@@ -224,4 +224,39 @@ class CoreTest {
         assertTrue(script.contains("'/sdcard/My Files'/"))
         assertTrue(script.contains("-name '*.tar.zst'"))
     }
+
+    @Test
+    fun thePhoneBuildStatusIsRead() {
+        val running = PhoneBuild.Status.parse(listOf(
+            "state=running", "step=Building the XNU kernel (10-20 minutes the first time)", "exit=", "started=1794564125",
+            "| ==> Building the XNU kernel", "| [12/980] CC osfmk/kern/sched.o", "@@OK status",
+        ))
+        assertEquals(PhoneBuild.Status.State.RUNNING, running.state)
+        assertEquals(1794564125L, running.startedSec)
+        assertNull(running.exit)
+        assertEquals(listOf("==> Building the XNU kernel", "[12/980] CC osfmk/kern/sched.o"), running.log)
+        val failed = PhoneBuild.Status.parse(listOf("state=failed", "step=failed: Building the XNU kernel (exit 2)", "exit=2"))
+        assertEquals(PhoneBuild.Status.State.FAILED, failed.state)
+        assertEquals("Building the XNU kernel (exit 2)", failed.failedStep)
+        assertEquals(PhoneBuild.Status.State.IDLE, PhoneBuild.Status.parse(listOf("state=idle", "@@OK status")).state)
+        assertEquals(PhoneBuild.Status.State.STOPPED, PhoneBuild.Status.parse(listOf("state=stopped")).state)
+    }
+
+    @Test
+    fun ipswFilesAreFoundPinnedFirst() {
+        val scan = ImageFinder.parseScan(listOf(
+            "DIR\t/sdcard/Download",
+            "9000000000\t/sdcard/Download/iPhone17,1_26.4_23E000_Restore.ipsw",
+            "11400000000\t/sdcard/Download/iPhone18,2_27.0.1_24A446_Restore.ipsw",
+            "11400000000\t/storage/emulated/0/Download/iPhone18,2_27.0.1_24A446_Restore.ipsw",
+            "11150000000\t/sdcard/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst",
+        ))
+        assertEquals(2, scan.ipsws.size)
+        assertTrue(scan.ipsws[0].isPinned)
+        assertEquals("iPhone18,2_27.0.1_24A446_Restore.ipsw", scan.ipsws[0].name)
+        assertFalse(scan.ipsws[1].isPinned)
+        // The image archive is still an image, not an IPSW.
+        assertEquals(1, scan.found.size)
+        assertTrue(ImageFinder.script(listOf("/sdcard/Download")).contains("-name '*.ipsw'"))
+    }
 }

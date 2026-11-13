@@ -41,6 +41,8 @@ class MainActivity : ComponentActivity() {
                 cancelImport = { controller.cancelImport() },
                 importFound = { controller.importFound(it) },
                 addRuntime = { controller.addRuntimeToPhone() },
+                startPhoneBuild = { controller.startPhoneBuild(it) },
+                stopPhoneBuild = { controller.stopPhoneBuild() },
             ),
             boot = { controller.boot() },
             returnToOneUi = { controller.returnToOneUi() },

@@ -26,6 +26,15 @@ import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +59,8 @@ class SetupActions(
     val cancelImport: () -> Unit,
     val importFound: (ImageFinder.Found) -> Unit = {},
     val addRuntime: () -> Unit = {},
+    val startPhoneBuild: (String?) -> Unit = {},
+    val stopPhoneBuild: () -> Unit = {},
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -141,10 +152,11 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             }
         }
 
-        Step(4, "iOS 27 image", "Built by you from Apple's own firmware with OneiOS's scripts on a computer (about 11 GB). Nobody can send you a copy: copy your .tar.zst to the phone and choose it here.", done = s.status?.imageVersion != null) {
+        Step(4, "iOS 27 image", "Built by you from Apple's own firmware with OneiOS's scripts (about 11 GB): right here on the phone, or on a computer. Nobody can send you a copy.", done = s.status?.imageVersion != null) {
             s.status?.imageVersion?.let { Check("Imported", "iOS $it (${s.status.imageBuild}) · ${bytes(s.status.imageBytes)}", true) }
             FoundList(s, StageClient.Kind.IMAGE, a)
-            if (s.rootOk && s.found.none { it.kind == StageClient.Kind.IMAGE }) {
+            PhoneBuildPanel(s, a)
+            if (s.rootOk && s.found.none { it.kind == StageClient.Kind.IMAGE } && s.phoneBuild?.state != dev.galios.core.PhoneBuild.Status.State.RUNNING) {
                 VSpace(6.dp)
                 Text(
                     "No .tar.zst found yet. Put your image in the phone's Download folder, then tap Look again." +
@@ -159,6 +171,118 @@ fun SetupScreen(s: UiState, a: SetupActions) {
                 GlassButton("How to build it", a.howToBuild, icon = Icons.Rounded.OpenInNew)
             }
         }
+    }
+}
+
+/** "No PC? Build it on this phone": requirements, then live progress, then the result (imported automatically). */
+@Composable
+private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
+    val b = s.phoneBuild
+    val st = b?.state
+    var confirm by remember { mutableStateOf(false) }
+    VSpace(12.dp)
+    Column(
+        Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+            .background(Brush.verticalGradient(listOf(Gal.Violet.copy(alpha = 0.16f), Gal.Cyan.copy(alpha = 0.05f))))
+            .border(1.dp, Gal.glassEdge(), androidx.compose.foundation.shape.RoundedCornerShape(20.dp)).padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Memory, null, tint = Gal.Cyan, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Text("No PC? Build it on this phone", style = Type.Headline)
+        }
+        VSpace(6.dp)
+        val prep = s.phoneBuildPreparing
+        when {
+            prep != null -> {
+                Text(prep.first + "…", style = Type.Caption.copy(color = Gal.Cyan))
+                VSpace(8.dp)
+                prep.second?.let { GalProgress(it) } ?: Spinner(size = 18.dp, stroke = 2.5.dp)
+            }
+            st == dev.galios.core.PhoneBuild.Status.State.RUNNING -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spinner(size = 18.dp, stroke = 2.5.dp); Spacer(Modifier.width(10.dp))
+                    Text(b.step ?: "Working…", style = Type.Body.copy(fontWeight = FontWeight.Medium), maxLines = 2)
+                }
+                b.startedSec?.let { t ->
+                    val m = ((System.currentTimeMillis() / 1000 - t) / 60).coerceAtLeast(0)
+                    Text("Running for ${m / 60}h ${m % 60}m · keep the phone plugged in and on Wi-Fi", style = Type.Caption)
+                }
+                BuildLog(b.log)
+                VSpace(10.dp)
+                GlassButton("Stop", a.stopPhoneBuild, icon = Icons.Rounded.Close)
+            }
+            st == dev.galios.core.PhoneBuild.Status.State.DONE -> {
+                Check("Built on this phone", "The image is in your Download folder" + if (s.status?.imageVersion != null) " and imported." else ": import it above.", true)
+            }
+            st == dev.galios.core.PhoneBuild.Status.State.FAILED || st == dev.galios.core.PhoneBuild.Status.State.STOPPED -> {
+                Check(
+                    if (st == dev.galios.core.PhoneBuild.Status.State.STOPPED) "Stopped" else "Stopped by an error",
+                    b.failedStep ?: b.step ?: "", false,
+                )
+                BuildLog(b.log)
+                VSpace(10.dp)
+                Text("Resume continues from the step that stopped; finished steps are kept.", style = Type.Caption)
+                VSpace(8.dp)
+                GradientButton("Resume", { a.startPhoneBuild(s.ipsws.firstOrNull { it.isPinned }?.path) }, enabled = s.rootOk, height = 46.dp, modifier = Modifier.width(150.dp))
+            }
+            else -> {
+                Text(
+                    "GalIOS sets up a small Ubuntu inside the phone and runs OneiOS's build there, the same one a PC runs. " +
+                        "It takes about 1–3 hours; the phone gets warm. When it is done, the image is imported by itself.",
+                    style = Type.Caption,
+                )
+                VSpace(8.dp)
+                Check("Root", if (s.rootOk) "active" else "start your temporary root", s.rootOk)
+                val spaceOk = (s.dataFree ?: 0) >= dev.galios.core.PhoneBuild.NEEDED_BYTES
+                Check("Free space", "${bytes(s.dataFree)} free · about 75 GB needed", spaceOk)
+                val ipsw = s.ipsws.firstOrNull { it.isPinned }
+                Check(
+                    "iOS files",
+                    when {
+                        ipsw != null -> "uses ${ipsw.name} from your phone"
+                        s.ipsws.isNotEmpty() -> "${s.ipsws.first().name} is not iOS 27.0.1 for iPhone18,2: downloads the right one from Apple instead (10.6 GB)"
+                        else -> "downloaded from Apple during the build (10.6 GB, Wi-Fi)"
+                    },
+                    true,
+                )
+                VSpace(10.dp)
+                GradientButton("Build on this phone", { confirm = true }, enabled = s.rootOk && spaceOk && s.busy == null, height = 48.dp, modifier = Modifier.width(220.dp))
+            }
+        }
+    }
+    if (confirm) {
+        androidx.compose.ui.window.Dialog({ confirm = false }) {
+            Column(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(28.dp)).background(Color(0xF5090A12)).border(1.dp, Gal.glassEdge(), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)).padding(24.dp)) {
+                Text("Build on this phone?", style = Type.Title)
+                VSpace(10.dp)
+                for (t in listOf(
+                    "Takes about 1–3 hours. Keep the phone plugged in and on Wi-Fi; it will get warm.",
+                    "Uses about 75 GB of storage while it builds.",
+                    "It keeps going if you leave GalIOS. Don't restart the phone: temporary root would be lost (Resume continues later).",
+                    "The image is for you only: it is built from Apple's firmware.",
+                )) Row(Modifier.padding(vertical = 4.dp)) {
+                    Box(Modifier.padding(top = 8.dp).size(5.dp).clip(CircleShape).background(Gal.Cyan)); Spacer(Modifier.width(10.dp))
+                    Text(t, style = Type.Body.copy(fontSize = 14.sp, color = Gal.Dim))
+                }
+                VSpace(14.dp)
+                GradientButton("Start build", { confirm = false; a.startPhoneBuild(s.ipsws.firstOrNull { it.isPinned }?.path) }, height = 50.dp)
+                VSpace(4.dp)
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("Not now", style = Type.Body.copy(color = Gal.Dim), modifier = Modifier.clickable { confirm = false }.padding(10.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BuildLog(lines: List<String>) {
+    val tail = lines.filter { it.isNotBlank() }.takeLast(5)
+    if (tail.isEmpty()) return
+    VSpace(8.dp)
+    Column(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(Color(0x99000000)).padding(10.dp)) {
+        for (l in tail) Text(l, style = Type.Mono.copy(fontSize = 10.5.sp), maxLines = 1)
     }
 }
 

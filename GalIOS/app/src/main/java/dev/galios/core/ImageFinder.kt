@@ -38,8 +38,17 @@ object ImageFinder {
             }
     }
 
+    /** An Apple restore file on the phone: what the on-phone build can start from. */
+    data class Ipsw(val path: String, val size: Long) {
+        val name get() = path.substringAfterLast('/')
+        /** The one OneiOS's profile pins: iPhone 17 Pro Max, iOS 27.0.1, build 24A446. */
+        val isPinned get() = name.equals(PINNED_IPSW, ignoreCase = true)
+    }
+
+    const val PINNED_IPSW = "iPhone18,2_27.0.1_24A446_Restore.ipsw"
+
     /** What a scan did, for showing the user when nothing was found. */
-    data class Scan(val found: List<Found>, val scanned: List<String>, val error: String?)
+    data class Scan(val found: List<Found>, val scanned: List<String>, val error: String?, val ipsws: List<Ipsw> = emptyList())
 
     private val IMAGE = Regex("""OneiOS_iOS([0-9][0-9.]*)_([0-9A-Za-z]+)_.*\.tar\.zst""", RegexOption.IGNORE_CASE)
     private val RUNTIME = Regex("""oneios-runtime-(.+)-arm64\.tar\.zst""", RegexOption.IGNORE_CASE)
@@ -55,7 +64,7 @@ object ImageFinder {
         for (d in folders) {
             val q = shq(d)
             sb.append("if [ -d $q ]; then echo \"DIR\t$d\"; ")
-            sb.append("find $q/ -maxdepth 3 -type f -name '*.tar.zst' 2>/dev/null | while IFS= read -r f; do ")
+            sb.append("find $q/ -maxdepth 3 -type f \\( -name '*.tar.zst' -o -name '*.ipsw' \\) 2>/dev/null | while IFS= read -r f; do ")
             sb.append("s=\$(stat -c %s \"\$f\" 2>/dev/null || stat -f %z \"\$f\" 2>/dev/null); echo \"\$s\t\$f\"; done; fi\n")
         }
         return sb.toString()
@@ -73,7 +82,21 @@ object ImageFinder {
     /** The parsed result: the archives, the folders looked in, and an error only if the shell said nothing at all. */
     fun parseScan(lines: List<String>): Scan {
         val scanned = lines.filter { it.startsWith("DIR\t") }.map { it.removePrefix("DIR\t") }
-        return Scan(parse(lines), scanned, null)
+        return Scan(parse(lines), scanned, null, parseIpsws(lines))
+    }
+
+    /** The .ipsw files, the pinned one first; the same file seen by two paths once. */
+    fun parseIpsws(lines: List<String>): List<Ipsw> {
+        val out = LinkedHashMap<String, Ipsw>()
+        for (line in lines) {
+            val tab = line.indexOf('\t')
+            if (tab <= 0 || line.startsWith("DIR\t")) continue
+            val size = line.substring(0, tab).trim().toLongOrNull() ?: continue
+            val path = line.substring(tab + 1).trim()
+            if (!path.endsWith(".ipsw", ignoreCase = true)) continue
+            out.putIfAbsent("${path.substringAfterLast('/')}:$size", Ipsw(path, size))
+        }
+        return out.values.sortedWith(compareByDescending<Ipsw> { it.isPinned }.thenBy { it.name })
     }
 
     /** The archives in `size<TAB>path` lines, recognised ones first then by name; the same file seen twice once. */

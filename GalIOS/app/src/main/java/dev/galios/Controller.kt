@@ -13,6 +13,7 @@ import dev.galios.core.ImageFinder
 import dev.galios.core.LogInfo
 import dev.galios.core.OneosEngine
 import dev.galios.core.PackageImport
+import dev.galios.core.PhoneBuild
 import dev.galios.core.PhoneChecks
 import dev.galios.core.ProcessRootShell
 import dev.galios.core.RootFileStream
@@ -24,6 +25,8 @@ import dev.galios.core.UpdateInfo
 import dev.galios.core.UpdateInstaller
 import dev.galios.core.Updater
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,7 +65,17 @@ data class UiState(
     val refreshing: Boolean = false,
     /** A newer GalIOS release found on GitHub, when one exists and the user has not dismissed it. */
     val update: UpdateInfo? = null,
+    /** The on-phone image build: its state, step and log (null until root has been asked). */
+    val phoneBuild: PhoneBuild.Status? = null,
+    /** Getting the on-phone build ready (downloading Ubuntu's base system), with a 0..1 fraction when known. */
+    val phoneBuildPreparing: Pair<String, Float?>? = null,
+    /** Apple restore files found on the phone, the pinned one first. */
+    val ipsws: List<ImageFinder.Ipsw> = emptyList(),
+    /** Free bytes on /data, where the on-phone build works. */
+    val dataFree: Long? = null,
 ) {
+    val phoneBuildRunning get() = phoneBuild?.state == PhoneBuild.Status.State.RUNNING
+
     val rootOk get() = checks?.root == true
     /** Root is active and OneOS's iOS engine is installed: what adding anything to the phone needs. */
     val canStage get() = rootOk && engine?.hasIos == true
@@ -118,14 +131,18 @@ class Controller(
         val checks = PhoneChecks.run(shell)
         val status = if (checks.root) stage.status().takeIf { it.error == null } else null
         val scan = if (checks.root) runCatching { ImageFinder.scan(shell) }.getOrNull() else null
+        val build = if (checks.root) runCatching { PhoneBuild.status(shell, scripts()) }.getOrNull() else null
+        val free = if (checks.root) runCatching { PhoneBuild.dataFree(shell) }.getOrNull() else null
         _state.update {
             it.copy(
                 engine = engine, checks = checks, status = status,
                 found = scan?.found ?: emptyList(), scannedFolders = scan?.scanned ?: emptyList(),
                 engineInstalled = status?.stagePresent == true, refreshing = false,
                 runtimeFile = downloadedRuntime()?.path,
+                phoneBuild = build, ipsws = scan?.ipsws ?: emptyList(), dataFree = free,
             )
         }
+        if (build?.state == PhoneBuild.Status.State.RUNNING) watchPhoneBuild()
         if (_state.value.release == null && !_state.value.releaseLooking) lookupRelease()
         checkForUpdate()
     }
@@ -308,6 +325,91 @@ class Controller(
             }
             UpdateInstaller.install(context, apk)
             "Opening the installer for GalIOS ${info.version}."
+        }
+    }
+
+    // ---- The image build on the phone itself ----------------------------------------------------------------------
+
+    /** The two build scripts, unpacked from the APK's assets (each time, so they match this GalIOS). */
+    private fun scripts(): PhoneBuild.Scripts {
+        val dir = File(context.filesDir, "galios-build").apply { mkdirs() }
+        fun out(name: String) = File(dir, name).also { f ->
+            context.assets.open("galios-build/$name").use { input -> f.outputStream().use { input.copyTo(it) } }
+            f.setReadable(true, false); f.setExecutable(true, false)
+        }
+        return PhoneBuild.Scripts(out("phone-build.sh"), out("build-ios-image-wsl.sh"))
+    }
+
+    @Volatile private var watcher: Job? = null
+
+    /**
+     * Starts (or resumes) building the image on this phone, from [ipsw] on the phone or, when null, from Apple's
+     * servers. Downloads Ubuntu's base system the first time (checked against its SHA-256).
+     */
+    fun startPhoneBuild(ipsw: String?) = scope.launch {
+        val s0 = _state.value
+        if (!s0.rootOk) { _state.update { it.copy(message = Message("Start your temporary root first.", true)) }; return@launch }
+        if (s0.phoneBuildRunning) return@launch
+        val resuming = s0.phoneBuild?.state in setOf(PhoneBuild.Status.State.FAILED, PhoneBuild.Status.State.STOPPED)
+        val free = PhoneBuild.dataFree(shell)
+        if (!resuming && free != null && free < PhoneBuild.NEEDED_BYTES) {
+            _state.update { it.copy(message = Message("The build needs about 75 GB free on the phone; ${dev.galios.ui.bytes(free)} is free.", true)) }
+            return@launch
+        }
+        try {
+            val scripts = scripts()
+            var rootfs: File? = null
+            if (!PhoneBuild.rootfsReady(shell)) {
+                _state.update { it.copy(phoneBuildPreparing = "Downloading Ubuntu's base system" to 0f, message = null) }
+                val f = File(context.cacheDir, PhoneBuild.ROOTFS_NAME)
+                val sha = dev.galios.core.Http.download(PhoneBuild.ROOTFS_URL, f) { done, total ->
+                    if (total > 0) _state.update { it.copy(phoneBuildPreparing = "Downloading Ubuntu's base system" to (done.toFloat() / total)) }
+                }
+                if (sha != PhoneBuild.ROOTFS_SHA256) { f.delete(); throw IllegalStateException("Ubuntu's base system did not match its SHA-256; try again") }
+                f.setReadable(true, false)
+                rootfs = f
+            }
+            _state.update { it.copy(phoneBuildPreparing = "Starting the build" to null) }
+            val r = PhoneBuild.start(shell, scripts, rootfs, ipsw)
+            if (!r.ok) throw IllegalStateException(r.message)
+            rootfs?.delete()                                   // unpacked now; 30 MB back
+            _state.update { it.copy(phoneBuildPreparing = null, message = Message("The build has started. It runs on its own; you can leave GalIOS and come back.", false)) }
+            watchPhoneBuild()
+        } catch (e: Exception) {
+            _state.update { it.copy(phoneBuildPreparing = null, message = Message("Could not start the build: ${e.message}", true)) }
+        }
+    }
+
+    fun stopPhoneBuild() = scope.launch {
+        runCatching { PhoneBuild.stop(shell, scripts()) }
+        watcher?.cancel()
+        refresh()
+    }
+
+    /** Reads the build's status every few seconds while it runs; imports the image when it is done. */
+    private fun watchPhoneBuild() {
+        if (watcher?.isActive == true) return
+        watcher = scope.launch {
+            val scripts = scripts()
+            while (true) {
+                val st = runCatching { PhoneBuild.status(shell, scripts) }.getOrNull()
+                if (st != null) _state.update { it.copy(phoneBuild = st) }
+                if (st == null || st.state != PhoneBuild.Status.State.RUNNING) break
+                delay(4000)
+            }
+            val end = _state.value.phoneBuild
+            refresh().join()
+            if (end?.state == PhoneBuild.Status.State.DONE) {
+                val image = _state.value.found.firstOrNull { it.kind == StageClient.Kind.IMAGE && it.recognised }
+                when {
+                    image == null -> _state.update { it.copy(message = Message("The build finished, but its image was not found in Download. Tap Look again.", true)) }
+                    _state.value.canStage -> {
+                        _state.update { it.copy(message = Message("Your iOS 27 image is built. Importing it now.", false)) }
+                        importFound(image)
+                    }
+                    else -> _state.update { it.copy(message = Message("Your iOS 27 image is built. ${it.stageBlocker ?: ""} Then tap Import.".trim(), false)) }
+                }
+            }
         }
     }
 

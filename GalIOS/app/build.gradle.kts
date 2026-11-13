@@ -14,8 +14,8 @@ android {
         // Build.SOC_MODEL is API 31; the Galaxy S25 Ultra ships with Android 15.
         minSdk = 31
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.4"
+        versionCode = 5
+        versionName = "1.5"
         // The Galaxy S25 Ultra and S24 Ultra are arm64: leave out zstd's libraries for other CPUs.
         ndk { abiFilters += "arm64-v8a" }
     }
@@ -56,6 +56,15 @@ android {
         resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*", "META-INF/DEPENDENCIES")
     }
 }
+
+// The on-phone image build: the same scripts that run on a PC (tools/), bundled as assets/galios-build/.
+val galiosBuildAssets = layout.buildDirectory.dir("generated/galios-build-assets")
+val copyBuildScripts by tasks.registering(Copy::class) {
+    from(rootProject.file("tools/phone-build.sh"), rootProject.file("tools/build-ios-image-wsl.sh"))
+    into(galiosBuildAssets.map { it.dir("galios-build") })
+}
+android.sourceSets["main"].assets.srcDir(galiosBuildAssets)
+tasks.named("preBuild") { dependsOn(copyBuildScripts) }
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

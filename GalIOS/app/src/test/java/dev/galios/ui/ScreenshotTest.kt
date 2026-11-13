@@ -119,4 +119,30 @@ class ScreenshotTest {
         Tab.SETUP,
         scrollPx = 1500f,
     )
+
+    private val noImage = ready.copy(imageVersion = null, imageBuild = null, imageBytes = null, ready = false)
+
+    @Test fun phoneBuildIdle() = shot(
+        "9-phone-build-idle",
+        UiState(device = s25, checks = goodChecks, engine = engine, engineInstalled = true, status = noImage, dataFree = 180L shl 30,
+            ipsws = listOf(ImageFinder.Ipsw("/sdcard/Download/iPhone18,2_27.0.1_24A446_Restore.ipsw", 11_400_000_000))),
+        Tab.SETUP, scrollToEnd = true,
+    )
+
+    @Test fun phoneBuildRunning() = shot(
+        "10-phone-build-running",
+        UiState(device = s25, checks = goodChecks, engine = engine, engineInstalled = true, status = noImage, dataFree = 120L shl 30,
+            phoneBuild = dev.galios.core.PhoneBuild.Status(dev.galios.core.PhoneBuild.Status.State.RUNNING, "Building the XNU kernel (10-20 minutes the first time)", null,
+                System.currentTimeMillis() / 1000 - 47 * 60,
+                listOf("==> Building the XNU kernel", "stage: applied 0002-fileset-reference-owner-stub.patch", "[412/2981] CC osfmk/kern/sched_prim.o", "[413/2981] CC osfmk/kern/task.o"))),
+        Tab.SETUP, scrollToEnd = true,
+    )
+
+    @Test fun phoneBuildFailed() = shot(
+        "11-phone-build-failed",
+        UiState(device = s25, checks = goodChecks, engine = engine, engineInstalled = true, status = noImage, dataFree = 120L shl 30,
+            phoneBuild = dev.galios.core.PhoneBuild.Status(dev.galios.core.PhoneBuild.Status.State.FAILED, "failed: Building the XNU kernel (exit 1)", "1", null,
+                listOf("urllib.error.HTTPError: HTTP Error 403: Forbidden", "build-hosted: FAILED.", "STOPPED during: Building the XNU kernel (exit 1)."))),
+        Tab.SETUP, scrollToEnd = true,
+    )
 }

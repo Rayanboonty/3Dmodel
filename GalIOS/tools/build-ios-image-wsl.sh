@@ -9,6 +9,11 @@
 #   bash build-ios-image-wsl.sh "C:\Users\You\Downloads\iPhone18,2_27.0.1_24A446_Restore.ipsw"
 #   bash build-ios-image-wsl.sh /mnt/c/Users/You/Downloads/iPhone18,2_27.0.1_24A446_Restore.ipsw
 #   bash build-ios-image-wsl.sh --setup-only        # install and build the tools, then stop
+#   bash build-ios-image-wsl.sh --download          # no .ipsw: read the needed parts from Apple's servers (10.6 GB)
+#
+# GalIOS runs this same script on the phone itself (inside an Ubuntu chroot, see phone-build.sh) with
+#   GALIOS_PROGRESS=<file>   the current step is written there, and "done" or "failed: <step>" at the end
+#   GALIOS_OUT_DIR=<dir>     the finished archive is copied there (the phone's Download folder)
 #
 # The IPSW must be the one OneiOS pins: iPhone 17 Pro Max (iPhone18,2), iOS 27.0.1, build 24A446. Any other is
 # refused by OneiOS's checks. Run it again after any stop: finished steps are skipped (markers in ~/oneios-build).
@@ -25,25 +30,28 @@ APFS_FUSE_COMMIT="66b86bd525e8cb90f9012543be89b1f092b75cf3"
 BWRAP_TAG="v0.11.2"
 
 STEP="starting"
-say()  { STEP="$*"; printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
+progress() { [ -z "${GALIOS_PROGRESS:-}" ] || printf '%s\n' "$*" > "$GALIOS_PROGRESS" 2>/dev/null || true; }
+say()  { STEP="$*"; progress "$*"; printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok()   { printf '\033[1;32m    %s\033[0m\n' "$*"; }
-die()  { printf '\n\033[1;31mSTOPPED: %s\033[0m\n' "$*" >&2; exit 1; }
+die()  { progress "failed: $*"; printf '\n\033[1;31mSTOPPED: %s\033[0m\n' "$*" >&2; exit 1; }
 done_mark() { touch "$WORK/.done-$1"; }
 is_done()   { [ -f "$WORK/.done-$1" ]; }
 SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo"
 # Any failing command ends the run with the step it was in; finished steps are kept, so running again resumes.
-trap 'rc=$?; printf "\n\033[1;31mSTOPPED during: %s (exit %s).\033[0m\nRun the same command again to continue from here. If it stops at the same place, send the last 20 lines above.\n" "$STEP" "$rc" >&2' ERR
+trap 'rc=$?; progress "failed: $STEP (exit $rc)"; printf "\n\033[1;31mSTOPPED during: %s (exit %s).\033[0m\nRun the same command again to continue from here. If it stops at the same place, send the last 20 lines above.\n" "$STEP" "$rc" >&2' ERR
 
 setup_only=0
+download=0
 ipsw_arg=""
 for a in "$@"; do
   case "$a" in
     --setup-only) setup_only=1 ;;
+    --download) download=1 ;;
     -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) ipsw_arg="$a" ;;
   esac
 done
-[ "$setup_only" = 1 ] || [ -n "$ipsw_arg" ] || { sed -n '2,19p' "$0"; die "give the path of your .ipsw"; }
+[ "$setup_only" = 1 ] || [ "$download" = 1 ] || [ -n "$ipsw_arg" ] || { sed -n '2,19p' "$0"; die "give the path of your .ipsw, or --download"; }
 
 mkdir -p "$WORK"
 
@@ -56,11 +64,11 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
   [ -e /dev/fuse ] || die "/dev/fuse is missing: update WSL from PowerShell with 'wsl --update', then 'wsl --shutdown' and reopen Ubuntu"
 fi
 free_gb=$(df -Pk "$WORK" | awk 'NR==2 {print int($4/1048576)}')
-[ "$free_gb" -ge 60 ] || [ "$setup_only" = 1 ] || die "only ${free_gb} GB free in WSL; about 60 GB are needed (free space on drive C:)"
+[ "$free_gb" -ge 60 ] || [ "$setup_only" = 1 ] || die "only ${free_gb} GB free; about 60 GB are needed (on a PC: free space on drive C:; on the phone: internal storage)"
 ok "${free_gb} GB free"
 
 IPSW=""
-if [ "$setup_only" = 0 ]; then
+if [ "$setup_only" = 0 ] && [ "$download" = 0 ]; then
   case "$ipsw_arg" in
     [A-Za-z]:\\*|[A-Za-z]:/*) command -v wslpath >/dev/null || die "wslpath missing: give the path as /mnt/c/..."
                               IPSW=$(wslpath -u "$ipsw_arg") ;;
@@ -92,7 +100,7 @@ PACKAGES=(build-essential clang lld llvm git make cmake ninja-build python3 pyth
 missing=()
 for p in "${PACKAGES[@]}"; do dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q "install ok installed" || missing+=("$p"); done
 if [ ${#missing[@]} -gt 0 ]; then
-  say "Installing build packages: ${missing[*]} (asks for your Ubuntu password)"
+  say "Installing build packages: ${missing[*]}${SUDO:+ (asks for your Ubuntu password)}"
   $SUDO apt-get update -q
   $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${missing[@]}"
 fi
@@ -195,8 +203,12 @@ fi
 # 6. The build (OneiOS docs/building.md sections 1-3)
 # ---------------------------------------------------------------------------------------------------------------
 if ! is_done fetch; then
-  say "Reading the IPSW and decrypting the OS images (10.6 GB; asks Apple's key service for the keys)"
-  scripts/fetch/fetch.sh --source "$IPSW" "$PROFILE"
+  if [ -n "$IPSW" ]; then
+    say "Reading the IPSW and decrypting the OS images (10.6 GB; asks Apple's key service for the keys)"
+  else
+    say "Downloading iOS 27.0.1 from Apple and decrypting the OS images (10.6 GB)"
+  fi
+  scripts/fetch/fetch.sh ${IPSW:+--source "$IPSW"} "$PROFILE"
   done_mark fetch
 fi
 if ! is_done kernel-inputs; then
@@ -226,16 +238,18 @@ scripts/image/verify.sh "out/image/$ARCHIVE"
 # ---------------------------------------------------------------------------------------------------------------
 # 7. Hand it to Windows
 # ---------------------------------------------------------------------------------------------------------------
-dest=""
-if command -v cmd.exe >/dev/null 2>&1; then
+dest="${GALIOS_OUT_DIR:-}"
+if [ -z "$dest" ] && command -v cmd.exe >/dev/null 2>&1; then
   winuser=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
   [ -n "$winuser" ] && [ -d "/mnt/c/Users/$winuser/Downloads" ] && dest="/mnt/c/Users/$winuser/Downloads"
 fi
 if [ -n "$dest" ]; then
-  say "Copying the image to your Windows Downloads folder"
-  cp "out/image/$ARCHIVE" "out/image/$ARCHIVE.sha256" "$dest/"
+  say "Copying the image to $dest"
+  mkdir -p "$dest"
+  cp "out/image/$ARCHIVE.sha256" "$dest/"
+  cp "out/image/$ARCHIVE" "$dest/$ARCHIVE.part" && mv -f "$dest/$ARCHIVE.part" "$dest/$ARCHIVE"
   ok "$dest/$ARCHIVE"
-  ok "Windows path: C:\\Users\\$winuser\\Downloads\\$ARCHIVE"
+  [ -z "${winuser:-}" ] || ok "Windows path: C:\\Users\\$winuser\\Downloads\\$ARCHIVE"
 else
   ok "The image is at $ONEIOS/out/image/$ARCHIVE"
 fi
@@ -246,3 +260,4 @@ Done. Next, on the phone:
   2. Open GalIOS > Setup > iOS 27 image: it appears under "Found on this phone". Tap Import.
 Keep this file to yourself: it is built from Apple's firmware.
 EOF
+progress "done"
