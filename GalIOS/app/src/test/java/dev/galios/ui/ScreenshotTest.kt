@@ -14,6 +14,7 @@ import dev.galios.core.LogInfo
 import dev.galios.core.PhoneChecks
 import dev.galios.core.RuntimeRelease
 import dev.galios.core.StageStatus
+import dev.galios.core.UpdateInfo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import org.junit.Rule
@@ -94,5 +95,13 @@ class ScreenshotTest {
         ),
         Tab.SETUP,
         scrollToEnd = true,
+    )
+
+    @Test fun bootWithUpdate() = shot(
+        "7-boot-update",
+        UiState(
+            device = s25, checks = goodChecks, engine = engine, engineInstalled = true, status = ready,
+            update = UpdateInfo("1.3", 3, "GalIOS-3.apk", "https://x", 2_600_000, "notes"),
+        ),
     )
 }

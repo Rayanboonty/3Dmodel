@@ -48,6 +48,8 @@ class MainActivity : ComponentActivity() {
             closeLog = { controller.closeLog() },
             shareLog = { title, text -> share(title, text) },
             dismissMessage = { controller.dismissMessage() },
+            update = { controller.installUpdate() },
+            dismissUpdate = { controller.dismissUpdate() },
         )
         setContent {
             val s by controller.state.collectAsStateWithLifecycle()

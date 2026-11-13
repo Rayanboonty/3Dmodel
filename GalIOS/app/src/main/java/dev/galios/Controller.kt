@@ -20,6 +20,9 @@ import dev.galios.core.RootShell
 import dev.galios.core.RuntimeRelease
 import dev.galios.core.StageClient
 import dev.galios.core.StageStatus
+import dev.galios.core.UpdateInfo
+import dev.galios.core.UpdateInstaller
+import dev.galios.core.Updater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,6 +52,8 @@ data class UiState(
     val openLog: Pair<String, String>? = null,
     val switching: Boolean = false,
     val refreshing: Boolean = false,
+    /** A newer GalIOS release found on GitHub, when one exists and the user has not dismissed it. */
+    val update: UpdateInfo? = null,
 ) {
     val rootOk get() = checks?.root == true
     val readyToBoot get() = device.supported && checks?.allGood == true && engine?.hasIos == true && status?.ready == true && import == null
@@ -101,6 +106,7 @@ class Controller(
                 engineInstalled = status?.stagePresent == true, refreshing = false,
             )
         }
+        checkForUpdate()
     }
 
     private fun findEngine(): EngineInfo? = try {
@@ -204,6 +210,48 @@ class Controller(
         val r = stage.returnToOneUi()
         if (!r.ok) throw IllegalStateException(r.message)
         "The return is on its way (about 45 s)."
+    }
+
+    @Volatile private var updateDismissed = false
+
+    /** Best-effort check of GitHub for a newer GalIOS; quiet on any failure (offline, rate limit). */
+    fun checkForUpdate() = scope.launch {
+        if (updateDismissed) return@launch
+        val info = try {
+            Updater.check(BuildConfigCompat.versionCode(context))
+        } catch (_: Exception) {
+            null
+        }
+        if (info != null && !updateDismissed) _state.update { it.copy(update = info) }
+    }
+
+    fun dismissUpdate() { updateDismissed = true; _state.update { it.copy(update = null) } }
+
+    /** Allow installs first if needed, then download the APK and hand it to the system installer. */
+    fun installUpdate() {
+        val info = _state.value.update ?: return
+        if (!UpdateInstaller.canInstall(context)) {
+            context.startActivity(UpdateInstaller.allowInstallIntent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            _state.update { it.copy(message = Message("Allow GalIOS to install apps, then tap Update again.", false)) }
+            return
+        }
+        run("Downloading GalIOS ${info.version}") {
+            val apk = UpdateInstaller.apkFile(context)
+            val (input, total) = Updater.download(info)
+            apk.outputStream().use { out ->
+                val buf = ByteArray(1 shl 20)
+                var done = 0L
+                input.use { s ->
+                    while (true) {
+                        val n = s.read(buf); if (n < 0) break
+                        out.write(buf, 0, n); done += n
+                        if (total > 0) _state.update { it.copy(busy = "Downloading GalIOS ${info.version} · ${(done * 100 / total)}%") }
+                    }
+                }
+            }
+            UpdateInstaller.install(context, apk)
+            "Opening the installer for GalIOS ${info.version}."
+        }
     }
 
     fun loadLogs() = scope.launch {

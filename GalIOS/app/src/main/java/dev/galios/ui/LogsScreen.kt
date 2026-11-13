@@ -43,7 +43,7 @@ fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> 
             GlassButton("Refresh", onRefresh, icon = Icons.Rounded.Refresh)
         }
         if (logs.isEmpty()) {
-            GlassCard {
+            Glass {
                 Centered {
                     Icon(Icons.Rounded.Description, null, tint = Gal.Faint, modifier = Modifier.size(40.dp))
                     VSpace(8.dp)
@@ -53,7 +53,7 @@ fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> 
             }
         }
         for (l in logs) {
-            GlassCard(Modifier.clickable { onOpen(l) }, padding = 18.dp) {
+            Glass(Modifier.clickable { onOpen(l) }, padding = 18.dp) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(l.title, style = Type.Headline)
@@ -75,7 +75,7 @@ fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> 
 /** One log, full screen: the last 1 MiB, monospaced, scrollable both ways, with Share. */
 @Composable
 fun LogViewer(title: String, text: String, onClose: () -> Unit, onShare: () -> Unit) {
-    AuroraBackground {
+    Backdrop(drift = false) {
         Column(Modifier.fillMaxSize().padding(top = 44.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClose) { Icon(Icons.Rounded.Close, "Close", tint = Gal.Text) }

@@ -1,15 +1,21 @@
 package dev.galios.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -31,184 +37,211 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.galios.R
 
+/** The design system: true-black canvas, violet→cyan accent, frosted glass, soft motion. */
 object Gal {
-    val Ink = Color(0xFF060814)
-    val Ink2 = Color(0xFF0C1030)
-    val Violet = Color(0xFF6C4BFF)
+    val Black = Color(0xFF000000)
+    val Ink = Color(0xFF05060B)
+    val Violet = Color(0xFF7C56FF)
     val Cyan = Color(0xFF19C6E6)
-    val Mint = Color(0xFF34E0A1)
-    val Amber = Color(0xFFFFB547)
+    val Mint = Color(0xFF3DE0A6)
+    val Amber = Color(0xFFFFB64A)
     val Rose = Color(0xFFFF5C7A)
-    val Text = Color(0xFFF4F6FF)
-    val Dim = Color(0xFF9AA3C7)
-    val Faint = Color(0xFF5E6790)
-    val Glass = Color(0x14FFFFFF)
-    val GlassStrong = Color(0x22FFFFFF)
-    val Edge = Color(0x1FFFFFFF)
+
+    val Text = Color(0xFFF3F5FF)
+    val Dim = Color(0xFFA7ADCC)
+    val Faint = Color(0xFF6B7196)
+
+    // Glass surfaces: a faint top-lit fill and a hairline gradient edge over the imagery.
+    val GlassTop = Color(0x14FFFFFF)
+    val GlassBottom = Color(0x08FFFFFF)
+    val EdgeTop = Color(0x33FFFFFF)
+    val EdgeBottom = Color(0x0AFFFFFF)
+    val Scrim = Color(0xB3000000)
+
     val Accent = Brush.linearGradient(listOf(Violet, Cyan))
-    val AccentDim = Brush.linearGradient(listOf(Violet.copy(alpha = 0.35f), Cyan.copy(alpha = 0.35f)))
+    fun glassFill() = Brush.verticalGradient(listOf(GlassTop, GlassBottom))
+    fun glassEdge() = Brush.verticalGradient(listOf(EdgeTop, EdgeBottom))
+    fun tint(c: Color) = Brush.verticalGradient(listOf(c.copy(alpha = 0.22f), c.copy(alpha = 0.06f)))
 }
 
 @Composable
 fun GalTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Gal.Violet, secondary = Gal.Cyan, background = Gal.Ink, surface = Gal.Ink2,
+            primary = Gal.Violet, secondary = Gal.Cyan, background = Gal.Black, surface = Gal.Ink,
             onPrimary = Color.White, onBackground = Gal.Text, onSurface = Gal.Text, error = Gal.Rose,
         ),
         content = content,
     )
 }
 
-/** The backdrop: deep ink with two soft light fields, violet above and cyan below. */
+/** Black canvas with the nebula art drifting slowly behind everything. */
 @Composable
-fun AuroraBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    Box(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Gal.Ink2, Gal.Ink, Gal.Ink)))) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(
-                Brush.radialGradient(listOf(Gal.Violet.copy(alpha = 0.40f), Color.Transparent), center = Offset(size.width * 0.15f, size.height * 0.08f), radius = size.width * 0.9f),
-                radius = size.width * 0.9f, center = Offset(size.width * 0.15f, size.height * 0.08f),
-            )
-            drawCircle(
-                Brush.radialGradient(listOf(Gal.Cyan.copy(alpha = 0.22f), Color.Transparent), center = Offset(size.width * 0.95f, size.height * 0.85f), radius = size.width * 0.8f),
-                radius = size.width * 0.8f, center = Offset(size.width * 0.95f, size.height * 0.85f),
-            )
-        }
+fun Backdrop(modifier: Modifier = Modifier, drift: Boolean = true, content: @Composable BoxScope.() -> Unit) {
+    val t = rememberInfiniteTransition(label = "drift")
+    val dy by if (drift) {
+        t.animateFloat(-18f, 18f, infiniteRepeatable(tween(26000, easing = LinearEasing), RepeatMode.Reverse), label = "dy")
+    } else remember { mutableStateOf(0f) }
+    val scale by if (drift) {
+        t.animateFloat(1.06f, 1.14f, infiniteRepeatable(tween(32000, easing = LinearEasing), RepeatMode.Reverse), label = "sc")
+    } else remember { mutableStateOf(1.08f) }
+    Box(modifier.fillMaxSize().background(Gal.Black)) {
+        Image(
+            painterResource(R.drawable.bg_nebula), null, contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                scaleX = scale; scaleY = scale; translationY = dy
+            },
+        )
+        // A soft black vignette so edges and text keep contrast.
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x66000000), Color(0x00000000), Color(0x99000000)))))
         content()
     }
 }
 
+/** A frosted-glass card: faint fill, hairline gradient edge, deep rounding. Reads as glass over the art. */
 @Composable
-fun GlassCard(modifier: Modifier = Modifier, padding: Dp = 20.dp, content: @Composable ColumnScope.() -> Unit) {
+fun Glass(modifier: Modifier = Modifier, radius: Dp = 26.dp, padding: Dp = 20.dp, tint: Color? = null, content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(radius)
     Column(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(Gal.Glass)
-            .border(1.dp, Gal.Edge, RoundedCornerShape(28.dp))
+            .clip(shape)
+            .background(Gal.Scrim.copy(alpha = 0.38f))
+            .background(tint?.let { Gal.tint(it) } ?: Gal.glassFill())
+            .border(1.dp, Gal.glassEdge(), shape)
             .padding(padding),
         content = content,
     )
 }
 
 object Type {
-    val Display = TextStyle(fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Gal.Text, letterSpacing = (-0.5).sp)
-    val Title = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = Gal.Text)
-    val Headline = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Gal.Text)
-    val Body = TextStyle(fontSize = 15.sp, color = Gal.Text, lineHeight = 21.sp)
-    val Caption = TextStyle(fontSize = 13.sp, color = Gal.Dim, lineHeight = 18.sp)
-    val Label = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Gal.Faint, letterSpacing = 1.2.sp)
-    val Mono = TextStyle(fontSize = 11.5.sp, color = Gal.Text, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, lineHeight = 16.sp)
+    private val F = FontFamily.SansSerif
+    val Display = TextStyle(fontFamily = F, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Gal.Text, letterSpacing = (-0.6).sp)
+    val Title = TextStyle(fontFamily = F, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = Gal.Text, letterSpacing = (-0.2).sp)
+    val Headline = TextStyle(fontFamily = F, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Gal.Text)
+    val Body = TextStyle(fontFamily = F, fontSize = 15.sp, color = Gal.Text, lineHeight = 21.sp)
+    val Caption = TextStyle(fontFamily = F, fontSize = 13.sp, color = Gal.Dim, lineHeight = 18.sp)
+    val Label = TextStyle(fontFamily = F, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Gal.Faint, letterSpacing = 1.6.sp)
+    val Mono = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.5.sp, color = Gal.Text, lineHeight = 16.sp)
 }
 
+/** Primary action: a gradient pill with a slow sheen moving across it. */
 @Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(text.uppercase(), style = Type.Label, modifier = modifier.padding(start = 6.dp, bottom = 10.dp, top = 6.dp))
-}
-
-/** The main action: a gradient pill. Dimmed and inert when [enabled] is false. */
-@Composable
-fun GradientButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null, height: Dp = 60.dp) {
+fun GradientButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null, height: Dp = 58.dp) {
+    val shape = RoundedCornerShape(height / 2)
+    val t = rememberInfiniteTransition(label = "sheen")
+    val x by t.animateFloat(-1f, 2f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "x")
     Box(
         modifier
-            .fillMaxWidth()
-            .height(height)
-            .clip(RoundedCornerShape(height / 2))
-            .background(if (enabled) Gal.Accent else Gal.AccentDim)
+            .fillMaxWidth().height(height).clip(shape)
+            .background(if (enabled) Gal.Accent else Brush.linearGradient(listOf(Gal.Violet.copy(alpha = 0.3f), Gal.Cyan.copy(alpha = 0.3f))))
+            .then(if (enabled) Modifier.drawBehind {
+                val w = size.width
+                drawRoundRect(
+                    Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.28f), Color.Transparent), startX = x * w - w * 0.3f, endX = x * w + w * 0.3f),
+                )
+            } else Modifier)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
-                Icon(icon, null, tint = Color.White.copy(alpha = if (enabled) 1f else 0.6f), modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(10.dp))
-            }
-            Text(text, style = Type.Headline.copy(fontSize = 18.sp, color = Color.White.copy(alpha = if (enabled) 1f else 0.6f)))
+            if (icon != null) { Icon(icon, null, tint = Color.White.copy(alpha = if (enabled) 1f else 0.6f), modifier = Modifier.size(21.dp)); Spacer(Modifier.width(10.dp)) }
+            Text(text, style = Type.Headline.copy(fontSize = 17.sp, color = Color.White.copy(alpha = if (enabled) 1f else 0.6f)))
         }
     }
 }
 
-/** A quiet action: a glass pill. */
 @Composable
 fun GlassButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null) {
-    Box(
+    val shape = RoundedCornerShape(22.dp)
+    Row(
         modifier
-            .height(46.dp)
-            .clip(RoundedCornerShape(23.dp))
-            .background(Gal.GlassStrong)
-            .border(1.dp, Gal.Edge, RoundedCornerShape(23.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 18.dp),
-        contentAlignment = Alignment.Center,
+            .height(44.dp).clip(shape).background(Gal.glassFill()).border(1.dp, Gal.glassEdge(), shape)
+            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
-                Icon(icon, null, tint = if (enabled) Gal.Text else Gal.Faint, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-            }
-            Text(text, style = Type.Body.copy(fontWeight = FontWeight.Medium, color = if (enabled) Gal.Text else Gal.Faint))
-        }
+        if (icon != null) { Icon(icon, null, tint = if (enabled) Gal.Text else Gal.Faint, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(8.dp)) }
+        Text(text, style = Type.Body.copy(fontWeight = FontWeight.Medium, fontSize = 14.sp, color = if (enabled) Gal.Text else Gal.Faint))
     }
 }
 
 enum class Mark { OK, WAIT, BAD, OFF }
 
-/** A row of the readiness list: an icon in a tinted circle, a title and its value, and its state. */
 @Composable
 fun StatusRow(icon: ImageVector, title: String, value: String, mark: Mark, modifier: Modifier = Modifier) {
     val tint = when (mark) { Mark.OK -> Gal.Mint; Mark.WAIT -> Gal.Amber; Mark.BAD -> Gal.Rose; Mark.OFF -> Gal.Faint }
     Row(modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(38.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+        Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(tint.copy(alpha = 0.14f)).border(1.dp, tint.copy(alpha = 0.25f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = tint, modifier = Modifier.size(19.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = Type.Body.copy(fontWeight = FontWeight.Medium))
             Text(value, style = Type.Caption, maxLines = 2)
         }
-        Box(Modifier.size(9.dp).clip(CircleShape).background(tint))
+        Box(Modifier.size(8.dp).clip(CircleShape).background(tint).blur(0.5.dp))
     }
 }
 
-/** A thin gradient progress bar. */
 @Composable
 fun GalProgress(fraction: Float, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Gal.GlassStrong)) {
-        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(Gal.Accent))
+    Box(modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))) {
+        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).height(8.dp).clip(CircleShape).background(Gal.Accent))
     }
 }
 
-/** A turning gradient ring, for work in progress. */
+/** A turning gradient ring. */
 @Composable
 fun Spinner(size: Dp = 22.dp, stroke: Dp = 3.dp) {
     val t = rememberInfiniteTransition(label = "spin")
-    val angle by t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "angle")
-    Canvas(Modifier.size(size)) {
-        drawArc(Gal.Accent, startAngle = angle, sweepAngle = 270f, useCenter = false, style = Stroke(stroke.toPx(), cap = StrokeCap.Round))
-    }
+    val angle by t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "a")
+    Canvas(Modifier.size(size)) { drawArc(Gal.Accent, startAngle = angle, sweepAngle = 270f, useCenter = false, style = Stroke(stroke.toPx(), cap = StrokeCap.Round)) }
 }
 
 @Composable
 fun Pill(text: String, color: Color = Gal.Cyan) {
-    Text(
-        text, style = Type.Caption.copy(color = color, fontWeight = FontWeight.SemiBold),
-        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 4.dp),
-    )
+    Row(
+        Modifier.clip(CircleShape).background(color.copy(alpha = 0.14f)).border(1.dp, color.copy(alpha = 0.3f), CircleShape).padding(horizontal = 11.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(6.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(6.dp))
+        Text(text, style = Type.Caption.copy(color = color, fontWeight = FontWeight.SemiBold, fontSize = 12.sp))
+    }
+}
+
+/** Fades and lifts its content in on first composition — the quiet entrance used across the app. */
+@Composable
+fun Appear(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    var shown by remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    AnimatedVisibility(shown, modifier, enter = fadeIn(tween(420)) + slideInVertically(tween(420, easing = FastOutSlowInEasing)) { it / 10 }) { content() }
 }
 
 fun bytes(n: Long?): String = when {
@@ -219,8 +252,7 @@ fun bytes(n: Long?): String = when {
     else -> "$n B"
 }
 
-@Composable
-fun VSpace(h: Dp) = Spacer(Modifier.height(h))
+@Composable fun VSpace(h: Dp) = Spacer(Modifier.height(h))
 
 @Composable
-fun Centered(content: @Composable () -> Unit) = Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { content() }
+fun Centered(content: @Composable ColumnScope.() -> Unit) = Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, content = content)

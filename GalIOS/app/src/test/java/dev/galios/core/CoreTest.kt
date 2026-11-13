@@ -174,6 +174,25 @@ class CoreTest {
     }
 
     @Test
+    fun theUpdaterPicksAHigherVersionCodeOnly() {
+        val json = """[
+            {"tag_name":"v1.4","draft":true,"assets":[{"name":"GalIOS-4.apk","browser_download_url":"https://x/4","size":4}]},
+            {"tag_name":"v1.3","draft":false,"body":"notes","assets":[
+                {"name":"GalIOS-3.apk.sha256","browser_download_url":"https://x/s","size":1},
+                {"name":"GalIOS-3.apk","browser_download_url":"https://x/3","size":2600000}]},
+            {"tag_name":"v1.2","draft":false,"assets":[{"name":"GalIOS-2.apk","browser_download_url":"https://x/2","size":2}]}
+        ]"""
+        // From code 2: the newest non-draft with a higher code is 3.
+        val up = Updater.pick(json, 2)!!
+        assertEquals(3L, up.versionCode)
+        assertEquals("1.3", up.version)
+        assertEquals("https://x/3", up.url)
+        // From code 3: nothing higher (the 4 is a draft), so no update.
+        assertNull(Updater.pick(json, 3))
+        assertNull(Updater.pick("[]", 0))
+    }
+
+    @Test
     fun archivesOnThePhoneAreFound() {
         val scan = ImageFinder.parseScan(
             listOf(

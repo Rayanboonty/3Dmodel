@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.galios.ImportState
 import dev.galios.UiState
 import dev.galios.core.ImageFinder
@@ -132,14 +133,14 @@ private fun FoundList(s: UiState, kind: StageClient.Kind, a: SetupActions) {
     val list = s.found.filter { it.kind == kind }
     if (list.isEmpty()) return
     VSpace(8.dp)
-    Text("FOUND ON THIS PHONE", style = Type.Label.copy(fontSize = 11.sp()))
+    Text("FOUND ON THIS PHONE", style = Type.Label.copy(fontSize = 11.sp))
     for (f in list) {
         val imported = when (kind) {
             StageClient.Kind.IMAGE -> f.version == s.status?.imageVersion && f.build == s.status?.imageBuild
             StageClient.Kind.RUNTIME -> f.version == s.status?.runtimeVersion
         }
         Row(
-            Modifier.fillMaxWidth().padding(top = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)).background(Gal.Glass).padding(12.dp),
+            Modifier.fillMaxWidth().padding(top = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)).background(Gal.glassFill()).padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(if (kind == StageClient.Kind.IMAGE) Icons.Rounded.Download else Icons.Rounded.CloudDownload, null, tint = Gal.Cyan, modifier = Modifier.size(22.dp))
@@ -157,17 +158,17 @@ private fun FoundList(s: UiState, kind: StageClient.Kind, a: SetupActions) {
 
 @Composable
 private fun Step(n: Int, title: String, text: String, done: Boolean, content: @Composable () -> Unit) {
-    GlassCard {
+    Glass {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(32.dp).clip(CircleShape).background(if (done) Gal.Mint.copy(alpha = 0.2f) else Gal.GlassStrong),
+                Modifier.size(32.dp).clip(CircleShape).background(if (done) Gal.Mint.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.06f)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (done) Icon(Icons.Rounded.Check, null, tint = Gal.Mint, modifier = Modifier.size(18.dp))
                 else Text("$n", style = Type.Body.copy(fontWeight = FontWeight.Bold))
             }
             Spacer(Modifier.width(12.dp))
-            Text(title, style = Type.Title.copy(fontSize = 19.sp()))
+            Text(title, style = Type.Title.copy(fontSize = 19.sp))
         }
         VSpace(8.dp)
         Text(text, style = Type.Caption)
@@ -176,7 +177,6 @@ private fun Step(n: Int, title: String, text: String, done: Boolean, content: @C
     }
 }
 
-private fun Int.sp() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
 
 @Composable
 private fun Check(title: String, value: String, ok: Boolean) {
@@ -192,7 +192,7 @@ private fun Check(title: String, value: String, ok: Boolean) {
 
 @Composable
 fun ImportCard(i: ImportState, onCancel: () -> Unit) {
-    GlassCard(padding = 20.dp) {
+    Glass(padding = 20.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Spinner()
             Spacer(Modifier.width(12.dp))
@@ -221,5 +221,3 @@ fun ImportCard(i: ImportState, onCancel: () -> Unit) {
     }
 }
 
-@Suppress("unused")
-private val unusedColor = Color.Unspecified
