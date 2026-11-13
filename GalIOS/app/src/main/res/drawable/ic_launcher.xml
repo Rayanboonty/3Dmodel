@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GalIOS: an original mark. A rounded tile in a violet-to-cyan gradient with an open ring and a dot. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M30,18h48a12,12 0 0 1 12,12v48a12,12 0 0 1 -12,12h-48a12,12 0 0 1 -12,-12v-48a12,12 0 0 1 12,-12z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="18" android:startY="18" android:endX="90" android:endY="90">
+                <item android:offset="0" android:color="#FF6C4BFF" />
+                <item android:offset="1" android:color="#FF19C6E6" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- An open ring (a "G" without its bar), then the dot that closes it. -->
+    <path android:pathData="M70,46 A18,18 0 1 0 72,58"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000" />
+    <path android:pathData="M62,58h10" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" />
+    <path android:pathData="M74,36a4,4 0 1 0 0.01,0z" android:fillColor="#FFFFFFFF" />
+</vector>
