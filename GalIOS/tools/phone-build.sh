@@ -65,6 +65,12 @@ do_log() {
 }
 
 # Every process running inside Ubuntu: its root directory is the Ubuntu folder.
+# Mounts under the Ubuntu folder left by an earlier run that ended without its cleanup (deepest first).
+stale_mounts() { awk -v r="$R" '$2 == r || index($2, r "/") == 1 { print $2 }' /proc/mounts 2>/dev/null | sort -r; }
+unmount_stale() {
+  for t in $(stale_mounts); do umount -l "$t" 2>/dev/null || umount "$t" 2>/dev/null; done
+}
+
 inside_pids() {
   for d in /proc/[0-9]*; do
     [ "$(readlink "$d/root" 2>/dev/null)" = "$R" ] && echo "${d#/proc/}"
@@ -85,6 +91,7 @@ do_stop() {
     echo stopped > "$H/exit"
     echo "stopped" > "$R/galios/progress" 2>/dev/null
   fi
+  unmount_stale
   rm -f "$H/pid" "$H/runner.pid"
   echo "@@OK stop"
 }
@@ -103,6 +110,7 @@ inside_path() {
 do_start() {
   [ "$(id -u)" = 0 ] || die "needs root"
   pid_alive && die "a build is already running"
+  [ -n "$(inside_pids)" ] && die "something is still running inside Ubuntu: tap Stop first"
   [ -f "${BUILD_SCRIPT:-}" ] || die "no build script (BUILD_SCRIPT)"
   mkdir -p "$H" || die "cannot make $H"
 
@@ -178,10 +186,14 @@ mount --make-rprivate / 2>/dev/null && echo "mount namespace made private" || ec
 mnt "\$R/proc" -t proc proc || mnt "\$R/proc" -o bind /proc
 mnt "\$R/sys" -t sysfs sysfs || mnt "\$R/sys" -o bind /sys
 if mnt "\$R/dev" -t tmpfs -o mode=0755,size=64m tmpfs; then
-  for n in null zero full random urandom tty fuse; do
-    [ -e "/dev/\$n" ] || continue
-    touch "\$R/dev/\$n"
-    mnt "\$R/dev/\$n" -o bind "/dev/\$n"
+  # The device nodes Ubuntu needs, made as nodes (root may mknod on this tmpfs). Not bind mounts of single files:
+  # Android's toybox mount takes "-o bind /dev/null" for a disk image and fails at losetup (1.6 on an S25 Ultra).
+  for spec in "null 1 3" "zero 1 5" "full 1 7" "random 1 8" "urandom 1 9" "tty 5 0" "fuse 10 229"; do
+    set -- \$spec
+    [ -e "/dev/\$1" ] || continue
+    if mknod -m 666 "\$R/dev/\$1" c "\$2" "\$3" 2>/dev/null; then echo "made /dev/\$1"
+    else touch "\$R/dev/\$1"; mnt "\$R/dev/\$1" --bind "/dev/\$1" || mnt "\$R/dev/\$1" -o bind "/dev/\$1"
+    fi
   done
 else
   mnt "\$R/dev" -o bind /dev
@@ -199,6 +211,7 @@ chroot "\$R" /usr/bin/env -i HOME=/root TERM=dumb LANG=C.UTF-8 \\
   GALIOS_WORK=/root/oneios-build GALIOS_OUT_DIR=/sdcard/Download GALIOS_PROGRESS=/galios/progress $passenv \\
   /bin/bash /galios/build.sh $args
 EOF
+  unmount_stale
   rm -f "$H/exit" "$H/pid"
   echo "starting" > "$R/galios/progress"
   date +%s > "$H/started"
