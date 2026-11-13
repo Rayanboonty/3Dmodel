@@ -29,6 +29,25 @@ OneiOS archives it finds in Download, Documents or the top of the storage (`Onei
 `oneios-runtime-…-arm64.tar.zst`) with a one-tap Import; any other place works with Choose image. **Boot** → Boot
 iOS 27. To come back: hold Volume Up + Volume Down for 3 seconds.
 
+## Updates
+
+GalIOS updates itself. On each refresh it checks the GitHub Releases of its repository
+(`dev/galios/core/Updater.kt`, `REPO`) for a build whose versionCode is higher than the installed one, shown by an
+asset named `GalIOS-<versionCode>.apk`. If one exists it shows an "Update available" banner; tapping Update downloads
+the APK and hands it to Android's package installer (the user confirms; GalIOS asks to be allowed to install apps the
+first time). Nothing installs on its own.
+
+**To publish an update** (so installed copies see it), create a GitHub release on the repo with the APK attached,
+named for its versionCode:
+
+    # bump versionCode/versionName in app/build.gradle.kts, then:
+    ./gradlew :app:assembleRelease
+    cp app/build/outputs/apk/release/app-release.apk GalIOS-<versionCode>.apk
+    gh release create v<versionName> GalIOS-<versionCode>.apk -t "GalIOS <versionName>" -n "<notes>"
+
+The asset name must be exactly `GalIOS-<versionCode>.apk` (e.g. `GalIOS-4.apk`); that number is how GalIOS compares
+builds. Releases hold only GalIOS's own APK — no Apple or OneOS files.
+
 ## Build
 
 JDK 17+ and the Android SDK (platform 35):
