@@ -122,7 +122,9 @@ class StageProtocolTest {
         val file = File(download, "OneiOS_iOS27.0.4_24A999_iPhone18-2.tar.zst")
         file.writeBytes(archive(StageClient.Kind.IMAGE, imageFiles, imageFacts.replace("27.0.1", "27.0.4").replace("24A446", "24A999")))
         val shell = ProcessRootShell(listOf("sh", "-c"))
-        val found = ImageFinder.scan(shell, listOf(dir.path)).single()
+        val scan = ImageFinder.scan(shell, listOf(dir.path, download.path))
+        assertTrue(scan.scanned.contains(download.path))
+        val found = scan.found.single { it.kind == StageClient.Kind.IMAGE }
         assertEquals("27.0.4", found.version)
         assertEquals(file.length(), found.size)
         RootFileStream(shell.prefix, found.path).use { PackageImport(stage, found.kind).run(it) }

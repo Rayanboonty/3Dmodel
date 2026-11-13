@@ -40,6 +40,8 @@ data class UiState(
     val release: RuntimeRelease? = null,
     /** OneiOS archives already on the phone (Download, Documents, the top of the storage). */
     val found: List<ImageFinder.Found> = emptyList(),
+    /** The folders the last scan actually looked in, for the "nothing found" hint. */
+    val scannedFolders: List<String> = emptyList(),
     val busy: String? = null,
     val import: ImportState? = null,
     val message: Message? = null,
@@ -91,8 +93,14 @@ class Controller(
         val engine = findEngine()
         val checks = PhoneChecks.run(shell)
         val status = if (checks.root) stage.status().takeIf { it.error == null } else null
-        val found = if (checks.root) runCatching { ImageFinder.scan(shell) }.getOrDefault(emptyList()) else emptyList()
-        _state.update { it.copy(engine = engine, checks = checks, status = status, found = found, engineInstalled = status?.stagePresent == true, refreshing = false) }
+        val scan = if (checks.root) runCatching { ImageFinder.scan(shell) }.getOrNull() else null
+        _state.update {
+            it.copy(
+                engine = engine, checks = checks, status = status,
+                found = scan?.found ?: emptyList(), scannedFolders = scan?.scanned ?: emptyList(),
+                engineInstalled = status?.stagePresent == true, refreshing = false,
+            )
+        }
     }
 
     private fun findEngine(): EngineInfo? = try {

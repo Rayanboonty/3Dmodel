@@ -107,11 +107,15 @@ fun SetupScreen(s: UiState, a: SetupActions) {
 
         Step(4, "iOS 27 image", "Built by you from Apple's own firmware with OneiOS's scripts on a computer (about 11 GB). Nobody can send you a copy: copy your .tar.zst to the phone and choose it here.", done = s.status?.imageVersion != null) {
             s.status?.imageVersion?.let { Check("Imported", "iOS $it (${s.status.imageBuild}) · ${bytes(s.status.imageBytes)}", true) }
+            FoundList(s, StageClient.Kind.IMAGE, a)
             if (s.rootOk && s.found.none { it.kind == StageClient.Kind.IMAGE }) {
                 VSpace(6.dp)
-                Text("No image found in Download or Documents yet. Copy your OneiOS_iOS27…tar.zst there and tap Look again.", style = Type.Caption.copy(color = Gal.Faint))
+                Text(
+                    "No .tar.zst found yet. Put your image in the phone's Download folder, then tap Look again." +
+                        if (s.scannedFolders.isNotEmpty()) "\nLooked in: ${s.scannedFolders.joinToString(", ")}." else "",
+                    style = Type.Caption.copy(color = Gal.Faint),
+                )
             }
-            FoundList(s, StageClient.Kind.IMAGE, a)
             VSpace(10.dp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 GlassButton("Look again", a.refresh, enabled = s.rootOk && !s.refreshing, icon = Icons.Rounded.TravelExplore)

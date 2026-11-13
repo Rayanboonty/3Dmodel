@@ -175,24 +175,34 @@ class CoreTest {
 
     @Test
     fun archivesOnThePhoneAreFound() {
-        val found = ImageFinder.parse(
+        val scan = ImageFinder.parseScan(
             listOf(
-                "11150000000 /sdcard/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst",
-                "11150000000 /storage/emulated/0/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst", // the same file again
-                "10990000000 /sdcard/Documents/OneiOS_iOS27.0_24A335_iPhone18-2.tar.zst",
-                "41000000 /sdcard/Download/oneios-runtime-0.1.8-arm64.tar.zst",
-                "40000000 /sdcard/Download/oneios-runtime-0.1.10-arm64.tar.zst",
-                "500 /sdcard/Download/something-else.tar.zst",
+                "DIR\t/sdcard/Download",
+                "11150000000\t/sdcard/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst",
+                "11150000000\t/storage/emulated/0/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst", // the same file again
+                "10990000000\t/sdcard/Documents/OneiOS_iOS27.0_24A335_iPhone18-2.tar.zst",
+                "41000000\t/sdcard/Download/oneios-runtime-0.1.8-arm64.tar.zst",
+                "40000000\t/sdcard/Download/oneios-runtime-0.1.10-arm64.tar.zst",
+                "9000000000\t/sdcard/Download/my-ios-build.tar.zst", // renamed: still shown, by its file name
                 "not a line",
             ),
         )
-        assertEquals(4, found.size)
+        assertEquals(listOf("/sdcard/Download"), scan.scanned)
+        val found = scan.found
+        // Four recognised plus the renamed one, shown as an image candidate.
+        assertEquals(5, found.size)
         val runtimes = found.filter { it.kind == StageClient.Kind.RUNTIME }
         assertEquals(listOf("0.1.10", "0.1.8"), runtimes.map { it.version })
         val images = found.filter { it.kind == StageClient.Kind.IMAGE }
-        assertEquals(listOf("27.0.1", "27.0"), images.map { it.version })
+        // Recognised first (newest version), then the renamed one by its file name.
+        assertEquals(listOf("27.0.1", "27.0", null), images.map { it.version })
         assertEquals("iOS 27.0.1 (24A446)", images[0].label)
+        assertEquals("my-ios-build.tar.zst", images.last().label)
+        assertFalse(images.last().recognised)
         assertEquals("/sdcard/Download/OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst", images[0].path)
-        assertTrue(ImageFinder.script(listOf("/sdcard/My Files")).contains("'/sdcard/My Files'"))
+        // The search follows a folder that is a symlink (trailing slash) and keeps spaced names whole.
+        val script = ImageFinder.script(listOf("/sdcard/My Files"))
+        assertTrue(script.contains("'/sdcard/My Files'/"))
+        assertTrue(script.contains("-name '*.tar.zst'"))
     }
 }
