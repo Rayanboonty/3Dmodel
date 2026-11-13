@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GalIOS Studio</title>
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"></div>
+
+<aside class="side">
+  <div class="brand"><img src="icon.svg" alt=""><div><b>GalIOS</b><span>Studio</span></div></div>
+  <nav>
+    <a data-page="overview" class="on" title="Overview"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></i><span>Overview</span></a>
+    <a data-page="build" title="Build image"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg></i><span>Build image</span></a>
+    <a data-page="phone" title="Phone"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg></i><span>Phone</span></a>
+    <a data-page="boot" title="Boot"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></i><span>Boot</span></a>
+    <a data-page="logs" title="Logs"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 12h14M5 18h9"/></svg></i><span>Logs</span></a>
+    <a data-page="settings" title="Settings"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></i><span>Settings</span></a>
+  </nav>
+  <div class="side-foot"><span id="ver"></span><button class="link" data-act="quit">Quit Studio</button></div>
+</aside>
+
+<main>
+  <!-- OVERVIEW -->
+  <section id="overview" class="page on">
+    <header><small>GALIOS STUDIO</small><h1>Overview</h1><p>Build your own iOS 27 image on this PC, then put it on your Galaxy S25 Ultra and boot it, all from here.</p></header>
+    <div class="grid2">
+      <div class="glass">
+        <h3>This PC</h3>
+        <div class="rows" id="pcRows"></div>
+        <div class="btns"><button class="ghost" data-act="pc.refresh">Check again</button></div>
+      </div>
+      <div class="glass">
+        <h3>Phone</h3>
+        <div class="rows" id="phoneRows"></div>
+        <div class="btns"><button class="ghost" data-act="phone.refresh">Check again</button></div>
+      </div>
+    </div>
+    <div class="glass">
+      <h3>Next steps</h3>
+      <ol class="steps" id="nextSteps"></ol>
+    </div>
+  </section>
+
+  <!-- BUILD -->
+  <section id="build" class="page">
+    <header><small>STEP 1</small><h1>Build the image</h1><p>OneiOS's scripts turn Apple's iOS 27.0.1 for iPhone 17 Pro Max into the image GalIOS boots. It runs in Ubuntu inside Windows (WSL), takes about 1–2 hours and needs about 70&nbsp;GB on drive C:. Stop any time; building again resumes.</p></header>
+    <div class="glass">
+      <h3>Ubuntu on this PC</h3>
+      <div class="rows" id="wslRows"></div>
+      <div class="btns">
+        <button class="ghost" data-act="wsl.install">Install Ubuntu</button>
+        <button class="ghost" data-act="wsl.terminal">Open Ubuntu terminal</button>
+        <button class="ghost" data-act="build.setup">Set up build tools only</button>
+      </div>
+    </div>
+    <div class="glass">
+      <h3>iOS files</h3>
+      <p class="muted">Use the <code>iPhone18,2_27.0.1_24A446_Restore.ipsw</code> you downloaded, or let the build read the parts it needs straight from Apple (10.6&nbsp;GB).</p>
+      <div class="field"><input id="ipswPath" placeholder="No .ipsw chosen" readonly><button class="ghost" data-act="pick.ipsw">Choose .ipsw…</button></div>
+      <div class="btns big">
+        <button class="primary" data-act="build.ipsw">Build from my .ipsw</button>
+        <button class="ghost" data-act="build.download">Download from Apple and build</button>
+      </div>
+    </div>
+    <div class="glass">
+      <h3>The finished image</h3>
+      <div class="rows" id="imageRows"></div>
+      <div class="btns">
+        <button class="ghost" data-act="open.outdir">Open folder</button>
+        <button class="ghost" data-act="pick.outdir">Change folder…</button>
+        <button class="ghost" data-act="build.verify">Check the image</button>
+        <button class="ghost warn" data-act="build.clean" data-confirm="Remove the build's large files (about 40 GB) from Ubuntu? The finished image in your folder is kept.">Free build space</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHONE -->
+  <section id="phone" class="page">
+    <header><small>STEP 2</small><h1>Phone</h1><p>Connect the S25 Ultra by USB with USB debugging on, and start your temporary root.</p></header>
+    <div class="glass">
+      <h3>Connection</h3>
+      <div class="rows" id="connRows"></div>
+      <div class="btns">
+        <button class="ghost" data-act="adb.get">Get adb</button>
+        <button class="ghost" data-act="phone.refresh">Find phone</button>
+        <button class="ghost" data-act="phone.install-galios">Install GalIOS on the phone</button>
+        <button class="ghost warn" data-act="phone.reboot" data-confirm="Restart the phone? It comes back in One UI; temporary root is lost.">Restart phone</button>
+      </div>
+    </div>
+    <div class="glass">
+      <h3>Root and tools</h3>
+      <div class="rows" id="rootRows"></div>
+    </div>
+    <div class="glass">
+      <h3>Copy the image</h3>
+      <p class="muted">Puts the finished image in the phone's Download folder, where GalIOS finds it (one tap: Import). Or add it from here on the Boot page.</p>
+      <div class="btns"><button class="ghost" data-act="phone.push-image">Copy image to the phone</button></div>
+    </div>
+  </section>
+
+  <!-- BOOT -->
+  <section id="boot" class="page">
+    <header><small>STEP 3</small><h1>Boot</h1><p>Uses the OneOS app's iOS 27 engine already on the phone (Studio adapts its phone check for the S25 Ultra) and puts everything in its stage, straight from this PC.</p></header>
+    <div class="glass hero">
+      <div class="hero-text">
+        <span class="pill" id="readyPill">Not ready</span>
+        <h2>iOS 27</h2>
+        <p class="muted" id="bootLine">—</p>
+      </div>
+      <img src="orb.png" alt="" class="orb">
+    </div>
+    <div class="glass">
+      <h3>Get it ready</h3>
+      <div class="rows" id="stageRows"></div>
+      <div class="btns">
+        <button class="ghost" data-act="phone.engine">1 · Install boot engine</button>
+        <button class="ghost" data-act="phone.runtime">2 · Add OneiOS runtime</button>
+        <button class="ghost" data-act="phone.import-image">3 · Add the image from this PC</button>
+        <button class="ghost" data-act="phone.status">Boot check</button>
+      </div>
+    </div>
+    <div class="glass">
+      <div class="btns big">
+        <button class="primary" id="bootBtn" data-act="phone.boot" data-confirm="Boot iOS 27 now? One UI stops in about 40 seconds. To come back: Volume Up + Volume Down for 3 seconds, or Return to One UI here. It is experimental and has never run on an S25 Ultra before.">Boot iOS 27</button>
+        <button class="ghost" data-act="phone.return">Return to One UI</button>
+        <button class="ghost" data-act="phone.logs">Collect logs</button>
+      </div>
+      <p class="muted small">If the way back fails its checks, the phone restarts into One UI; temporary root is gone after a restart.</p>
+    </div>
+  </section>
+
+  <!-- LOGS -->
+  <section id="logs" class="page">
+    <header><small>ACTIVITY</small><h1>Logs</h1><p>Everything Studio and the build printed. Send this when something stops.</p></header>
+    <div class="glass">
+      <div class="btns"><button class="ghost" id="copyLog">Copy</button><button class="ghost" id="saveLog">Save as file</button><button class="ghost" data-act="open.data">Open Studio's folder</button></div>
+      <pre id="log" class="log"></pre>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="settings" class="page">
+    <header><small>PREFERENCES</small><h1>Settings</h1></header>
+    <div class="glass form">
+      <label>Ubuntu in WSL<input id="s_distro"></label>
+      <label>Finished image folder<input id="s_outDir"></label>
+      <label>.ipsw file<input id="s_ipsw" placeholder="empty: download from Apple"></label>
+      <label>GitHub token (optional)<input id="s_githubToken" type="password" placeholder="only if the kernel step says HTTP 403"></label>
+      <label>Root command on the phone<input id="s_rootCmd"></label>
+      <label>adb path<input id="s_adbPath" placeholder="empty: the one Studio downloads"></label>
+      <label>Phone serial<input id="s_serial" placeholder="empty: the only phone connected"></label>
+      <div class="btns"><button class="primary" id="saveSettings">Save</button></div>
+    </div>
+  </section>
+</main>
+
+<footer class="task" id="task">
+  <div class="task-main">
+    <div class="spin" id="spin"></div>
+    <div class="task-text"><b id="taskTitle">Idle</b><span id="taskStep">Nothing running.</span></div>
+    <div class="task-pct" id="taskPct"></div>
+    <button class="ghost small" id="stopBtn" data-act="job.stop">Stop</button>
+  </div>
+  <div class="bar"><i id="taskBar"></i></div>
+  <div class="tail" id="tail"></div>
+</footer>
+
+<div class="toast" id="toast"></div>
+<dialog id="confirm"><p id="confirmText"></p><div class="btns"><button class="ghost" value="no">Cancel</button><button class="primary" value="yes">Continue</button></div></dialog>
+<script src="app.js"></script>
+</body>
+</html>

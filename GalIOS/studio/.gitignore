@@ -1,0 +1,5 @@
+dist/
+# copied in by build.sh
+assets/
+ui/bg.jpg
+ui/orb.png

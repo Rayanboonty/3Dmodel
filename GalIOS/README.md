@@ -60,6 +60,17 @@ The staging test runs against OneOS's real scripts on a stand-in phone only when
 `app/src/test/java/dev/galios/core/StageProtocolTest.kt`. Screenshots: `-Proborazzi.test.record=true`, images in
 `app/build/screenshots/`.
 
+## GalIOS Studio (Windows)
+
+`studio/` is a Windows program that does the PC side: it builds the image in WSL Ubuntu (`tools/build-ios-image-wsl.sh`,
+which it carries), then over USB installs GalIOS, installs the boot engine (read from the phone's OneOS app, adapted
+for the S25 Ultra), adds the OneiOS runtime and the image, runs the boot check, and boots and returns. It opens as a
+local page at `http://127.0.0.1:47827/` and talks only to this PC, the phone and GitHub/Google downloads.
+
+    cd studio && ./build.sh       # dist/GalIOS-Studio.exe (Go 1.24; copies the build script and the release APK in)
+    go test ./...                 # unit tests; the boot path runs against OneOS's real scripts when given their
+                                  # paths (STUDIO_FAKE_ADB, STUDIO_ONEOS_APK_DIR, STUDIO_REAL_ROOT/_SWITCH/_RETURN)
+
 ## Status
 
 Built and tested off the phone: the core against OneOS's real root script (install, the S25 adaptation, runtime and
