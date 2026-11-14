@@ -21,5 +21,10 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   the prime cores at the start (`vCPU 6 on host CPUs 0x40: Invalid argument`) and ran on the E cores beside the
   pinned vCPUs for the whole session: each vCPU got about a third of a core, single page faults took up to 16 s.
 
+- `0006-side-key-brings-brightness-back.patch`: iOS 27's CoreBrightness sends the slider as `DisplayBrightness`, a
+  float that IOKit's serialization hands the driver as the integer 0 (`Brightness number 0x0 ... nothing sent`), and
+  after the side key wakes the display it sends no other level, so the panel stayed at its floor (dim after every
+  lock). A side-key press while iOS's level is 0 now brings the last lit level back 600 ms later, unless iOS sets one.
+
 History: galios.4 had 0002 at 4 GiB and 0003 and felt worse than galios.3; its log showed the cause was the
 P vCPUs' lost cores (0005), not those two. galios.5 had only 0001 and 0004.
