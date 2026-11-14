@@ -122,6 +122,16 @@ class StageClient(private val shell: RootShell, val stage: String = DEFAULT_STAG
         return Reply.parse(shell.exec(command, null))
     }
 
+    /** GalIOS's maximum performance (runtime galios.14 on): the file `galios-max` in the stage, read by xnuhost. */
+    fun maxPerformance(): Boolean = shell.exec("[ -e ${shq("$stage/galios-max")} ] && echo on || echo off", null).lines.any { it.trim() == "on" }
+
+    fun setMaxPerformance(on: Boolean): Reply {
+        val f = shq("$stage/galios-max")
+        val command = if (on) "[ -d ${shq(stage)} ] || { echo '@@FAILED OneiOS is not set up on this phone'; exit 4; }; : > $f && chmod 0600 $f && echo '@@OK on'"
+        else "rm -f $f && echo '@@OK off'"
+        return Reply.parse(shell.exec(command, null))
+    }
+
     enum class Kind(val word: String, val manifest: String) { RUNTIME("runtime", "runtime.json"), IMAGE("image", "manifest.json") }
 
     /** What a verb answered. [ok] when its last @@ line is @@OK. */

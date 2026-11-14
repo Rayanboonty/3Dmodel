@@ -1,0 +1,20 @@
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+index 4ff6155..5a6f764 100644
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -320,6 +320,15 @@ int xh_config_finish(xh_config *c)
+       strcpy(d->path, path);
+     }
+   }
++  // GalIOS: Maximum performance, the owner's choice in GalIOS (Setup, "Maximum performance"): the file galios-max in
++  // the stage, /data in the session. iOS gets 10 GiB whatever the host has free (the host may then swap iOS's RAM),
++  // and drm2kgsl's animation boost takes every vCPU (GALIOS_BOOST_ALL), the prime cores' too.
++  if (access("/data/galios-max", F_OK) == 0) {
++    if (!c->ram_given) { c->ram_bytes = 10ull << 30; c->ram_given = true; }
++    setenv("GALIOS_BOOST_ALL", "1", 1);
++    fprintf(stderr, "xnuhost: GalIOS maximum performance: the guest gets %llu MiB, the animation boost every vCPU\n",
++            (unsigned long long)(c->ram_bytes >> 20));
++  }
+   // The guest's RAM: the command line's ram=, else the image set's, else auto.
+   if (!c->ram_given && from_image.ram_given) c->ram_bytes = from_image.ram_bytes;
+   if (c->ram_percent < 0) c->ram_percent = from_image.ram_percent < 0 ? XH_RAM_AUTO_PERCENT : from_image.ram_percent;

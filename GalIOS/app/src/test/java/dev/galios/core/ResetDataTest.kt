@@ -29,3 +29,19 @@ class ResetDataTest {
         assertTrue(StageClient(shell, File(stage, "nothing").path).resetData().ok)
     }
 }
+
+/** Maximum performance: the switch is the file galios-max in the stage, on and off again. */
+class MaxPerformanceTest {
+    @Test
+    fun theSwitchIsAFileInTheStage() {
+        val shell = ProcessRootShell(listOf("sh", "-c"))
+        val stage = Files.createTempDirectory("galios-max").toFile()
+        val client = StageClient(shell, stage.path)
+        assertFalse(client.maxPerformance())
+        assertTrue(client.setMaxPerformance(true).ok)
+        assertTrue(File(stage, "galios-max").exists() && client.maxPerformance())
+        assertTrue(client.setMaxPerformance(false).ok)
+        assertFalse(File(stage, "galios-max").exists() || client.maxPerformance())
+        assertFalse(StageClient(shell, File(stage, "missing").path).setMaxPerformance(true).ok)
+    }
+}

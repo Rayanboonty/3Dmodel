@@ -65,6 +65,7 @@ class SetupActions(
     val stopPhoneBuild: () -> Unit = {},
     val openPhoneBuildLog: () -> Unit = {},
     val resetIosData: () -> Unit = {},
+    val setMaxPerformance: (Boolean) -> Unit = {},
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -175,6 +176,17 @@ fun SetupScreen(s: UiState, a: SetupActions) {
                 GlassButton("Choose image", a.pickImage, enabled = s.rootOk && s.busy == null && s.import == null && e?.hasIos == true, icon = Icons.Rounded.FolderOpen)
                 GlassButton("How to build it", a.howToBuild, icon = Icons.Rounded.OpenInNew)
             }
+        }
+
+        Step(6, "Performance", "Balanced (the default) sizes iOS's memory to what Android can spare and keeps the speed boost off the two hottest cores. Maximum performance gives iOS 10 GB and boosts every core while it animates: faster when the phone is cool, but Android may swap and the phone heats sooner. Needs runtime galios.14 or newer; takes effect at the next boot.", done = false) {
+            Check("Now", if (s.maxPerformance) "Maximum performance (10 GB, every core)" else "Balanced", true)
+            VSpace(10.dp)
+            GlassButton(
+                if (s.maxPerformance) "Back to balanced" else "Maximum performance",
+                { a.setMaxPerformance(!s.maxPerformance) },
+                enabled = s.rootOk && s.busy == null && s.status?.sessionOpen != true,
+                icon = Icons.Rounded.Memory,
+            )
         }
 
         Step(5, "iOS data", "Everything iOS keeps between boots (its settings, your apps' data) is one file on the phone, made from the image on the first boot. Starting fresh makes it again on the next boot: that is how the camera's plug-in and other new parts of a newer image arrive.", done = false) {

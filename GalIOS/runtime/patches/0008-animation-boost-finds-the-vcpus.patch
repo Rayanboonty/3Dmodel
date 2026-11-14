@@ -1,12 +1,12 @@
 diff --git a/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch b/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
 new file mode 100644
-index 0000000..0fc15e3
+index 0000000..4ae7c09
 --- /dev/null
 +++ b/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,20 @@
 +--- a/src/drm/drm2kgsl/drm2kgsl_renderer.c
 ++++ b/src/drm/drm2kgsl/drm2kgsl_renderer.c
-+@@ -1708,7 +1708,12 @@
++@@ -1708,7 +1708,16 @@
 +                continue;
 +             ssize_t n = read(fd, comm, sizeof(comm) - 1);
 +             close(fd);
@@ -14,9 +14,13 @@ index 0000000..0fc15e3
 ++            /* crosvm's vCPU threads, or xnuhost's E vCPUs (xnu-cpu0..5; GalIOS). With only crosvm's name xnuhost's vCPUs
 ++             * were never found (0 of 0 threads); with all eight, the S25 Ultra's two prime cores (xnu-cpu6/7) held at
 ++             * their top clock reached 96-104 C within seconds of the boot and iOS was told its thermal state was heavy
-++             * (it slows itself and dims). The P vCPUs keep the governor's clock. */
+++             * (it slows itself and dims). The P vCPUs keep the governor's clock, unless the owner chose GalIOS's maximum
+++             * performance (GALIOS_BOOST_ALL, set by xnuhost): then every vCPU. */
+++            static int boost_all = -1;
+++            if (boost_all < 0)
+++               boost_all = getenv("GALIOS_BOOST_ALL") != NULL;
 ++            if (n <= 0 || (strncmp(comm, "crosvm_vcpu", 11) &&
-++                           !(strncmp(comm, "xnu-cpu", 7) == 0 && comm[7] >= '0' && comm[7] <= '5' && (comm[8] == 0 || comm[8] == '\n'))))
+++                           !(strncmp(comm, "xnu-cpu", 7) == 0 && (boost_all || (comm[7] >= '0' && comm[7] <= '5' && (comm[8] == 0 || comm[8] == '\n'))))))
 +                continue;
 +             struct kgsl_sched_attr attr = {
 +                .size = sizeof(attr),

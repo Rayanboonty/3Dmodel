@@ -38,6 +38,10 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   95 C) and TRAPPING at 110 C (105 C). The S25 Ultra's cores burst to 100-104 C within seconds of any load: in one
   session 33 of 39 HEAVY came from the SoC with the case at 34-40 C, and each one made iOS slow itself and cap the
   brightness. The case and the battery limits are unchanged. Thermal tests: 73 checks, 0 failed.
+- `0011-maximum-performance-switch.patch`: the owner's switch (GalIOS 1.17, Setup step 6): with the file
+  `galios-max` in the stage, xnuhost gives iOS 10 GiB (no fit to what the host has free) and sets GALIOS_BOOST_ALL,
+  which 0008's drm2kgsl patch reads to boost every vCPU. Off by default: the balanced settings are what the logs
+  support (more RAM made the host swap; the boost on the prime cores drove them to 104 C).
 - galios.13 changes 0006's remap: the old driver's light levels run 25 %..100 % (16387 of 65535 at the slider's bottom
   in every drag on the phone), so iOS's dimmest (25 %, or lower if iOS asks later) is the panel's floor and the rest is
   spread evenly to the ceiling. Brightness tests 97 checks, 0 failures.
