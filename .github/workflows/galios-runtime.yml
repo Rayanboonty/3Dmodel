@@ -6,7 +6,7 @@ name: GalIOS runtime
 on:
   push:
     branches: [ccr-a2c53c06-k8pnxp]
-    paths: ['.github/workflows/galios-runtime.yml', 'GalIOS/gpu/ONEIOS_REF']
+    paths: ['.github/workflows/galios-runtime.yml', 'GalIOS/gpu/ONEIOS_REF', 'GalIOS/runtime/**']
   workflow_dispatch:
 permissions:
   contents: write
@@ -22,7 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: GalIOS/gpu
+          sparse-checkout: |
+            GalIOS/gpu
+            GalIOS/runtime
       - name: OneiOS
         run: |
           ref=$(cat GalIOS/gpu/ONEIOS_REF 2>/dev/null | tr -d ' \n' || true)
@@ -35,6 +37,19 @@ jobs:
         run: |
           cd OneiOS && scripts/setup/get-references.sh virglrenderer
           test -f external/virglrenderer/src/drm/drm2kgsl/drm2kgsl_renderer.c
+      - name: GalIOS's runtime fixes (GalIOS/runtime/patches; each skipped once OneiOS has it)
+        run: |
+          cd OneiOS
+          for p in "$GITHUB_WORKSPACE"/GalIOS/runtime/patches/*.patch; do
+            n=$(basename "$p")
+            case "$n" in
+              0001-fence-table.patch)
+                if grep -q 'virgl_fence_table_init' runtime/xnuhost/src/*.c; then echo "$n: OneiOS already makes the fence table"; continue; fi ;;
+            esac
+            git apply --verbose "$p"
+            echo "applied $n"
+          done
+          git diff --stat
       - name: Package
         run: |
           cd OneiOS
@@ -46,6 +61,8 @@ jobs:
         run: |
           d=$(mktemp -d); zstd -dc OneiOS/out/release/oneios-runtime-$VERSION-arm64.tar.zst | tar -x -C "$d"
           for b in bin/xnuhost bin/gpuctl; do ! strings "$d/$b" | grep -q 'this build has no drm2kgsl'; done
+          # the fence table is made (GalIOS/runtime/patches/0001, or OneiOS's own fix)
+          grep -q 'virgl_fence_table_init' OneiOS/runtime/xnuhost/src/*.c
       - uses: actions/upload-artifact@v4
         with:
           name: galios-runtime
@@ -62,4 +79,11 @@ jobs:
           [ -n "$tag" ] || { echo "no GPU pack release yet: the runtime stays an artifact of this run"; exit 0; }
           gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
             OneiOS/out/release/oneios-runtime-$VERSION-arm64.tar.zst OneiOS/out/release/oneios-runtime-$VERSION-arm64.tar.zst.sha256
+          # only this runtime stays on the release, so Studio cannot pick an older one
+          for old in $(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'); do
+            case "$old" in
+              oneios-runtime-$VERSION-arm64*) ;;
+              oneios-runtime-*) gh release delete-asset "$tag" "$old" --repo "$GITHUB_REPOSITORY" -y && echo "removed the older $old" ;;
+            esac
+          done
           echo "attached oneios-runtime-$VERSION to $tag"

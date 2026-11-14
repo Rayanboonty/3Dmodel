@@ -1,0 +1,25 @@
+--- a/runtime/xnuhost/src/gpu3d_kgsl.c
++++ b/runtime/xnuhost/src/gpu3d_kgsl.c
+@@ -21,6 +21,7 @@
+ #include "virgl_context.h"
+ #include "virgl_resource.h"
+ #include "virgl_util.h"
++#include "virgl_fence.h"
+ #include "drm_hw.h"
+ #include "drm2kgsl/drm2kgsl_renderer.h"
+ #include "oneios_drm2kgsl.h"
+@@ -465,6 +466,14 @@
+   kgsl *k = calloc(1, sizeof *k);
+   if (!k) { snprintf(reason, sizeof reason, "no memory"); return NULL; }
+   virgl_log_set_handler(virgl_line, NULL, NULL);
++  // The fence table too: virglrenderer.c (not built here) is what makes it, and without it the first submit that
++  // exports a fence (drm_timeline_submit_fence -> virgl_fence_set_fd) reads a NULL table and xnuhost dies (SIGSEGV
++  // at 0xb on a host thread, right after backboardd opens AGXDeviceUserClient).
++  static int fences_ready;
++  if (!fences_ready) {
++    if (virgl_fence_table_init()) { snprintf(reason, sizeof reason, "no memory for the renderer's fence table"); free(k); return NULL; }
++    fences_ready = 1;
++  }
+   if (virgl_context_table_init() || virgl_resource_table_init(NULL)) { snprintf(reason, sizeof reason, "no memory for the renderer's tables"); free(k); return NULL; }
+   int fd = open(KGSL_DEVICE_NODE, O_RDWR | O_CLOEXEC);
+   k->capset.context_type = VIRTGPU_DRM_CONTEXT_MSM;
