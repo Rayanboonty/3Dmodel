@@ -1,0 +1,13 @@
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+index 5b4412a..c9a6ce3 100644
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -28,7 +28,7 @@ void xh_config_defaults(xh_config *c)
+   strcpy(c->display, "shm");
+   strcpy(c->gpu, "auto");
+   c->input = true;
+-  c->touch_sleep = true;
++  c->touch_sleep = false;   // GalIOS: the touch IC stays awake when iOS dims to 0 (the lock screen took no touches)
+   c->tasks = true;
+   c->task_uid = -1;
+   c->log_level = XH_LOG_INFO;
