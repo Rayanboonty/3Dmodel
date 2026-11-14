@@ -71,6 +71,13 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   without it. Log lines: `GalIOS iPhone screen features: the identity ...`, `GalIOS identity: N /product properties
   ...`. What iOS then asks the panel for always-on (display power, brightness keys) shows in the `ONEIOS BACKLIGHT`
   lines: the next step of the always-on driver follows those.
+- `0014-the-case-never-locks-ios.patch`: the thermal bridge's case rule (Samsung's `lrp` sensor) tops at HEAVY. It used
+  to send TRAPPING at 46 C and SLEEPING at 50 C, thresholds OneiOS's README calls a guess on Samsung's scale (Samsung's
+  charger only limits its current there). TRAPPING is Apple's "critical": iOS locked itself behind "iPhone needs to cool
+  down" (the owner's video, 2026-11-14 21:48; the first session's log had the case at 45 C). At HEAVY iOS still slows
+  itself down, which is what cools the phone. The battery (TRAPPING at 50 C) and the SoC (110 C, 0010) are unchanged.
+  The two thermal tests that drove TRAPPING through the case now drive it through the battery; CI now runs the thermal
+  and brightness host tests (`make -C thermal test`, `make -C brightness test`) on every build.
 
 History: galios.4 had a 4 GiB RAM floor and `oneios-actuator=0` and felt worse than galios.3; its log showed the cause
 was the P vCPUs' lost cores (0005). galios.6-8 had a RAM floor of their own (3-3.5 GiB) and the touch IC kept awake at

@@ -572,7 +572,7 @@ class Controller(
         if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not change the setting" })
         _state.update { it.copy(iphoneIdentity = on) }
         if (on) "iPhone screen features are on from the next boot: iOS sees the iPhone's OLED panel, so it can offer the always-on display and the Dynamic Island. " +
-            "Needs runtime galios.17 or newer. If iOS behaves worse, turn this off here."
+            "Needs runtime galios.16 or newer. If iOS behaves worse, turn this off here."
         else "iPhone screen features are off from the next boot: iOS gets the plain panel description again."
     }
 

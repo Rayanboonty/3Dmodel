@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.InstallMobile
@@ -191,7 +193,7 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             )
         }
 
-        Step(7, "iPhone screen features", "Tells iOS it has the iPhone's OLED panel, its Dynamic Island and its rounded corners, using the iPhone's own description read from your IPSW when the image was built. That is what iOS needs before it offers the always-on display and draws the Dynamic Island. It changes many things iOS knows about the screen at once, so it is a switch: turn it off if iOS gets worse. Needs runtime galios.17 or newer; takes effect at the next boot.", done = s.iphoneIdentity) {
+        Step(7, "iPhone screen features", "Tells iOS it has the iPhone's OLED panel, its Dynamic Island and its rounded corners, using the iPhone's own description read from your IPSW when the image was built. That is what iOS needs before it offers the always-on display and draws the Dynamic Island. It changes many things iOS knows about the screen at once, so it is a switch: turn it off if iOS gets worse. Needs runtime galios.16 or newer; takes effect at the next boot.", done = s.iphoneIdentity) {
             Check("Now", if (s.iphoneIdentity) "On: the iPhone's panel" else "Off: the plain panel", true)
             Check("The iPhone's description", if (s.identityFile != null) "found on this phone" else "not on this phone yet: run Do everything in GalIOS Studio", s.identityFile != null || s.iphoneIdentity)
             VSpace(10.dp)
@@ -228,13 +230,14 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
     var confirm by remember { mutableStateOf(false) }
     VSpace(12.dp)
     Column(
-        Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
-            .background(Brush.verticalGradient(listOf(Gal.Violet.copy(alpha = 0.16f), Gal.Cyan.copy(alpha = 0.05f))))
-            .border(1.dp, Gal.glassEdge(), androidx.compose.foundation.shape.RoundedCornerShape(20.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            .background(Gal.Raised).padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Memory, null, tint = Gal.Cyan, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
+            Box(Modifier.size(30.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).background(Gal.Indigo), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Memory, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(12.dp))
             Text("No PC? Build it on this phone", style = Type.Headline)
         }
         VSpace(6.dp)
@@ -313,7 +316,7 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
     }
     if (confirm) {
         androidx.compose.ui.window.Dialog({ confirm = false }) {
-            Column(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(28.dp)).background(Color(0xF5090A12)).border(1.dp, Gal.glassEdge(), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)).padding(24.dp)) {
+            Column(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(30.dp)).background(Gal.Raised).padding(24.dp)) {
                 Text("Build on this phone?", style = Type.Title)
                 VSpace(10.dp)
                 for (t in listOf(
@@ -321,15 +324,15 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
                     "Uses about 75 GB of storage while it builds.",
                     "It keeps going if you leave GalIOS. Don't restart the phone: temporary root would be lost (Resume continues later).",
                     "The image is for you only: it is built from Apple's firmware.",
-                )) Row(Modifier.padding(vertical = 4.dp)) {
-                    Box(Modifier.padding(top = 8.dp).size(5.dp).clip(CircleShape).background(Gal.Cyan)); Spacer(Modifier.width(10.dp))
-                    Text(t, style = Type.Body.copy(fontSize = 14.sp, color = Gal.Dim))
+                )) Row(Modifier.padding(vertical = 5.dp)) {
+                    Box(Modifier.padding(top = 8.dp).size(5.dp).clip(CircleShape).background(Gal.Dim)); Spacer(Modifier.width(12.dp))
+                    Text(t, style = Type.Body.copy(fontSize = 15.sp, lineHeight = 21.sp, color = Gal.Dim))
                 }
                 VSpace(14.dp)
                 GradientButton("Start build", { confirm = false; a.startPhoneBuild(s.ipsws.firstOrNull { it.isPinned }?.path) }, height = 50.dp)
                 VSpace(4.dp)
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("Not now", style = Type.Body.copy(color = Gal.Dim), modifier = Modifier.clickable { confirm = false }.padding(10.dp))
+                    Text("Not now", style = Type.Headline.copy(color = Gal.Blue, fontWeight = FontWeight.Normal), modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).clickable { confirm = false }.padding(horizontal = 16.dp, vertical = 12.dp))
                 }
             }
         }
@@ -341,7 +344,7 @@ private fun BuildLog(log: List<String>, lines: Int = 5) {
     val tail = log.filter { it.isNotBlank() }.takeLast(lines)
     if (tail.isEmpty()) return
     VSpace(8.dp)
-    Column(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(Color(0x99000000)).padding(10.dp)) {
+    Column(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(Gal.Black).padding(12.dp)) {
         for (l in tail) Text(l, style = Type.Mono.copy(fontSize = 10.5.sp), maxLines = 1)
     }
 }
@@ -375,35 +378,40 @@ private fun FoundList(s: UiState, kind: StageClient.Kind, a: SetupActions) {
     }
 }
 
+/** One step of the setup: its number (a check once it is done), its title, what it is for, then its controls. */
 @Composable
 private fun Step(n: Int, title: String, text: String, done: Boolean, content: @Composable () -> Unit) {
-    Glass {
+    Glass(padding = 20.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(32.dp).clip(CircleShape).background(if (done) Gal.Mint.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.06f)),
+                Modifier.size(28.dp).clip(CircleShape).background(if (done) Gal.Mint else Gal.Raised),
                 contentAlignment = Alignment.Center,
             ) {
-                if (done) Icon(Icons.Rounded.Check, null, tint = Gal.Mint, modifier = Modifier.size(18.dp))
-                else Text("$n", style = Type.Body.copy(fontWeight = FontWeight.Bold))
+                if (done) Icon(Icons.Rounded.Check, null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                else Text("$n", style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Gal.Dim))
             }
             Spacer(Modifier.width(12.dp))
-            Text(title, style = Type.Title.copy(fontSize = 19.sp))
+            Text(title, style = Type.Headline.copy(fontSize = 19.sp, lineHeight = 24.sp))
         }
         VSpace(8.dp)
-        Text(text, style = Type.Caption)
-        VSpace(10.dp)
+        Text(text, style = Type.Caption.copy(fontSize = 14.sp, lineHeight = 20.sp))
+        VSpace(12.dp)
         content()
     }
 }
 
 
+/** A requirement and where it stands: a small state symbol, the requirement, its detail. */
 @Composable
 private fun Check(title: String, value: String, ok: Boolean) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.Top) {
-        Box(Modifier.padding(top = 6.dp).size(8.dp).clip(CircleShape).background(if (ok) Gal.Mint else Gal.Amber))
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
+        Icon(
+            if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.Schedule, null,
+            tint = if (ok) Gal.Mint else Gal.Amber, modifier = Modifier.padding(top = 1.dp).size(18.dp),
+        )
         Spacer(Modifier.width(10.dp))
         Column {
-            Text(title, style = Type.Body.copy(fontWeight = FontWeight.Medium))
+            Text(title, style = Type.Body.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium))
             Text(value, style = Type.Caption)
         }
     }

@@ -1,10 +1,9 @@
-GalIOS 1.19 and GalIOS Studio 1.10
+GalIOS 1.20 and GalIOS Studio 1.11
 
-**iPhone screen features (a new switch in GalIOS: Setup, step 7).** It is the first part of the always-on display and the Dynamic Island. Until now iOS got only three facts about its screen, so it never knew it had an OLED panel, a Dynamic Island or rounded corners. iOS decides from exactly those facts whether to offer the always-on display and whether to draw the island. With the switch on, iOS gets the iPhone's own description of its screen, about 200 values read from your IPSW when the image is built.
+**A new look for GalIOS.** The nebula backdrop, the violet-to-cyan gradients, the glow and the shimmer are gone. GalIOS now has a true-black canvas, cards in iOS's dark greys with One UI's generous rounding, large titles with room above them, iOS Settings-style lists with small colored icon tiles, one accent color (blue) for what you can tap, and green, orange and red only for state. Motion is a short fade; nothing loops.
 
-- Studio 1.10's Do everything makes the file (`OneiOS_iPhone18-2_identity.adt`, beside the image on your PC) and copies it to the phone's Download folder. It comes from Apple's firmware like the image: it never goes on GitHub.
-- Then in GalIOS: Setup, iPhone screen features, Turn on. It takes effect at the next boot and needs runtime galios.17 or newer (Setup, step 3).
-- It changes many things iOS knows about the screen at once, so it is a switch: if iOS gets worse, turn it off.
-- Not done yet: what the always-on screen needs from the panel (a dim, slow image while iOS sleeps). The session log of a boot with the switch on shows what iOS asks for, and that is the next step.
+**The "iPhone needs to cool down" lock screen** (the next runtime, from GalIOS/runtime/patches; get it in Setup, step 3). The phone's case temperature used to tell iOS "critical" at 46 °C, a guessed threshold, and iOS then locked itself behind that screen. Now the case can only make iOS slow down (which is what cools the phone); the battery at 50 °C and the chip at 110 °C still lock it, because those are real limits.
 
-Both GalIOS and Studio update themselves (GalIOS with root and Studio when no task runs). If you still have GalIOS 1.17 or older, install this one once with Studio (Phone, Install GalIOS).
+**iPhone screen features** (from 1.19, Setup, step 7): iOS gets the iPhone's own description of its screen (OLED panel, Dynamic Island, rounded corners), which iOS needs before it offers the always-on display and draws the island. Studio's Do everything makes the file from your IPSW and copies it to the phone; it never goes on GitHub.
+
+Both GalIOS and Studio update themselves (GalIOS with root, Studio when no task runs). If you still have GalIOS 1.17 or older, install this one once with Studio (Phone, Install GalIOS).

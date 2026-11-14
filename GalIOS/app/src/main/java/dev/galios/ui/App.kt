@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.ListAlt
 import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Checkbox
@@ -93,10 +94,10 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
         Backdrop {
             Column(Modifier.fillMaxSize()) {
                 Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 18.dp).padding(top = 10.dp, bottom = 22.dp),
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp),
                 ) {
                     Header(tab, s) { about = true }
-                    VSpace(16.dp)
+                    VSpace(24.dp)
                     s.update?.let { UpdateCard(it.version, a.update, a.dismissUpdate); VSpace(14.dp) }
                     s.message?.let { MessageCard(it.text, it.error, a.dismissMessage); VSpace(14.dp) }
                     Crossfade(tab, animationSpec = tween(320), label = "tab") { t ->
@@ -123,48 +124,50 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
     }
 }
 
+/** One UI's roomy header (the title sits low, with air above it) in iOS's large-title type. */
 @Composable
 private fun Header(tab: Tab, s: UiState, onAbout: () -> Unit) {
-    Appear {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(Gal.Accent))
-                    Spacer(Modifier.width(7.dp))
-                    Text("GALIOS", style = Type.Label.copy(color = Gal.Dim))
-                }
-                Text(tab.title, style = Type.Display)
-            }
-            if (s.refreshing || s.busy != null) { Spinner(); Spacer(Modifier.width(12.dp)) }
-            IconButton(onAbout, Modifier.size(42.dp).clip(CircleShape).background(Gal.glassFill()).border(1.dp, Gal.glassEdge(), CircleShape)) {
-                Icon(Icons.Rounded.Info, "About", tint = Gal.Text, modifier = Modifier.size(20.dp))
+    Column(Modifier.padding(top = 36.dp, start = 4.dp, end = 4.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(tab.title, style = Type.Display, modifier = Modifier.weight(1f))
+            if (s.refreshing || s.busy != null) { Box(Modifier.padding(bottom = 10.dp)) { Spinner() }; Spacer(Modifier.width(14.dp)) }
+            IconButton(onAbout, Modifier.size(40.dp)) {
+                Icon(Icons.Rounded.Info, "About", tint = Gal.Blue, modifier = Modifier.size(24.dp))
             }
         }
+        Text(
+            when (tab) {
+                Tab.BOOT -> s.device.label
+                Tab.SETUP -> "Everything iOS needs on this phone"
+                Tab.LOGS -> "What each session wrote"
+            },
+            style = Type.Body.copy(color = Gal.Dim),
+        )
+        s.busy?.let { Text("$it…", style = Type.Caption.copy(color = Gal.Blue), modifier = Modifier.padding(top = 6.dp)) }
     }
-    s.busy?.let { Text("$it…", style = Type.Caption.copy(color = Gal.Cyan), modifier = Modifier.padding(top = 4.dp)) }
 }
 
-/** The bottom bar: a dark glass pill with a gradient indicator that slides to the selected tab. */
+/** The tab bar: a quiet floating capsule; the selected tab is blue, with a faint plate behind it. */
 @Composable
 private fun NavBar(tab: Tab, onTab: (Tab) -> Unit) {
     val count = Tab.entries.size
-    val bar = 62.dp
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 12.dp)) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(bar).clip(RoundedCornerShape(26.dp)).background(Color(0xCC07080F)).border(1.dp, Gal.glassEdge(), RoundedCornerShape(26.dp))) {
+    val bar = 64.dp
+    Box(Modifier.fillMaxWidth().background(Gal.Black).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(bar).clip(RoundedCornerShape(32.dp)).background(Gal.Ink)) {
             val slot = maxWidth / count
             val index = Tab.entries.indexOf(tab)
-            val offset by animateDpAsState(slot * index, tween(320), label = "ind")
-            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(6.dp).clip(RoundedCornerShape(21.dp)).background(Gal.glassFill()).border(1.dp, Gal.glassEdge(), RoundedCornerShape(21.dp)))
+            val offset by animateDpAsState(slot * index, tween(240), label = "ind")
+            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(6.dp).clip(RoundedCornerShape(26.dp)).background(Gal.Raised))
             Row(Modifier.fillMaxWidth().height(bar)) {
                 for (t in Tab.entries) {
                     val on = t == tab
                     Column(
-                        Modifier.width(slot).height(bar).clip(RoundedCornerShape(21.dp)).clickable { onTab(t) },
+                        Modifier.width(slot).height(bar).clip(RoundedCornerShape(26.dp)).clickable { onTab(t) },
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                     ) {
-                        Icon(t.icon, null, tint = if (on) Gal.Cyan else Gal.Faint, modifier = Modifier.size(21.dp))
-                        Spacer(Modifier.height(3.dp))
-                        Text(t.title, style = Type.Caption.copy(fontSize = 11.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, color = if (on) Gal.Text else Gal.Faint))
+                        Icon(t.icon, null, tint = if (on) Gal.Blue else Gal.Gray, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.height(2.dp))
+                        Text(t.title, style = Type.Caption.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = if (on) Gal.Blue else Gal.Gray))
                     }
                 }
             }
@@ -175,16 +178,19 @@ private fun NavBar(tab: Tab, onTab: (Tab) -> Unit) {
 @Composable
 private fun UpdateCard(version: String, onUpdate: () -> Unit, onDismiss: () -> Unit) {
     Appear {
-        Glass(tint = Gal.Violet, padding = 16.dp) {
+        Glass(padding = 16.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Update available", style = Type.Headline)
-                    Text("GalIOS $version is ready to install.", style = Type.Caption)
+                Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Gal.Blue), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.SystemUpdate, null, tint = Color.White, modifier = Modifier.size(18.dp))
                 }
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("GalIOS $version", style = Type.Headline)
+                    Text("Ready to install", style = Type.Caption)
+                }
                 GlassButton("Update", onUpdate)
-                Spacer(Modifier.width(4.dp))
-                Icon(Icons.Rounded.Close, "Later", tint = Gal.Dim, modifier = Modifier.size(20.dp).clickable(onClick = onDismiss))
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.Rounded.Close, "Later", tint = Gal.Gray, modifier = Modifier.size(22.dp).clip(CircleShape).clickable(onClick = onDismiss))
             }
         }
     }
@@ -194,12 +200,13 @@ private fun UpdateCard(version: String, onUpdate: () -> Unit, onDismiss: () -> U
 private fun MessageCard(text: String, error: Boolean, onDismiss: () -> Unit) {
     val c = if (error) Gal.Rose else Gal.Mint
     Appear {
-        Glass(tint = c, padding = 14.dp) {
+        Glass(padding = 16.dp) {
             Row(verticalAlignment = Alignment.Top) {
-                Icon(if (error) Icons.Rounded.ErrorOutline else Icons.Rounded.TaskAlt, null, tint = c, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Text(text, style = Type.Body, modifier = Modifier.weight(1f))
-                Icon(Icons.Rounded.Close, "Dismiss", tint = Gal.Dim, modifier = Modifier.size(20.dp).clickable(onClick = onDismiss))
+                Icon(if (error) Icons.Rounded.ErrorOutline else Icons.Rounded.TaskAlt, null, tint = c, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(text, style = Type.Body.copy(fontSize = 15.sp, lineHeight = 21.sp), modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.Rounded.Close, "Dismiss", tint = Gal.Gray, modifier = Modifier.size(22.dp).clip(CircleShape).clickable(onClick = onDismiss))
             }
         }
     }
@@ -209,7 +216,7 @@ private fun MessageCard(text: String, error: Boolean, onDismiss: () -> Unit) {
 fun BootConfirm(s: UiState, onCancel: () -> Unit, onBoot: () -> Unit) {
     var ack by remember { mutableStateOf(false) }
     Dialog(onCancel) {
-        Column(Modifier.clip(RoundedCornerShape(28.dp)).background(Color(0xF5090A12)).border(1.dp, Gal.glassEdge(), RoundedCornerShape(28.dp)).padding(24.dp)) {
+        Column(Modifier.clip(RoundedCornerShape(30.dp)).background(Gal.Raised).padding(24.dp)) {
             Text("Boot iOS 27?", style = Type.Title)
             VSpace(12.dp)
             Bullet("One UI stops in about 40 seconds. iOS's first screen comes about a minute and a half later; the first boot of a new image can take several minutes more.")
@@ -218,14 +225,14 @@ fun BootConfirm(s: UiState, onCancel: () -> Unit, onBoot: () -> Unit) {
             Bullet("Experimental, and never run on a ${s.device.label} before. Keep the phone plugged in.")
             VSpace(8.dp)
             Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { ack = !ack }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(ack, { ack = it }, colors = CheckboxDefaults.colors(checkedColor = Gal.Violet, uncheckedColor = Gal.Dim))
+                Checkbox(ack, { ack = it }, colors = CheckboxDefaults.colors(checkedColor = Gal.Blue, uncheckedColor = Gal.Gray, checkmarkColor = Color.White))
                 Text("I understand it is experimental", style = Type.Body)
             }
             VSpace(14.dp)
-            GradientButton("Boot now", onBoot, enabled = ack, height = 52.dp)
-            VSpace(6.dp)
+            GradientButton("Boot now", onBoot, enabled = ack, height = 50.dp)
+            VSpace(4.dp)
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Not now", style = Type.Body.copy(color = Gal.Dim), modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onCancel).padding(10.dp))
+                Text("Not now", style = Type.Headline.copy(color = Gal.Blue, fontWeight = FontWeight.Normal), modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onCancel).padding(horizontal = 16.dp, vertical = 12.dp))
             }
         }
     }
@@ -233,22 +240,19 @@ fun BootConfirm(s: UiState, onCancel: () -> Unit, onBoot: () -> Unit) {
 
 @Composable
 private fun Bullet(text: String) {
-    Row(Modifier.padding(vertical = 4.dp)) {
-        Box(Modifier.padding(top = 8.dp).size(5.dp).clip(CircleShape).background(Gal.Cyan))
-        Spacer(Modifier.width(10.dp))
-        Text(text, style = Type.Body.copy(fontSize = 14.sp, color = Gal.Dim))
+    Row(Modifier.padding(vertical = 5.dp)) {
+        Box(Modifier.padding(top = 8.dp).size(5.dp).clip(CircleShape).background(Gal.Dim))
+        Spacer(Modifier.width(12.dp))
+        Text(text, style = Type.Body.copy(fontSize = 15.sp, lineHeight = 21.sp, color = Gal.Dim))
     }
 }
 
 @Composable
 private fun Switching() {
-    Box(Modifier.fillMaxSize().background(Color(0xF2000000)), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Box(Modifier.size(120.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Gal.Violet.copy(alpha = 0.5f), Color.Transparent))).blur(24.dp))
-                Spinner(size = 60.dp, stroke = 5.dp)
-            }
-            VSpace(26.dp)
+    Box(Modifier.fillMaxSize().background(Gal.Black), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(36.dp)) {
+            Spinner(size = 36.dp, stroke = 3.dp)
+            VSpace(28.dp)
             Text("Starting iOS", style = Type.Title)
             VSpace(10.dp)
             Text(
@@ -262,7 +266,7 @@ private fun Switching() {
 @Composable
 private fun About(onClose: () -> Unit) {
     Dialog(onClose) {
-        Column(Modifier.clip(RoundedCornerShape(28.dp)).background(Color(0xF5090A12)).border(1.dp, Gal.glassEdge(), RoundedCornerShape(28.dp)).padding(24.dp)) {
+        Column(Modifier.clip(RoundedCornerShape(30.dp)).background(Gal.Raised).padding(24.dp)) {
             Text("GalIOS", style = Type.Title)
             VSpace(10.dp)
             Text(

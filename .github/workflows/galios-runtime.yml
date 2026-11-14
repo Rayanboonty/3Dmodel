@@ -51,6 +51,11 @@ jobs:
             echo "applied $n"
           done
           git diff --stat
+      - name: The host tests of the bridges GalIOS patches (thermal, brightness)
+        run: |
+          cd OneiOS/runtime/bridges
+          make -C thermal test
+          make -C brightness test
       - name: Package
         run: |
           cd OneiOS
@@ -79,6 +84,8 @@ jobs:
           # 0012: the widgets' read wait and the spin traces of the keyboard, Settings and Clock
           strings "$d/bin/xnuhost" | grep -q 'oneios-gpu-read-wait=1'
           strings "$d/bin/xnuhost" | grep -q 'oneios-ubt=kbd,Spotlight,Preferences,InputUI,MobileTimer,backboardd'
+          # 0014: the case reading never locks iOS behind "needs to cool down"
+          grep -q 'if (s.skin_level > BR_THERMAL_HEAVY) s.skin_level = BR_THERMAL_HEAVY;' OneiOS/runtime/bridges/thermal/thermal.c
           # 0013: the iPhone identity switch (always-on display, Dynamic Island)
           strings "$d/bin/xnuhost" | grep -q '/data/galios-identity.adt'
           strings "$d/bin/xnuhost" | grep -q 'GalIOS identity: %u /product properties'

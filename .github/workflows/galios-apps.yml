@@ -59,7 +59,7 @@ jobs:
           GALIOS_KEYSTORE_PASSWORD: ${{ secrets.GALIOS_KEYSTORE_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest -Proborazzi.test.record=true :app:assembleRelease
       - name: Signed with GalIOS's release key, for arm64, with its version
         run: |
           apk=GalIOS/app/build/outputs/apk/release/app-release.apk
@@ -70,6 +70,13 @@ jobs:
           "$bt/aapt2" dump badging "$apk" | head -1 | tee badging.txt
           grep -q "versionCode='${{ steps.v.outputs.code }}'" badging.txt
           unzip -l "$apk" | grep -q 'lib/arm64-v8a/'
+      - name: Screenshots of every screen (ScreenshotTest)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-screenshots
+          path: GalIOS/app/build/screenshots/
+          if-no-files-found: warn
       - name: Test reports (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
