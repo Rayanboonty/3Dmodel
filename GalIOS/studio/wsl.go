@@ -40,6 +40,7 @@ type PCStatus struct {
 	FreeGB      int      `json:"freeGB"`
 	MemGB       int      `json:"memGB"`
 	WSLMemGB    int      `json:"wslMemGB"`
+	GPUPack     string   `json:"gpuPack"` // the GPU pack (Metal plug-in) the image was built with
 	CPUs        int      `json:"cpus"`
 	BuildState  string   `json:"buildState"` // none, setup, partial, built
 	DoneSteps   []string `json:"doneSteps"`
@@ -97,7 +98,8 @@ func checkPC(ctx context.Context, s Settings) PCStatus {
 	lines, _, _ := inWSL(ctx, s.Distro, `awk '/MemTotal/{print "mem " int($2/1048576+0.5)}' /proc/meminfo
 echo "cpus $(nproc)"
 for f in packages references kernel-sources fetch kernel-inputs kernel prelink image; do [ -f `+wslWork+`/.done-$f ] && echo "done $f"; done
-[ -d `+wslWork+`/OneiOS/.git ] && echo "setup yes"`)
+[ -d `+wslWork+`/OneiOS/.git ] && echo "setup yes"
+[ -f `+wslWork+`/.gpu-pack ] && echo "gpu $(cat `+wslWork+`/.gpu-pack)"`)
 	for _, l := range lines {
 		f := strings.Fields(l)
 		if len(f) < 2 {
@@ -114,6 +116,8 @@ for f in packages references kernel-sources fetch kernel-inputs kernel prelink i
 			st.DoneSteps = append(st.DoneSteps, f[1])
 		case "setup":
 			st.BuildState = "setup"
+		case "gpu":
+			st.GPUPack = f[1]
 		}
 	}
 	for _, d := range st.DoneSteps {

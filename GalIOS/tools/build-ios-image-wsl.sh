@@ -279,13 +279,54 @@ if ! is_done prelink; then
     kernel/prelink/build.sh
   done_mark prelink
 fi
+# The GPU pack: OneiOS's Metal plug-in (GPU acceleration: wallpaper, blur, Liquid Glass, smooth animation), guest
+# helpers and capture plug-in. They need Apple's iOS SDK (Xcode), so GalIOS builds them on GitHub's macOS runners
+# (.github/workflows/galios-gpu.yml) and publishes them as a release; here the newest one is fetched, checked and put
+# in out/userland, where OneiOS's image hook places and trusts them. A new pack means a new image (and a new Data seed).
+GPU_REPO=${GALIOS_GPU_REPO:-Rayanboonty/3Dmodel}
+gpu_pack() {
+  local api="https://api.github.com/repos/$GPU_REPO/releases?per_page=40" auth=() tag url dir
+  [ -z "${GITHUB_TOKEN:-}" ] || auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
+  tag=$(curl -fsSL "${auth[@]}" "$api" 2>/dev/null | python3 -c 'import json, sys
+for r in json.load(sys.stdin):
+    if r["tag_name"].startswith("galios-gpu-") and not r.get("draft") and any(a["name"] == "galios-gpu-pack.tar.gz" for a in r["assets"]):
+        print(r["tag_name"]); break' 2>/dev/null || true)
+  if [ -z "$tag" ]; then
+    printf '\033[1;33m    No GPU pack published yet (or GitHub not reachable): this image composites on the CPU.\033[0m\n'
+    return 0
+  fi
+  if [ "$(cat "$WORK/.gpu-pack" 2>/dev/null)" = "$tag" ] && [ -f "$ONEIOS/out/userland/NativeAdrenoMetal.bundle/Info.plist" ]; then
+    ok "GPU pack $tag in place"
+    return 0
+  fi
+  say "Getting the GPU pack $tag (OneiOS's Metal plug-in, built on macOS)"
+  url="https://github.com/$GPU_REPO/releases/download/$tag"
+  dir=$(mktemp -d)
+  curl -fL --retry 3 -o "$dir/pack.tar.gz" "$url/galios-gpu-pack.tar.gz"
+  curl -fsSL --retry 3 -o "$dir/pack.sha256" "$url/galios-gpu-pack.tar.gz.sha256"
+  [ "$(cut -d' ' -f1 < "$dir/pack.sha256")" = "$(sha256sum "$dir/pack.tar.gz" | cut -d' ' -f1)" ] ||
+    die "the GPU pack download is damaged: run again"
+  rm -rf "$ONEIOS/out/userland.new" && mkdir -p "$ONEIOS/out/userland.new"
+  tar -xzf "$dir/pack.tar.gz" -C "$ONEIOS/out/userland.new" && rm -rf "$dir"
+  [ -f "$ONEIOS/out/userland.new/userland/NativeAdrenoMetal.bundle/Info.plist" ] || die "the GPU pack $tag has no NativeAdrenoMetal.bundle"
+  rm -rf "$ONEIOS/out/userland" && mv "$ONEIOS/out/userland.new/userland" "$ONEIOS/out/userland" && rm -rf "$ONEIOS/out/userland.new"
+  echo "$tag" > "$WORK/.gpu-pack"
+  rm -f "$WORK/.done-image"   # the image is made again with it
+  ok "GPU pack $tag: $(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(j.get("xcode",""), "SDK", j.get("sdk",""))' "$ONEIOS/out/userland/galios-gpu.json" 2>/dev/null)"
+}
+[ -n "${GALIOS_NO_GPU_PACK:-}" ] || gpu_pack
+
 if ! is_done image; then
   say "Building the image set (about 11 GB)"
+  rm -f "$WORK/.done-verify"
   scripts/image/build.sh "$PROFILE" --kernel out/kernel/24A446/kernel.kc
   done_mark image
 fi
-say "Checking the archive"
-scripts/image/verify.sh "out/image/$ARCHIVE"
+if ! is_done verify || [ ! -f "out/image/$ARCHIVE" ]; then
+  say "Checking the archive"
+  scripts/image/verify.sh "out/image/$ARCHIVE"
+  done_mark verify
+fi
 
 # ---------------------------------------------------------------------------------------------------------------
 # 7. Hand it to Windows
@@ -296,11 +337,16 @@ if [ -z "$dest" ] && command -v cmd.exe >/dev/null 2>&1; then
   [ -n "$winuser" ] && [ -d "/mnt/c/Users/$winuser/Downloads" ] && dest="/mnt/c/Users/$winuser/Downloads"
 fi
 if [ -n "$dest" ]; then
-  say "Copying the image to $dest"
-  mkdir -p "$dest"
-  cp "out/image/$ARCHIVE.sha256" "$dest/"
-  cp "out/image/$ARCHIVE" "$dest/$ARCHIVE.part" && mv -f "$dest/$ARCHIVE.part" "$dest/$ARCHIVE"
-  ok "$dest/$ARCHIVE"
+  if [ -f "$dest/$ARCHIVE" ] && cmp -s "out/image/$ARCHIVE.sha256" "$dest/$ARCHIVE.sha256" &&
+     [ "$(stat -c %s "$dest/$ARCHIVE")" = "$(stat -c %s "out/image/$ARCHIVE")" ]; then
+    ok "the image in $dest is this one already"
+  else
+    say "Copying the image to $dest"
+    mkdir -p "$dest"
+    cp "out/image/$ARCHIVE" "$dest/$ARCHIVE.part" && mv -f "$dest/$ARCHIVE.part" "$dest/$ARCHIVE"
+    cp "out/image/$ARCHIVE.sha256" "$dest/"
+    ok "$dest/$ARCHIVE"
+  fi
   [ -z "${winuser:-}" ] || ok "Windows path: C:\\Users\\$winuser\\Downloads\\$ARCHIVE"
 else
   ok "The image is at $ONEIOS/out/image/$ARCHIVE"

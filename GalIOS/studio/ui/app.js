@@ -76,7 +76,9 @@ function render() {
   $('#pcRows').innerHTML = wsl.join('') + row(built ? 'ok' : pc.buildState === 'none' ? 'off' : 'wait', 'iOS 27 image',
     built ? 'built · ' + gb(pc.imageBytes) : { none: 'not started', setup: 'tools ready', partial: 'partly built (resume)', built: 'built in Ubuntu' }[pc.buildState] || '—');
   $('#wslRows').innerHTML = wsl.join('') + row((pc.doneSteps || []).length ? 'ok' : 'off', 'Finished steps', (pc.doneSteps || []).join(', ') || 'none yet');
-  $('#imageRows').innerHTML = row(built ? 'ok' : 'off', 'Image', built ? pc.imageOnPC + ' · ' + gb(pc.imageBytes) : 'not built yet') + row('ok', 'Folder', set.outDir);
+  $('#imageRows').innerHTML = row(built ? 'ok' : 'off', 'Image', built ? pc.imageOnPC + ' · ' + gb(pc.imageBytes) : 'not built yet') +
+    row(pc.gpuPack ? 'ok' : 'wait', 'GPU acceleration', pc.gpuPack ? 'Metal plug-in in the image (' + pc.gpuPack + ')' : 'not in the image yet: iOS draws on the CPU (Do everything adds it)') +
+    row('ok', 'Folder', set.outDir);
   const ipsw = set.ipsw;
   const fetched = (pc.doneSteps || []).includes('fetch');
   $('#ipswRows').innerHTML = row(ipsw || fetched ? 'ok' : 'off', 'Firmware file',
@@ -117,6 +119,7 @@ function render() {
     ['Ubuntu (WSL)', pc.wsl && pc.distroReady || built, 'installed by Studio'],
     ['Firmware', built || fetched || !!ipsw, fetched ? 'already read' : ipsw ? 'your .ipsw' : 'from Apple during the build'],
     ['iOS 27 image', built, built ? gb(pc.imageBytes) : pc.buildState === 'partial' ? 'partly built' : '1–3 hours'],
+    ['GPU acceleration', !!pc.gpuPack, pc.gpuPack ? 'Metal plug-in in the image' : 'added with the next image'],
     ['Phone connected', !!ph.connected, ph.connected ? ph.label : 'USB, debugging on'],
     ['Root', !!ph.root, ph.root ? ph.rootVia : 'start your temporary root'],
     ['OneOS (boot engine app)', !!ph.oneos, ph.oneos || 'install its iOS 27 edition'],

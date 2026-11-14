@@ -452,7 +452,11 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 		})
 	case "phone.import-image":
 		phone("Add the iOS 27 image to the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			return stepImage(ctx, j, s, serial, req.Args["path"])
+			msg, err := stepImage(ctx, j, s, serial, req.Args["path"])
+			if err == nil && req.Args["path"] == "" {
+				a.markImported(joinOut(s.OutDir, imageName))
+			}
+			return msg, err
 		})
 	case "phone.status":
 		phone("Boot check", func(ctx context.Context, j *JobCtx, serial string) (string, error) {

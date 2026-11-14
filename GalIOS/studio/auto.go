@@ -129,50 +129,16 @@ func (a *App) autoAll(ctx context.Context, j *JobCtx, script []byte) (string, er
 
 	// 1. WSL and Ubuntu.
 	head("This PC")
-	if checkPC(ctx, s).BuildState == "built" {
-		j.Log("the image is already built: %s", joinOut(s.OutDir, imageName))
-	} else {
-		restart, err := ensureWSL(ctx, j, s)
-		if err != nil {
+	// The build runs every time: with nothing new it only checks (a minute), and it picks up a newer GPU pack
+	// (the Metal plug-in built on macOS), which makes a new image.
+	built := checkPC(ctx, s).BuildState == "built"
+	if msg, stop, err := a.autoBuild(ctx, j, s, script, built); err != nil {
+		if !built {
 			return "", err
 		}
-		if restart {
-			setAutoResume(true)
-			a.restartNeeded.Store(true)
-			return "Windows needs to restart to finish installing WSL. Press Restart the PC: Studio opens by itself " +
-				"afterwards and carries on.", nil
-		}
-		setAutoResume(false)
-		j.Log("WSL and %s are ready", s.Distro)
-		ensureWSLConfig(ctx, j)
-
-		// 2. The image.
-		head("The iOS 27 image")
-		pc := checkPC(ctx, s)
-		need := 75
-		if pc.BuildState == "partial" {
-			need = 30
-		}
-		if pc.FreeGB > 0 && pc.FreeGB < need {
-			return "", fmt.Errorf("only %d GB free on the drive where Ubuntu lives; the build needs about %d GB more. "+
-				"Free some space (empty the Recycle Bin, move big files), then press Do everything again", pc.FreeGB, need)
-		}
-		mode := "download"
-		if ipsw, notes := bestIPSW(s); ipsw != "" {
-			j.Log("using the .ipsw you chose: %s", ipsw)
-			mode = "ipsw"
-		} else {
-			for _, n := range notes {
-				j.Log("%s", n)
-			}
-			j.Log("no .ipsw chosen: the build reads the parts it needs straight from Apple (once; later runs reuse them)")
-		}
-		if _, err := buildImage(ctx, j, s, mode, script); err != nil {
-			return "", err
-		}
-		if !fileExists(joinOut(s.OutDir, imageName)) {
-			return "", fmt.Errorf("the build finished but %s is not in %s", imageName, s.OutDir)
-		}
+		j.Log("the build could not run (%v): using the image already built", err)
+	} else if stop {
+		return msg, nil
 	}
 
 	// 3. The phone.
@@ -211,11 +177,17 @@ func (a *App) autoAll(ctx context.Context, j *JobCtx, script []byte) (string, er
 		j.Log("%s", msg)
 	}
 	head("iOS 27 image")
-	if st.Image == "27.0.1 (24A446)" {
-		j.Log("already on the phone: iOS %s", st.Image)
-	} else if msg, err = stepImage(ctx, j, s, serial, ""); err != nil {
-		return "", err
+	local := joinOut(s.OutDir, imageName)
+	if st.Image == "27.0.1 (24A446)" && a.store.Get().LastImage == imageIdentity(local) {
+		j.Log("already on the phone: iOS %s (this image)", st.Image)
 	} else {
+		if st.Image != "" {
+			j.Log("the image on this PC is newer than the one on the phone (a GPU pack or a rebuild): copying it again")
+		}
+		if msg, err = stepImage(ctx, j, s, serial, ""); err != nil {
+			return "", err
+		}
+		a.markImported(local)
 		j.Log("%s", msg)
 	}
 	head("Boot check")
@@ -254,4 +226,70 @@ func restartPC() error {
 	c := exec.Command("shutdown.exe", "/r", "/t", "5", "/c", "GalIOS Studio: restarting to finish installing WSL")
 	hideWindow(c)
 	return c.Run()
+}
+
+// imageIdentity names one build of the image file (its size and time), so a rebuilt image is copied again.
+func imageIdentity(path string) string {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d-%d", fi.Size(), fi.ModTime().Unix())
+}
+
+func (a *App) markImported(path string) {
+	s := a.store.Get()
+	s.LastImage = imageIdentity(path)
+	a.store.Set(s)
+}
+
+// autoBuild is Do everything's PC part: WSL and Ubuntu, then the image (built, or checked and brought up to date).
+// stop is true when Windows must restart first; msg then says so.
+func (a *App) autoBuild(ctx context.Context, j *JobCtx, s Settings, script []byte, built bool) (msg string, stop bool, err error) {
+	restart, err := ensureWSL(ctx, j, s)
+	if err != nil {
+		return "", false, err
+	}
+	if restart {
+		setAutoResume(true)
+		a.restartNeeded.Store(true)
+		return "Windows needs to restart to finish installing WSL. Press Restart the PC: Studio opens by itself " +
+			"afterwards and carries on.", true, nil
+	}
+	setAutoResume(false)
+	j.Log("WSL and %s are ready", s.Distro)
+	ensureWSLConfig(ctx, j)
+
+	j.Log("━━ The iOS 27 image")
+	pc := checkPC(ctx, s)
+	need := 75
+	switch {
+	case built:
+		need = 20 // at most a new image with a new GPU pack
+	case pc.BuildState == "partial":
+		need = 30
+	}
+	if pc.FreeGB > 0 && pc.FreeGB < need {
+		return "", false, fmt.Errorf("only %d GB free on the drive where Ubuntu lives; the build needs about %d GB more. "+
+			"Free some space (empty the Recycle Bin, move big files), then press Do everything again", pc.FreeGB, need)
+	}
+	mode := "download"
+	if ipsw, notes := bestIPSW(s); ipsw != "" {
+		j.Log("using the .ipsw you chose: %s", ipsw)
+		mode = "ipsw"
+	} else {
+		for _, n := range notes {
+			j.Log("%s", n)
+		}
+		if !built {
+			j.Log("no .ipsw chosen: the build reads the parts it needs straight from Apple (once; later runs reuse them)")
+		}
+	}
+	if _, err := buildImage(ctx, j, s, mode, script); err != nil {
+		return "", false, err
+	}
+	if !fileExists(joinOut(s.OutDir, imageName)) {
+		return "", false, fmt.Errorf("the build finished but %s is not in %s", imageName, s.OutDir)
+	}
+	return "", false, nil
 }

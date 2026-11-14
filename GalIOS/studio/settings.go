@@ -16,6 +16,7 @@ type Settings struct {
 	RootCmd     string `json:"rootCmd"`     // how a root shell starts on the phone, e.g. "su -c"
 	ADBPath     string `json:"adbPath"`     // empty = the one Studio downloads, else adb on PATH
 	Serial      string `json:"serial"`      // the phone, when several are connected
+	LastImage   string `json:"lastImage"`   // the image file last copied to the phone (size-time), so a new one is copied again
 }
 
 type Store struct {
