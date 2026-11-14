@@ -1,0 +1,35 @@
+diff --git a/runtime/bridges/audio/aaudio_helper.c b/runtime/bridges/audio/aaudio_helper.c
+index 509efc1..a20663e 100644
+--- a/runtime/bridges/audio/aaudio_helper.c
++++ b/runtime/bridges/audio/aaudio_helper.c
+@@ -14,7 +14,8 @@
+ //     the target at every moment, which averages half a period more (and up to a whole one) than needed.
+ //   - Before the guest's first chunk, and after AAudio ran dry (an underrun: the missing part is silence), silence
+ //     fills the level to that need (priming). Each underrun raises the target by 5 ms, to at most 80 ms; each 20 s
+-//     (ONEIOS_AUDIO_TARGET_DECAY_S) without one lowers it by 5 ms, back to ONEIOS_AUDIO_TARGET_MS (20).
++//     (ONEIOS_AUDIO_TARGET_DECAY_S) without one lowers it by 5 ms, back to ONEIOS_AUDIO_TARGET_MS (20). GalIOS: the most is
++//     200 ms (ONEIOS_AUDIO_TARGET_MAX_MS), not 80: on the S25 Ultra the target sat at 80 with 167 underruns in 520 s.
+ //   - Clock drift and excess: while the level (averaged over about 1 s) is more than 5 ms above the need, each
+ //     chunk of 240 ring frames is played as 239 frames (237 above 10 ms: 1.25 %), and as 241 while it is 5 ms
+ //     below (linear interpolation, never by cutting sound). A new stream starts 20-40 ms above (AudioFlinger's start
+@@ -82,7 +83,11 @@
+ #define MS_FRAMES(ms) ((unsigned)((ms) * (RATE / 1000u)))
+ 
+ static int sock;
+-static unsigned target_ms = 20, target_max_ms = 80, target_decay_s = 20;
++// GalIOS: target_max_ms 200 (OneiOS: 80). The S25 Ultra's session of 2026-11-14 20:51: "target 80, peak 80" and still
++// 167 underruns and 2 overflows in 520 s of sound, heard as crackles; the guest's periods came late by more than 80 ms
++// while the phone was hot (its engine: 1444 of 45622 periods late). A higher ceiling only costs latency while
++// underruns keep coming, and the target still comes back down after 20 s without one.
++static unsigned target_ms = 20, target_max_ms = 200, target_decay_s = 20;
+ static unsigned buffer_bursts;                   // ONEIOS_AUDIO_BURSTS; 0: the buffer follows the need (buffer_fit)
+ static aaudio_performance_mode_t perf_mode = AAUDIO_PERFORMANCE_MODE_NONE;   // ONEIOS_AUDIO_PERF=low: LOW_LATENCY (not run on the phone yet)
+ static bool mmap_refused;                        // AAudio_setMMapPolicy(NEVER) worked
+@@ -655,6 +660,7 @@ int main(int argc, char **argv)
+   sock = atoi(argv[1]);
+   setvbuf(stderr, NULL, _IOLBF, 0);
+   target_ms = env_ms("ONEIOS_AUDIO_TARGET_MS", 20, 5, 150);
++  target_max_ms = env_ms("ONEIOS_AUDIO_TARGET_MAX_MS", 200, 40, 400);
+   if (target_max_ms < target_ms) target_max_ms = target_ms;
+   target_decay_s = env_ms("ONEIOS_AUDIO_TARGET_DECAY_S", 20, 1, 3600);
+   buffer_bursts = env_ms("ONEIOS_AUDIO_BURSTS", 0, 1, 8);

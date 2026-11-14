@@ -65,6 +65,8 @@ GPU frames take about 2.6 ms of 8.3: the GPU is not the limit. The CPU around it
 | 27 | Flashlight | no bridge at all | a host LED bridge + the capture plug-in's torch (Mac) | big |
 | 28 | Bluetooth | OneiOS's UART path never tried in iOS | OneiOS | big (upstream) |
 | 29 | Haptics and key clicks | counters in every layer, never proven | a log | needs a log |
+| 29a | Sound without crackles (0016) | the helper's target sat at its 80 ms ceiling with 167 underruns | a log: underruns, the target's peak | this release |
+| 29b | The volume slider | iOS's speaker device publishes no volume control, so iOS pins the slider at the top | a volume control in UniXNU-droidvm's DroidVMAudio.cpp (kernel), gain applied in the helper | big (kernel driver) |
 
 ## F. Tools
 

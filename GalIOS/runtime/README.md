@@ -87,6 +87,14 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   dropped and logged (`GalIOS tuning: "..." dropped`); the boot goes on. Log line: `GalIOS tuning: <the words used>`.
   It is how new switches reach iOS without a new runtime: each upgrade in `GalIOS/ROADMAP.md` that is a boot setting
   becomes a toggle the owner can turn off again.
+- `0016-audio-target-up-to-200-ms.patch`: the AAudio helper's target (the sound it keeps queued ahead of Android's
+  mixer) may rise to 200 ms after underruns, not 80 (`ONEIOS_AUDIO_TARGET_MAX_MS`, 40-400). The 2026-11-14 20:51
+  session: "target 80, peak 80" and still 167 underruns and 2 overflows in 520 s of sound, heard as crackles and odd
+  noises; the guest's periods came late by more than 80 ms while the phone was hot (1444 of 45622 late). Each underrun
+  still raises the target by 5 ms and 20 s without one still lowers it, so the latency only grows while underruns keep
+  coming. CI now also runs the helper's host test. Not the volume slider: iOS's speaker device (UniXNU-droidvm's
+  `DroidVMAudio.cpp`, built into the kernel) publishes no volume control, so iOS pins the slider at the top; that is a
+  kernel driver change (ROADMAP).
 
 History: galios.4 had a 4 GiB RAM floor and `oneios-actuator=0` and felt worse than galios.3; its log showed the cause
 was the P vCPUs' lost cores (0005). galios.6-8 had a RAM floor of their own (3-3.5 GiB) and the touch IC kept awake at
