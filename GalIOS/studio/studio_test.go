@@ -521,3 +521,21 @@ func TestRuntimeVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestNewerVersion(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want bool
+	}{
+		{"0.1.8-galios.2", "0.1.8-galios.1", true},
+		{"0.1.8-galios.1", "0.1.8-galios.2", false},
+		{"0.1.8-galios.10", "0.1.8-galios.9", true},
+		{"0.1.8-galios.1", "0.1.8", true},
+		{"0.1.9", "0.1.8-galios.5", true},
+		{"0.1.8", "0.1.8", false},
+	} {
+		if got := newerVersion(c.a, c.b); got != c.want {
+			t.Errorf("newerVersion(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
+		}
+	}
+}

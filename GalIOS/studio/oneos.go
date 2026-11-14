@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -593,6 +594,20 @@ func (p *progressReader) Read(b []byte) (int, error) {
 	return n, err
 }
 
+// newerVersion says whether version a ("0.1.8-galios.2") is newer than b, comparing the numbers in order.
+func newerVersion(a, b string) bool {
+	num := regexp.MustCompile(`\d+`)
+	x, y := num.FindAllString(a, -1), num.FindAllString(b, -1)
+	for i := 0; i < len(x) && i < len(y); i++ {
+		p, _ := strconv.Atoi(x[i])
+		q, _ := strconv.Atoi(y[i])
+		if p != q {
+			return p > q
+		}
+	}
+	return len(x) > len(y)
+}
+
 // latestRuntime downloads the newest OneiOS runtime package from OneiOS's releases (checked against its .sha256).
 // runtimeRepos are where runtime packages come from, best first: the GalIOS GPU pack's releases (OneiOS's runtime
 // built from the same commit as the kernel GalIOS builds), then OneiOS's own releases.
@@ -658,7 +673,7 @@ func runtimeFrom(ctx context.Context, j *JobCtx, repo, tagPrefix string) (string
 		}
 		var url, shaURL, name string
 		for _, a := range r.Assets {
-			if runtimeName.MatchString(a.Name) {
+			if runtimeName.MatchString(a.Name) && (name == "" || newerVersion(runtimeVersion(a.Name), runtimeVersion(name))) {
 				url, name = a.URL, a.Name
 			}
 		}
