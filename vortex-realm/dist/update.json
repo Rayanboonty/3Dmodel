@@ -1,20 +1,20 @@
 {
   "PracticePvP": {
-    "version": "2.7.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.7.0.jar",
-    "sha256": "336be6d0ad00e77dd1504280a3cd716c204dd87dc480f04c78aec27f2005566d",
-    "notes": "SMP back on this server: the selector opens the SMP world, old SMP inventories and ender chests return, each world keeps its own inventory with automatic backups (/pvpadmin invbackup)"
+    "version": "2.8.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.8.0.jar",
+    "sha256": "16ccf1184d1a9304dfd0876aa2ae22bd4c7bff057a2638ce9f9dfc5203b15a6e",
+    "notes": "All-in-one: the SMP (homes, tpa, rtp, warps, back, combat tag, trade, market, drills) is part of this plugin now - remove VortexSMP. Import old SMP data via the import folder. Flag icons no longer turn names into boxes"
   },
   "VortexRealm": {
-    "version": "3.7.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.7.0.jar",
-    "sha256": "3482aecd370df51f9dc6e43cb41404ea92853421a49bb9e7545cf4c38613502f",
-    "notes": "SMP back on this server: the selector opens the SMP world, old SMP inventories and ender chests return, each world keeps its own inventory with automatic backups (/pvpadmin invbackup)"
+    "version": "3.8.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.8.0.jar",
+    "sha256": "d02b2d2f6fdf8d5bc5e9c504c09f4e9bc6ec3273575b74495d354403b78d41a0",
+    "notes": "All-in-one: the SMP (homes, tpa, rtp, warps, back, combat tag, trade, market, drills) is part of this plugin now - remove VortexSMP. Import old SMP data via the import folder. Flag icons no longer turn names into boxes"
   },
   "VortexSMP": {
     "version": "1.6.0",
     "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexSMP-1.6.0.jar",
     "sha256": "1b66747e5c2088dfb25f6028bc37b639e7e690569256543f1a5bd15d82ea3425",
-    "notes": "Same-server mode: runs next to VortexRealm on one server (homes, tpa, rtp, warps, trade, market in the SMP worlds)"
+    "notes": "VortexSMP is now part of VortexRealm 3.8.0 - remove this plugin"
   }
 }

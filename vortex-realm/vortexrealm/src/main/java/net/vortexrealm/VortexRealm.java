@@ -146,6 +146,8 @@ public final class VortexRealm extends JavaPlugin {
     private StaffManager staff;
     private Extras extras;
     private ModeManager modes;
+    private net.vortexrealm.survival.VortexSMP survival;
+    private boolean survivalPending;
     private ModeRules modeRules;
     private NpcManager npcs;
     private ServerSelector serverSelector;
@@ -363,6 +365,8 @@ public final class VortexRealm extends JavaPlugin {
             Tasks.timer(1200L, Math.max(2, Cfg.i(Opt.SMP_BACKUP_MINUTES)) * 1200L, this.modes::backupAll);
             Tasks.timer(600L, 1200L, this.modes::saveLocations);
         });
+        // the SMP (homes, tpa, rtp, warps, trade, market...) needs the worlds and modes above
+        this.module("smp", this::startSurvival);
         this.module("penalties", () -> {
             this.penalties = new Penalties(this);
             this.penalties.load();
@@ -771,6 +775,14 @@ public final class VortexRealm extends JavaPlugin {
     public void onDisable() {
         if (this.updater != null) {
             this.updater.stop();
+        }
+
+        if (this.survival != null) {
+            try {
+                this.survival.disable();
+            } catch (RuntimeException e) {
+                this.getLogger().log(Level.SEVERE, "Stopping the SMP failed", e);
+            }
         }
 
         if (this.netSync != null) {
@@ -1611,6 +1623,42 @@ public final class VortexRealm extends JavaPlugin {
 
     public ModeManager modes() {
         return this.modes;
+    }
+
+    /** The SMP part (homes, tpa, rtp, warps, trade, market...), null while it's off. */
+    public net.vortexrealm.survival.VortexSMP survival() {
+        return this.survival;
+    }
+
+    /**
+     * The SMP is part of this plugin now. When the old VortexSMP plugin is still installed it keeps running until the
+     * next restart (its jar is renamed so it won't load again, and its files are copied in then); after that only this
+     * plugin runs.
+     */
+    private void startSurvival() {
+        org.bukkit.plugin.Plugin old = this.getServer().getPluginManager().getPlugin("VortexSMP");
+        if (old != null) {
+            try {
+                java.io.File jar = new java.io.File(old.getClass().getProtectionDomain().getCodeSource().getLocation().toURI());
+                java.io.File to = new java.io.File(jar.getParentFile(), jar.getName() + ".merged-into-" + this.getName());
+                if (jar.isFile() && jar.renameTo(to)) {
+                    this.getLogger().warning("The SMP is part of " + this.getName() + " now: " + jar.getName() + " was renamed to " + to.getName()
+                        + " and won't load again. Restart once - its homes, warps and market are copied in then.");
+                }
+            } catch (Exception e) {
+                this.getLogger().warning("The SMP is part of " + this.getName() + " now: delete " + old.getName() + "'s jar from plugins/ and restart.");
+            }
+
+            this.survivalPending = true;
+            return;
+        }
+
+        this.survival = new net.vortexrealm.survival.VortexSMP(this);
+        this.survival.enable();
+    }
+
+    public boolean survivalPending() {
+        return this.survivalPending;
     }
 
     public ModeRules modeRules() {

@@ -10,9 +10,9 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'SMP back on this server: the selector opens the SMP world, old SMP inventories and ender chests return, each world keeps its own inventory with automatic backups (/pvpadmin invbackup)',
-    'PracticePvP': 'SMP back on this server: the selector opens the SMP world, old SMP inventories and ender chests return, each world keeps its own inventory with automatic backups (/pvpadmin invbackup)',
-    'VortexSMP': 'Same-server mode: runs next to VortexRealm on one server (homes, tpa, rtp, warps, trade, market in the SMP worlds)',
+    'VortexRealm': 'All-in-one: the SMP (homes, tpa, rtp, warps, back, combat tag, trade, market, drills) is part of this plugin now - remove VortexSMP. Import old SMP data via the import folder. Flag icons no longer turn names into boxes',
+    'PracticePvP': 'All-in-one: the SMP (homes, tpa, rtp, warps, back, combat tag, trade, market, drills) is part of this plugin now - remove VortexSMP. Import old SMP data via the import folder. Flag icons no longer turn names into boxes',
+    'VortexSMP': 'VortexSMP is now part of VortexRealm 3.8.0 - remove this plugin',
 }
 
 

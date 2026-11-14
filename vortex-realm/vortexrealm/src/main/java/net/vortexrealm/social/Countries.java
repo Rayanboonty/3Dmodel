@@ -148,7 +148,7 @@ public final class Countries {
         }
 
         Component g = Glyphs.flag(c.code());
-        return Component.space().append(g == null ? c.tag() : g.hoverEvent(HoverEvent.showText(Text.mm("<white>" + Text.esc(c.name())))));
+        return Component.space().append(g == null ? c.tag() : Glyphs.isolate(g.hoverEvent(HoverEvent.showText(Text.mm("<white>" + Text.esc(c.name()))))));
     }
 
     public Component tag(UUID u, Player viewer) {
@@ -160,7 +160,7 @@ public final class Countries {
         if (viewer != null && this.plugin.hasPack(viewer)) {
             Component g = Glyphs.flag(c.code());
             if (g != null) {
-                return g.hoverEvent(HoverEvent.showText(Text.mm("<white>" + Text.esc(c.name()))));
+                return Glyphs.isolate(g.hoverEvent(HoverEvent.showText(Text.mm("<white>" + Text.esc(c.name())))));
             }
         }
 

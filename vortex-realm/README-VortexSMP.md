@@ -106,3 +106,8 @@ Put **VortexRealm 3.7.0** and **VortexSMP 1.6.0** on the same server. `smp.same-
   - `/hub` and `/spawn` outside the SMP go to the lobby;
   - old homes are imported once from the VortexRealm folder (VortexRealm handles the inventories).
 - To go back to a separate SMP server: set `smp.same-server: false`.
+
+
+## VortexSMP is now part of VortexRealm (3.8.0)
+
+Remove VortexSMP and use VortexRealm 3.8.0: it has every SMP feature and copies VortexSMP's homes, warps and market in by itself.

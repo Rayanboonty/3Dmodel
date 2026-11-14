@@ -826,6 +826,26 @@ public final class ModeManager {
 
     // ------------------------------------------------------------------ last spots in the SMP worlds
 
+    public File backupDir() {
+        return this.backupDir;
+    }
+
+    /** An old last spot, kept only when the player has none in that world yet. */
+    public boolean importSpot(UUID u, String world, String loc) {
+        if (loc == null || Bukkit.getWorld(world) == null) {
+            return false;
+        }
+
+        Map<String, String> m = this.lastLoc.computeIfAbsent(u, k -> new ConcurrentHashMap<>());
+        if (m.containsKey(world)) {
+            return false;
+        }
+
+        m.put(world, loc);
+        this.locDirty = true;
+        return true;
+    }
+
     public void remember(Player p, Location l) {
         if (l != null && l.getWorld() != null && this.smpWorld(l.getWorld())) {
             this.lastLoc.computeIfAbsent(p.getUniqueId(), u -> new ConcurrentHashMap<>()).put(l.getWorld().getName(), Locs.serialize(l));

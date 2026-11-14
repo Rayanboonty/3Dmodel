@@ -31,6 +31,14 @@ public final class Glyphs {
         }
     }
 
+    /**
+     * A glyph wrapped in an empty parent: text appended after it (a name after a flag) must not inherit the icon
+     * font - in that font letters show as empty boxes.
+     */
+    public static Component isolate(Component c) {
+        return c == null ? null : Component.text().append(c).build();
+    }
+
     private static Component glyph(Key font, int cp, boolean shadow) {
         Component c = ((TextComponent)Component.text(new String(Character.toChars(cp))).font(font)).color(NamedTextColor.WHITE);
         return shadow ? c : c.shadowColor(ShadowColor.none());
@@ -43,7 +51,7 @@ public final class Glyphs {
 
     /** The VR logo; it hangs about 28 px below its line, so follow it with three empty lines. */
     public static Component logo() {
-        return glyph(ICONS, LOGO, false);
+        return isolate(glyph(ICONS, LOGO, false));
     }
 
     /** An exact horizontal gap of {@code px} pixels (negative moves back). Needs the pack. */
@@ -59,15 +67,15 @@ public final class Glyphs {
             }
         }
 
-        return sb.isEmpty() ? Component.empty() : Component.text(sb.toString()).font(ICONS);
+        return sb.isEmpty() ? Component.empty() : isolate(Component.text(sb.toString()).font(ICONS));
     }
 
     public static Component play() {
-        return glyph(ICONS, 61185, false);
+        return isolate(glyph(ICONS, 61185, false));
     }
 
     public static Component seal() {
-        return glyph(ICONS, 61184, false);
+        return isolate(glyph(ICONS, 61184, false));
     }
 
     public static Component rankFrame(int tier, int glow, int frame, int shine) {
@@ -87,6 +95,6 @@ public final class Glyphs {
         }
 
         sb.appendCodePoint(61442);
-        return ((TextComponent)((TextComponent)Component.text(sb.toString()).font(RANK)).color(NamedTextColor.WHITE)).shadowColor(ShadowColor.none());
+        return isolate(((TextComponent)((TextComponent)Component.text(sb.toString()).font(RANK)).color(NamedTextColor.WHITE)).shadowColor(ShadowColor.none()));
     }
 }

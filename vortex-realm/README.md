@@ -991,3 +991,18 @@ Put **VortexRealm 3.7.0** and **VortexSMP 1.6.0** on the same server. `smp.same-
   - `/hub` and `/spawn` outside the SMP go to the lobby;
   - old homes are imported once from the VortexRealm folder (VortexRealm handles the inventories).
 - To go back to a separate SMP server: set `smp.same-server: false`.
+
+
+## 3.8.0 / 2.8.0 — all-in-one SMP + Practice (one plugin)
+
+The SMP is part of VortexRealm again, like the old plugin. **Remove VortexSMP**: if it's still installed, VortexRealm renames its jar the first time it starts. After one restart only VortexRealm runs, and the old VortexSMP homes, warps, market, drills and Discord links are copied into `plugins/VortexRealm/smp/`.
+
+- **SMP commands** (they work in the SMP worlds of `worlds.yml`): `/home /sethome /homes /delhome /spawn /back /rtp /tpa /tpahere /tpaccept /tpdeny /tptoggle /warp /warps /craft /ec /hat /trash /nv /near /trade /market /drill /link /smpadmin`. `/spawn` outside the SMP goes to the lobby. SMP settings are in `smp/config.yml`.
+- **Inventories:** each world group (hub, survival, eco...) keeps its own inventory, ender chest and XP. Backups are made on every switch, on logout and every 10 minutes. `/pvpadmin invbackup <player>` lists them; click **[restore]** to put one back.
+- **Import old SMP stuff:**
+  1. Put an old VortexRealm / PracticePvP folder (or a `.zip` of it) in `plugins/VortexRealm/import/` and restart, or run `/pvpadmin smp import run`.
+  2. Homes and warps are added.
+  3. SMP inventories and ender chests are loaded for players who have none here yet. Otherwise the imported copy is put in their backups (one click to restore). Old backups and last spots come along too.
+  4. Nothing is overwritten, and the inventories folder is zipped first.
+- `/pvpadmin smp` shows the SMP status, `reload`, `import` and the keep-online `bot`.
+- **Tab fix:** names next to flag icons no longer show as empty boxes.
