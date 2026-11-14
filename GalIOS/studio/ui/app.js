@@ -66,6 +66,9 @@ const gb = (n) => (n ? (n / 2 ** 30).toFixed(1) + ' GB' : '—');
 function render() {
   const s = state, pc = s.pc || {}, ph = s.phone || {}, st = ph.stage || {}, set = s.settings || {};
   $('#ver').textContent = 'v' + s.version;
+  const up = s.studioUpdate || {};
+  $('#upd').textContent = up.message || '';
+  $('#upd').classList.toggle('hidden', !up.message);
   const built = !!pc.imageOnPC;
   const wsl = [
     row(pc.wsl ? 'ok' : 'bad', 'WSL', pc.wsl ? 'installed' : pc.wslMessage || 'not checked yet'),

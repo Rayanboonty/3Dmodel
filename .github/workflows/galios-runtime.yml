@@ -76,6 +76,9 @@ jobs:
           grep -q 'BOTTOM_START 16400u' OneiOS/runtime/bridges/brightness/brightness.c
           strings "$d/bin/xnuhost" | grep -q 'GalIOS maximum performance'
           strings "$d/bin/xnuhost" | grep -q 'oneios-actuator=0'
+          # 0012: the widgets' read wait and the spin traces of the keyboard, Settings and Clock
+          strings "$d/bin/xnuhost" | grep -q 'oneios-gpu-read-wait=1'
+          strings "$d/bin/xnuhost" | grep -q 'oneios-ubt=kbd,Spotlight,Preferences,InputUI,MobileTimer,backboardd'
           # the display helper must load in app_process: every symbol it uses from a library it names (OneiOS f7bb1c3:
           # without libnativewindow the panel stayed on the OneOS splash while iOS drew)
           so=$(find "$d" -name liboneios-display.so | head -1); test -n "$so"

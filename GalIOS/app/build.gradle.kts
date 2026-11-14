@@ -14,10 +14,25 @@ android {
         // Build.SOC_MODEL is API 31; the Galaxy S25 Ultra ships with Android 15.
         minSdk = 31
         targetSdk = 35
-        versionCode = 17
-        versionName = "1.17"
+        versionCode = 18
+        versionName = "1.18"
         // The Galaxy S25 Ultra and S24 Ultra are arm64: leave out zstd's libraries for other CPUs.
         ndk { abiFilters += "arm64-v8a" }
+    }
+
+    signingConfigs {
+        // GalIOS's release key, the same for every build so each one updates the last (on GitHub: the repository's
+        // secrets, see .github/workflows/galios-apps.yml). Without it the build is signed with this machine's debug key,
+        // and Android refuses it as an update to a GalIOS signed with the release key.
+        val ks = System.getenv("GALIOS_KEYSTORE")
+        if (ks != null && file(ks).exists()) {
+            create("galios") {
+                storeFile = file(ks)
+                storePassword = System.getenv("GALIOS_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("GALIOS_KEY_ALIAS") ?: "galios"
+                keyPassword = System.getenv("GALIOS_KEY_PASSWORD") ?: System.getenv("GALIOS_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -25,8 +40,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with this machine's debug key: a personal build, not for a store.
-            signingConfig = signingConfigs.getByName("debug")
+            // A personal build, not for a store.
+            signingConfig = signingConfigs.findByName("galios") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

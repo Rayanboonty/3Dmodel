@@ -216,9 +216,34 @@ class CoreTest {
         assertEquals(3L, up.versionCode)
         assertEquals("1.3", up.version)
         assertEquals("https://x/3", up.url)
+        assertEquals("https://x/s", up.sumUrl)
         // From code 3: nothing higher (the 4 is a draft), so no update.
         assertNull(Updater.pick(json, 3))
         assertNull(Updater.pick("[]", 0))
+        // A release without a .sha256 is still offered (the system installer), but has no sum for an automatic install.
+        val noSum = """[{"tag_name":"galios-app-1.17-studio-1.9","draft":false,"assets":[{"name":"GalIOS-17.apk","browser_download_url":"https://x/17","size":9}]}]"""
+        val up17 = Updater.pick(noSum, 16)!!
+        assertEquals("1.17", up17.version)
+        assertNull(up17.sumUrl)
+    }
+
+    @Test
+    fun anUpdateSumAndTheRootInstallersAnswersAreRead() {
+        val sum = "ab".repeat(32)
+        assertEquals(sum, Updater.parseSum("$sum  GalIOS-17.apk\n"))
+        assertEquals(sum, Updater.parseSum(sum.uppercase()))
+        assertNull(Updater.parseSum("<html>Not Found</html>"))
+        assertNull(Updater.parseSum(""))
+
+        assertTrue(RootUpdateInstaller.interpret(RootShell.Result(0, listOf("Success"))).ok)
+        val refused = RootUpdateInstaller.interpret(RootShell.Result(1, listOf(
+            "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package dev.galios signatures do not match newer version; ignoring!]")))
+        assertFalse(refused.ok)
+        assertTrue(refused.signedDifferently)
+        val other = RootUpdateInstaller.interpret(RootShell.Result(1, listOf("Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE]")))
+        assertFalse(other.ok)
+        assertFalse(other.signedDifferently)
+        assertFalse(RootUpdateInstaller.interpret(RootShell.Result(0, emptyList())).ok)
     }
 
     @Test

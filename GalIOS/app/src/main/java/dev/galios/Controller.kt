@@ -26,6 +26,7 @@ import dev.galios.core.StageClient
 import dev.galios.core.StageStatus
 import dev.galios.core.UpdateInfo
 import dev.galios.core.UpdateInstaller
+import dev.galios.core.RootUpdateInstaller
 import dev.galios.core.Updater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -326,16 +327,52 @@ class Controller(
     }
 
     @Volatile private var updateDismissed = false
+    private val autoUpdating = java.util.concurrent.atomic.AtomicBoolean(false)
+    /** The versionCode Android refused because this GalIOS is signed with another key: not tried again. */
+    @Volatile private var refusedCode = 0L
 
-    /** Best-effort check of GitHub for a newer GalIOS; quiet on any failure (offline, rate limit). */
+    /**
+     * Best-effort check of GitHub for a newer GalIOS; quiet on any failure (offline, rate limit). With root and nothing
+     * running, a newer GalIOS that matches its release's SHA-256 installs itself (Android closes GalIOS when it is in).
+     * Without root, or when that fails, the Update banner stays for the system installer.
+     */
     fun checkForUpdate() = scope.launch {
         if (updateDismissed) return@launch
-        val info = try {
+        val found = try {
             Updater.check(BuildConfigCompat.versionCode(context))
         } catch (_: Exception) {
             null
         }
-        if (info != null && !updateDismissed) _state.update { it.copy(update = info) }
+        val info = found ?: return@launch
+        if (!updateDismissed) _state.update { it.copy(update = info) }
+        autoInstall(info)
+    }
+
+    private fun autoInstall(info: UpdateInfo) {
+        val s = _state.value
+        val idle = s.busy == null && s.import == null && !s.switching && !s.phoneBuildRunning && s.status?.sessionOpen != true
+        if (!s.rootOk || info.sumUrl == null || !idle || refusedCode == info.versionCode) return
+        if (!autoUpdating.compareAndSet(false, true)) return
+        try {
+            _state.update { it.copy(message = Message("Downloading GalIOS ${info.version}…", false)) }
+            val apk = UpdateInstaller.apkFile(context)
+            Updater.downloadChecked(info, apk)
+            _state.update { it.copy(message = Message("Installing GalIOS ${info.version}. GalIOS closes when it is in: open it again.", false)) }
+            val r = RootUpdateInstaller.install(shell, apk)
+            val msg = when {
+                r.ok -> Message("GalIOS ${info.version} is installed: close GalIOS and open it again.", false)
+                r.signedDifferently -> {
+                    refusedCode = info.versionCode
+                    Message("GalIOS ${info.version} is signed with a different key than this copy, so Android refused it. Install it once with GalIOS Studio (Install GalIOS); later updates then install themselves.", true)
+                }
+                else -> Message("GalIOS ${info.version} could not install itself (${r.message}). Tap Update to install it with Android's installer.", true)
+            }
+            _state.update { it.copy(message = msg) }
+        } catch (e: Exception) {
+            _state.update { it.copy(message = Message("GalIOS ${info.version} could not be downloaded: ${e.message}. GalIOS tries again at the next refresh.", true)) }
+        } finally {
+            autoUpdating.set(false)
+        }
     }
 
     fun dismissUpdate() { updateDismissed = true; _state.update { it.copy(update = null) } }

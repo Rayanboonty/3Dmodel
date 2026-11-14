@@ -1,0 +1,23 @@
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -293,7 +293,18 @@ int xh_config_finish(xh_config *c)
+            // an external keyboard; the volume keys too). E needs a kernel built from OneiOS a623515 on (its HID driver);
+            // an older one ignores it. And the touch screen's 256 KiB event queue (OneiOS newtodo 3: the keyboard that
+            // stops after 3-4 keys, a lost finger lift in a 16 KiB queue; in kernels from 8d1d2e6 on).
+-           "oneios-actuator=0 oneios-hid-buttons-builtin=1 oneios-hid-queue-kib=256");
++           "oneios-actuator=0 oneios-hid-buttons-builtin=1 oneios-hid-queue-kib=256 "
++           // GalIOS 0012 (session 2026-11-14 20:51): Lock Screen widgets flashed blank while the render server read the
++           // widget renderer's IOSurfaces before its GPU writes were done (oneios-gpu-surfaces: 170 reads of WidgetRenderer_
++           // surfaces "while written"; oneios-gpu-pixels: 4 of 14 of its surfaces zero). OneiOS's read wait (docs/gpu.md
++           // 5.1, in kernels with the widget counters; that session logged "oneios-gpu-read-wait: off").
++           "oneios-gpu-read-wait=1 "
++           // Where the keyboard, Settings and Clock spin (that session: kbd at 25 % of a vCPU for minutes, Preferences at
++           // 100 % for a minute, keys that stay pressed): user backtraces, IOKit clients and failed system calls of those
++           // processes, in the log (OneiOS newtodo 1, 11 and 12; read with oneios-tool sym). Each list fits its 128 bytes.
++           "oneios-ubt=kbd,Spotlight,Preferences,InputUI,MobileTimer,backboardd oneios-ubt-at=120 oneios-ubt-every=30 "
++           "oneios-ubt-count=60 oneios-iouc=kbd,Spotlight,WidgetRenderer_Default,chronod,Preferences "
++           "oneios-sysfail=kbd,Spotlight,Preferences,MobileTimer");
+   if (c->ndisk == 0) { memcpy(c->disk, from_image.disk, sizeof c->disk); c->ndisk = from_image.ndisk; }
+   if (!*c->kernel && !exists(c->image, "kernel.kc", c->kernel, sizeof c->kernel) &&
+       !exists(c->image, "kernel.macho", c->kernel, sizeof c->kernel)) {

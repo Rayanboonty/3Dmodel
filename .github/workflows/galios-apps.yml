@@ -1,0 +1,174 @@
+# GalIOS app (APK) and GalIOS Studio (Windows exe), built on GitHub: the app's unit tests and its release APK signed
+# with GalIOS's release key (the repository's secrets), then Studio's tests and its exe with that APK inside. A build
+# whose app or Studio version has no release yet is published as release galios-app-<app>-studio-<studio> with
+# GalIOS-<versionCode>.apk, GalIOS-Studio-<version>.exe and a .sha256 beside each: installed copies find it there and
+# update themselves (dev/galios/core/Updater.kt, studio/selfupdate.go). GalIOS's own code only: no Apple file.
+name: GalIOS app and Studio
+on:
+  push:
+    branches: [ccr-a2c53c06-k8pnxp]
+    paths:
+      - '.github/workflows/galios-apps.yml'
+      - 'GalIOS/app/**'
+      - 'GalIOS/studio/**'
+      - 'GalIOS/tools/**'
+      - 'GalIOS/build.gradle.kts'
+      - 'GalIOS/settings.gradle.kts'
+      - 'GalIOS/gradle.properties'
+      - 'GalIOS/gradle/**'
+      - 'GalIOS/release-notes.md'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: galios-apps
+  cancel-in-progress: false
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      code: ${{ steps.v.outputs.code }}
+      name: ${{ steps.v.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - id: v
+        name: Version
+        run: |
+          code=$(sed -n 's/^ *versionCode = \([0-9]*\).*/\1/p' GalIOS/app/build.gradle.kts)
+          name=$(sed -n 's/^ *versionName = "\(.*\)".*/\1/p' GalIOS/app/build.gradle.kts)
+          test -n "$code" && test -n "$name"
+          echo "code=$code" >> "$GITHUB_OUTPUT"; echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "GalIOS $name (versionCode $code)"
+      - name: The release key
+        env:
+          KS: ${{ secrets.GALIOS_KEYSTORE_B64 }}
+        run: |
+          # Without the release key the APK would be signed with a throwaway key: it could never update GalIOS.
+          if [ -z "$KS" ]; then echo "::error::the repository has no GALIOS_KEYSTORE_B64 secret"; exit 1; fi
+          printf '%s' "$KS" | base64 -d > "$RUNNER_TEMP/galios.jks"
+          echo "GALIOS_KEYSTORE=$RUNNER_TEMP/galios.jks" >> "$GITHUB_ENV"
+      - name: Unit tests and the release APK
+        working-directory: GalIOS
+        env:
+          GALIOS_KEYSTORE_PASSWORD: ${{ secrets.GALIOS_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+      - name: Signed with GalIOS's release key, for arm64, with its version
+        run: |
+          apk=GalIOS/app/build/outputs/apk/release/app-release.apk
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$bt/apksigner" verify --print-certs "$apk" | tee certs.txt
+          grep -q 'CN=GalIOS' certs.txt
+          ! grep -q 'Android Debug' certs.txt
+          "$bt/aapt2" dump badging "$apk" | head -1 | tee badging.txt
+          grep -q "versionCode='${{ steps.v.outputs.code }}'" badging.txt
+          unzip -l "$apk" | grep -q 'lib/arm64-v8a/'
+      - name: Test reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-test-reports
+          path: GalIOS/app/build/reports/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: galios-apk
+          path: GalIOS/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+  studio:
+    needs: apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: GalIOS/studio/go.mod
+          cache-dependency-path: GalIOS/studio/go.sum
+      - id: v
+        name: Version
+        run: |
+          v=$(sed -n 's/^const version = "\(.*\)"/\1/p' GalIOS/studio/main.go)
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Studio $v"
+      - uses: actions/download-artifact@v4
+        with:
+          name: galios-apk
+          path: GalIOS/app/build/outputs/apk/release
+      - name: The exe's version resource follows main.go
+        working-directory: GalIOS/studio
+        run: |
+          v=${{ steps.v.outputs.version }}
+          q=$(echo "$v.0.0.0" | cut -d. -f1-4)
+          sed -i -E "s/(\"version\": \")[0-9.]+(\")/\1$q\2/; s/(\"file_version\": \")[0-9.]+(\")/\1$q\2/; s/(\"product_version\": \")[0-9.]+(\")/\1$q\2/; s/(\"FileVersion\": \")[0-9.]+(\")/\1$v\2/; s/(\"ProductVersion\": \")[0-9.]+(\")/\1$v\2/" winres/winres.json
+          grep -n 'ersion' winres/winres.json
+          go install github.com/tc-hib/go-winres@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Build (build.sh) and test
+        working-directory: GalIOS/studio
+        run: |
+          sh ./build.sh
+          go vet ./...
+          go test ./...
+          GOOS=windows GOARCH=amd64 go vet ./...
+      - name: The exe carries this build's GalIOS
+        run: |
+          exe=GalIOS/studio/dist/GalIOS-Studio.exe
+          file "$exe" | tee /dev/stderr | grep -q 'PE32+'
+          cmp GalIOS/studio/assets/GalIOS.apk GalIOS/app/build/outputs/apk/release/app-release.apk
+          strings "$exe" | grep -q "GalIOS-Studio-"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: galios-studio
+          path: GalIOS/studio/dist/GalIOS-Studio.exe
+          if-no-files-found: error
+
+  release:
+    needs: [apk, studio]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CODE: ${{ needs.apk.outputs.code }}
+      NAME: ${{ needs.apk.outputs.name }}
+      STUDIO: ${{ needs.studio.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: GalIOS/release-notes.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - name: Publish when the app or Studio is a new version
+        run: |
+          tag="galios-app-$NAME-studio-$STUDIO"
+          have=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^galios-app-' || true)
+          if echo "$have" | grep -qx "$tag"; then echo "$tag is published already"; exit 0; fi
+          # Each versionCode and each Studio version is published once: a rebuild of the same version is not an update.
+          for t in $have; do
+            assets=$(gh release view "$t" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+            if echo "$assets" | grep -qx "GalIOS-$CODE.apk" || echo "$assets" | grep -qx "GalIOS-Studio-$STUDIO.exe"; then
+              echo "::error::GalIOS $CODE or Studio $STUDIO is already in $t: raise versionCode/versionName (app/build.gradle.kts) and version (studio/main.go, studio/adb.go bundledGalIOS*)"
+              exit 1
+            fi
+          done
+          mkdir out
+          cp art/galios-apk/app-release.apk "out/GalIOS-$CODE.apk"
+          cp art/galios-studio/GalIOS-Studio.exe "out/GalIOS-Studio-$STUDIO.exe"
+          (cd out && for f in *; do sha256sum "$f" > "$f.sha256"; done && cat *.sha256)
+          notes=GalIOS/release-notes.md; [ -f "$notes" ] || { echo "GalIOS $NAME and GalIOS Studio $STUDIO." > notes.md; notes=notes.md; }
+          gh release create "$tag" out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "GalIOS $NAME · Studio $STUDIO" --notes-file "$notes"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "\(.name) \(.size)"'

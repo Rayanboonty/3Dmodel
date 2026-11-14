@@ -48,6 +48,17 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
 - `0009-android-keeps-2-gib.patch`: `ram-session-reserve` 2 GiB (OneiOS: 1 GiB). With OneiOS's fit and 1 GiB the
   galios.10 session started at 8958 MiB available, gave iOS 6912 MiB, and Android fell to 740-900 MiB and swapped
   320 MiB of iOS's RAM (swap-ins up to 5 MB/s). With 2 GiB iOS gets about 6144 MiB and Android keeps about 1.5 GiB.
+- `0012-widgets-read-wait-and-spin-traces.patch` (on top of 0003): from the 2026-11-14 20:51 session (old kernel of
+  2026-11-13). (1) `oneios-gpu-read-wait=1`: Lock Screen widgets flashed blank, and the kernel's counters showed the
+  render server reading the widget renderer's IOSurfaces while they were still being written (170 such reads; 4 of 14
+  of its surfaces all zero). This is OneiOS docs/gpu.md 5.1's third guess, and the switch was already in that kernel
+  (`oneios-gpu-read-wait: off`). Check in the next log: `oneios-gpu-read-wait: on`, `read while written` 0 for
+  WidgetRenderer_, no `zero` surfaces. (2) Diagnostics, no behaviour change: `oneios-ubt=` (user backtraces every 30 s
+  from 120 s, 60 samples), `oneios-iouc=` and `oneios-sysfail=` for kbd, Spotlight, Preferences, InputUI,
+  MobileTimer and backboardd. In that session kbd ran at about 25 % of a vCPU for minutes, Preferences at 100 % for a
+  minute, and keys stayed pressed; these lines say where they spin (read them with OneiOS's `oneios-tool sym`). Not
+  done on purpose: Spotlight's indexer off (`oneios-disable-jobs=...searchd...`). Spotlight sat at 100 % for 100 s,
+  but that was the Spotlight process itself, not searchd, so turning the indexer off is OneiOS's A/B and not a fix.
 
 History: galios.4 had a 4 GiB RAM floor and `oneios-actuator=0` and felt worse than galios.3; its log showed the cause
 was the P vCPUs' lost cores (0005). galios.6-8 had a RAM floor of their own (3-3.5 GiB) and the touch IC kept awake at

@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.8"
+const version = "1.9"
 
 type App struct {
 	hub           *Hub
@@ -41,6 +41,7 @@ type App struct {
 	lastPing      atomic.Int64
 	restartNeeded atomic.Bool
 	windowed      bool
+	upd           updater
 }
 
 func main() {
@@ -66,8 +67,26 @@ func main() {
 
 	mux.HandleFunc("/api/focus", func(w http.ResponseWriter, r *http.Request) { focusWindow(); w.WriteHeader(204) })
 
+	resume, updated := false, false
+	for _, a := range os.Args[1:] {
+		switch a {
+		case "--resume":
+			resume = true
+		case "--updated":
+			updated = true
+		}
+	}
+
 	addr := "127.0.0.1:" + envOr("STUDIO_PORT", "47827")
 	ln, err := net.Listen("tcp", addr)
+	if err != nil && updated {
+		// Started by the Studio this one replaces: it ends right after, then the port is free.
+		err = listenAfterUpdate(func() error {
+			var e error
+			ln, e = net.Listen("tcp", addr)
+			return e
+		})
+	}
 	if err != nil {
 		// Already running: bring its window to the front instead of starting a second one.
 		if resp, err := http.Post("http://"+addr+"/api/focus", "text/plain", nil); err == nil {
@@ -80,12 +99,7 @@ func main() {
 	url := "http://" + ln.Addr().String() + "/"
 	log.Printf("GalIOS Studio %s at %s", version, url)
 	go func() { app.refreshPC(); app.refreshPhone() }()
-	resume := false
-	for _, a := range os.Args[1:] {
-		if a == "--resume" {
-			resume = true
-		}
-	}
+	go app.updateLoop()
 	if resume {
 		// Back after the restart WSL asked for: carry on with Do everything.
 		setAutoResume(false)
@@ -187,7 +201,7 @@ func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"version": version, "settings": a.store.Get(), "pc": a.pc, "phone": a.phone, "job": a.hub.Job(),
 		"windows": runtime.GOOS == "windows", "dataDir": dataDir(), "restartNeeded": a.restartNeeded.Load(),
-		"imageName": imageName, "ipswName": ipswName,
+		"imageName": imageName, "ipswName": ipswName, "studioUpdate": a.upd.get(),
 	})
 }
 
