@@ -34,6 +34,13 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   `vCPU uclamp.min 1024: 0 of 0 threads` and the boost never happened. galios.11: the E vCPUs only (xnu-cpu0..5).
   With all eight (`8 of 8 threads`, galios.8-10) the prime cores reached 96-104 C within 5 s of the boot, iOS was told
   its thermal state was heavy (it slows itself and dims) and the session flapped between heavy and nominal.
+- `0010-ios-not-told-hot-by-core-bursts.patch`: the thermal bridge tells iOS HEAVY from the SoC at 107 C (OneiOS:
+  95 C) and TRAPPING at 110 C (105 C). The S25 Ultra's cores burst to 100-104 C within seconds of any load: in one
+  session 33 of 39 HEAVY came from the SoC with the case at 34-40 C, and each one made iOS slow itself and cap the
+  brightness. The case and the battery limits are unchanged. Thermal tests: 73 checks, 0 failed.
+- galios.13 changes 0006's remap: the old driver's light levels run 25 %..100 % (16387 of 65535 at the slider's bottom
+  in every drag on the phone), so iOS's dimmest (25 %, or lower if iOS asks later) is the panel's floor and the rest is
+  spread evenly to the ceiling. Brightness tests 97 checks, 0 failures.
 - `0009-android-keeps-2-gib.patch`: `ram-session-reserve` 2 GiB (OneiOS: 1 GiB). With OneiOS's fit and 1 GiB the
   galios.10 session started at 8958 MiB available, gave iOS 6912 MiB, and Android fell to 740-900 MiB and swapped
   320 MiB of iOS's RAM (swap-ins up to 5 MB/s). With 2 GiB iOS gets about 6144 MiB and Android keeps about 1.5 GiB.

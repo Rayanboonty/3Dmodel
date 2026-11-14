@@ -72,6 +72,8 @@ jobs:
           strings "$d/bin/xnuhost" | grep -q 'oneios-hid-queue-kib=256'
           test -f OneiOS/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
           grep -q 'XH_RAM_SESSION_RESERVE (2ull << 30)' OneiOS/runtime/xnuhost/src/xnuhost.h
+          grep -q 'l->soc\[0\] = 1070' OneiOS/runtime/bridges/thermal/thermal.c
+          grep -q 'BOTTOM_START 16400u' OneiOS/runtime/bridges/brightness/brightness.c
           strings "$d/bin/xnuhost" | grep -q 'oneios-actuator=0'
           # the display helper must load in app_process: every symbol it uses from a library it names (OneiOS f7bb1c3:
           # without libnativewindow the panel stayed on the OneOS splash while iOS drew)
