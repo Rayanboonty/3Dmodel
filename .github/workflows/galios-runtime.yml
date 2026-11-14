@@ -60,7 +60,8 @@ jobs:
           ASAN_OPTIONS=detect_leaks=0 build/host/test_audio_helper
           # the bridges' own tests: also compile audio/backend.c (0017) with -Werror on the host
           make build/host/test_bridges
-          build/host/test_bridges
+          # as OneiOS's make test runs it: the devices live as long as xnuhost (the transport has no destroy)
+          ASAN_OPTIONS=detect_leaks=0 build/host/test_bridges
       - name: Package
         run: |
           cd OneiOS
