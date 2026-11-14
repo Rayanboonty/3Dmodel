@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
                 resetIosData = { controller.resetIosData() },
                 setMaxPerformance = { controller.setMaxPerformance(it) },
                 setIphoneIdentity = { controller.setIphoneIdentity(it) },
+                setTuning = { o, on -> controller.setTuning(o, on) },
             ),
             boot = { controller.boot() },
             returnToOneUi = { controller.returnToOneUi() },

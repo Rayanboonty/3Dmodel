@@ -78,6 +78,15 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   itself down, which is what cools the phone. The battery (TRAPPING at 50 C) and the SoC (110 C, 0010) are unchanged.
   The two thermal tests that drove TRAPPING through the case now drive it through the battery; CI now runs the thermal
   and brightness host tests (`make -C thermal test`, `make -C brightness test`) on every build.
+- `0015-tuning-switches-from-the-stage.patch`: the owner's tuning switches (GalIOS 1.22, Setup "Tuning"). xnuhost reads
+  `galios-bootargs` from the stage (`/data` in the session): words `key=value` whose key is on a short list
+  (`sheng-vsync`, `oneios-disable-jobs`, `oneios-enable-jobs`, `oneios-gpu-read-wait`, `oneios-hid-queue-kib`, the
+  `oneios-ubt*`/`iouc`/`sysfail` traces, `oneios-log-persist`, `oneios-bl-mode`), letters, digits and `._,=-` only, at
+  most 300 bytes. They go in front of the defaults: XNU's `PE_parse_boot_argn` takes the first match, so a switch
+  overrides a default, and `sheng-vsync=60` also stops `xh_display_boot_args` adding the panel's 120. Anything else is
+  dropped and logged (`GalIOS tuning: "..." dropped`); the boot goes on. Log line: `GalIOS tuning: <the words used>`.
+  It is how new switches reach iOS without a new runtime: each upgrade in `GalIOS/ROADMAP.md` that is a boot setting
+  becomes a toggle the owner can turn off again.
 
 History: galios.4 had a 4 GiB RAM floor and `oneios-actuator=0` and felt worse than galios.3; its log showed the cause
 was the P vCPUs' lost cores (0005). galios.6-8 had a RAM floor of their own (3-3.5 GiB) and the touch IC kept awake at

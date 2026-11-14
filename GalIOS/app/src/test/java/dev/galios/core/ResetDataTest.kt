@@ -46,6 +46,41 @@ class MaxPerformanceTest {
     }
 }
 
+/** Tuning: the runtime's rules for a word, and the switches written to the stage, read back and removed. */
+class TuningTest {
+    @Test
+    fun onlyAllowedWordsAndTheyRoundTrip() {
+        assertTrue(Tuning.allowed("sheng-vsync=60"))
+        assertTrue(Tuning.allowed("oneios-disable-jobs=com.apple.searchd,com.apple.spotlight.IndexAgent"))
+        assertFalse(Tuning.allowed("debug=0x14e"))                       // not on the list
+        assertFalse(Tuning.allowed("sheng-vsync="))                      // no value
+        assertFalse(Tuning.allowed("=60"))
+        assertFalse(Tuning.allowed("sheng-vsync=60;reboot"))             // a character the runtime refuses
+        assertFalse(Tuning.allowed("sheng-vsync=6 0"))
+        for (o in Tuning.ALL) for (w in o.words) assertTrue(w, Tuning.allowed(w))
+
+        val shell = ProcessRootShell(listOf("sh", "-c"))
+        val stage = Files.createTempDirectory("galios-tuning").toFile()
+        val client = StageClient(shell, stage.path)
+        assertTrue(client.tuning().isEmpty())
+        var words = Tuning.with(emptySet(), Tuning.COOL_60HZ, true)
+        words = Tuning.with(words, Tuning.PAUSE_INDEXING, true)
+        assertTrue(client.setTuning(words).ok)
+        assertEquals(words, client.tuning())
+        assertTrue(Tuning.isOn(client.tuning(), Tuning.COOL_60HZ) && Tuning.isOn(client.tuning(), Tuning.PAUSE_INDEXING))
+        assertEquals(Tuning.text(words) + "\n", File(stage, StageClient.TUNING_FILE).readText())
+        // One off: only its words go.
+        assertTrue(client.setTuning(Tuning.with(words, Tuning.COOL_60HZ, false)).ok)
+        assertFalse(Tuning.isOn(client.tuning(), Tuning.COOL_60HZ))
+        assertTrue(Tuning.isOn(client.tuning(), Tuning.PAUSE_INDEXING))
+        // None left: the file goes; a word the runtime would drop is refused before anything is written.
+        assertTrue(client.setTuning(emptySet()).ok)
+        assertFalse(File(stage, StageClient.TUNING_FILE).exists())
+        assertFalse(client.setTuning(setOf("debug=0")).ok)
+        assertFalse(File(stage, StageClient.TUNING_FILE).exists())
+    }
+}
+
 /** iPhone screen features: the identity file is found where people keep files, copied into the stage after a size check, removed again. */
 class IphoneIdentityTest {
     @Test

@@ -1,0 +1,69 @@
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+index 8962b37..686454b 100644
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -245,6 +245,56 @@ static bool exists(const char *dir, const char *name, char *out, size_t size)
+   return stat(out, &st) == 0 && S_ISREG(st.st_mode);
+ }
+ 
++// GalIOS 0015: the owner's tuning switches (GalIOS, Setup "Tuning"), the file galios-bootargs in the stage (/data in the
++// session): words key=value, each key from the short list below and only letters, digits and . _ , = -. They go in
++// front of the defaults, because XNU's PE_parse_boot_argn takes the first one it finds: a switch can override a default
++// (sheng-vsync=60 in front also stops xh_display_boot_args adding the panel's 120). At most 300 bytes, so the whole
++// line keeps room under the kernel's 1024. A word that is not allowed is dropped and logged; the boot goes on.
++static const char *const galios_tuning_keys[] = {
++  "sheng-vsync", "oneios-disable-jobs", "oneios-enable-jobs", "oneios-gpu-read-wait", "oneios-hid-queue-kib",
++  "oneios-ubt", "oneios-ubt-at", "oneios-ubt-every", "oneios-ubt-count", "oneios-iouc", "oneios-sysfail",
++  "oneios-log-persist", "oneios-bl-mode",
++};
++
++static bool galios_tuning_word_ok(const char *w)
++{
++  const char *eq = strchr(w, '=');
++  if (!eq || eq == w || !eq[1]) return false;
++  for (const char *p = w; *p; p++)
++    if (!isalnum((unsigned char)*p) && !strchr("._,=-", *p)) return false;
++  size_t n = (size_t)(eq - w);
++  for (size_t k = 0; k < sizeof galios_tuning_keys / sizeof *galios_tuning_keys; k++)
++    if (strlen(galios_tuning_keys[k]) == n && !strncmp(w, galios_tuning_keys[k], n)) return true;
++  return false;
++}
++
++static void galios_tuning_boot_args(char *args, size_t size, const char *path)
++{
++  FILE *f = fopen(path, "r");
++  if (!f) return;
++  char text[1024], kept[301];
++  size_t n = fread(text, 1, sizeof text - 1, f);
++  fclose(f);
++  text[n] = 0;
++  size_t used = 0;
++  kept[0] = 0;
++  char *save = NULL;
++  for (char *w = strtok_r(text, " \t\r\n", &save); w; w = strtok_r(NULL, " \t\r\n", &save)) {
++    if (!galios_tuning_word_ok(w) || used + (used ? 1 : 0) + strlen(w) >= sizeof kept) {
++      fprintf(stderr, "xnuhost: GalIOS tuning: \"%.60s\" dropped (not an allowed key=value, or no room)\n", w);
++      continue;
++    }
++    used += (size_t)snprintf(kept + used, sizeof kept - used, "%s%s", used ? " " : "", w);
++  }
++  if (!used) return;
++  size_t have = strlen(args), extra = used + (have ? 1 : 0);
++  if (have + extra >= size) { fprintf(stderr, "xnuhost: GalIOS tuning: no room in the boot arguments: not used\n"); return; }
++  memmove(args + extra, args, have + 1);
++  memcpy(args, kept, used);
++  if (have) args[used] = ' ';
++  fprintf(stderr, "xnuhost: GalIOS tuning: %s\n", kept);
++}
++
+ int xh_config_finish(xh_config *c)
+ {
+   char path[512];
+@@ -305,6 +355,7 @@ int xh_config_finish(xh_config *c)
+            "oneios-ubt=kbd,Spotlight,Preferences,InputUI,MobileTimer,backboardd oneios-ubt-at=120 oneios-ubt-every=30 "
+            "oneios-ubt-count=60 oneios-iouc=kbd,Spotlight,WidgetRenderer_Default,chronod,Preferences "
+            "oneios-sysfail=kbd,Spotlight,Preferences,MobileTimer");
++  galios_tuning_boot_args(c->boot_args, sizeof c->boot_args, "/data/galios-bootargs");
+   if (c->ndisk == 0) { memcpy(c->disk, from_image.disk, sizeof c->disk); c->ndisk = from_image.ndisk; }
+   if (!*c->kernel && !exists(c->image, "kernel.kc", c->kernel, sizeof c->kernel) &&
+       !exists(c->image, "kernel.macho", c->kernel, sizeof c->kernel)) {

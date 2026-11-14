@@ -70,6 +70,7 @@ class SetupActions(
     val resetIosData: () -> Unit = {},
     val setMaxPerformance: (Boolean) -> Unit = {},
     val setIphoneIdentity: (Boolean) -> Unit = {},
+    val setTuning: (dev.galios.core.Tuning.Option, Boolean) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -218,6 +219,14 @@ fun SetupScreen(s: UiState, a: SetupActions) {
                 enabled = s.rootOk && s.busy == null && s.status?.sessionOpen != true && (s.iphoneIdentity || s.identityFile != null),
                 icon = Icons.Rounded.PhoneIphone,
             )
+        }
+
+        Step(8, "Tuning", "Switches for how iOS runs on this phone. Each one takes effect at the next boot and can be turned off again. Needs runtime galios.19 or newer (Setup, step 3).", done = false) {
+            val canChange = s.rootOk && s.busy == null && s.status?.sessionOpen != true
+            dev.galios.core.Tuning.ALL.forEachIndexed { i, o ->
+                if (i > 0) { VSpace(4.dp); RowDivider(inset = 0.dp); VSpace(4.dp) }
+                TuningRow(o, dev.galios.core.Tuning.isOn(s.tuning, o), canChange) { on -> a.setTuning(o, on) }
+            }
         }
     }
 }
@@ -400,6 +409,27 @@ private fun Step(n: Int, title: String, text: String, done: Boolean, content: @C
     }
 }
 
+
+/** One tuning switch: its name and what it does, and an iOS-style switch (green when on). */
+@Composable
+private fun TuningRow(o: dev.galios.core.Tuning.Option, on: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(o.title, style = Type.Body.copy(fontWeight = FontWeight.Medium))
+            Text(o.text, style = Type.Caption)
+        }
+        Spacer(Modifier.width(12.dp))
+        androidx.compose.material3.Switch(
+            checked = on, onCheckedChange = onChange, enabled = enabled,
+            colors = androidx.compose.material3.SwitchDefaults.colors(
+                checkedTrackColor = Gal.Mint, checkedThumbColor = Color.White, checkedBorderColor = Color.Transparent,
+                uncheckedTrackColor = Gal.Raised, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
+                disabledCheckedTrackColor = Gal.Mint.copy(alpha = 0.4f), disabledUncheckedTrackColor = Gal.Raised,
+                disabledCheckedThumbColor = Color.White.copy(alpha = 0.6f), disabledUncheckedThumbColor = Color.White.copy(alpha = 0.4f),
+            ),
+        )
+    }
+}
 
 /** A requirement and where it stands: a small state symbol, the requirement, its detail. */
 @Composable

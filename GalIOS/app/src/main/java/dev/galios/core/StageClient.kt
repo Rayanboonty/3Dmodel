@@ -132,6 +132,24 @@ class StageClient(private val shell: RootShell, val stage: String = DEFAULT_STAG
         return Reply.parse(shell.exec(command, null))
     }
 
+    /** The owner's tuning switches (runtime with GalIOS's 0015): the words in `galios-bootargs` in the stage. */
+    fun tuning(): Set<String> =
+        shell.exec("cat ${shq("$stage/$TUNING_FILE")} 2>/dev/null; true", null).lines
+            .flatMap { it.trim().split(Regex("\\s+")) }.filter { it.isNotBlank() }.toSet()
+
+    /** Writes the tuning words (each one [Tuning.allowed]); no words removes the file. */
+    fun setTuning(words: Set<String>): Reply {
+        val bad = words.firstOrNull { !Tuning.allowed(it) }
+        val text = Tuning.text(words)
+        if (bad != null) return Reply(false, "\"$bad\" is not a tuning switch", emptyList(), emptyList(), 4)
+        if (text.length > Tuning.MAX_BYTES) return Reply(false, "too many tuning switches at once", emptyList(), emptyList(), 4)
+        val f = shq("$stage/$TUNING_FILE")
+        val command = if (text.isEmpty()) "rm -f $f && echo '@@OK off'"
+        else "[ -d ${shq(stage)} ] || { echo '@@FAILED OneiOS is not set up on this phone'; exit 4; }; " +
+            "printf '%s\\n' ${shq(text)} > $f.tmp && chmod 0600 $f.tmp && mv -f $f.tmp $f && echo '@@OK on'"
+        return Reply.parse(shell.exec(command, null))
+    }
+
     /**
      * iPhone screen features (runtime with GalIOS's 0013): the iPhone18,2 device tree the image build read from the
      * owner's IPSW, as `galios-identity.adt` in the stage. xnuhost then gives iOS the iPhone's panel values (OLED,
@@ -190,6 +208,8 @@ class StageClient(private val shell: RootShell, val stage: String = DEFAULT_STAG
         /** The image build's file beside the image (tools/build-ios-image-wsl.sh), and its name in the stage (0013). */
         const val IDENTITY_FILE = "OneiOS_iPhone18-2_identity.adt"
         const val IDENTITY_IN_STAGE = "galios-identity.adt"
+        /** The tuning switches' file in the stage (0015). */
+        const val TUNING_FILE = "galios-bootargs"
         const val IDENTITY_MIN_BYTES = 16 * 1024
         const val IDENTITY_MAX_BYTES = 16 * 1024 * 1024
         val IDENTITY_FOLDERS = listOf("/sdcard/Download", "/sdcard/Documents", "/sdcard", "/storage/emulated/0/Download")
