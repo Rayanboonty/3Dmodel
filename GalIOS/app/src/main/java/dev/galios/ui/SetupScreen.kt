@@ -182,6 +182,21 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             }
         }
 
+        Step(5, "iOS data", "Everything iOS keeps between boots (its settings, your apps' data) is one file on the phone, made from the image on the first boot. Starting fresh makes it again on the next boot: that is how the camera's plug-in and other new parts of a newer image arrive.", done = false) {
+            var armed by remember { mutableStateOf(false) }
+            Text(
+                if (armed) "This erases iOS's settings and data on this phone. Tap again to erase, or leave it." else "Your image and the runtime stay; only iOS's own data is made again.",
+                style = Type.Caption.copy(color = if (armed) Gal.Amber else Gal.Faint),
+            )
+            VSpace(10.dp)
+            GlassButton(
+                if (armed) "Tap again to erase" else "Start iOS fresh",
+                { if (armed) { armed = false; a.resetIosData() } else armed = true },
+                enabled = s.rootOk && s.busy == null && s.import == null && s.status?.sessionOpen != true && s.status?.imageVersion != null,
+                icon = Icons.Rounded.RestartAlt,
+            )
+        }
+
         Step(6, "Performance", "Balanced (the default) sizes iOS's memory to what Android can spare and keeps the speed boost off the two hottest cores. Maximum performance gives iOS 10 GB and boosts every core while it animates: faster when the phone is cool, but Android may swap and the phone heats sooner. Needs runtime galios.14 or newer; takes effect at the next boot.", done = false) {
             Check("Now", if (s.maxPerformance) "Maximum performance (10 GB, every core)" else "Balanced", true)
             VSpace(10.dp)
@@ -202,21 +217,6 @@ fun SetupScreen(s: UiState, a: SetupActions) {
                 { a.setIphoneIdentity(!s.iphoneIdentity) },
                 enabled = s.rootOk && s.busy == null && s.status?.sessionOpen != true && (s.iphoneIdentity || s.identityFile != null),
                 icon = Icons.Rounded.PhoneIphone,
-            )
-        }
-
-        Step(5, "iOS data", "Everything iOS keeps between boots (its settings, your apps' data) is one file on the phone, made from the image on the first boot. Starting fresh makes it again on the next boot: that is how the camera's plug-in and other new parts of a newer image arrive.", done = false) {
-            var armed by remember { mutableStateOf(false) }
-            Text(
-                if (armed) "This erases iOS's settings and data on this phone. Tap again to erase, or leave it." else "Your image and the runtime stay; only iOS's own data is made again.",
-                style = Type.Caption.copy(color = if (armed) Gal.Amber else Gal.Faint),
-            )
-            VSpace(10.dp)
-            GlassButton(
-                if (armed) "Tap again to erase" else "Start iOS fresh",
-                { if (armed) { armed = false; a.resetIosData() } else armed = true },
-                enabled = s.rootOk && s.busy == null && s.import == null && s.status?.sessionOpen != true && s.status?.imageVersion != null,
-                icon = Icons.Rounded.RestartAlt,
             )
         }
     }

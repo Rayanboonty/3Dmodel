@@ -1,6 +1,6 @@
-GalIOS 1.20 and GalIOS Studio 1.11
+GalIOS 1.21 and GalIOS Studio 1.12
 
-**A new look for GalIOS.** The nebula backdrop, the violet-to-cyan gradients, the glow and the shimmer are gone. GalIOS now has a true-black canvas, cards in iOS's dark greys with One UI's generous rounding, large titles with room above them, iOS Settings-style lists with small colored icon tiles, one accent color (blue) for what you can tap, and green, orange and red only for state. Motion is a short fade; nothing loops.
+**A new look for GalIOS.** The nebula backdrop, the violet-to-cyan gradients, the glow and the shimmer are gone. GalIOS now has a true-black canvas, cards in iOS's dark greys with One UI's generous rounding, large titles with room above them, iOS Settings-style lists with small colored icon tiles, one accent color (blue) for what you can tap, and green, orange and red only for state. Motion is a short fade; nothing loops. (1.21: Setup's steps in order, and a disabled button that stays visible in dialogs.)
 
 **The "iPhone needs to cool down" lock screen** (the next runtime, from GalIOS/runtime/patches; get it in Setup, step 3). The phone's case temperature used to tell iOS "critical" at 46 °C, a guessed threshold, and iOS then locked itself behind that screen. Now the case can only make iOS slow down (which is what cools the phone); the battery at 50 °C and the chip at 110 °C still lock it, because those are real limits.
 

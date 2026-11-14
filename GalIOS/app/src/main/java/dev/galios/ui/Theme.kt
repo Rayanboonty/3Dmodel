@@ -149,10 +149,11 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun GradientButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null, height: Dp = 52.dp) {
     val shape = RoundedCornerShape(height / 2)
-    val fg = if (enabled) Color.White else Gal.Faint
+    // Disabled: the same blue, faded (as iOS dims a filled button), so it shows on the canvas, on cards and in dialogs.
+    val fg = if (enabled) Color.White else Color.White.copy(alpha = 0.45f)
     Box(
         modifier.fillMaxWidth().height(height).clip(shape)
-            .background(if (enabled) Gal.Blue else Gal.Raised)
+            .background(if (enabled) Gal.Blue else Gal.Blue.copy(alpha = 0.28f))
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
