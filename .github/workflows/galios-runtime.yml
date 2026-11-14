@@ -79,6 +79,9 @@ jobs:
           # 0012: the widgets' read wait and the spin traces of the keyboard, Settings and Clock
           strings "$d/bin/xnuhost" | grep -q 'oneios-gpu-read-wait=1'
           strings "$d/bin/xnuhost" | grep -q 'oneios-ubt=kbd,Spotlight,Preferences,InputUI,MobileTimer,backboardd'
+          # 0013: the iPhone identity switch (always-on display, Dynamic Island)
+          strings "$d/bin/xnuhost" | grep -q '/data/galios-identity.adt'
+          strings "$d/bin/xnuhost" | grep -q 'GalIOS identity: %u /product properties'
           # the display helper must load in app_process: every symbol it uses from a library it names (OneiOS f7bb1c3:
           # without libnativewindow the panel stayed on the OneOS splash while iOS drew)
           so=$(find "$d" -name liboneios-display.so | head -1); test -n "$so"

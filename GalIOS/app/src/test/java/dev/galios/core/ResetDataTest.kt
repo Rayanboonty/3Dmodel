@@ -45,3 +45,45 @@ class MaxPerformanceTest {
         assertFalse(StageClient(shell, File(stage, "missing").path).setMaxPerformance(true).ok)
     }
 }
+
+/** iPhone screen features: the identity file is found where people keep files, copied into the stage after a size check, removed again. */
+class IphoneIdentityTest {
+    @Test
+    fun theIdentityIsFoundCheckedCopiedAndRemoved() {
+        val shell = ProcessRootShell(listOf("sh", "-c"))
+        val stage = Files.createTempDirectory("galios-identity").toFile()
+        val downloads = Files.createTempDirectory("galios-download").toFile()
+        val client = StageClient(shell, stage.path)
+        val folders = listOf(File(downloads, "Documents").path, downloads.path)
+
+        assertFalse(client.iphoneIdentity())
+        assertEquals(null, client.findIdentityFile(folders))
+        // Nothing to copy: refused, nothing in the stage.
+        assertFalse(client.setIphoneIdentity(true, File(downloads, StageClient.IDENTITY_FILE).path).ok)
+        assertFalse(File(stage, StageClient.IDENTITY_IN_STAGE).exists())
+
+        // A file too small to be an iPhone device tree: refused.
+        val tree = File(downloads, StageClient.IDENTITY_FILE)
+        tree.writeBytes(ByteArray(100) { 7 })
+        val found = client.findIdentityFile(folders)
+        assertEquals(tree.path, found)
+        val small = client.setIphoneIdentity(true, found)
+        assertFalse(small.message, small.ok)
+        assertTrue(small.message, small.message.contains("not an iPhone device tree"))
+        assertFalse(client.iphoneIdentity())
+
+        // One of a real tree's size: copied whole, and the switch reads on.
+        val bytes = ByteArray(200 * 1024) { (it % 251).toByte() }
+        tree.writeBytes(bytes)
+        val on = client.setIphoneIdentity(true, client.findIdentityFile(folders))
+        assertTrue(on.message, on.ok)
+        assertTrue(client.iphoneIdentity())
+        assertTrue(File(stage, StageClient.IDENTITY_IN_STAGE).readBytes().contentEquals(bytes))
+        assertFalse(File(stage, StageClient.IDENTITY_IN_STAGE + ".tmp").exists())
+
+        // Off removes it; a stage that does not exist refuses on.
+        assertTrue(client.setIphoneIdentity(false).ok)
+        assertFalse(client.iphoneIdentity() || File(stage, StageClient.IDENTITY_IN_STAGE).exists())
+        assertFalse(StageClient(shell, File(stage, "missing").path).setIphoneIdentity(true, tree.path).ok)
+    }
+}

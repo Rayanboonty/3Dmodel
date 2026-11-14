@@ -370,11 +370,29 @@ if [ -n "$dest" ]; then
 else
   ok "The image is at $ONEIOS/out/image/$ARCHIVE"
 fi
+# The iPhone's own identity: the iPhone18,2 device tree read from your IPSW (kernel inputs), for GalIOS's
+# "iPhone screen features" switch (always-on display, Dynamic Island, the iPhone's panel values). Built from Apple's
+# firmware like the image: it stays on your PC and phone. Copied every run, so an image built before has it too.
+IDENTITY="OneiOS_iPhone18-2_identity.adt"
+ident=$(ls out/kernel-inputs/*/devicetree.bin 2>/dev/null | head -1 || true)
+if [ -n "$ident" ] && [ -s "$ident" ]; then
+  if [ -n "$dest" ]; then
+    cp "$ident" "$dest/$IDENTITY.part" && mv -f "$dest/$IDENTITY.part" "$dest/$IDENTITY"
+    ok "$dest/$IDENTITY (for iPhone screen features)"
+  else
+    ok "The iPhone identity is at $ONEIOS/$ident (copy it as $IDENTITY)"
+  fi
+else
+  printf '\033[1;33m    No iPhone device tree in out/kernel-inputs: iPhone screen features need it (run again).\033[0m\n'
+  rm -f "$WORK/.done-kernel-inputs"
+fi
 cat <<EOF
 
 Done. Next, on the phone:
   1. Copy $ARCHIVE to the phone's Download folder (USB cable, File Explorer: Phone > Internal storage > Download).
   2. Open GalIOS > Setup > iOS 27 image: it appears under "Found on this phone". Tap Import.
-Keep this file to yourself: it is built from Apple's firmware.
+  3. For the always-on display and the Dynamic Island: copy $IDENTITY to the same Download folder, then
+     GalIOS > Setup > iPhone screen features > Turn on.
+Keep these files to yourself: they are built from Apple's firmware.
 EOF
 progress "done"

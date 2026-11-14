@@ -132,6 +132,40 @@ class StageClient(private val shell: RootShell, val stage: String = DEFAULT_STAG
         return Reply.parse(shell.exec(command, null))
     }
 
+    /**
+     * iPhone screen features (runtime with GalIOS's 0013): the iPhone18,2 device tree the image build read from the
+     * owner's IPSW, as `galios-identity.adt` in the stage. xnuhost then gives iOS the iPhone's panel values (OLED,
+     * Dynamic Island, always-on display, corner radius) instead of three.
+     */
+    fun iphoneIdentity(): Boolean =
+        shell.exec("[ -s ${shq("$stage/$IDENTITY_IN_STAGE")} ] && echo on || echo off", null).lines.any { it.trim() == "on" }
+
+    /** Where the image build's identity file is on the phone (Download, Documents, the top of the storage); null when nowhere. */
+    fun findIdentityFile(folders: List<String> = IDENTITY_FOLDERS): String? {
+        val list = folders.joinToString(" ") { shq("$it/$IDENTITY_FILE") }
+        return shell.exec("for f in $list; do [ -s \"${'$'}f\" ] && { echo \"@@FOUND ${'$'}f\"; break; }; done; true", null)
+            .lines.firstOrNull { it.startsWith("@@FOUND ") }?.removePrefix("@@FOUND ")?.trim()
+    }
+
+    /**
+     * Turns the iPhone identity on (copies [source] into the stage after a size check: an iPhone device tree is tens to
+     * hundreds of KiB, never empty and never megabytes of something else) or off (removes it).
+     */
+    fun setIphoneIdentity(on: Boolean, source: String? = null): Reply {
+        val f = shq("$stage/$IDENTITY_IN_STAGE")
+        val command = if (on) {
+            val src = shq(source ?: "")
+            """
+            [ -d ${shq(stage)} ] || { echo '@@FAILED OneiOS is not set up on this phone'; exit 4; }
+            [ -s $src ] || { echo '@@FAILED $IDENTITY_FILE is not on the phone: run Do everything in GalIOS Studio, or copy it to Download'; exit 4; }
+            n=${'$'}(wc -c < $src | tr -d ' ')
+            [ "${'$'}n" -ge $IDENTITY_MIN_BYTES ] && [ "${'$'}n" -le $IDENTITY_MAX_BYTES ] || { echo "@@FAILED that file is not an iPhone device tree (${'$'}n bytes)"; exit 4; }
+            cp $src $f.tmp && chmod 0600 $f.tmp && mv -f $f.tmp $f && echo '@@OK on'
+            """.trimIndent()
+        } else "rm -f $f && echo '@@OK off'"
+        return Reply.parse(shell.exec(command, null))
+    }
+
     enum class Kind(val word: String, val manifest: String) { RUNTIME("runtime", "runtime.json"), IMAGE("image", "manifest.json") }
 
     /** What a verb answered. [ok] when its last @@ line is @@OK. */
@@ -152,6 +186,13 @@ class StageClient(private val shell: RootShell, val stage: String = DEFAULT_STAG
 
     companion object {
         const val DEFAULT_STAGE = "/data/local/tmp/oneios"
+
+        /** The image build's file beside the image (tools/build-ios-image-wsl.sh), and its name in the stage (0013). */
+        const val IDENTITY_FILE = "OneiOS_iPhone18-2_identity.adt"
+        const val IDENTITY_IN_STAGE = "galios-identity.adt"
+        const val IDENTITY_MIN_BYTES = 16 * 1024
+        const val IDENTITY_MAX_BYTES = 16 * 1024 * 1024
+        val IDENTITY_FOLDERS = listOf("/sdcard/Download", "/sdcard/Documents", "/sdcard", "/storage/emulated/0/Download")
 
         fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
     }

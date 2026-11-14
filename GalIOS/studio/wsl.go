@@ -22,7 +22,25 @@ const (
 	wslWork    = "/root/oneios-build"
 	wslPidFile = "/root/.galios-build.pid"
 	imageName  = "OneiOS_iOS27.0.1_24A446_iPhone18-2.tar.zst"
+	// The iPhone18,2 device tree the build reads from your IPSW, beside the image: GalIOS's "iPhone screen features"
+	// switch (always-on display, Dynamic Island) puts it in the stage. From Apple's firmware: it stays on your devices.
+	identityName = "OneiOS_iPhone18-2_identity.adt"
 )
+
+// pushIdentity copies the iPhone identity beside the image to the phone's Download folder, where GalIOS's switch finds
+// it. Nothing to do (and no error) when the build has not made one.
+func pushIdentity(ctx context.Context, j *JobCtx, s Settings, serial string) {
+	local := joinOut(s.OutDir, identityName)
+	if !fileExists(local) {
+		j.Log("no %s beside the image yet: iPhone screen features need the build to run once more", identityName)
+		return
+	}
+	if err := pushFile(ctx, j, s, serial, local, "/sdcard/Download/"+identityName); err != nil {
+		j.Log("could not copy %s to the phone: %v", identityName, err)
+		return
+	}
+	j.Log("%s is in the phone's Download folder: turn on iPhone screen features in GalIOS (Setup)", identityName)
+}
 
 func wslExe() string {
 	if p := os.Getenv("STUDIO_WSL"); p != "" {

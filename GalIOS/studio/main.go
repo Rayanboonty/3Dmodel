@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.9"
+const version = "1.10"
 
 type App struct {
 	hub           *Hub
@@ -454,6 +454,7 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			if err := pushFile(ctx, j, s, serial, local, "/sdcard/Download/"+imageName); err != nil {
 				return "", err
 			}
+			pushIdentity(ctx, j, s, serial)
 			return "The image is in the phone's Download folder: GalIOS lists it under Found on this phone.", nil
 		})
 	case "phone.engine":

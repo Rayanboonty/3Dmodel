@@ -72,6 +72,10 @@ data class UiState(
     val openLogId: String? = null,
     /** GalIOS's maximum performance (10 GiB for iOS, the boost on every core), as the stage holds it. */
     val maxPerformance: Boolean = false,
+    /** iPhone screen features (the iPhone's identity in the stage): always-on display, Dynamic Island. */
+    val iphoneIdentity: Boolean = false,
+    /** The image build's identity file found on the phone, or null. */
+    val identityFile: String? = null,
     val switching: Boolean = false,
     val refreshing: Boolean = false,
     /** A newer GalIOS release found on GitHub, when one exists and the user has not dismissed it. */
@@ -163,6 +167,8 @@ class Controller(
         if (build?.state == PhoneBuild.Status.State.RUNNING) watchPhoneBuild()
         if (checks.root) autoSaveSessionLog(status)
         if (checks.root) runCatching { stage.maxPerformance() }.onSuccess { on -> _state.update { it.copy(maxPerformance = on) } }
+        if (checks.root) runCatching { stage.iphoneIdentity() to stage.findIdentityFile() }
+            .onSuccess { (on, file) -> _state.update { it.copy(iphoneIdentity = on, identityFile = file) } }
         // A new runtime is published often: look again on every refresh (opening the app, coming back to it), at most
         // once a minute, not only when none was found yet.
         if (!_state.value.releaseLooking && (_state.value.release == null || System.currentTimeMillis() - lastReleaseLookup > 60_000)) lookupRelease()
@@ -555,6 +561,19 @@ class Controller(
         if (on) "Maximum performance is on from the next boot: iOS gets 10 GB and every core is boosted while it animates. " +
             "Watch the heat; turn it off here if iOS gets slower or dims."
         else "Balanced from the next boot: iOS's memory fits beside Android's, and the two hottest cores are not boosted."
+    }
+
+    /** iPhone screen features: the iPhone's identity (from the owner's IPSW, via the image build) into the stage, or out. */
+    fun setIphoneIdentity(on: Boolean) = run(if (on) "Turning iPhone screen features on" else "Turning iPhone screen features off") {
+        val source = if (on) stage.findIdentityFile()
+            ?: throw IllegalStateException("${StageClient.IDENTITY_FILE} is not on this phone yet. Run Do everything in GalIOS Studio 1.10 or newer (it builds and copies it), or copy it from your PC's Downloads to the phone's Download folder.")
+        else null
+        val r = stage.setIphoneIdentity(on, source)
+        if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not change the setting" })
+        _state.update { it.copy(iphoneIdentity = on) }
+        if (on) "iPhone screen features are on from the next boot: iOS sees the iPhone's OLED panel, so it can offer the always-on display and the Dynamic Island. " +
+            "Needs runtime galios.17 or newer. If iOS behaves worse, turn this off here."
+        else "iPhone screen features are off from the next boot: iOS gets the plain panel description again."
     }
 
     /** Start iOS fresh: its Data store is made again from the image on the next boot (the camera's plug-in with it). */

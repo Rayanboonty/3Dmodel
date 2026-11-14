@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.PhoneIphone
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
@@ -66,6 +67,7 @@ class SetupActions(
     val openPhoneBuildLog: () -> Unit = {},
     val resetIosData: () -> Unit = {},
     val setMaxPerformance: (Boolean) -> Unit = {},
+    val setIphoneIdentity: (Boolean) -> Unit = {},
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -186,6 +188,18 @@ fun SetupScreen(s: UiState, a: SetupActions) {
                 { a.setMaxPerformance(!s.maxPerformance) },
                 enabled = s.rootOk && s.busy == null && s.status?.sessionOpen != true,
                 icon = Icons.Rounded.Memory,
+            )
+        }
+
+        Step(7, "iPhone screen features", "Tells iOS it has the iPhone's OLED panel, its Dynamic Island and its rounded corners, using the iPhone's own description read from your IPSW when the image was built. That is what iOS needs before it offers the always-on display and draws the Dynamic Island. It changes many things iOS knows about the screen at once, so it is a switch: turn it off if iOS gets worse. Needs runtime galios.17 or newer; takes effect at the next boot.", done = s.iphoneIdentity) {
+            Check("Now", if (s.iphoneIdentity) "On: the iPhone's panel" else "Off: the plain panel", true)
+            Check("The iPhone's description", if (s.identityFile != null) "found on this phone" else "not on this phone yet: run Do everything in GalIOS Studio", s.identityFile != null || s.iphoneIdentity)
+            VSpace(10.dp)
+            GlassButton(
+                if (s.iphoneIdentity) "Turn off" else "Turn on",
+                { a.setIphoneIdentity(!s.iphoneIdentity) },
+                enabled = s.rootOk && s.busy == null && s.status?.sessionOpen != true && (s.iphoneIdentity || s.identityFile != null),
+                icon = Icons.Rounded.PhoneIphone,
             )
         }
 

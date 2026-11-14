@@ -1,0 +1,45 @@
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+index 2a9b12f..8962b37 100644
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -311,6 +311,16 @@ int xh_config_finish(xh_config *c)
+     fprintf(stderr, "xnuhost: no kernel.kc in %s (and no --kernel)\n", c->image);
+     return -1;
+   }
++  // GalIOS: the iPhone's own identity, the owner's switch in GalIOS (Setup, "iPhone screen features"): the iPhone18,2
++  // device tree the image build read from the owner's IPSW, put in the stage as galios-identity.adt (/data in the
++  // session). The guest's /product then holds the iPhone's panel values (oled-display, island-notch-location,
++  // display-corner-radius, supports-burnin-mitigation, about 200 more) instead of three: MobileGestalt answers the
++  // Dynamic Island and the always-on display from them. OneiOS's own A/B is --set identity=devicetree.bin
++  // (docs/userland.md 5, kernel/patches/oneios-hosted/display/README.md). A command line or image identity wins.
++  if (!*c->identity && access("/data/galios-identity.adt", R_OK) == 0) {
++    strcpy(c->identity, "/data/galios-identity.adt");
++    fprintf(stderr, "xnuhost: GalIOS iPhone screen features: the identity /data/galios-identity.adt\n");
++  }
+   if (!*c->identity && !exists(c->image, "identity.adt", c->identity, sizeof c->identity)) c->identity[0] = 0;
+   if (c->ndisk == 0) {
+     // The image set's volumes (scripts/image/build.sh): read-only APFS containers, in this order.
+diff --git a/runtime/xnuhost/src/main.c b/runtime/xnuhost/src/main.c
+index 413d23a..f217af7 100644
+--- a/runtime/xnuhost/src/main.c
++++ b/runtime/xnuhost/src/main.c
+@@ -668,7 +668,18 @@ static int boot(void)
+     size_t size = 0;
+     uint8_t *data = read_file(config.identity, &size, 16 << 20);
+     identity = data ? xl_adt_parse(data, size, &error) : NULL;
+-    if (!identity) { LOGE("identity tree %s: %s", config.identity, data ? error : strerror(errno)); return -1; }
++    if (!identity && !strcmp(config.identity, "/data/galios-identity.adt")) {
++      // GalIOS: a damaged or wrong file behind the owner's switch boots without it, never refuses the boot.
++      LOGE("GalIOS identity %s: %s: booting without it (turn iPhone screen features off and on again in GalIOS)",
++           config.identity, data ? error : strerror(errno));
++      config.identity[0] = 0;
++    } else if (!identity) { LOGE("identity tree %s: %s", config.identity, data ? error : strerror(errno)); return -1; }
++    else if (!strcmp(config.identity, "/data/galios-identity.adt")) {
++      const xl_adt_node *p = xl_adt_child(identity, "product");
++      LOGI("GalIOS identity: %u /product properties from the iPhone's tree (oled-display %s, island-notch-location %s, display-corner-radius %s)",
++           p ? p->nprops : 0, p && xl_adt_get(p, "oled-display") ? "yes" : "no",
++           p && xl_adt_get(p, "island-notch-location") ? "yes" : "no", p && xl_adt_get(p, "display-corner-radius") ? "yes" : "no");
++    }
+     machine.identity = identity;
+   }
+   xl_adt_node *tree = xl_machine_tree(&machine, &error);

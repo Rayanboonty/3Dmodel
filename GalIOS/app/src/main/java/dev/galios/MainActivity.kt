@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
                 openPhoneBuildLog = { controller.openPhoneBuildLog() },
                 resetIosData = { controller.resetIosData() },
                 setMaxPerformance = { controller.setMaxPerformance(it) },
+                setIphoneIdentity = { controller.setIphoneIdentity(it) },
             ),
             boot = { controller.boot() },
             returnToOneUi = { controller.returnToOneUi() },

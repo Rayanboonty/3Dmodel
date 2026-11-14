@@ -59,6 +59,18 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   minute, and keys stayed pressed; these lines say where they spin (read them with OneiOS's `oneios-tool sym`). Not
   done on purpose: Spotlight's indexer off (`oneios-disable-jobs=...searchd...`). Spotlight sat at 100 % for 100 s,
   but that was the Spotlight process itself, not searchd, so turning the indexer off is OneiOS's A/B and not a fix.
+- `0013-iphone-identity-switch.patch`: the owner's switch in GalIOS (Setup, "iPhone screen features"). With the file
+  `galios-identity.adt` in the stage (`/data` in the session), xnuhost takes it as the identity tree: the iPhone18,2
+  device tree that the image build read from the owner's own IPSW (`OneiOS_iPhone18-2_identity.adt`, beside the image;
+  never in this repository or its releases). OneiOS's loader then copies the iPhone's model, board and `/product` into
+  the guest's tree instead of three properties (`docs/userland.md` 5: the guest had no `oled-display`,
+  `island-notch-location`, `display-corner-radius`, `supports-burnin-mitigation`, ...), and MobileGestalt answers
+  the Dynamic Island and the always-on display from those. OneiOS's own A/B of the same thing is
+  `--set identity=out/kernel-inputs/24A446/devicetree.bin`; it is not their default because it changes many answers at
+  once (the OLED and P3 flags among them), hence a switch. A file that does not parse is logged and the boot goes on
+  without it. Log lines: `GalIOS iPhone screen features: the identity ...`, `GalIOS identity: N /product properties
+  ...`. What iOS then asks the panel for always-on (display power, brightness keys) shows in the `ONEIOS BACKLIGHT`
+  lines: the next step of the always-on driver follows those.
 
 History: galios.4 had a 4 GiB RAM floor and `oneios-actuator=0` and felt worse than galios.3; its log showed the cause
 was the P vCPUs' lost cores (0005). galios.6-8 had a RAM floor of their own (3-3.5 GiB) and the touch IC kept awake at
