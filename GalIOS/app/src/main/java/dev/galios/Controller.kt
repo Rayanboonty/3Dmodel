@@ -20,6 +20,7 @@ import dev.galios.core.ProcessRootShell
 import dev.galios.core.QueueRootShell
 import dev.galios.core.RootFileStream
 import dev.galios.core.RootShell
+import dev.galios.core.LogSaver
 import dev.galios.core.RuntimeRelease
 import dev.galios.core.StageClient
 import dev.galios.core.StageStatus
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
 
@@ -65,6 +67,8 @@ data class UiState(
     val message: Message? = null,
     val logs: List<LogInfo> = emptyList(),
     val openLog: Pair<String, String>? = null,
+    /** The id of the log in the viewer (null for the phone build's log). */
+    val openLogId: String? = null,
     val switching: Boolean = false,
     val refreshing: Boolean = false,
     /** A newer GalIOS release found on GitHub, when one exists and the user has not dismissed it. */
@@ -154,6 +158,7 @@ class Controller(
             )
         }
         if (build?.state == PhoneBuild.Status.State.RUNNING) watchPhoneBuild()
+        if (checks.root) autoSaveSessionLog(status)
         if (_state.value.release == null && !_state.value.releaseLooking) lookupRelease()
         checkForUpdate()
     }
@@ -444,12 +449,59 @@ class Controller(
         _state.update { it.copy(logs = logs) }
     }
 
+    // The viewer shows the newest 128 KiB (a whole megabyte of text made the screen crawl); Save writes all of it.
     fun openLog(id: String, title: String) = scope.launch {
-        val text = try { stage.logTail(id) } catch (e: Exception) { e.message ?: "" }
-        _state.update { it.copy(openLog = title to text.ifBlank { "(empty)" }) }
+        val text = try { stage.logTail(id, 128 shl 10) } catch (e: Exception) { e.message ?: "" }
+        _state.update { it.copy(openLog = title to text.ifBlank { "(empty)" }, openLogId = id) }
     }
 
-    fun closeLog() = _state.update { it.copy(openLog = null) }
+    /** Writes the whole of log [id] to Downloads/GalIOS; [then] gets the file (to share it) when that worked. */
+    fun saveLog(id: String, title: String, then: ((LogSaver.Saved) -> Unit)? = null) = scope.launch {
+        _state.update { it.copy(message = Message("Saving \"$title\" to Downloads…", false)) }
+        val msg = try {
+            val saved = LogSaver.save(context, id, stage.logFull(id))
+            then?.let { f -> withContext(Dispatchers.Main) { f(saved) } }
+            Message("Saved: ${saved.path} (${saved.bytes / 1024} KB). Open the Files app, Downloads, GalIOS folder.", false)
+        } catch (e: Exception) {
+            Message("Could not save the log: ${e.message ?: e.javaClass.simpleName}", true)
+        }
+        _state.update { it.copy(message = msg) }
+    }
+
+    /** Save (and with [then], share) what the viewer shows: a stage log in full, the phone build's log as shown. */
+    fun saveOpenLog(then: ((LogSaver.Saved) -> Unit)? = null) {
+        val (title, text) = _state.value.openLog ?: return
+        val id = _state.value.openLogId
+        if (id != null) { saveLog(id, title, then); return }
+        scope.launch {
+            val msg = try {
+                val saved = LogSaver.save(context, "phone-build", text)
+                then?.let { f -> withContext(Dispatchers.Main) { f(saved) } }
+                Message("Saved: ${saved.path} (${saved.bytes / 1024} KB)", false)
+            } catch (e: Exception) {
+                Message("Could not save the log: ${e.message ?: e.javaClass.simpleName}", true)
+            }
+            _state.update { it.copy(message = msg) }
+        }
+    }
+
+    /**
+     * After a session ends, its xnuhost log is saved to Downloads by itself, once per session (the log's time tells
+     * them apart), so it is there even when the phone was too slow to open it.
+     */
+    private fun autoSaveSessionLog(status: StageStatus?) {
+        if (status == null || status.sessionOpen) return
+        val prefs = context.getSharedPreferences("galios", Context.MODE_PRIVATE)
+        val log = runCatching { stage.logs() }.getOrNull()?.firstOrNull { it.id == "session" } ?: return
+        if (log.size <= 0 || log.modified <= prefs.getLong("autosaved_session", 0)) return
+        runCatching { LogSaver.save(context, "session", stage.logFull("session"), java.util.Date(log.modified * 1000)) }
+            .onSuccess { saved ->
+                prefs.edit().putLong("autosaved_session", log.modified).apply()
+                _state.update { it.copy(message = Message("The last iOS session's log is saved: ${saved.path}", false)) }
+            }
+    }
+
+    fun closeLog() = _state.update { it.copy(openLog = null, openLogId = null) }
 }
 
 object BuildConfigCompat {

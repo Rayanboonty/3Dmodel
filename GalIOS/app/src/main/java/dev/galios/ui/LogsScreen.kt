@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Icon
@@ -35,10 +36,10 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> Unit) {
+fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> Unit, onSave: (LogInfo) -> Unit = {}) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("After every try, these show how far iOS got and where it stopped.", style = Type.Caption, modifier = Modifier.weight(1f))
+            Text("After every try, these show how far iOS got and where it stopped. Save puts the whole log in Downloads/GalIOS; the last iOS session's log is saved there by itself.", style = Type.Caption, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
             GlassButton("Refresh", onRefresh, icon = Icons.Rounded.Refresh)
         }
@@ -59,6 +60,8 @@ fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> 
                         Text(l.title, style = Type.Headline)
                         Text("${bytes(l.size)} · ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(l.modified * 1000))}", style = Type.Caption)
                     }
+                    GlassButton("Save", { onSave(l) }, icon = Icons.Rounded.Download)
+                    Spacer(Modifier.width(6.dp))
                     Icon(Icons.Rounded.ChevronRight, null, tint = Gal.Dim)
                 }
                 if (l.tail.isNotEmpty()) {
@@ -72,16 +75,20 @@ fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> 
     }
 }
 
-/** One log, full screen: the last 1 MiB, monospaced, scrollable both ways, with Share. */
+/** One log, full screen: its newest part, monospaced, scrollable both ways, with Save (the whole log) and Share. */
 @Composable
-fun LogViewer(title: String, text: String, onClose: () -> Unit, onShare: () -> Unit) {
+fun LogViewer(title: String, text: String, onClose: () -> Unit, onShare: () -> Unit, onSave: () -> Unit = {}, status: String? = null) {
     Backdrop(drift = false) {
         Column(Modifier.fillMaxSize().padding(top = 44.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClose) { Icon(Icons.Rounded.Close, "Close", tint = Gal.Text) }
                 Text(title, style = Type.Title, modifier = Modifier.weight(1f))
+                IconButton(onSave) { Icon(Icons.Rounded.Download, "Save to Downloads", tint = Gal.Text) }
                 IconButton(onShare) { Icon(Icons.Rounded.Share, "Share", tint = Gal.Text) }
             }
+            status?.let { VSpace(4.dp); Text(it, style = Type.Caption.copy(color = Gal.Cyan)) }
+            VSpace(4.dp)
+            Text("The newest part is shown here. Save writes the whole log to Downloads/GalIOS.", style = Type.Caption)
             VSpace(8.dp)
             Box(
                 Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(Gal.Ink.copy(alpha = 0.75f))

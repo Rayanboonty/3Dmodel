@@ -50,7 +50,10 @@ class MainActivity : ComponentActivity() {
             loadLogs = { controller.loadLogs() },
             openLog = { controller.openLog(it.id, it.title) },
             closeLog = { controller.closeLog() },
-            shareLog = { title, text -> share(title, text) },
+            // Share sends the saved file (a whole log is megabytes: too big to send as text).
+            shareLog = { _, _ -> controller.saveOpenLog { shareFile(it.uri) } },
+            saveLog = { controller.saveLog(it.id, it.title) },
+            saveOpenLog = { controller.saveOpenLog() },
             dismissMessage = { controller.dismissMessage() },
             update = { controller.installUpdate() },
             dismissUpdate = { controller.dismissUpdate() },
@@ -68,8 +71,11 @@ class MainActivity : ComponentActivity() {
 
     private fun open(url: String) = startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 
-    private fun share(title: String, text: String) = startActivity(
-        Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, "GalIOS log: $title").putExtra(Intent.EXTRA_TEXT, text), "Share log"),
+    private fun shareFile(uri: Uri) = startActivity(
+        Intent.createChooser(
+            Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+            "Share log",
+        ),
     )
 
     @Suppress("unused")

@@ -78,6 +78,29 @@ class StageClient(private val shell: RootShell, val stage: String = DEFAULT_STAG
         return r.lines.filter { it.startsWith("| ") || it == "|" }.joinToString("\n") { it.removePrefix("|").removePrefix(" ") }
     }
 
+    /**
+     * The whole of log [id], read 1 MiB at a time from its end backwards (the verb gives whole lines and where each
+     * chunk starts). A log longer than [maxBytes] keeps its newest [maxBytes].
+     */
+    fun logFull(id: String, maxBytes: Long = 64L shl 20): String {
+        val parts = ArrayDeque<String>()
+        var end = 0L
+        var total = 0L
+        while (true) {
+            val r = verb("logfile", id, end.toString(), (1 shl 20).toString())
+            if (!r.ok && parts.isEmpty()) throw IllegalStateException(r.message.ifBlank { "could not read the log" })
+            val head = r.lines.firstOrNull { it.startsWith("@@RESULT chunk ") }?.split(' ') ?: break
+            val start = head.getOrNull(4)?.toLongOrNull() ?: break
+            val chunkEnd = head.getOrNull(5)?.toLongOrNull() ?: break
+            val text = r.lines.filter { it.startsWith("| ") || it == "|" }.joinToString("\n") { it.removePrefix("|").removePrefix(" ") }
+            parts.addFirst(text)
+            total += chunkEnd - start
+            if (start <= 0 || total >= maxBytes || (end != 0L && start >= end)) break
+            end = start
+        }
+        return parts.filter { it.isNotEmpty() }.joinToString("\n")
+    }
+
     enum class Kind(val word: String, val manifest: String) { RUNTIME("runtime", "runtime.json"), IMAGE("image", "manifest.json") }
 
     /** What a verb answered. [ok] when its last @@ line is @@OK. */

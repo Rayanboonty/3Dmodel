@@ -78,6 +78,10 @@ class AppActions(
     val dismissMessage: () -> Unit,
     val update: () -> Unit = {},
     val dismissUpdate: () -> Unit = {},
+    /** Saves a log, whole, to Downloads/GalIOS. */
+    val saveLog: (LogInfo) -> Unit = {},
+    /** Saves the log in the viewer to Downloads/GalIOS. */
+    val saveOpenLog: () -> Unit = {},
 )
 
 @Composable
@@ -100,7 +104,7 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                             when (t) {
                                 Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi)
                                 Tab.SETUP -> SetupScreen(s, a.setup)
-                                Tab.LOGS -> LogsScreen(s.logs, a.loadLogs, a.openLog)
+                                Tab.LOGS -> LogsScreen(s.logs, a.loadLogs, a.openLog, a.saveLog)
                             }
                         }
                     }
@@ -112,7 +116,9 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
         if (confirm) BootConfirm(s, onCancel = { confirm = false }, onBoot = { confirm = false; a.boot() })
         if (about) About { about = false }
         s.openLog?.let { (title, text) ->
-            Dialog(a.closeLog, DialogProperties(usePlatformDefaultWidth = false)) { LogViewer(title, text, a.closeLog) { a.shareLog(title, text) } }
+            Dialog(a.closeLog, DialogProperties(usePlatformDefaultWidth = false)) {
+                LogViewer(title, text, a.closeLog, onShare = { a.shareLog(title, text) }, onSave = a.saveOpenLog, status = s.message?.text)
+            }
         }
     }
 }
