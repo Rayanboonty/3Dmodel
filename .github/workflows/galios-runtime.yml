@@ -46,6 +46,7 @@ jobs:
               0001-fence-table.patch)
                 if grep -q 'virgl_fence_table_init' runtime/xnuhost/src/*.c; then echo "$n: OneiOS already makes the fence table"; continue; fi ;;
             esac
+            if git apply -R --check "$p" 2>/dev/null; then echo "$n: OneiOS has it already"; continue; fi
             git apply --verbose "$p"
             echo "applied $n"
           done
@@ -63,6 +64,8 @@ jobs:
           for b in bin/xnuhost bin/gpuctl; do ! strings "$d/$b" | grep -q 'this build has no drm2kgsl'; done
           # the fence table is made (GalIOS/runtime/patches/0001, or OneiOS's own fix)
           grep -q 'virgl_fence_table_init' OneiOS/runtime/xnuhost/src/*.c
+          # GalIOS's settings are in this xnuhost: Android's 4 GiB, and the side key without the Actuator
+          strings "$d/bin/xnuhost" | grep -q 'oneios-actuator=0'
           # the display helper must load in app_process: every symbol it uses from a library it names (OneiOS f7bb1c3:
           # without libnativewindow the panel stayed on the OneOS splash while iOS drew)
           so=$(find "$d" -name liboneios-display.so | head -1); test -n "$so"
