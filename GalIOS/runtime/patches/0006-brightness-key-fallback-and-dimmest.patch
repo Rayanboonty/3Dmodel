@@ -1,5 +1,5 @@
 diff --git a/runtime/bridges/brightness/brightness.c b/runtime/bridges/brightness/brightness.c
-index 7469261..a42eeac 100644
+index 7469261..bd060e5 100644
 --- a/runtime/bridges/brightness/brightness.c
 +++ b/runtime/bridges/brightness/brightness.c
 @@ -31,6 +31,8 @@
@@ -11,17 +11,19 @@ index 7469261..a42eeac 100644
  enum { TOUCH_NONE = 0, TOUCH_SLEEP = 1, TOUCH_WAKE = 2 };
  #define ALS_STALE_MS 3000u                 // no report for this long: the sensor was turned off under us
  
-@@ -130,6 +132,9 @@ struct br_bright {
+@@ -130,6 +132,11 @@ struct br_bright {
    bool display_on;                        // iOS's display power, as its framebuffer asked (under lock)
    uint32_t lit_level;                     // the level before the display went off: where it comes back on
    bool lit_linear;
 +  uint32_t key_lit;                       // GalIOS: iOS's last level above 0, as asked, for the side key's fallback
 +  bool key_lit_linear;
 +  uint32_t lin_min;                       // GalIOS: the dimmest light level iOS asked for (BOTTOM_KNEE at most)
++  bool new_driver;                        // GalIOS: iOS's slider position or display power arrived (a kernel from
++                                          // OneiOS 2e24760 on): its slider reaches the floor itself, no remap
    // light sensor
    int als_fd;
    char als_enable[260];
-@@ -394,6 +399,8 @@ br_bright *br_bright_open(const br_bright_options *options)
+@@ -394,6 +401,8 @@ br_bright *br_bright_open(const br_bright_options *options)
    if (!b) return NULL;
    b->fd = b->als_fd = -1;
    b->display_on = true;                   // iOS draws from its start; its framebuffer says when it turns off
@@ -30,18 +32,21 @@ index 7469261..a42eeac 100644
    b->als_scale = o.als_millilux_per_count ? o.als_millilux_per_count : 1000;
    b->info.max_nits = o.max_nits ? o.max_nits : 500;
    pthread_mutex_init(&b->lock, NULL);
-@@ -441,12 +448,29 @@ br_bright *br_bright_open(const br_bright_options *options)
+@@ -441,12 +450,36 @@ br_bright *br_bright_open(const br_bright_options *options)
  
  void br_bright_info_get(const br_bright *b, br_bright_info *out) { *out = b->info; }
  
+-void br_bright_set(br_bright *b, uint32_t level, bool linear, uint32_t fade_ms)
 +// GalIOS: iOS's dimmest. CoreBrightness keeps a floor of its own above the min-nits the driver publishes, so the
 +// bottom of its range, mapped as a fraction of the light, lit the panel well above One UI's dimmest. The dimmest light
 +// level iOS asks for in a session (BOTTOM_START at first; the slider's first trip down teaches the rest) goes on the
 +// panel's floor, and the levels up to BOTTOM_KNEE (10 % of the light) are spread from there; above it nothing changes.
++// Only for a driver that sends no slider position: with one (a kernel from OneiOS 2e24760 on) the slider's bottom is
++// level 0 of the slider, the panel's floor, and a remap of the light levels alone made the two disagree at the bottom.
 +// Called with b->lock held.
 +static uint32_t bottom_remap(br_bright *b, uint32_t level)
 +{
-+  if (level >= BOTTOM_KNEE) return level;
++  if (b->new_driver || level >= BOTTOM_KNEE) return level;
 +  if (level < b->lin_min) b->lin_min = level;
 +  uint32_t m = b->lin_min;
 +  if (level <= m) return 1;               // the floor (0 is no level)
@@ -49,18 +54,31 @@ index 7469261..a42eeac 100644
 +  return x ? (uint32_t)x : 1;
 +}
 +
- void br_bright_set(br_bright *b, uint32_t level, bool linear, uint32_t fade_ms)
++static void bright_set(br_bright *b, uint32_t level, bool linear, uint32_t fade_ms, bool from_guest);
++
++void br_bright_set(br_bright *b, uint32_t level, bool linear, uint32_t fade_ms) { bright_set(b, level, linear, fade_ms, true); }
++
++static void bright_set(br_bright *b, uint32_t level, bool linear, uint32_t fade_ms, bool from_guest)
  {
    if (!b || !b->info.panel) return;
    if (level > BR_BRIGHT_FULL) level = BR_BRIGHT_FULL;
    if (fade_ms > 10000) fade_ms = 10000;
    pthread_mutex_lock(&b->lock);
++  if (from_guest && !linear && level > 0) b->new_driver = true;      // the slider's position: only the new driver sends it
 +  if (level > 0) { b->key_lit = level; b->key_lit_linear = linear; }   // as iOS asked: the fallback asks it again
 +  if (linear && level > 0) level = bottom_remap(b, level);
    b->from = b->level;
    b->target = level;
    b->linear = linear;
-@@ -484,8 +508,41 @@ void br_bright_display(br_bright *b, bool on, const char *why)
+@@ -461,6 +494,7 @@ void br_bright_display(br_bright *b, bool on, const char *why)
+ {
+   if (!b) return;
+   pthread_mutex_lock(&b->lock);
++  b->new_driver = true;                   // GalIOS: display power comes from the new driver only (hosted 0069)
+   bool was = b->display_on;
+   b->display_on = on;
+   if (!on && was) {
+@@ -484,8 +518,41 @@ void br_bright_display(br_bright *b, bool on, const char *why)
           on ? ": the touch IC woken" : b->touch_sleep ? ": the touch IC asleep, the panel at its floor" : ": the panel at its floor (touch-sleep=0)");
  }
  
@@ -80,7 +98,7 @@ index 7469261..a42eeac 100644
 +  if (!dark || !lit) return NULL;
 +  br_log(1, "brightness: side key while iOS's level is 0 and its display on: back to iOS's last level %u of %u%s", lit,
 +         (unsigned)BR_BRIGHT_FULL, linear ? " (of the light)" : " (of the slider)");
-+  br_bright_set(b, lit, linear, 250);
++  bright_set(b, lit, linear, 250, false);
 +  return NULL;
 +}
 +
@@ -103,13 +121,26 @@ index 7469261..a42eeac 100644
    pthread_mutex_lock(&b->lock);
    b->touch_request = TOUCH_WAKE;            // iOS turns the display on or off next; an off sleeps it again
 diff --git a/runtime/bridges/brightness/test_brightness.c b/runtime/bridges/brightness/test_brightness.c
-index dd650c6..0fbe81a 100644
+index dd650c6..2179212 100644
 --- a/runtime/bridges/brightness/test_brightness.c
 +++ b/runtime/bridges/brightness/test_brightness.c
-@@ -310,6 +310,37 @@ static void test_session(void)
-     CHECK(mid > 12750 && mid < 25500);
-     usleep(250000);
-     CHECK(get(panel, "brightness") == 25500);
+@@ -339,12 +339,73 @@ static void test_session(void)
+   CHECK(system(command) == 0);
+ }
+ 
++// GalIOS: the bottom remap and the side key's fallback for a kernel without the new driver, then the new driver's
++// slider position and display power, each on a fresh session (a slider position ends the remap for the session).
++static void test_galios(void)
++{
++  char tmp[] = "/tmp/oneios-galios-XXXXXX", panel[300];
++  CHECK(mkdtemp(tmp) != NULL);
++  snprintf(panel, sizeof panel, "%s/panel", tmp);
++  mkdir(panel, 0755);
++  put(panel, "max_brightness", "51000\n"); put(panel, "brightness", "9000\n");
++  br_bright_options o = { .backlight_dir = tmp, .no_als = true };
++  br_bright *b = br_bright_open(&o);
++  CHECK(b != NULL);
++  if (b) {
 +    // GalIOS: iOS's dimmest light level lands on the floor; at and above 10 % of the light nothing changes.
 +    br_bright_set(b, BR_BRIGHT_FULL / 100, true, 0);                // 1 %: below the first guess (2 %), learnt as the dimmest
 +    usleep(100000);
@@ -131,6 +162,15 @@ index dd650c6..0fbe81a 100644
 +    br_bright_key(b);
 +    usleep(900000);
 +    CHECK(get(panel, "brightness") == lit);
++    // GalIOS: a slider position (the new driver) ends the remap: the light levels map as they come again.
++    br_bright_set(b, BR_BRIGHT_FULL / 2, false, 0);
++    usleep(100000);
++    br_bright_set(b, BR_BRIGHT_FULL / 50, true, 0);
++    usleep(100000);
++    CHECK(get(panel, "brightness") == br_bright_map(BR_BRIGHT_FULL / 50, true, 1, 25500));
++    br_bright_set(b, BR_BRIGHT_FULL * 3 / 10, true, 0);
++    usleep(100000);
++    CHECK(get(panel, "brightness") == lit);
 +    // With display power (hosted 0069): the off comes first, the fallback stays out, the on brings the level back.
 +    br_bright_display(b, false, "test");
 +    usleep(100000);
@@ -141,6 +181,20 @@ index dd650c6..0fbe81a 100644
 +    br_bright_display(b, true, "test");
 +    usleep(100000);
 +    CHECK(get(panel, "brightness") == lit);
-     // A fade cut short by the close still leaves One UI's value.
-     br_bright_set(b, 0, false, 5000);
-     usleep(50000);
++    br_bright_close(b);
++  }
++  char command[400];
++  snprintf(command, sizeof command, "rm -rf %s", tmp);
++  CHECK(system(command) == 0);
++}
++
+ int main(void)
+ {
+   test_curve();
+   test_als();
+   test_session();
+   test_touch();
++  test_galios();
+   printf("brightness: %d checks, %d failures\n", checks, failures);
+   return failures ? 1 : 0;
+ }

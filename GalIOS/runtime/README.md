@@ -22,8 +22,10 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   the panel's floor and the levels up to 10 % of the light are spread from there (iOS's bottom lit the panel well above
   One UI's dimmest); (2) for a kernel without hosted 0069 (no display power from iOS's framebuffer), a side-key press
   while iOS's display counts as on and its level is 0 brings iOS's last level back after 600 ms (after a lock the
-  panel stayed at its floor). With 0069 the display power does that and the fallback stays out. Brightness tests:
-  90 checks, 0 failures (OneiOS's 82 and 8 new, both kernels' cases).
+  panel stayed at its floor). With 0069 the display power does that and the fallback stays out. (1) ends for the
+  session at the new driver's first slider position or display power (a kernel from OneiOS 2e24760 on): its slider's
+  bottom is the floor already, and remapping only the light levels made slider and light disagree at the bottom
+  (galios.10). Brightness tests: 95 checks, 0 failures (OneiOS's 82 and 13 new, both drivers' cases).
 - `0008-animation-boost-finds-the-vcpus.patch`: adds a drm2kgsl patch. drm2kgsl raises the vCPU threads' uclamp.min
   to 1024 while the compositor animates (Droid-VM measured page swipes held back by schedutil at 2.2-2.7 GHz), but it
   looked for crosvm's thread names only (`crosvm_vcpu*`); xnuhost's are `xnu-cpuN`, so the phone logged
