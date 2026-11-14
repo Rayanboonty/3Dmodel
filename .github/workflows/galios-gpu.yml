@@ -59,6 +59,16 @@ jobs:
           rustup toolchain install 1.98.0 --profile minimal
           rustup +1.98.0 component add rust-src
           cd OneiOS && scripts/setup/ios-toolchain.sh || true
+      - name: iOS 27 stubs (what 24A446 exports; made on this machine from Apple's SystemOS image, never published)
+        run: |
+          cd OneiOS
+          scripts/fetch/get-ipsw-cli.sh
+          scripts/fetch/fetch.sh --only systemos profiles/ios-27.0.1-iPhone18,2.toml
+          ls -la inputs/24A446/
+          img=$(ls inputs/24A446/043-70037-715.dmg 2>/dev/null || ls inputs/24A446/*.dmg | head -1)
+          scripts/setup/ios-toolchain.sh --tbd --image "$img"
+          scripts/setup/ios-toolchain.sh
+          rm -rf inputs        # the firmware stays on this machine only for the stubs
       - name: Guest helpers
         run: cd OneiOS && userland/helpers/build.sh
       - name: Metal plug-in (about 25 minutes)
