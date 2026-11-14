@@ -63,6 +63,14 @@ jobs:
           for b in bin/xnuhost bin/gpuctl; do ! strings "$d/$b" | grep -q 'this build has no drm2kgsl'; done
           # the fence table is made (GalIOS/runtime/patches/0001, or OneiOS's own fix)
           grep -q 'virgl_fence_table_init' OneiOS/runtime/xnuhost/src/*.c
+          # the display helper must load in app_process: every symbol it uses from a library it names (OneiOS f7bb1c3:
+          # without libnativewindow the panel stayed on the OneOS splash while iOS drew)
+          so=$(find "$d" -name liboneios-display.so | head -1); test -n "$so"
+          readelf -d "$so" | grep NEEDED
+          for sym in $(readelf --dyn-syms -W "$so" | awk '$7=="UND" && $8!="" {print $8}' | sed 's/@.*//' | grep '^ANativeWindow_'); do
+            readelf -d "$so" | grep -q 'libnativewindow.so\|libandroid.so' || { echo "no library for $sym"; exit 1; }
+          done
+          case "$(readelf --dyn-syms -W "$so")" in *ANativeWindow_getBuffersDataSpace*) readelf -d "$so" | grep -q libnativewindow.so || { echo "liboneios-display.so uses the dataspace calls without libnativewindow: app_process cannot load it"; exit 1; } ;; esac
       - uses: actions/upload-artifact@v4
         with:
           name: galios-runtime
