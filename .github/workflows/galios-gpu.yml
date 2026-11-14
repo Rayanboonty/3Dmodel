@@ -52,7 +52,8 @@ jobs:
       - name: Tools
         run: |
           brew install ninja glslang shaderc spirv-tools bison llvm meson || true
-          python3 -m pip install --user --break-system-packages mako pyyaml meson || python3 -m pip install --user mako pyyaml meson
+          python3 -m pip install --user --break-system-packages mako pyyaml meson packaging setuptools || python3 -m pip install --user mako pyyaml meson packaging setuptools
+          python3 -c "import packaging, mako, yaml; print(\"python modules ok\")"
           echo "$(python3 -m site --user-base)/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
           rustup toolchain install 1.98.0 --profile minimal
