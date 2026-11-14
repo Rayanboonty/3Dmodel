@@ -1,0 +1,94 @@
+# GalIOS GPU pack: the iOS-side pieces of OneiOS that need Apple's iOS SDK (Xcode), built on GitHub's macOS runners
+# with OneiOS's own scripts, for the iPhone18,2 24A446 guest that GalIOS builds:
+#
+#   NativeAdrenoMetal.bundle  the Metal plug-in (Mesa's Turnip for the phone's Adreno GPU + metal2vulkan + NativeMetal):
+#                             without it backboardd composites on the CPU (no wallpaper, blur or Liquid Glass; slow)
+#   helpers/                  OneiOS's signed guest helpers
+#   camera/                   the capture plug-in
+#
+# The pack holds only code built from OneiOS's and its references' sources (linked against the SDK's stubs; no Apple
+# binary inside). It is published as a release of this repository; GalIOS Studio downloads it, puts it in the WSL
+# build's out/userland, and rebuilds the image, whose hook places and trusts it.
+name: GalIOS GPU pack
+on:
+  push:
+    branches: [ccr-a2c53c06-k8pnxp]
+    paths: ['.github/workflows/galios-gpu.yml', 'GalIOS/gpu/**']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: galios-gpu
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 240
+    env:
+      JOBS: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: GalIOS/gpu
+      - name: Xcode with the iOS platform
+        run: |
+          ls -d /Applications/Xcode*.app
+          X=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+          echo "iPhoneOS SDK $(xcrun --sdk iphoneos --show-sdk-version) at $(xcrun --sdk iphoneos --show-sdk-path)"
+          sw_vers; uname -m; df -h / | tail -1
+      - name: OneiOS
+        run: |
+          ref=$(cat GalIOS/gpu/ONEIOS_REF 2>/dev/null | tr -d ' \n' || true)
+          git clone -q https://github.com/akshaynexus/OneiOS.git
+          [ -z "$ref" ] || git -C OneiOS checkout -q "$ref"
+          git -C OneiOS log -1 --format='OneiOS %H %cd %s'
+      - name: References (the plug-in's sources)
+        run: |
+          cd OneiOS
+          scripts/setup/get-references.sh NativeMetal NativeAdreno AdrenoPM4 metal2vulkan mesa-droidvm Droid-VM-UniXNU NativeMobileDisplay
+      - name: Tools
+        run: |
+          brew install ninja glslang shaderc spirv-tools bison llvm meson || true
+          python3 -m pip install --user --break-system-packages mako pyyaml meson || python3 -m pip install --user mako pyyaml meson
+          echo "$(python3 -m site --user-base)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup +1.98.0 component add rust-src
+          cd OneiOS && scripts/setup/ios-toolchain.sh || true
+      - name: Guest helpers
+        run: cd OneiOS && userland/helpers/build.sh
+      - name: Metal plug-in (about 25 minutes)
+        run: cd OneiOS && userland/metal/build.sh
+      - name: Capture plug-in
+        continue-on-error: true
+        run: cd OneiOS && userland/camera/build.sh
+      - name: Pack
+        id: pack
+        run: |
+          cd OneiOS/out
+          ls -la userland userland/NativeAdrenoMetal.bundle
+          cat userland/NativeAdrenoMetal.build.json
+          cat > userland/galios-gpu.json <<EOF
+          {"format": 1, "target": "iPhone18,2 24A446", "oneios": "$(git -C .. rev-parse HEAD)",
+           "xcode": "$(xcodebuild -version | head -1)", "sdk": "$(xcrun --sdk iphoneos --show-sdk-version)",
+           "run": "${GITHUB_RUN_ID}", "built": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+          EOF
+          tar -czf "$GITHUB_WORKSPACE/galios-gpu-pack.tar.gz" userland
+          cd "$GITHUB_WORKSPACE" && shasum -a 256 galios-gpu-pack.tar.gz | tee galios-gpu-pack.tar.gz.sha256
+          echo "tag=galios-gpu-$(date -u +%Y%m%d)-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: galios-gpu-pack
+          path: |
+            galios-gpu-pack.tar.gz
+            galios-gpu-pack.tar.gz.sha256
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.pack.outputs.tag }}" galios-gpu-pack.tar.gz galios-gpu-pack.tar.gz.sha256 \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "GalIOS GPU pack ${{ steps.pack.outputs.tag }}" \
+            --notes "OneiOS's Metal plug-in, guest helpers and capture plug-in for iPhone18,2 24A446, built on macOS with Xcode by OneiOS's own scripts. GalIOS Studio downloads it by itself."
