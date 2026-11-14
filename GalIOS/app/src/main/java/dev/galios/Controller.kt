@@ -169,7 +169,7 @@ class Controller(
     fun lookupRelease() = scope.launch {
         _state.update { it.copy(releaseLooking = true, releaseError = null) }
         val (r, err) = try {
-            val found = RuntimeRelease.latest()
+            val found = RuntimeRelease.newest()
             found to (if (found == null) "OneiOS has no runtime release yet. Use Choose file if you have one." else null)
         } catch (e: Exception) {
             null to "Could not reach GitHub: ${e.message ?: e.javaClass.simpleName}. Check the internet connection and tap Try again."

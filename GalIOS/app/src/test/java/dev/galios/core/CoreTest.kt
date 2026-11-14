@@ -158,6 +158,25 @@ class CoreTest {
     }
 
     @Test
+    fun galiosRuntimeTakesTheHighestVersionOnItsRelease() {
+        val json = """[
+            {"tag_name":"v9-other","draft":false,"assets":[{"name":"oneios-runtime-9.0-arm64.tar.zst","browser_download_url":"https://x/o","size":1}]},
+            {"tag_name":"galios-gpu-20261114-4","name":"GalIOS GPU pack","draft":false,"assets":[
+                {"name":"galios-gpu-pack.tar.gz","browser_download_url":"https://x/p","size":5},
+                {"name":"oneios-runtime-0.1.8-galios.2-arm64.tar.zst","browser_download_url":"https://x/2","size":2},
+                {"name":"oneios-runtime-0.1.8-galios.2-arm64.tar.zst.sha256","browser_download_url":"https://x/2s","size":1},
+                {"name":"oneios-runtime-0.1.8-galios.1-arm64.tar.zst","browser_download_url":"https://x/1","size":1}]}
+        ]"""
+        val r = RuntimeRelease.pick(json, RuntimeRelease.GALIOS_TAG)!!
+        assertEquals("0.1.8-galios.2", r.version)
+        assertEquals("https://x/2", r.url)
+        assertEquals("https://x/2s", r.shaUrl)
+        assertTrue(RuntimeRelease.newer("0.1.8-galios.10", "0.1.8-galios.9"))
+        assertTrue(RuntimeRelease.newer("0.1.8-galios.1", "0.1.8"))
+        assertFalse(RuntimeRelease.newer("0.1.8", "0.1.8"))
+    }
+
+    @Test
     fun phoneChecksAreRead() {
         val c = PhoneChecks.parse(listOf("uid=0", "busybox=/data/adb/ksu/bin/busybox", "resetprop=/data/adb/ksu/bin/resetprop", "volup=1", "voldown=1", "free=1000 4096", "gpu=Adreno830v2"))
         assertTrue(c.allGood)

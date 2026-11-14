@@ -107,7 +107,7 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             }
         }
 
-        Step(3, "OneiOS runtime", "The program that runs iOS next to One UI's kernel. OneiOS's own code (no Apple files): GalIOS downloads it from OneiOS's releases.", done = s.status?.runtimeVersion != null) {
+        Step(3, "OneiOS runtime", "The program that runs iOS next to One UI's kernel. OneiOS's own code (no Apple files): GalIOS downloads its own build of it, with the GPU fixes.", done = s.status?.runtimeVersion != null) {
             s.status?.runtimeVersion?.let { Check("On the phone", "version $it", true) }
             val r = s.release
             when {

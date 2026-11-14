@@ -123,7 +123,9 @@ private fun Readiness(s: UiState) {
             else -> "OneOS ${s.engine.versionName}" + if (s.engineInstalled) " · installed" else " · not installed"
         }, when { s.engine?.hasIos == true && s.engineInstalled -> Mark.OK; s.engine?.hasIos == true -> Mark.WAIT; else -> Mark.BAD })
         Divider()
-        StatusRow(Icons.Rounded.Inventory2, "OneiOS runtime", s.status?.runtimeVersion?.let { "Version $it" } ?: "Not added", if (s.status?.runtimeVersion != null) Mark.OK else Mark.WAIT)
+        StatusRow(Icons.Rounded.Inventory2, "OneiOS runtime", s.status?.runtimeVersion?.let { v ->
+            "Version $v" + (s.release?.takeIf { it.version != v }?.let { " · ${it.version} is out: Setup, step 3" } ?: "")
+        } ?: "Not added", if (s.status?.runtimeVersion != null) Mark.OK else Mark.WAIT)
         Divider()
         StatusRow(Icons.Rounded.Layers, "iOS 27 image", s.status?.imageVersion?.let { "iOS $it (${s.status.imageBuild}) · ${bytes(s.status.imageBytes)}" } ?: "Not added", if (s.status?.imageVersion != null) Mark.OK else Mark.WAIT)
         Divider()
