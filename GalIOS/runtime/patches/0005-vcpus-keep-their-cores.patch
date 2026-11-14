@@ -1,0 +1,75 @@
+diff --git a/runtime/xnuhost/src/main.c b/runtime/xnuhost/src/main.c
+index c041b40..28bb49f 100644
+--- a/runtime/xnuhost/src/main.c
++++ b/runtime/xnuhost/src/main.c
+@@ -285,6 +285,62 @@ static void place(int tid, unsigned vcpu)
+   if (sched_setaffinity(tid, sizeof set, &set) && tid == 0) LOGE("cpu: vCPU %u on host CPUs 0x%llx: %s", vcpu, (unsigned long long)mask, strerror(errno));
+ }
+ static int vcpu_tid(unsigned vcpu) { return vcpu < g_ncpu ? g_vcpu[vcpu].tid : 0; }
++// GalIOS: a vCPU that could not take its core at the start (the core offline, or outside the cpuset at that moment:
++// the S25 Ultra fast-charging, Samsung's core control) or lost it later (a core going offline breaks a thread's
++// affinity, and nothing placed it again) runs wherever Linux puts it: on the E cores beside the pinned vCPUs, each
++// then getting a third of a core. Every 2 s each vCPU's affinity is read and set again when it is not its plan's;
++// the iOS threads follow at their next hand-off (the epoch). Only xnuhost's own threads: nothing outside is written.
++static unsigned char place_lost[64];
++static uint64_t affinity_of(int tid)
++{
++  cpu_set_t have;
++  CPU_ZERO(&have);
++  if (sched_getaffinity(tid, sizeof have, &have)) return 0;
++  uint64_t m = 0;
++  for (unsigned c = 0; c < 64 && c < CPU_SETSIZE; c++) if (CPU_ISSET(c, &have)) m |= 1ull << c;
++  return m;
++}
++static void *place_watch(void *arg)
++{
++  (void)arg;
++  for (;;) {
++    sleep(2);
++    bool moved = false;
++    for (unsigned i = 0; i < cpu_plan.nvcpu && i < 64; i++) {
++      int tid = vcpu_tid(i);
++      uint64_t want = place_mask(i);
++      if (tid <= 0 || !want) continue;
++      uint64_t got = affinity_of(tid);
++      if (!got || got == want) { if (got == want) place_lost[i] = 0; continue; }
++      cpu_set_t set;
++      CPU_ZERO(&set);
++      for (unsigned c = 0; c < 64 && c < CPU_SETSIZE; c++) if (want >> c & 1) CPU_SET(c, &set);
++      if (sched_setaffinity(tid, sizeof set, &set) == 0) {
++        LOGI("cpu: vCPU %u back on host CPUs 0x%llx (it was on 0x%llx)", i, (unsigned long long)want, (unsigned long long)got);
++        place_lost[i] = 0;
++        moved = true;
++      } else if (!place_lost[i]) {
++        char online[64] = "?";
++        int fd = open("/sys/devices/system/cpu/online", O_RDONLY | O_CLOEXEC);
++        if (fd >= 0) { ssize_t n = read(fd, online, sizeof online - 1); online[n > 0 ? n : 0] = 0; if (n > 0 && online[n - 1] == '\n') online[n - 1] = 0; close(fd); }
++        LOGE("cpu: vCPU %u cannot have host CPUs 0x%llx yet (%s; CPUs online %s): it runs on 0x%llx; tried again every 2 s",
++             i, (unsigned long long)want, strerror(errno), online, (unsigned long long)got);
++        place_lost[i] = 1;
++      }
++    }
++    if (moved) __atomic_fetch_add(&xh_cpu_place_epoch, 1, __ATOMIC_ACQ_REL);
++  }
++  return NULL;
++}
++static void place_watch_start(void)
++{
++  pthread_t thread;
++  pthread_attr_t attr;
++  pthread_attr_init(&attr);
++  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
++  if (pthread_create(&thread, &attr, place_watch, NULL)) LOGE("cpu: no watch of the vCPUs' cores: %s", strerror(errno));
++  pthread_attr_destroy(&attr);
++}
+ // The thermal bridge's step (br_thermal_cap_for): the vCPUs and the iOS threads they run keep to fewer, slower cores
+ // while the phone is hot. Affinities of xnuhost's own threads and its tasks' only: they end with the session, nothing
+ // outside the process is written, so a SIGKILL leaves nothing to restore.
+@@ -454,6 +510,7 @@ static int boot(void)
+            config.cpu_pin ? "; each vCPU and the iOS thread it runs on one core (cpu-pin=1)" : " (cpu-pin=0: a vCPU on any core of its kind)");
+       if (config.cpu_pin)
+         for (unsigned i = 0; i < config.ncpu; i++) LOGI("cpu%u: host CPU mask 0x%llx", i, (unsigned long long)place_mask(i));
++      place_watch_start();
+     } else LOGI("cpu: no host topology under /sys: vCPUs are not placed");
+   }
+   if (!cpu_planned && config.cpu_pin == 2) {
