@@ -14,6 +14,8 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   (`oneios-actuator=0`: on the S25 Ultra the side key then locked iOS in 0.85 s) and boot E
   (`oneios-hid-buttons-builtin=1`: the side buttons published Built-In, Consumer Control; backboardd took them for an
   external keyboard, the likely reason the volume keys did nothing). E needs a kernel from OneiOS a623515 on.
+  galios.12 adds `oneios-hid-queue-kib=256` (the touch screen's event queue; OneiOS newtodo 3, the keyboard that
+  stops after 3-4 keys: a finger's lift lost in a full 16 KiB queue turns the keyboard into its trackpad mode).
 - `0005-vcpus-keep-their-cores.patch`: every 2 s xnuhost reads each vCPU's affinity and sets it again when it is not
   its plan's (the iOS threads follow by the epoch). On the S25 Ultra, fast-charging, the two P vCPUs could not take
   the prime cores at the start (`vCPU 6 on host CPUs 0x40: Invalid argument`) and ran on the E cores beside the

@@ -69,6 +69,7 @@ jobs:
           grep -q 'key_fallback' OneiOS/runtime/bridges/brightness/brightness.c
           grep -q 'bottom_remap' OneiOS/runtime/bridges/brightness/brightness.c
           strings "$d/bin/xnuhost" | grep -q 'oneios-hid-buttons-builtin=1'
+          strings "$d/bin/xnuhost" | grep -q 'oneios-hid-queue-kib=256'
           test -f OneiOS/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
           grep -q 'XH_RAM_SESSION_RESERVE (2ull << 30)' OneiOS/runtime/xnuhost/src/xnuhost.h
           strings "$d/bin/xnuhost" | grep -q 'oneios-actuator=0'

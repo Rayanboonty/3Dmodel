@@ -1,8 +1,8 @@
 diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
-index 4ff6155..fa249d0 100644
+index 4ff6155..4c4f007 100644
 --- a/runtime/xnuhost/src/config.c
 +++ b/runtime/xnuhost/src/config.c
-@@ -287,7 +287,11 @@ int xh_config_finish(xh_config *c)
+@@ -287,7 +287,13 @@ int xh_config_finish(xh_config *c)
    if (!*c->boot_args)
      strcpy(c->boot_args, "debug=0x14e serial=3 -v kt_fixed_zones=120 -no_slto_panic ml-timeout-lock-panic-scale=40 tlto_us=0 "
             "sheng-smp=1 armcpu-self-ipi=1 armcpu-spi-ipi=1 use_contiguous_hint=0 interrupt-masked-debug-mode=0 "
@@ -10,8 +10,10 @@ index 4ff6155..fa249d0 100644
 +           "sched_preemption_disable_debug_mode=0 wdt=-1 native-source-storage=1 vgpu-3d=1 droidvm-gpu-metal=1 "
 +           // GalIOS: OneiOS docs/hardware.md 5's boot C (no Actuator device: on the S25 Ultra the side key then locked
 +           // iOS in 0.85 s) and boot E (the side buttons published Built-In, Consumer Control: backboardd took them for
-+           // an external keyboard; the volume keys too). E needs a kernel built from OneiOS a623515 on (its HID driver); an older one ignores it.
-+           "oneios-actuator=0 oneios-hid-buttons-builtin=1");
++           // an external keyboard; the volume keys too). E needs a kernel built from OneiOS a623515 on (its HID driver);
++           // an older one ignores it. And the touch screen's 256 KiB event queue (OneiOS newtodo 3: the keyboard that
++           // stops after 3-4 keys, a lost finger lift in a 16 KiB queue; in kernels from 8d1d2e6 on).
++           "oneios-actuator=0 oneios-hid-buttons-builtin=1 oneios-hid-queue-kib=256");
    if (c->ndisk == 0) { memcpy(c->disk, from_image.disk, sizeof c->disk); c->ndisk = from_image.ndisk; }
    if (!*c->kernel && !exists(c->image, "kernel.kc", c->kernel, sizeof c->kernel) &&
        !exists(c->image, "kernel.macho", c->kernel, sizeof c->kernel)) {
