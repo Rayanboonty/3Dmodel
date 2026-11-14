@@ -45,9 +45,13 @@ class RootHelperTest {
             val noSu = object : RootShell {
                 override fun exec(command: String, stdin: java.io.InputStream?) = RootShell.Result(1, listOf("Permission denied"))
             }
-            val auto = AutoRootShell(noSu, shell)
-            assertEquals("helper", auto.via())
-            assertEquals(listOf("ok"), auto.exec("echo ok").lines)
+            // The helper lends the root it runs with: these two hold only where the tests themselves run as root (a
+            // container); on a machine where they run as a user (GitHub's runners) the helper's id -u is not 0.
+            if (shell.exec("id -u").lines.lastOrNull()?.trim() == "0") {
+                val auto = AutoRootShell(noSu, shell)
+                assertEquals("helper", auto.via())
+                assertEquals(listOf("ok"), auto.exec("echo ok").lines)
+            }
             assertTrue("nothing left behind", q.listFiles()!!.all { it.name == "alive" })
 
             File(state, "rootd.stop").writeText("")
