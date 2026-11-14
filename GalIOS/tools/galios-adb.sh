@@ -108,31 +108,56 @@ for w in want:
 p = os.path.join(d, "oneios_switch.sh")
 lines = open(p, encoding="utf-8").read().split("\n")
 if any(re.match(r"\s*SM-S938\*\)", l) for l in lines):
-    print("already accepts the S25 Ultra"); sys.exit(0)
-m = next((i for i, l in enumerate(lines) if l.strip().startswith('case "$P_MODEL" in SM-S928*)')
-          and l.strip().endswith("esac") and "refuse" in l), -1)
-if m < 0 or m + 2 >= len(lines):
-    sys.exit("unknown phone check (no SM-S928 line)")
-soc, ref = lines[m + 1].strip(), lines[m + 2].strip()
-if not (soc.startswith('[ "$P_DEVICE" = e3q ]') and "SM8650" in soc and soc.endswith("||") and ref.startswith("refuse ")):
-    sys.exit("unknown codename/SoC check")
-for i, l in enumerate(lines):
-    if m <= i <= m + 2 or l.strip().startswith("#"):
-        continue
-    if any(t in l for t in ("SM-S928", '"e3q"', "= e3q", "SM8650")):
-        sys.exit("OneOS checks for the S24 Ultra again at its line %d" % (i + 1))
-ind = lines[m][:len(lines[m]) - len(lines[m].lstrip())]
-new = ["# GalIOS: this phone check accepts the Galaxy S25 Ultra beside the S24 Ultra.",
-       'case "$P_MODEL" in',
-       '    SM-S928*) [ "$P_DEVICE" = e3q ] && [ "$P_SOC" = SM8650 ] ||',
-       '        refuse "iOS on the Galaxy S24 Ultra needs e3q, SM8650; this phone is ${P_DEVICE:-?}, ${P_SOC:-?}" ;;',
-       '    SM-S938*) [ "$P_DEVICE" = pa3q ] && [ "$P_SOC" = SM8750 ] ||',
-       '        refuse "iOS on the Galaxy S25 Ultra needs pa3q, SM8750; this phone is ${P_DEVICE:-?}, ${P_SOC:-?}" ;;',
-       '    *) refuse "iOS runs on the Galaxy S24 Ultra and S25 Ultra only; this phone is ${P_MODEL:-unknown}" ;;',
-       "esac"]
-lines[m:m + 3] = [ind + x for x in new]
+    print("phone check: already accepts the S25 Ultra")
+else:
+    m = next((i for i, l in enumerate(lines) if l.strip().startswith('case "$P_MODEL" in SM-S928*)')
+              and l.strip().endswith("esac") and "refuse" in l), -1)
+    if m < 0 or m + 2 >= len(lines):
+        sys.exit("unknown phone check (no SM-S928 line)")
+    soc, ref = lines[m + 1].strip(), lines[m + 2].strip()
+    if not (soc.startswith('[ "$P_DEVICE" = e3q ]') and "SM8650" in soc and soc.endswith("||") and ref.startswith("refuse ")):
+        sys.exit("unknown codename/SoC check")
+    for i, l in enumerate(lines):
+        if m <= i <= m + 2 or l.strip().startswith("#"):
+            continue
+        if any(t in l for t in ("SM-S928", '"e3q"', "= e3q", "SM8650")):
+            sys.exit("OneOS checks for the S24 Ultra again at its line %d" % (i + 1))
+    ind = lines[m][:len(lines[m]) - len(lines[m].lstrip())]
+    new = ["# GalIOS: this phone check accepts the Galaxy S25 Ultra beside the S24 Ultra.",
+           'case "$P_MODEL" in',
+           '    SM-S928*) [ "$P_DEVICE" = e3q ] && [ "$P_SOC" = SM8650 ] ||',
+           '        refuse "iOS on the Galaxy S24 Ultra needs e3q, SM8650; this phone is ${P_DEVICE:-?}, ${P_SOC:-?}" ;;',
+           '    SM-S938*) [ "$P_DEVICE" = pa3q ] && [ "$P_SOC" = SM8750 ] ||',
+           '        refuse "iOS on the Galaxy S25 Ultra needs pa3q, SM8750; this phone is ${P_DEVICE:-?}, ${P_SOC:-?}" ;;',
+           '    *) refuse "iOS runs on the Galaxy S24 Ultra and S25 Ultra only; this phone is ${P_MODEL:-unknown}" ;;',
+           "esac"]
+    lines[m:m + 3] = [ind + x for x in new]
+    print("S25 Ultra check adapted")
+# The read-only step: the S25 Ultra's kernel would not bind the two script files read-only (status 70).
+RO = "# GalIOS (S25 Ultra): busybox's read-only bind, then Android's own mount;"
+if not any(RO in l for l in lines):
+    for i in range(len(lines) - 1):
+        if (lines[i].strip() == '"$BB" mount --bind "/data/$d" "/data/$d" && "$BB" mount -o remount,bind,ro "/data/$d" ||'
+                and lines[i + 1].strip() == 'die_inner "could not make /data/$d read-only"'):
+            ind = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
+            block = [RO,
+                "# a script file that still cannot be made read-only here is left to root alone (0500) with a warning",
+                "# instead of ending the session (the S25 Ultra's kernel refused it: status 70). Folders stay strict.",
+                'if "$BB" mount --bind "/data/$d" "/data/$d" 2>&1; then',
+                '    "$BB" mount -o remount,bind,ro "/data/$d" 2>&1 || /system/bin/mount -o remount,ro,bind "/data/$d" 2>&1 || {',
+                '        [ -f "/data/$d" ] || die_inner "could not make /data/$d read-only"',
+                '        chmod 0500 "/data/$d"',
+                '        echo "oneios inner: $(date +%T) warning: /data/$d could not be made read-only here; kept root\'s alone"',
+                "    }",
+                "else",
+                '    [ -f "/data/$d" ] || die_inner "could not make /data/$d read-only"',
+                '    chmod 0500 "/data/$d"',
+                '    echo "oneios inner: $(date +%T) warning: /data/$d could not be bound here; kept root\'s alone"',
+                "fi"]
+            lines[i:i + 2] = [ind + b for b in block]
+            print("read-only step adapted")
+            break
 open(p, "w", encoding="utf-8").write("\n".join(lines))
-print("S25 Ultra check adapted")
 PY
 }
 stage_scripts() {

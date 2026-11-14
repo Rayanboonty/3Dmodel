@@ -193,8 +193,65 @@ func pullEngine(ctx context.Context, j *JobCtx, s Settings, serial string) (*Eng
 	return e, nil
 }
 
-// adaptSwitch rewrites OneOS's S24-only phone check so it accepts the S25 Ultra too (as GalIOS does on the phone).
+// adaptSwitch makes OneOS's switch script work on the S25 Ultra: its phone check accepts the S25 Ultra
+// (adaptPhoneCheck), and a script file that the S25 Ultra's kernel will not bind read-only no longer ends the
+// session (adaptReadOnly). Each change is made once and only where the script is the one Studio knows.
 func adaptSwitch(script []byte) ([]byte, bool, error) {
+	out, phone, err := adaptPhoneCheck(script)
+	if err != nil {
+		return nil, false, err
+	}
+	out, ro := adaptReadOnly(out)
+	return out, phone || ro, nil
+}
+
+// roMarker marks a script whose read-only step GalIOS already adapted.
+const roMarker = "# GalIOS (S25 Ultra): busybox's read-only bind, then Android's own mount;"
+
+var roBlock = []string{
+	roMarker,
+	"# a script file that still cannot be made read-only here is left to root alone (0500) with a warning",
+	"# instead of ending the session (the S25 Ultra's kernel refused it: status 70). Folders stay strict.",
+	`if "$BB" mount --bind "/data/$d" "/data/$d" 2>&1; then`,
+	`    "$BB" mount -o remount,bind,ro "/data/$d" 2>&1 || /system/bin/mount -o remount,ro,bind "/data/$d" 2>&1 || {`,
+	`        [ -f "/data/$d" ] || die_inner "could not make /data/$d read-only"`,
+	`        chmod 0500 "/data/$d"`,
+	`        echo "oneios inner: $(date +%T) warning: /data/$d could not be made read-only here; kept root's alone"`,
+	`    }`,
+	`else`,
+	`    [ -f "/data/$d" ] || die_inner "could not make /data/$d read-only"`,
+	`    chmod 0500 "/data/$d"`,
+	`    echo "oneios inner: $(date +%T) warning: /data/$d could not be bound here; kept root's alone"`,
+	`fi`,
+}
+
+// adaptReadOnly replaces OneOS's two-line read-only step (bind, remount read-only, else die) with roBlock. A script
+// without those exact lines is left as it is.
+func adaptReadOnly(script []byte) ([]byte, bool) {
+	text := string(script)
+	if strings.Contains(text, roMarker) {
+		return script, false
+	}
+	lines := strings.Split(text, "\n")
+	for i := 0; i+1 < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) != `"$BB" mount --bind "/data/$d" "/data/$d" && "$BB" mount -o remount,bind,ro "/data/$d" ||` ||
+			strings.TrimSpace(lines[i+1]) != `die_inner "could not make /data/$d read-only"` {
+			continue
+		}
+		indent := lines[i][:len(lines[i])-len(strings.TrimLeft(lines[i], " \t"))]
+		var out []string
+		out = append(out, lines[:i]...)
+		for _, b := range roBlock {
+			out = append(out, indent+b)
+		}
+		out = append(out, lines[i+2:]...)
+		return []byte(strings.Join(out, "\n")), true
+	}
+	return script, false
+}
+
+// adaptPhoneCheck rewrites OneOS's S24-only phone check so it accepts the S25 Ultra too (as GalIOS does on the phone).
+func adaptPhoneCheck(script []byte) ([]byte, bool, error) {
 	text := string(script)
 	if regexp.MustCompile(`(?m)^\s*SM-S938\*\)`).MatchString(text) {
 		return script, false, nil
@@ -228,7 +285,7 @@ func adaptSwitch(script []byte) ([]byte, bool, error) {
 	}
 	indent := lines[model][:len(lines[model])-len(strings.TrimLeft(lines[model], " \t"))]
 	check := []string{
-		"# GalIOS Studio: this phone check accepts the Galaxy S25 Ultra beside the S24 Ultra.",
+		"# GalIOS: this phone check accepts the Galaxy S25 Ultra beside the S24 Ultra.",
 		`case "$P_MODEL" in`,
 		`    SM-S928*) [ "$P_DEVICE" = e3q ] && [ "$P_SOC" = SM8650 ] ||`,
 		`        refuse "iOS on the Galaxy S24 Ultra needs e3q, SM8650; this phone is ${P_DEVICE:-?}, ${P_SOC:-?}" ;;`,

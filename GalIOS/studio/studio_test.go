@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -432,5 +433,78 @@ func TestRootHelper(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 	if fileExists(bridgeDir + "/rootd.pid") {
 		t.Fatal("the helper did not stop")
+	}
+}
+
+// TestReadOnlyStep runs OneOS's read-only loop as GalIOS adapts it, with a mount that refuses read-only binds of
+// files (as the S25 Ultra's kernel did: "making /data/oneios_switch.sh read-only", status 70).
+func TestReadOnlyStep(t *testing.T) {
+	sw := os.Getenv("STUDIO_REAL_SWITCH")
+	if sw == "" {
+		t.Skip("needs OneOS's switch script")
+	}
+	b, err := os.ReadFile(sw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, changed, err := adaptSwitch(b)
+	if err != nil || !changed {
+		t.Fatalf("%v %v", changed, err)
+	}
+	if again, ch, _ := adaptSwitch(out); ch || string(again) != string(out) {
+		t.Fatal("adapting twice changed the script again")
+	}
+	if p := os.Getenv("STUDIO_ADAPTED_OUT"); p != "" {
+		os.WriteFile(p, out, 0o644) // for the app's test: both must stage the same script
+	}
+	text := string(out)
+	if !strings.Contains(text, roMarker) || !strings.Contains(text, "SM-S938*)") {
+		t.Fatal("an adaptation is missing")
+	}
+	if c := exec.Command("sh", "-n", "-c", text); c.Run() != nil {
+		t.Fatal("the adapted script is not valid sh")
+	}
+	// The loop alone, with /data and the two mounts replaced by stand-ins.
+	start := strings.Index(text, "for d in runtime image control bin")
+	end := strings.Index(text[start:], "\n        done") + start + len("\n        done")
+	loop := text[start:end]
+	run := func(failDirs bool) (string, int, string) {
+		dir := t.TempDir()
+		for _, d := range []string{"runtime", "image", "control", "bin"} {
+			os.MkdirAll(filepath.Join(dir, "data", d), 0o755)
+		}
+		for _, f := range []string{"oneios_switch.sh", "oneios_return.sh"} {
+			os.WriteFile(filepath.Join(dir, "data", f), []byte("#!/bin/sh\n"), 0o700)
+		}
+		refuse := `[ -f "$4" ] && exit 1`
+		if failDirs {
+			refuse = `exit 1`
+		}
+		mount := filepath.Join(dir, "mount")
+		os.WriteFile(mount, []byte("#!/bin/sh\n[ \"$1\" = mount ] && shift\n[ \"$1\" = --bind ] && exit 0\n"+
+			"case \"$2\" in *remount*) shift 2; set -- x x x \"$1\"; "+refuse+" ;; esac\nexit 0\n"), 0o755)
+		body := strings.ReplaceAll(loop, "/system/bin/mount", mount+" mount")
+		body = strings.ReplaceAll(body, "/data/", dir+"/data/")
+		script := "BB=" + mount + "\nat() { echo \"at: $*\"; }\ndie_inner() { echo \"oneios inner: $*\"; exit 70; }\n" + body + "\necho finished\n"
+		o, err := exec.Command("sh", "-c", script).CombinedOutput()
+		code := 0
+		if e, ok := err.(*exec.ExitError); ok {
+			code = e.ExitCode()
+		}
+		return string(o), code, dir
+	}
+	o, code, dir := run(false)
+	if code != 0 || !strings.Contains(o, "finished") || strings.Count(o, "warning:") != 2 {
+		t.Fatalf("files refused: exit %d\n%s", code, o)
+	}
+	for _, f := range []string{"oneios_switch.sh", "oneios_return.sh"} {
+		fi, _ := os.Stat(filepath.Join(dir, "data", f))
+		if fi.Mode().Perm() != 0o500 {
+			t.Fatalf("%s is %v", f, fi.Mode().Perm())
+		}
+	}
+	t.Logf("files refused, folders fine:\n%s", o)
+	if o, code, _ := run(true); code != 70 || !strings.Contains(o, "could not make") {
+		t.Fatalf("a folder that cannot be made read-only must still end the session: exit %d\n%s", code, o)
 	}
 }

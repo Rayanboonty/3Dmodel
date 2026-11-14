@@ -14,8 +14,8 @@ android {
         // Build.SOC_MODEL is API 31; the Galaxy S25 Ultra ships with Android 15.
         minSdk = 31
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.11"
+        versionCode = 12
+        versionName = "1.12"
         // The Galaxy S25 Ultra and S24 Ultra are arm64: leave out zstd's libraries for other CPUs.
         ndk { abiFilters += "arm64-v8a" }
     }
@@ -47,6 +47,7 @@ android {
                 System.getProperty("galios.rootScript")?.let { v -> it.systemProperty("galios.rootScript", v) }
                 System.getProperty("galios.switchScript")?.let { v -> it.systemProperty("galios.switchScript", v) }
                 System.getProperty("galios.returnScript")?.let { v -> it.systemProperty("galios.returnScript", v) }
+                System.getProperty("galios.studioSwitch")?.let { v -> it.systemProperty("galios.studioSwitch", v) }
                 // The stand-in phone's getprop and getevent, first on PATH.
                 System.getProperty("galios.fakePath")?.let { v -> it.environment("PATH", v + ":" + System.getenv("PATH")) }
             }

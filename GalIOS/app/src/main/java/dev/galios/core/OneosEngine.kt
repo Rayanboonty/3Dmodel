@@ -59,7 +59,59 @@ object SwitchScriptAdapter {
         "esac",
     )
 
+    /** The S25 Ultra's changes: the phone check (adaptPhoneCheck), then the read-only step (adaptReadOnly). */
     fun adapt(script: ByteArray): Result {
+        val phone = adaptPhoneCheck(script)
+        val base = when (phone) {
+            is Result.Unrecognised -> return phone
+            is Result.Adapted -> phone.script
+            is Result.AlreadySupports -> phone.script
+        }
+        val ro = adaptReadOnly(base)
+        return when {
+            ro != null -> Result.Adapted(ro)
+            phone is Result.Adapted -> phone
+            else -> Result.AlreadySupports(base)
+        }
+    }
+
+    const val RO_MARKER = "# GalIOS (S25 Ultra): busybox's read-only bind, then Android's own mount;"
+
+    private val RO_BLOCK = listOf(
+        RO_MARKER,
+        "# a script file that still cannot be made read-only here is left to root alone (0500) with a warning",
+        "# instead of ending the session (the S25 Ultra's kernel refused it: status 70). Folders stay strict.",
+        "if \"\$BB\" mount --bind \"/data/\$d\" \"/data/\$d\" 2>&1; then",
+        "    \"\$BB\" mount -o remount,bind,ro \"/data/\$d\" 2>&1 || /system/bin/mount -o remount,ro,bind \"/data/\$d\" 2>&1 || {",
+        "        [ -f \"/data/\$d\" ] || die_inner \"could not make /data/\$d read-only\"",
+        "        chmod 0500 \"/data/\$d\"",
+        "        echo \"oneios inner: \$(date +%T) warning: /data/\$d could not be made read-only here; kept root's alone\"",
+        "    }",
+        "else",
+        "    [ -f \"/data/\$d\" ] || die_inner \"could not make /data/\$d read-only\"",
+        "    chmod 0500 \"/data/\$d\"",
+        "    echo \"oneios inner: \$(date +%T) warning: /data/\$d could not be bound here; kept root's alone\"",
+        "fi",
+    )
+
+    /**
+     * OneOS's two-line read-only step (bind, remount read-only, else end the session) with a fallback for the two script
+     * files, which the S25 Ultra's kernel would not bind read-only. Null when the step is not there or already adapted.
+     */
+    fun adaptReadOnly(script: ByteArray): ByteArray? {
+        val text = script.toString(Charsets.UTF_8)
+        if (RO_MARKER in text) return null
+        val lines = text.split('\n')
+        val i = (0 until lines.size - 1).firstOrNull {
+            lines[it].trim() == "\"\$BB\" mount --bind \"/data/\$d\" \"/data/\$d\" && \"\$BB\" mount -o remount,bind,ro \"/data/\$d\" ||" &&
+                lines[it + 1].trim() == "die_inner \"could not make /data/\$d read-only\""
+        } ?: return null
+        val indent = lines[i].takeWhile { it == ' ' || it == '\t' }
+        val out = lines.subList(0, i) + RO_BLOCK.map { indent + it } + lines.subList(i + 2, lines.size)
+        return out.joinToString("\n").toByteArray(Charsets.UTF_8)
+    }
+
+    private fun adaptPhoneCheck(script: ByteArray): Result {
         val text = script.toString(Charsets.UTF_8)
         if (Regex("""^\s*SM-S938\*\)""", RegexOption.MULTILINE).containsMatchIn(text)) return Result.AlreadySupports(script)
         val lines = text.split('\n')

@@ -52,6 +52,16 @@ class CoreTest {
         val path = System.getProperty("galios.switchScript") ?: return
         val r = SwitchScriptAdapter.adapt(java.io.File(path).readBytes())
         assertTrue("$r", r is SwitchScriptAdapter.Result.Adapted || r is SwitchScriptAdapter.Result.AlreadySupports)
+        val out = when (r) {
+            is SwitchScriptAdapter.Result.Adapted -> r.script
+            is SwitchScriptAdapter.Result.AlreadySupports -> r.script
+            else -> ByteArray(0)
+        }
+        // The read-only step's fallback for the two script files (S25 Ultra: status 70) is in.
+        assertTrue(SwitchScriptAdapter.RO_MARKER in out.toString(Charsets.UTF_8))
+        assertTrue(SwitchScriptAdapter.adapt(out) is SwitchScriptAdapter.Result.AlreadySupports)
+        // Byte for byte what GalIOS Studio stages, when given Studio's output.
+        System.getProperty("galios.studioSwitch")?.let { assertTrue("differs from Studio's", java.io.File(it).readBytes().contentEquals(out)) }
     }
 
     @Test
