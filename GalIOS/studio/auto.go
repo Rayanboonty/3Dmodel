@@ -169,11 +169,20 @@ func (a *App) autoAll(ctx context.Context, j *JobCtx, script []byte) (string, er
 	j.Log("%s", msg)
 	st := stageStatus(ctx, s, serial)
 	head("OneiOS runtime")
-	if st.Runtime != "" {
+	if rt, rerr := latestRuntime(ctx, j); rerr != nil {
+		if st.Runtime == "" {
+			return "", rerr
+		}
+		j.Log("could not look up a newer runtime (%v): keeping %s", rerr, st.Runtime)
+	} else if want := runtimeVersion(rt); want != "" && st.Runtime == want {
 		j.Log("already on the phone: %s", st.Runtime)
-	} else if msg, err = stepRuntime(ctx, j, s, serial); err != nil {
-		return "", err
 	} else {
+		if st.Runtime != "" {
+			j.Log("the phone has runtime %s; putting %s in its place", st.Runtime, want)
+		}
+		if msg, err = importArchive(ctx, j, s, serial, "runtime", rt); err != nil {
+			return "", err
+		}
 		j.Log("%s", msg)
 	}
 	head("iOS 27 image")

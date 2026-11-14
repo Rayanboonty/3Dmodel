@@ -508,3 +508,16 @@ func TestReadOnlyStep(t *testing.T) {
 		t.Fatalf("a folder that cannot be made read-only must still end the session: exit %d\n%s", code, o)
 	}
 }
+
+func TestRuntimeVersion(t *testing.T) {
+	for in, want := range map[string]string{
+		"oneios-runtime-0.1.8-arm64.tar.zst":               "0.1.8",
+		`C:\x\oneios-runtime-0.1.8-galios.4-arm64.tar.zst`: "0.1.8-galios.4",
+		"/d/oneios-runtime-0.1.8-test-arm64.tar.zst":       "0.1.8-test",
+		"something-else.tar.zst":                           "",
+	} {
+		if got := runtimeVersion(filepath.FromSlash(strings.ReplaceAll(in, `\`, "/"))); got != want {
+			t.Errorf("runtimeVersion(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

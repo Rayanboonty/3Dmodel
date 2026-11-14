@@ -594,12 +594,43 @@ func (p *progressReader) Read(b []byte) (int, error) {
 }
 
 // latestRuntime downloads the newest OneiOS runtime package from OneiOS's releases (checked against its .sha256).
+// runtimeRepos are where runtime packages come from, best first: the GalIOS GPU pack's releases (OneiOS's runtime
+// built from the same commit as the kernel GalIOS builds), then OneiOS's own releases.
+var runtimeRepos = []struct{ repo, tagPrefix string }{
+	{"Rayanboonty/3Dmodel", "galios-gpu-"},
+	{"akshaynexus/OneiOS", ""},
+}
+
+var runtimeName = regexp.MustCompile(`^oneios-runtime-(.+)-arm64\.tar\.zst$`)
+
+// runtimeVersion is the version in a runtime package's file name ("" when it is not one).
+func runtimeVersion(path string) string {
+	if m := runtimeName.FindStringSubmatch(filepath.Base(path)); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
+// latestRuntime downloads (or reuses) the newest runtime package, checked against its .sha256.
 func latestRuntime(ctx context.Context, j *JobCtx) (string, error) {
 	if p := os.Getenv("STUDIO_RUNTIME"); p != "" { // tests: a local runtime package instead of GitHub
 		return p, nil
 	}
-	j.Step("Looking up the newest OneiOS runtime on GitHub")
-	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/akshaynexus/OneiOS/releases?per_page=30", nil)
+	var last error
+	for _, src := range runtimeRepos {
+		p, err := runtimeFrom(ctx, j, src.repo, src.tagPrefix)
+		if err == nil {
+			return p, nil
+		}
+		last = err
+		j.Log("runtime from %s: %v", src.repo, err)
+	}
+	return "", last
+}
+
+func runtimeFrom(ctx context.Context, j *JobCtx, repo, tagPrefix string) (string, error) {
+	j.Step("Looking up the newest runtime on GitHub (" + repo + ")")
+	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/"+repo+"/releases?per_page=40", nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "GalIOS-Studio")
 	resp, err := http.DefaultClient.Do(req)
@@ -621,14 +652,13 @@ func latestRuntime(ctx context.Context, j *JobCtx) (string, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&rels); err != nil {
 		return "", err
 	}
-	re := regexp.MustCompile(`^oneios-runtime-.+-arm64\.tar\.zst$`)
 	for _, r := range rels {
-		if r.Draft {
+		if r.Draft || !strings.HasPrefix(r.Tag, tagPrefix) {
 			continue
 		}
 		var url, shaURL, name string
 		for _, a := range r.Assets {
-			if re.MatchString(a.Name) {
+			if runtimeName.MatchString(a.Name) {
 				url, name = a.URL, a.Name
 			}
 		}
@@ -641,26 +671,34 @@ func latestRuntime(ctx context.Context, j *JobCtx) (string, error) {
 			continue
 		}
 		dest := filepath.Join(dataDir(), "runtime", name)
-		j.Step("Downloading " + name)
-		if err := download(ctx, j, url, dest); err != nil {
-			return "", err
-		}
+		wantSum := ""
 		if shaURL != "" {
 			tmp := dest + ".sha256"
 			if err := download(ctx, j, shaURL, tmp); err == nil {
 				b, _ := os.ReadFile(tmp)
-				wantSum := strings.Fields(string(b))
-				got, _ := fileSHA(dest)
-				if len(wantSum) == 0 || got != strings.ToLower(wantSum[0]) {
-					os.Remove(dest)
-					return "", fmt.Errorf("the runtime did not match its SHA-256: try again")
+				if f := strings.Fields(string(b)); len(f) > 0 {
+					wantSum = strings.ToLower(f[0])
 				}
-				j.Log("SHA-256 checked")
 			}
+		}
+		if got, err := fileSHA(dest); err == nil && wantSum != "" && got == wantSum {
+			j.Log("%s: already downloaded and checked", name)
+			return dest, nil
+		}
+		j.Step("Downloading " + name)
+		if err := download(ctx, j, url, dest); err != nil {
+			return "", err
+		}
+		if wantSum != "" {
+			if got, _ := fileSHA(dest); got != wantSum {
+				os.Remove(dest)
+				return "", fmt.Errorf("the runtime did not match its SHA-256: try again")
+			}
+			j.Log("SHA-256 checked")
 		}
 		return dest, nil
 	}
-	return "", fmt.Errorf("no OneiOS release has a runtime package yet")
+	return "", fmt.Errorf("no release with a runtime package")
 }
 
 func fileSHA(p string) (string, error) {
