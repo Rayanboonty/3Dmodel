@@ -46,6 +46,7 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
     private net.vortexsmp.data.DiscordLink discord;
     private net.vortexsmp.trade.TradeManager trades;
     private net.vortexsmp.trade.Market market;
+    private final net.vortexsmp.smp.Realm realm = new net.vortexsmp.smp.Realm(this);
 
     public static VortexSMP get() {
         return instance;
@@ -58,9 +59,11 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
         Items.init(this);
         Cfg.load(this);
         PluginManager pm = this.getServer().getPluginManager();
-        if (pm.getPlugin("PracticePvP") != null || pm.getPlugin("VortexRealm") != null || pm.getPlugin("VortexPvP") != null) {
-            this.getLogger().warning("PracticePvP/VortexRealm is installed on this server too. VortexSMP is made for its own SMP server: "
-                + "both plugins have /home, /tpa, /rtp... Remove one of them.");
+        if (this.realm.on()) {
+            this.getLogger().info("Same-server mode: " + this.realm.plugin().getName() + " is on this server too. Its SMP-mode worlds are the SMP, it keeps "
+                + "each world's inventory and ender chest (saved and backed up), and homes, tpa, rtp, warps, trade and market work inside those worlds.");
+        } else if (this.realm.plugin() != null) {
+            this.getLogger().warning(this.realm.plugin().getName() + " is on this server too but network.same-server is off: turn it on to share the server.");
         }
 
         this.modes = new ModeManager(this);
@@ -95,6 +98,7 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
         this.discord = new net.vortexsmp.data.DiscordLink(this);
         this.discord.start();
         this.bind(this.discord, "link");
+        pm.registerEvents(new net.vortexsmp.smp.SameServer(this), this);
         net.vortexsmp.smp.Drills drills = new net.vortexsmp.smp.Drills(this);
         pm.registerEvents(drills, this);
         this.bind(drills, "drill");
@@ -152,7 +156,7 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
         Tasks.timer(100L, 1200L, this.keepOnline::refresh);
         this.bind(this, "vortexsmp");
         this.getLogger().info("VortexSMP " + this.getPluginMeta().getVersion() + " ready: homes, tpa, rtp, warps, back, combat tag"
-            + (Cfg.s(net.vortexsmp.config.Opt.HUB_HOST).isBlank() ? " (set network.hub.host in config.yml for /hub)." : ", /hub -> " + Cfg.s(net.vortexsmp.config.Opt.HUB_HOST) + "."));
+            + (this.realm.on() ? ", /hub -> " + this.realm.plugin().getName() + "'s lobby (same server)." : Cfg.s(net.vortexsmp.config.Opt.HUB_HOST).isBlank() ? " (set network.hub.host in config.yml for /hub)." : ", /hub -> " + Cfg.s(net.vortexsmp.config.Opt.HUB_HOST) + "."));
     }
 
     /** Zips this plugin's folder (homes, warps, drills, market, Discord links...) into backups/ before an update. */
@@ -290,7 +294,12 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
             }
             default:
                 sender.sendMessage(Text.mm("<gold><b>VortexSMP</b> <gray>" + this.getPluginMeta().getVersion()));
+                if (this.realm.on()) {
+                    sender.sendMessage(Text.mm(" <gray>Same server as <white>" + Text.esc(this.realm.plugin().getName()) + "</white><gray>: SMP world <white>"
+                        + (this.realm.smpWorld() == null ? "<red>none (set a world to SURVIVAL in its World Manager)" : Text.esc(this.realm.smpWorld().getName()))));
+                } else {
                 sender.sendMessage(Text.mm(" <gray>/hub → <white>" + (Cfg.s(net.vortexsmp.config.Opt.HUB_HOST).isBlank() ? "<red>not set (network.hub.host)" : Text.esc(Cfg.s(net.vortexsmp.config.Opt.HUB_HOST) + ":" + Cfg.i(net.vortexsmp.config.Opt.HUB_PORT))) + " <dark_gray>(" + Cfg.s(net.vortexsmp.config.Opt.NETWORK_MODE) + ")"));
+                }
                 sender.sendMessage(Text.mm(" <gray>Import: <white>" + this.oldImport.status()));
                 sender.sendMessage(Text.mm(" <gray>Discord: <white>" + Text.esc(this.discord.status())));
                 sender.sendMessage(Text.mm(" <gray>Keep-online bot: <white>" + Text.esc(this.keepOnline.status())));
@@ -344,14 +353,20 @@ public final class VortexSMP extends JavaPlugin implements CommandExecutor, TabC
         return this.worlds;
     }
 
-    /** No PvP arenas here: every world is survival. */
+    public net.vortexsmp.smp.Realm realm() {
+        return this.realm;
+    }
+
+    /** The SMP's own server has no PvP arenas; on the same server as VortexRealm its practice worlds are left alone. */
     public static final class Worlds {
         public boolean managed(World w) {
-            return false;
+            net.vortexsmp.smp.Realm r = VortexSMP.get().realm();
+            return r.on() && r.managed(w);
         }
 
         public boolean isMarked(Player p) {
-            return false;
+            net.vortexsmp.smp.Realm r = VortexSMP.get().realm();
+            return r.on() && r.marked(p);
         }
     }
 }

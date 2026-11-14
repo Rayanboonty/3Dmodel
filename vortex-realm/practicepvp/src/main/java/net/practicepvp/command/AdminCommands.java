@@ -250,6 +250,78 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         }
                         break;
                 }
+                case "invbackup":
+                case "invbackups": {
+                        // /pvpadmin invbackup <player> [list|restore <n>]
+                        if (args.length < 2) {
+                            sender.sendMessage(Text.mm("<gray>/pvpadmin invbackup <white><player></white> [list | restore <n>] <dark_gray>- backups of SMP inventories and ender chests"));
+                            break;
+                        }
+
+                        org.bukkit.OfflinePlayer op = Bukkit.getPlayerExact(args[1]);
+                        if (op == null) {
+                            op = Bukkit.getOfflinePlayerIfCached(args[1]);
+                        }
+
+                        if (op == null) {
+                            op = Bukkit.getOfflinePlayer(args[1]);
+                        }
+
+                        java.util.List<java.io.File> list = this.plugin.modes().backups(op.getUniqueId());
+                        if (args.length > 3 && args[2].equalsIgnoreCase("restore")) {
+                            // by name (what the [restore] link uses - numbers move as new backups come in) or by number
+                            java.io.File pick = null;
+                            for (java.io.File f : list) {
+                                if (f.getName().equalsIgnoreCase(args[3]) || f.getName().equalsIgnoreCase(args[3] + ".yml")) {
+                                    pick = f;
+                                }
+                            }
+
+                            if (pick == null && args[3].matches("\\d{1,4}")) {
+                                int n = Integer.parseInt(args[3]);
+                                pick = n >= 1 && n <= list.size() ? list.get(n - 1) : null;
+                            }
+
+                            if (pick == null) {
+                                sender.sendMessage(Text.mm("<red>No backup " + Text.esc(args[3]) + ". <gray>See /pvpadmin invbackup " + Text.esc(args[1])));
+                            } else {
+                                sender.sendMessage(Text.mm("<green>" + Text.esc(this.plugin.modes().restoreBackup(op.getUniqueId(), pick))));
+                            }
+
+                            break;
+                        }
+
+                        if (list.isEmpty()) {
+                            sender.sendMessage(Text.mm("<gray>No inventory backups for " + Text.esc(args[1]) + " yet <dark_gray>(" + op.getUniqueId() + ")"));
+                            break;
+                        }
+
+                        sender.sendMessage(Text.mm("<gold>Inventory backups of <white>" + Text.esc(args[1]) + "</white> <gray>(newest first):"));
+                        java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("dd MMM HH:mm");
+                        for (int i = 0; i < Math.min(20, list.size()); i++) {
+                            java.io.File f = list.get(i);
+                            org.bukkit.configuration.file.YamlConfiguration y = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(f);
+                            int items = 0;
+                            int ender = 0;
+                            try {
+                                for (org.bukkit.inventory.ItemStack it : org.bukkit.inventory.ItemStack.deserializeItemsFromBytes(java.util.Base64.getDecoder().decode(y.getString("contents", "")))) {
+                                    items += it != null && !it.isEmpty() ? 1 : 0;
+                                }
+
+                                for (org.bukkit.inventory.ItemStack it : org.bukkit.inventory.ItemStack.deserializeItemsFromBytes(java.util.Base64.getDecoder().decode(y.getString("enderchest", "")))) {
+                                    ender += it != null && !it.isEmpty() ? 1 : 0;
+                                }
+                            } catch (RuntimeException ignored) {
+                            }
+
+                            String cmd = "/pvpadmin invbackup " + args[1] + " restore " + f.getName().replace(".yml", "");
+                            sender.sendMessage(Text.mm(" <yellow>#" + (i + 1) + " <white>" + Text.esc(y.getString("group", "?")) + " <gray>" + df.format(new java.util.Date(f.lastModified()))
+                                + " <dark_gray>• <white>" + items + "<gray> stacks, <white>" + ender + "<gray> in ender chest, level " + y.getInt("level")
+                                + " <click:suggest_command:'" + cmd + "'><hover:show_text:'" + cmd + "'><green>[restore]</green></hover></click>"));
+                        }
+
+                        break;
+                }
                 case "winter": {
                         net.practicepvp.lobby.Season se = this.plugin.season();
                         String what = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status";
@@ -1129,6 +1201,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                 out.addAll(
                     List.of(
                         "staff",
+                        "invbackup",
                         "rebuild",
                         "reload",
                         "save",

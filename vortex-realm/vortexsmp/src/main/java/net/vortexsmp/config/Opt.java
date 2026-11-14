@@ -14,6 +14,7 @@ public final class Opt<T> {
     // network: where /hub and /lobby send players (the Practice server)
     public static final Opt<String> HUB_HOST = new Opt<>("network.hub.host", "", "Address of the Practice/lobby server, e.g. play.example.net (empty = /hub is off).");
     public static final Opt<Integer> HUB_PORT = new Opt<>("network.hub.port", 25565, "Port of the Practice/lobby server.");
+    public static final Opt<Boolean> SAME_SERVER = new Opt<>("network.same-server", true, "With VortexRealm/PracticePvP on this server too: the SMP worlds are VortexRealm's SMP-mode worlds, it switches the inventories, and these commands work inside them (/hub goes to its lobby).");
     public static final Opt<String> NETWORK_MODE = new Opt<>("network.mode", "TRANSFER", "TRANSFER = built-in transfer (accepts-transfers=true on the lobby server). PROXY = Velocity/BungeeCord Connect.");
     public static final Opt<String> HUB_PROXY = new Opt<>("network.hub.proxy-name", "lobby", "The lobby's server name in velocity.toml (PROXY mode only).");
     public static final Opt<String> SERVER_NAME = new Opt<>("general.server-name", "Vortex Realm", "Name in the sidebar and tab.");

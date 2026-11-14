@@ -102,6 +102,7 @@ public final class ServerSelector {
             }
 
             boolean changed = dropped > 0;
+            changed |= this.addSmpWorlds();
             if (this.get("smp") == null && this.entries.stream().noneMatch(x -> x.action == ServerSelector.Action.SERVER)) {
                 this.smpDefault();
                 changed = true;
@@ -111,6 +112,36 @@ public final class ServerSelector {
                 this.save();
             }
         }
+    }
+
+    /** While the SMP is on this server: an entry for every other SMP world (ECO...) that has none yet. */
+    private boolean addSmpWorlds() {
+        boolean changed = false;
+        World main = this.modes.smpWorld();
+        for (World w : this.modes.smpWorlds()) {
+            if (w.equals(main) || this.entries.stream().anyMatch(x -> x.action == ServerSelector.Action.WORLD && x.target.equalsIgnoreCase(w.getName()))) {
+                continue;
+            }
+
+            WorldMode m = this.modes.mode(w);
+            String id = w.getName().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "");
+            if (this.get(id) != null) {
+                id = id + "-world";
+            }
+
+            this.add(
+                id,
+                m.color + "<b>" + Text.esc(this.modes.display(w).toUpperCase(Locale.ROOT)) + "</b>",
+                m == WorldMode.ECO ? Material.EMERALD : Material.GRASS_BLOCK,
+                ServerSelector.Action.WORLD,
+                w.getName(),
+                "Its own inventory and ender chest,",
+                "saved and backed up."
+            );
+            changed = true;
+        }
+
+        return changed;
     }
 
     public ServerSelector.Entry get(String id) {
@@ -219,8 +250,16 @@ public final class ServerSelector {
         return e;
     }
 
+    /** The SMP entry opens the SMP world while the SMP is on this server (smp.same-server). */
+    private World sameServerWorld(ServerSelector.Entry e) {
+        return ModeManager.sameServer() && e.action == ServerSelector.Action.SERVER && (e.id.equalsIgnoreCase("smp") || e.id.equalsIgnoreCase("survival"))
+            ? this.modes.smpWorld()
+            : null;
+    }
+
     private World world(ServerSelector.Entry e) {
         return switch (e.action) {
+            case SERVER -> this.sameServerWorld(e);
             case PRACTICE -> this.plugin.lobby().lobby().getWorld();
             case WORLD -> Bukkit.getWorld(e.target);
             case HUB -> this.modes.hubWorld();
@@ -239,7 +278,7 @@ public final class ServerSelector {
             }
 
             return n;
-        } else if (e.action == ServerSelector.Action.SERVER) {
+        } else if (e.action == ServerSelector.Action.SERVER && this.sameServerWorld(e) == null) {
             ServerLink.Ping ping = this.plugin.serverLink() == null ? null : this.plugin.serverLink().ping(e);
             return ping == null ? 0 : ping.players();
         } else {
@@ -264,7 +303,7 @@ public final class ServerSelector {
     private ServerSelector.Status effective(ServerSelector.Entry e) {
         if (e.status != ServerSelector.Status.OPEN || e.action == ServerSelector.Action.COMMAND) {
             return e.status;
-        } else if (e.action == ServerSelector.Action.SERVER) {
+        } else if (e.action == ServerSelector.Action.SERVER && this.sameServerWorld(e) == null) {
             boolean proxy = Opt.NetworkMode.PROXY.name().equals(Cfg.s(Opt.NETWORK_MODE));
             return (proxy ? e.proxyName.isBlank() : e.host().isBlank()) ? ServerSelector.Status.SOON : e.status;
         } else {
@@ -276,6 +315,10 @@ public final class ServerSelector {
     public String live(ServerSelector.Entry e) {
         if (e.action != ServerSelector.Action.SERVER || this.plugin.serverLink() == null) {
             return "";
+        }
+
+        if (this.sameServerWorld(e) != null) {
+            return "<green>● Open <dark_gray>• <white>" + this.players(e) + " <gray>playing";
         }
 
         ServerLink.Ping ping = this.plugin.serverLink().ping(e);
@@ -443,6 +486,8 @@ public final class ServerSelector {
                 p.closeDialog();
                 if (e.action == ServerSelector.Action.COMMAND) {
                     p.performCommand(e.target.startsWith("/") ? e.target.substring(1) : e.target);
+                } else if (e.action == ServerSelector.Action.SERVER && this.sameServerWorld(e) != null) {
+                    this.modes.travel(p, this.sameServerWorld(e));
                 } else if (e.action == ServerSelector.Action.SERVER) {
                     this.plugin.serverLink().send(p, e);
                 } else if (e.action == ServerSelector.Action.PRACTICE) {

@@ -271,7 +271,9 @@ public final class SmpBoard {
         boolean outside = this.plugin.sessions().state(p) == PlayerState.OUTSIDE;
         String group = this.plugin.tab() == null ? "HUB" : this.plugin.tab().group(p);
         PvPProfile prof = this.plugin.profiles().getIfLoaded(p.getUniqueId());
-        boolean want = outside && Cfg.bool(Opt.SMP_SIDEBAR) && this.layouts.containsKey(group) && (prof == null || prof.on(Setting.SCOREBOARD));
+        // in the SMP worlds VortexSMP shows its own sidebar
+        boolean smpOwn = this.plugin.modes() != null && this.plugin.modes().smpWorld(p.getWorld()) && Bukkit.getPluginManager().isPluginEnabled("VortexSMP");
+        boolean want = outside && !smpOwn && Cfg.bool(Opt.SMP_SIDEBAR) && this.layouts.containsKey(group) && (prof == null || prof.on(Setting.SCOREBOARD));
         Scoreboard sb = this.boards.get(p.getUniqueId());
         if (!want) {
             if (sb != null && p.getScoreboard() == sb) {

@@ -81,7 +81,19 @@ public final class Sidebar implements Listener {
     }
 
     private void update(Player p) {
-        if (Cfg.bool(Opt.TAB)) {
+        Realm realm = this.plugin.realm();
+        if (realm.on() && !realm.smp(p.getWorld())) {
+            // outside the SMP, VortexRealm's own sidebar and tab show
+            Scoreboard own = this.boards.remove(p.getUniqueId());
+            this.last.remove(p.getUniqueId());
+            if (own != null && p.getScoreboard() == own) {
+                p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+            }
+
+            return;
+        }
+
+        if (Cfg.bool(Opt.TAB) && !realm.on()) {
             String discord = Cfg.s(Opt.LINK_DISCORD).replaceFirst("^https?://", "");
             p.sendPlayerListHeaderAndFooter(
                 Text.mm("\n" + this.title() + "\n<gray>Survival <dark_gray>• <white>" + Bukkit.getOnlinePlayers().size() + " <gray>online\n"),
@@ -142,7 +154,7 @@ public final class Sidebar implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onJoin(PlayerJoinEvent e) {
-        if (Cfg.bool(Opt.JOIN_MESSAGES)) {
+        if (Cfg.bool(Opt.JOIN_MESSAGES) && !this.plugin.realm().on()) {
             Player p = e.getPlayer();
             e.joinMessage(p.hasPlayedBefore()
                 ? Text.mm("<dark_gray>[<green>+</green>]</dark_gray> <white>" + Text.esc(p.getName()))
@@ -154,7 +166,7 @@ public final class Sidebar implements Listener {
     public void onQuit(PlayerQuitEvent e) {
         this.boards.remove(e.getPlayer().getUniqueId());
         this.last.remove(e.getPlayer().getUniqueId());
-        if (Cfg.bool(Opt.JOIN_MESSAGES)) {
+        if (Cfg.bool(Opt.JOIN_MESSAGES) && !this.plugin.realm().on()) {
             e.quitMessage(Text.mm("<dark_gray>[<red>-</red>]</dark_gray> <gray>" + Text.esc(e.getPlayer().getName())));
         }
     }

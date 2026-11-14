@@ -1,20 +1,20 @@
 {
   "PracticePvP": {
-    "version": "2.6.1",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.6.1.jar",
-    "sha256": "5a15508848b4a934dccd8b5fd7cfa466841a40dc12f033498347e6c27f012147",
-    "notes": "SMP selector: \"Asleep\" status with a sleep note and wake-on-join for free hosts"
+    "version": "2.7.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.7.0.jar",
+    "sha256": "336be6d0ad00e77dd1504280a3cd716c204dd87dc480f04c78aec27f2005566d",
+    "notes": "SMP back on this server: the selector opens the SMP world, old SMP inventories and ender chests return, each world keeps its own inventory with automatic backups (/pvpadmin invbackup)"
   },
   "VortexRealm": {
-    "version": "3.6.1",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.6.1.jar",
-    "sha256": "e0276feb2be32dd9314cd330b7ab953b6199f6da7168a445f444b26f6ba47530",
-    "notes": "SMP selector: \"Asleep\" status with a sleep note and wake-on-join for free hosts"
+    "version": "3.7.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.7.0.jar",
+    "sha256": "3482aecd370df51f9dc6e43cb41404ea92853421a49bb9e7545cf4c38613502f",
+    "notes": "SMP back on this server: the selector opens the SMP world, old SMP inventories and ender chests return, each world keeps its own inventory with automatic backups (/pvpadmin invbackup)"
   },
   "VortexSMP": {
-    "version": "1.5.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexSMP-1.5.0.jar",
-    "sha256": "44f982b38cebf0348fd7cd87d48345cb98e16d078acc1f988199ad3d46b08e72",
-    "notes": "Keep-online bot for hosts that sleep empty servers: /vortexsmp bot on"
+    "version": "1.6.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexSMP-1.6.0.jar",
+    "sha256": "1b66747e5c2088dfb25f6028bc37b639e7e690569256543f1a5bd15d82ea3425",
+    "notes": "Same-server mode: runs next to VortexRealm on one server (homes, tpa, rtp, warps, trade, market in the SMP worlds)"
   }
 }

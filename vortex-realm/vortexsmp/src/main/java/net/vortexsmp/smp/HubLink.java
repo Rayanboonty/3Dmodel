@@ -66,6 +66,16 @@ public final class HubLink implements CommandExecutor, Listener {
 
     /** Players on the lobby server, or -1 when it doesn't answer. */
     public int lobbyPlayers() {
+        Realm realm = this.plugin.realm();
+        if (realm.on()) {
+            int n = 0;
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                n += realm.smp(p.getWorld()) || KeepOnlineBot.isBot(p) ? 0 : 1;
+            }
+
+            return n;
+        }
+
         int[] l = this.lobby;
         return l == null ? -1 : l[0];
     }
@@ -223,7 +233,10 @@ public final class HubLink implements CommandExecutor, Listener {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (sender instanceof Player p) {
+        if (sender instanceof Player p && this.plugin.realm().on()) {
+            // same server: VortexRealm's lobby (combat tag is checked before this runs)
+            this.plugin.realm().toHub(p);
+        } else if (sender instanceof Player p) {
             this.send(p);
         } else {
             sender.sendMessage("Players only.");

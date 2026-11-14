@@ -347,6 +347,10 @@ public final class PracticePlugin extends JavaPlugin {
             for (String c : List.of("worlds", "practice", "hub", "smp")) {
                 this.bind(c, this.modeRules);
             }
+
+            // the SMP on this server: inventory backups and last spots
+            Tasks.timer(1200L, Math.max(2, Cfg.i(Opt.SMP_BACKUP_MINUTES)) * 1200L, this.modes::backupAll);
+            Tasks.timer(600L, 1200L, this.modes::saveLocations);
         });
         this.module("penalties", () -> {
             this.penalties = new Penalties(this);
@@ -795,6 +799,19 @@ public final class PracticePlugin extends JavaPlugin {
                     this.tabColumns.shutdown();
                 }
 
+                if (this.modes != null) {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        try {
+                            this.modes.remember(p, p.getLocation());
+                            this.modes.saveCurrent(p);
+                        } catch (RuntimeException ex) {
+                            this.getLogger().log(Level.WARNING, "Could not save the SMP inventory of " + p.getName(), ex);
+                        }
+                    }
+
+                    this.modes.saveLocations();
+                }
+
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     Session s = this.sessions.get(p);
                     if (s.state == PlayerState.FFA) {
@@ -901,6 +918,10 @@ public final class PracticePlugin extends JavaPlugin {
             this.boards.detach(p);
             this.worlds.exitPvP(p);
             s.state = PlayerState.OUTSIDE;
+            if (this.modes != null) {
+                // back outside: the inventory of the world group they're in now (hub, SMP...)
+                this.modes.stashLegacy(p);
+            }
         }
     }
 

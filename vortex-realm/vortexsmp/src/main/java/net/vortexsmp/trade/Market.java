@@ -328,6 +328,11 @@ public final class Market implements Listener, TabExecutor {
 
     /** Hands over everything waiting in the player's collect box. */
     private void deliver(Player p) {
+        if (this.plugin.realm().on() && !this.plugin.realm().smp(p.getWorld())) {
+            // same server: bought items wait until they are in the SMP (with its inventory)
+            return;
+        }
+
         List<ItemStack> box = dec(this.data.getString("collect." + p.getUniqueId()));
         if (box.isEmpty()) {
             return;
@@ -485,6 +490,18 @@ public final class Market implements Listener, TabExecutor {
         List<ItemStack> back = this.drafts.remove(e.getPlayer().getUniqueId());
         if (back != null) {
             e.getPlayer().getInventory().addItem(back.toArray(new ItemStack[0])).values().forEach(l -> e.getPlayer().getWorld().dropItemNaturally(e.getPlayer().getLocation(), l));
+        }
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.MONITOR)
+    public void onEnterSmp(org.bukkit.event.player.PlayerChangedWorldEvent e) {
+        Player p = e.getPlayer();
+        if (this.plugin.realm().on()) {
+            Tasks.later(20L, () -> {
+                if (p.isOnline()) {
+                    this.deliver(p);
+                }
+            });
         }
     }
 

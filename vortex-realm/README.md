@@ -976,3 +976,18 @@ Requires JDK 21 and Maven. The source of 1.0.0 was recovered from the jar with V
 - Three headless bot players (mineflayer) checked friends, Invisible blocking duels, DND filters, duel requests, match start through the turn-based map ban, spectator lines and chat, and the 80-entry tab.
 
 Dialog screens (settings, duel, challenge) need a real 1.21.6+ client to click through. Older clients get the classic chest menus.
+
+
+## 3.7.0 / 2.7.0 — the SMP back on this server
+
+Put **VortexRealm 3.7.0** and **VortexSMP 1.6.0** on the same server. `smp.same-server: true` is on by default.
+- The selector's SMP button (and `/smp`) takes players to the SMP world from `worlds.yml`, not to another server. Every other SMP world (ECO...) gets its own selector entry.
+- Each world group (hub, survival, eco...) keeps its own inventory, ender chest, XP and health. The first time a player enters the SMP, they get their **old saved SMP inventory and ender chest** back, at their last spot (landing on solid ground).
+- **Backups:** on every world switch, on logout, on shutdown and every `smp.backup-minutes` (default 10). The newest `smp.backup-keep` (default 30) are kept per player and world, in `inventories/backups/<uuid>/`.
+  `/pvpadmin invbackup <player>` lists them; click **[restore]** to put one back. An online player gets it right away; otherwise it loads the next time they enter that world.
+- Deaths in the SMP respawn in the SMP (bed, anchor or SMP spawn). Practice commands (queue, duel, ffa...) are blocked inside the SMP: use `/practice` first.
+- VortexSMP switches into same-server mode by itself:
+  - homes, tpa, rtp, warps, back, combat tag, the sidebar, `/craft`, `/ec`, `/trade` and `/market` work in the SMP worlds;
+  - `/hub` and `/spawn` outside the SMP go to the lobby;
+  - old homes are imported once from the VortexRealm folder (VortexRealm handles the inventories).
+- To go back to a separate SMP server: set `smp.same-server: false`.

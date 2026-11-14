@@ -33,6 +33,8 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -52,6 +54,12 @@ public final class ModeRules implements Listener, CommandExecutor, TabCompleter 
     private final PracticePlugin plugin;
     private final ModeManager modes;
     private final NamespacedKey healthKey;
+    /** Practice commands that would pull a player out of the SMP into a fight (they use /practice first). */
+    private static final java.util.Set<String> PRACTICE_ONLY = java.util.Set.of(
+        "queue", "q", "ranked", "unranked", "duel", "1v1", "fight", "ffa", "spectate", "spec", "kiteditor", "editkit", "layout",
+        "rematch", "bot", "bots", "practicebot", "train", "dummy", "training", "event", "events", "tournament", "tourney", "learn",
+        "academy", "lessons", "tutorial", "challenge", "tierchallenge", "tc"
+    );
 
     public ModeRules(PracticePlugin plugin, ModeManager modes) {
         this.plugin = plugin;
@@ -131,7 +139,7 @@ public final class ModeRules implements Listener, CommandExecutor, TabCompleter 
             if (p.isOnline()) {
                 this.modes.stashLegacy(p);
                 World w = p.getWorld();
-                if (!this.plugin.worlds().managed(w) && this.modes.retired().contains(this.modes.parentOf(w).getName())) {
+                if (!ModeManager.sameServer() && !this.plugin.worlds().managed(w) && this.modes.retired().contains(this.modes.parentOf(w).getName())) {
                     // they logged off in an old SMP world that is still on this server's disk
                     Tp.to(p, this.modes.hub());
                 }
@@ -146,11 +154,52 @@ public final class ModeRules implements Listener, CommandExecutor, TabCompleter 
         if (this.plugin.serverLink() != null) {
             this.plugin.serverLink().forget(e.getPlayer());
         }
+
+        Player p = e.getPlayer();
+        this.modes.remember(p, p.getLocation());
+        try {
+            this.modes.saveCurrent(p);
+        } catch (RuntimeException ex) {
+            this.plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not save the SMP inventory of " + p.getName() + " on logout", ex);
+        }
+    }
+
+    /** Where a player was in an SMP world when they left it (the selector brings them back there). */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTeleport(PlayerTeleportEvent e) {
+        if (e.getTo() != null && e.getFrom().getWorld() != e.getTo().getWorld()) {
+            this.modes.remember(e.getPlayer(), e.getFrom());
+        }
+    }
+
+    /** Practice fights start from /practice, not from inside the SMP. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onSmpCommand(PlayerCommandPreprocessEvent e) {
+        Player p = e.getPlayer();
+        if (!this.modes.smpWorld(p.getWorld())) {
+            return;
+        }
+
+        String m = e.getMessage().startsWith("/") ? e.getMessage().substring(1) : e.getMessage();
+        int sp = m.indexOf(' ');
+        String label = (sp < 0 ? m : m.substring(0, sp)).toLowerCase(Locale.ROOT);
+        label = label.substring(label.indexOf(':') + 1);
+        if (PRACTICE_ONLY.contains(label)) {
+            e.setCancelled(true);
+            p.sendMessage(Text.mm("<red>That's a Practice command. <gray>Go to <white>/practice</white> first - your SMP items stay saved."));
+            Snd.error(p);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onRespawn(PlayerRespawnEvent e) {
         Player p = e.getPlayer();
+        if (this.modes.smpWorld(p.getWorld()) && !e.isBedSpawn() && !e.isAnchorSpawn()) {
+            // no bed or anchor: back to the SMP spawn, not the server's first world
+            World smp = this.modes.parentOf(p.getWorld());
+            e.setRespawnLocation(this.modes.spawn(smp != null && this.modes.smpWorld(smp) ? smp : p.getWorld()));
+        }
+
         if (!this.plugin.worlds().managed(p.getWorld())) {
             Tasks.later(1L, () -> {
                 if (p.isOnline()) {

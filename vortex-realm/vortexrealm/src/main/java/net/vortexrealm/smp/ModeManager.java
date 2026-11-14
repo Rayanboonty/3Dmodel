@@ -65,11 +65,18 @@ public final class ModeManager {
     /** Worlds worlds.yml gives an SMP mode: the SMP now runs on its own server with VortexSMP, so they are left alone. */
     private final List<String> retired = new ArrayList<>();
     private ConfigurationSection old;
+    /** Last spot of each player in each SMP world (the selector brings them back there). */
+    private final File locFile;
+    private final Map<UUID, Map<String, String>> lastLoc = new ConcurrentHashMap<>();
+    private boolean locDirty;
+    private final File backupDir;
 
     public ModeManager(VortexRealm plugin) {
         this.plugin = plugin;
         this.worldsFile = new File(plugin.getDataFolder(), "worlds.yml");
         this.groupDir = new File(plugin.getDataFolder(), "inventories/groups");
+        this.locFile = new File(plugin.getDataFolder(), "last-locations.yml");
+        this.backupDir = new File(plugin.getDataFolder(), "inventories/backups");
         this.groupKey = new NamespacedKey(plugin, "inv_group");
         this.hubItemKey = new NamespacedKey(plugin, "hub_item");
     }
@@ -90,12 +97,13 @@ public final class ModeManager {
 
         this.old = y.getConfigurationSection("settings");
         this.retired.clear();
+        this.loadLocations();
         ConfigurationSection sec = y.getConfigurationSection("worlds");
         if (sec != null) {
             for (String name : sec.getKeys(false)) {
                 WorldMode wm = WorldMode.parse(sec.getString(name + ".mode"), WorldMode.NONE);
                 this.modes.put(name, wm);
-                if (wm.smp()) {
+                if (wm.smp() && !sameServer()) {
                     this.retired.add(name);
                 }
                 String d = sec.getString(name + ".display");
@@ -200,7 +208,7 @@ public final class ModeManager {
         } else {
             WorldMode m = this.modes.get(w.getName());
             if (m != null) {
-                return m.smp() ? WorldMode.NONE : m;
+                return m.smp() && !sameServer() ? WorldMode.NONE : m;
             } else {
                 String n = w.getName();
 
@@ -209,6 +217,9 @@ public final class ModeManager {
                         WorldMode parent = this.modes.get(n.substring(0, n.length() - suffix.length()));
                         if (parent == WorldMode.HUB) {
                             return WorldMode.NONE;
+                        } else if (parent != null && parent.smp() && sameServer()) {
+                            // smp_nether and smp_the_end belong to the smp
+                            return parent;
                         }
                     }
                 }
@@ -272,7 +283,7 @@ public final class ModeManager {
     }
 
     public void setMode(World w, WorldMode mode) {
-        if (mode.smp()) {
+        if (mode.smp() && !sameServer()) {
             mode = WorldMode.NONE;
         }
 
@@ -355,6 +366,12 @@ public final class ModeManager {
      * them. Nothing is ever cleared without a saved copy.
      */
     public void stashLegacy(Player p) {
+        if (sameServer()) {
+            // the SMP is on this server: switch inventory groups instead
+            this.syncGroup(p);
+            return;
+        }
+
         String carried = p.getPersistentDataContainer().get(this.groupKey, PersistentDataType.STRING);
         if (carried == null) {
             carried = net.vortexrealm.util.LegacyKeys.takeString(p, this.groupKey);
@@ -445,6 +462,422 @@ public final class ModeManager {
         return false;
     }
 
+    // ------------------------------------------------------------------ the SMP on this server
+
+    public static boolean sameServer() {
+        return Cfg.bool(Opt.SMP_SAME_SERVER);
+    }
+
+    /** True for a world the SMP plays in (any SMP mode, with its nether and end). */
+    public boolean smpWorld(World w) {
+        return sameServer() && w != null && this.mode(w).smp();
+    }
+
+    /** The first SMP world (the survival one when there is one), for the selector's SMP entry. */
+    public World smpWorld() {
+        World first = null;
+        for (Map.Entry<String, WorldMode> e : this.modes.entrySet()) {
+            World w = Bukkit.getWorld(e.getKey());
+            if (w != null && e.getValue().smp()) {
+                if (e.getValue() == WorldMode.SURVIVAL) {
+                    return w;
+                }
+
+                first = first == null ? w : first;
+            }
+        }
+
+        return first;
+    }
+
+    /** The SMP overworlds (no nethers or ends), loaded ones only. */
+    public List<World> smpWorlds() {
+        List<World> out = new ArrayList<>();
+        for (Map.Entry<String, WorldMode> e : this.modes.entrySet()) {
+            World w = Bukkit.getWorld(e.getKey());
+            if (w != null && e.getValue().smp() && sameServer()) {
+                out.add(w);
+            }
+        }
+
+        return out;
+    }
+
+    /** The inventory group of a world: HUB, an SMP mode, or null for the PvP worlds (their own inventory system). */
+    private String groupOf(World w) {
+        if (w == null || this.plugin.worlds().managed(w)) {
+            return null;
+        }
+
+        WorldMode m = this.mode(w);
+        return m == WorldMode.HUB ? "HUB" : (m.smp() ? m.name() : null);
+    }
+
+    /** The group the player's live inventory belongs to (their marker). */
+    public String carried(Player p) {
+        String c = p.getPersistentDataContainer().get(this.groupKey, PersistentDataType.STRING);
+        return c != null ? c : net.vortexrealm.util.LegacyKeys.takeString(p, this.groupKey);
+    }
+
+    /**
+     * Keeps each world group's inventory, ender chest, XP and health apart (hub, survival SMP, eco SMP...). When the
+     * player's live inventory belongs to another group than the world they are in, it is saved to that group's file
+     * (the previous file kept as .prev.yml, a timestamped backup made) and the world's group is loaded exactly.
+     * Items of an unknown group are never written over a saved inventory: they go to an "-unsorted-" file.
+     */
+    public void syncGroup(Player p) {
+        if (!sameServer() || this.plugin.worlds().isMarked(p)) {
+            return;
+        }
+
+        String target = this.groupOf(p.getWorld());
+        if (target == null) {
+            return;
+        }
+
+        String carried = this.carried(p);
+        if (target.equals(carried)) {
+            return;
+        }
+
+        if (carried == null && target.equals("HUB")) {
+            // the hub gives its own items: anything else they carry is kept in a file first
+            if (this.stashForeign(p)) {
+                p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
+            }
+
+            return;
+        }
+
+        if (carried == null) {
+            if (hasItems(p)) {
+                // items of an unknown group (no marker): keep them safe, never over a saved inventory
+                File existing = this.groupFile(p.getUniqueId(), target);
+                File f = existing.exists()
+                    ? new File(existing.getParentFile(), target.toLowerCase(Locale.ROOT) + "-unsorted-" + System.currentTimeMillis() + ".yml")
+                    : existing;
+                if (!this.saveGroupTo(p, f, target, false)) {
+                    return;
+                }
+
+                if (existing.exists() && !f.equals(existing)) {
+                    this.plugin.getLogger().warning(p.getName() + " had items without an inventory group; they were kept in " + f.getName()
+                        + " (/pvpadmin invbackup " + p.getName() + ") and " + existing.getName() + " was loaded.");
+                } else {
+                    // nothing saved yet for this world: what they carry becomes its inventory
+                    p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
+                    return;
+                }
+            }
+        } else {
+            if (!this.saveGroup(p, carried)) {
+                return;
+            }
+        }
+
+        this.loadGroup(p, target);
+        p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
+    }
+
+    private boolean saveGroup(Player p, String group) {
+        boolean ok = this.saveGroupTo(p, this.groupFile(p.getUniqueId(), group), group, true);
+        if (ok) {
+            this.backup(p, group, false);
+        }
+
+        return ok;
+    }
+
+    /** Logout and shutdown: the group the player carries is written to its file too (and backed up if it changed). */
+    public void saveCurrent(Player p) {
+        if (!sameServer() || this.plugin.worlds().isMarked(p)) {
+            return;
+        }
+
+        String g = this.carried(p);
+        if (g != null && !g.equals("HUB") && g.equals(this.groupOf(p.getWorld()))) {
+            if (this.saveGroupTo(p, this.groupFile(p.getUniqueId(), g), g, true)) {
+                this.backup(p, g, true);
+            }
+        }
+    }
+
+    /**
+     * The first time a player enters an SMP group with this version, the newest of its saved copies is used: 3.x put
+     * the items of players who had logged off inside the SMP into "&lt;group&gt;-unsorted-&lt;time&gt;.yml", which is
+     * newer than &lt;group&gt;.yml. Every other copy stays on disk (and in /pvpadmin invbackup).
+     */
+    private void pickNewest(UUID u, String group) {
+        File main = this.groupFile(u, group);
+        File stateFile = new File(main.getParentFile(), "state.yml");
+        YamlConfiguration st = YamlConfiguration.loadConfiguration(stateFile);
+        if (st.getBoolean("checked." + group)) {
+            return;
+        }
+
+        String base = group.toLowerCase(Locale.ROOT);
+        File[] copies = main.getParentFile().listFiles((d, n) -> n.startsWith(base + "-unsorted-") && n.endsWith(".yml"));
+        File best = main.exists() ? main : null;
+        long bestTime = best == null ? Long.MIN_VALUE : savedAt(best);
+        for (File f : copies == null ? new File[0] : copies) {
+            long t = savedAt(f);
+            if (t > bestTime) {
+                best = f;
+                bestTime = t;
+            }
+        }
+
+        try {
+            if (best != null && !best.equals(main)) {
+                File keep = new File(this.backupFolder(u), base + "-before-newest-" + System.currentTimeMillis() + ".yml");
+                if (main.exists()) {
+                    keep.getParentFile().mkdirs();
+                    Files.copy(main.toPath(), keep.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                Files.copy(best.toPath(), main.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                this.plugin.getLogger().info("Using the newer saved " + group + " inventory " + best.getName() + " for " + u + " (the older one is a backup).");
+            }
+
+            st.set("checked." + group, true);
+            main.getParentFile().mkdirs();
+            st.save(stateFile);
+        } catch (IOException e) {
+            this.plugin.getLogger().log(Level.WARNING, "Could not check the saved " + group + " inventories of " + u, e);
+        }
+    }
+
+    private static long savedAt(File f) {
+        long t = YamlConfiguration.loadConfiguration(f).getLong("saved", 0L);
+        return t > 0L ? t : f.lastModified();
+    }
+
+    /** Loads a group's saved inventory exactly (empty when the group has nothing saved yet). */
+    private void loadGroup(Player p, String group) {
+        if (!group.equals("HUB")) {
+            this.pickNewest(p.getUniqueId(), group);
+        }
+
+        File f = this.groupFile(p.getUniqueId(), group);
+        p.getInventory().clear();
+        p.getEnderChest().clear();
+        p.setLevel(0);
+        p.setExp(0.0F);
+        if (!f.exists()) {
+            p.setGameMode(group.equals("HUB") ? GameMode.ADVENTURE : GameMode.SURVIVAL);
+            p.setFoodLevel(20);
+            p.updateInventory();
+            return;
+        }
+
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
+        try {
+            ItemStack[] c = ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(y.getString("contents", "")));
+            ItemStack[] fixed = new ItemStack[p.getInventory().getContents().length];
+            for (int i = 0; i < fixed.length && i < c.length; i++) {
+                fixed[i] = c[i] != null && !c[i].isEmpty() ? c[i] : null;
+            }
+
+            p.getInventory().setContents(fixed);
+            ItemStack[] e = ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(y.getString("enderchest", "")));
+            ItemStack[] e2 = new ItemStack[p.getEnderChest().getSize()];
+            for (int i = 0; i < e2.length && i < e.length; i++) {
+                e2[i] = e[i] != null && !e[i].isEmpty() ? e[i] : null;
+            }
+
+            p.getEnderChest().setContents(e2);
+            p.setLevel(y.getInt("level"));
+            p.setExp((float)Math.max(0.0, Math.min(1.0, y.getDouble("exp"))));
+            p.setFoodLevel(y.getInt("food", 20));
+            try {
+                GameMode gm = GameMode.valueOf(y.getString("gamemode", "SURVIVAL"));
+                p.setGameMode(group.equals("HUB") || gm != GameMode.ADVENTURE ? gm : GameMode.SURVIVAL);
+            } catch (IllegalArgumentException ignored) {
+                p.setGameMode(GameMode.SURVIVAL);
+            }
+
+            double max = p.getAttribute(Attribute.MAX_HEALTH) == null ? 20.0 : p.getAttribute(Attribute.MAX_HEALTH).getValue();
+            p.setHealth(Math.max(1.0, Math.min(max, y.getDouble("health", 20.0))));
+            // what they got when entering is a backup too
+            this.backup(p, group, true);
+        } catch (RuntimeException ex) {
+            this.plugin.getLogger().log(Level.SEVERE, "Could not load the " + group + " inventory of " + p.getName() + "; the file was kept.", ex);
+        }
+
+        p.updateInventory();
+    }
+
+    // ------------------------------------------------------------------ inventory backups
+
+    private File backupFolder(UUID u) {
+        return new File(this.backupDir, u.toString());
+    }
+
+    /**
+     * A timestamped copy of the player's live inventory, ender chest, XP and health for a group, kept in
+     * inventories/backups/&lt;uuid&gt;/&lt;group&gt;-&lt;time&gt;.yml (the oldest beyond smp.backup-keep are removed).
+     * {@code onlyIfChanged}: skipped when nothing changed since the last backup.
+     */
+    public void backup(Player p, String group, boolean onlyIfChanged) {
+        if (group == null || group.equals("HUB")) {
+            // the hub gives its own items every time: nothing to keep
+            return;
+        }
+
+        File dir = this.backupFolder(p.getUniqueId());
+        File[] mine = dir.listFiles((d, n) -> n.startsWith(group.toLowerCase(Locale.ROOT) + "-") && n.endsWith(".yml"));
+        if (onlyIfChanged && mine != null && mine.length > 0) {
+            File newest = java.util.Arrays.stream(mine).max(Comparator.comparingLong(File::lastModified)).get();
+            YamlConfiguration last = YamlConfiguration.loadConfiguration(newest);
+            if (sameItems(p.getInventory().getContents(), last.getString("contents")) && sameItems(p.getEnderChest().getContents(), last.getString("enderchest"))
+                && last.getInt("level") == p.getLevel()) {
+                return;
+            }
+        }
+
+        File f = new File(dir, group.toLowerCase(Locale.ROOT) + "-" + new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date()) + ".yml");
+        if (this.saveGroupTo(p, f, group, false) && mine != null) {
+            int keep = Cfg.i(Opt.SMP_BACKUP_KEEP);
+            List<File> all = new ArrayList<>(List.of(mine));
+            all.add(f);
+            all.sort(Comparator.comparingLong(File::lastModified).reversed());
+            for (int i = keep; i < all.size(); i++) {
+                all.get(i).delete();
+            }
+        }
+    }
+
+    /** Same items in the same slots (the saved bytes can differ for equal items). */
+    private static boolean sameItems(ItemStack[] live, String saved) {
+        try {
+            ItemStack[] old = ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(saved == null ? "" : saved));
+            for (int i = 0; i < Math.max(live.length, old.length); i++) {
+                ItemStack a = i < live.length && live[i] != null && !live[i].isEmpty() ? live[i] : null;
+                ItemStack b = i < old.length && old[i] != null && !old[i].isEmpty() ? old[i] : null;
+                if (a == null ? b != null : !a.equals(b)) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Every few minutes: a backup of each player in an SMP world (only when something changed). */
+    public void backupAll() {
+        if (!sameServer()) {
+            return;
+        }
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            String g = this.carried(p);
+            if (g != null && g.equals(this.groupOf(p.getWorld()))) {
+                this.backup(p, g, true);
+            }
+        }
+    }
+
+    /** The backups of a player, newest first. */
+    public List<File> backups(UUID u) {
+        File[] fs = this.backupFolder(u).listFiles((d, n) -> n.endsWith(".yml"));
+        List<File> out = new ArrayList<>(fs == null ? List.of() : List.of(fs));
+        out.sort(Comparator.comparingLong(File::lastModified).reversed());
+        return out;
+    }
+
+    /**
+     * Puts a backup back. When the player is online in that backup's world group it is loaded right away (what they
+     * carry now is backed up first); otherwise the group's saved file is replaced (the current one backed up) and
+     * they get it the next time they enter that world.
+     */
+    public String restoreBackup(java.util.UUID u, File backup) {
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(backup);
+        String group = y.getString("group", "SURVIVAL").toUpperCase(Locale.ROOT);
+        File target = this.groupFile(u, group);
+        Player p = Bukkit.getPlayer(u);
+        try {
+            if (p != null && group.equals(this.carried(p)) && group.equals(this.groupOf(p.getWorld()))) {
+                this.backup(p, group, false);
+                Files.copy(backup.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                this.loadGroup(p, group);
+                return "Restored " + backup.getName() + " - " + p.getName() + " has it now (what they had is in a new backup).";
+            }
+
+            if (target.exists()) {
+                File keep = new File(this.backupFolder(u), group.toLowerCase(Locale.ROOT) + "-before-restore-" + System.currentTimeMillis() + ".yml");
+                keep.getParentFile().mkdirs();
+                Files.copy(target.toPath(), keep.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            target.getParentFile().mkdirs();
+            Files.copy(backup.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            if (p != null && group.equals(this.carried(p))) {
+                // they carry this group somewhere else (a hub?) - the switch loads the file next time
+                return "Restored " + backup.getName() + " into the saved " + group + " inventory; they get it when they next enter the " + group + " world.";
+            }
+
+            return "Restored " + backup.getName() + " into the saved " + group + " inventory (they get it in the " + group + " world).";
+        } catch (IOException e) {
+            return "Restoring failed: " + e.getMessage();
+        }
+    }
+
+    // ------------------------------------------------------------------ last spots in the SMP worlds
+
+    public void remember(Player p, Location l) {
+        if (l != null && l.getWorld() != null && this.smpWorld(l.getWorld())) {
+            this.lastLoc.computeIfAbsent(p.getUniqueId(), u -> new ConcurrentHashMap<>()).put(l.getWorld().getName(), Locs.serialize(l));
+            this.locDirty = true;
+        }
+    }
+
+    public Location last(Player p, World w) {
+        Map<String, String> m = this.lastLoc.get(p.getUniqueId());
+        Location l = m == null ? null : Locs.parse(m.get(w.getName()));
+        return l != null && l.getWorld() != null ? l : null;
+    }
+
+    private void loadLocations() {
+        this.lastLoc.clear();
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(this.locFile);
+        for (String k : y.getKeys(false)) {
+            ConfigurationSection s = y.getConfigurationSection(k);
+            if (s != null) {
+                try {
+                    Map<String, String> m = new ConcurrentHashMap<>();
+                    for (String w : s.getKeys(false)) {
+                        m.put(w, s.getString(w));
+                    }
+
+                    this.lastLoc.put(UUID.fromString(k), m);
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
+    }
+
+    public void saveLocations() {
+        if (!this.locDirty) {
+            return;
+        }
+
+        this.locDirty = false;
+        YamlConfiguration y = new YamlConfiguration();
+        for (Entry<UUID, Map<String, String>> e : this.lastLoc.entrySet()) {
+            for (Entry<String, String> w : e.getValue().entrySet()) {
+                y.set(e.getKey() + "." + w.getKey(), w.getValue());
+            }
+        }
+
+        try {
+            y.save(this.locFile);
+        } catch (IOException ex) {
+            this.plugin.getLogger().log(Level.WARNING, "Could not save last-locations.yml", ex);
+        }
+    }
+
     public File groupFile(UUID u, String group) {
         return new File(this.groupDir, u + "/" + group.toLowerCase(Locale.ROOT) + ".yml");
     }
@@ -493,8 +926,35 @@ public final class ModeManager {
         } else if (this.mode(w) == WorldMode.HUB) {
             return this.spawn(w);
         } else {
-            return this.spawn(w);
+            Location last = this.last(p, w);
+            last = last == null ? null : safeSpot(last);
+            return last != null ? last : this.spawn(w);
         }
+    }
+
+    /** The spot itself when it stands on solid ground with room to stand, else the top block there (null: none). */
+    private static Location safeSpot(Location l) {
+        World w = l.getWorld();
+        org.bukkit.block.Block feet = l.getBlock();
+        if (!feet.getType().isSolid() && !feet.getRelative(0, 1, 0).getType().isSolid()) {
+            for (int i = 1; i <= 3; i++) {
+                org.bukkit.block.Block under = feet.getRelative(0, -i, 0);
+                if (under.getType().isSolid()) {
+                    return i == 1 ? l : new Location(w, l.getX(), under.getY() + 1.0, l.getZ(), l.getYaw(), l.getPitch());
+                }
+
+                if (under.isLiquid()) {
+                    break;
+                }
+            }
+        }
+
+        int y = w.getHighestBlockYAt(l.getBlockX(), l.getBlockZ());
+        if (y <= w.getMinHeight() || !w.getBlockAt(l.getBlockX(), y, l.getBlockZ()).getType().isSolid()) {
+            return null;
+        }
+
+        return new Location(w, l.getBlockX() + 0.5, y + 1.0, l.getBlockZ() + 0.5, l.getYaw(), l.getPitch());
     }
 
     public void travel(Player p, World w) {
@@ -540,6 +1000,7 @@ public final class ModeManager {
                         PlayerState now = this.plugin.sessions().state(p);
                         if (!now.fighting() && now != PlayerState.PREMATCH) {
                             Tp.to(p, target);
+                            p.setFallDistance(0.0F);
                             Snd.play(p, "entity.enderman.teleport", 0.7F, 1.2F);
                             p.getWorld().spawnParticle(Particle.REVERSE_PORTAL, p.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.8, 0.5, 0.05);
                             Fx.title(p, Text.mm(this.mode(w).color + "<b>" + Text.esc(name)), Text.mm("<gray>Welcome!"), 5, 30, 10);

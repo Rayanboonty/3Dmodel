@@ -3,6 +3,8 @@ version: '${project.version}'
 main: net.vortexsmp.VortexSMP
 api-version: '1.21'
 author: Vortex Realm
+# loads after the practice plugin so they can share one server (same-server mode)
+softdepend: [VortexRealm, PracticePvP, VortexPvP]
 description: The Vortex Realm survival SMP - homes, tpa, rtp, warps, back, combat tag, /hub back to the Practice server.
 commands:
   hub:

@@ -19,11 +19,31 @@ public final class ModeManager {
     }
 
     public WorldMode mode(World w) {
-        return WorldMode.SURVIVAL;
+        // same server as VortexRealm: its world modes (HUB, PVP, SURVIVAL, ECO...)
+        return this.plugin.realm().on() ? this.plugin.realm().mode(w) : WorldMode.SURVIVAL;
     }
 
     /** /spawn: the spot set with /setspawn (in the main world), otherwise the world spawn. */
     public Location spawn(World w) {
+        Realm realm = this.plugin.realm();
+        if (realm.on()) {
+            // the spawn of the SMP world the player is in (or of the main SMP world)
+            World base = this.parentOf(w);
+            if (base == null || !realm.smp(base)) {
+                base = realm.smpWorld();
+            }
+
+            Location own = Locs.parse(this.plugin.getConfig().getString("spawn"));
+            if (own != null && own.getWorld() != null && own.getWorld().equals(base)) {
+                return own;
+            }
+
+            Location rl = base == null ? null : realm.spawn(base);
+            if (rl != null) {
+                return rl;
+            }
+        }
+
         Location l = Locs.parse(this.plugin.getConfig().getString("spawn"));
         if (l != null && l.getWorld() != null) {
             return l;
@@ -37,10 +57,14 @@ public final class ModeManager {
         this.plugin.getConfig().set("spawn", Locs.serialize(l));
         this.plugin.saveConfig();
         l.getWorld().setSpawnLocation(l);
+        if (this.plugin.realm().on() && this.plugin.realm().smp(l.getWorld())) {
+            // deaths without a bed respawn here too
+            this.plugin.realm().setSpawn(l);
+        }
     }
 
     public World hubWorld() {
-        return null;
+        return this.plugin.realm().on() ? this.plugin.realm().hubWorld() : null;
     }
 
     /** The overworld a nether or end belongs to. */

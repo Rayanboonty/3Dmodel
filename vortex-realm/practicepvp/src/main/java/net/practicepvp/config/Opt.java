@@ -1951,6 +1951,20 @@ public final class Opt<T> {
         null,
         false
     );
+    public static final Opt<Boolean> SMP_SAME_SERVER = bool(
+        "smp.same-server",
+        true,
+        Opt.Section.NETWORK,
+        "SMP On This Server",
+        "The SMP worlds of worlds.yml run on this server again: the selector opens them, every SMP world group keeps its own inventory, ender chest and XP (saved and backed up), and VortexSMP adds homes, tpa, rtp and more. Off = the SMP is on another server (transfer).",
+        Material.GRASS_BLOCK
+    );
+    public static final Opt<Integer> SMP_BACKUP_MINUTES = integer(
+        "smp.backup-minutes", 10, Opt.Section.NETWORK, "Inventory Backups", "Minutes between automatic backups of every SMP player's inventory and ender chest (also on every world switch and logout).", Material.CHEST, 2, 120, 1
+    );
+    public static final Opt<Integer> SMP_BACKUP_KEEP = integer(
+        "smp.backup-keep", 30, Opt.Section.NETWORK, "Backups Kept", "Inventory backups kept per player and world group (the oldest are removed).", Material.BOOKSHELF, 5, 500, 5
+    );
     public static final Opt<Boolean> UPDATES = bool(
         "updates.enabled",
         true,

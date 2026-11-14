@@ -99,6 +99,10 @@ public final class OldImport implements Listener, CommandExecutor {
         File root = this.findRoot();
         if (this.state.getBoolean("done")) {
             this.summary = this.state.getString("summary", "done");
+            if (this.plugin.realm().on()) {
+                return;
+            }
+
             int had = this.state.contains("inventories") ? this.state.getInt("inventories") : parse(this.summary.replaceAll(".* (\\d+) inventories.*", "$1"));
             if (root == null || had > 0 || modeCounts(root).isEmpty()) {
                 return;
@@ -532,7 +536,7 @@ public final class OldImport implements Listener, CommandExecutor {
 
         // where players last were: used once, when they first come here
         YamlConfiguration last = YamlConfiguration.loadConfiguration(new File(root, "last-locations.yml"));
-        if (Cfg.bool(Opt.IMPORT_LOCATIONS)) {
+        if (Cfg.bool(Opt.IMPORT_LOCATIONS) && !this.plugin.realm().on()) {
             for (String u : last.getKeys(false)) {
                 ConfigurationSection s = last.getConfigurationSection(u);
                 if (s == null) {
@@ -556,7 +560,8 @@ public final class OldImport implements Listener, CommandExecutor {
         // inventories: inventories/groups/<uuid>/<mode>.yml (and the "-unsorted-" copies) of the chosen modes
         File groups = new File(root, "inventories/groups");
         File[] players = groups.listFiles(File::isDirectory);
-        if (Cfg.bool(Opt.IMPORT_INVENTORIES) && players != null) {
+        // same server: VortexRealm loads the old inventories itself (each world group keeps its own)
+        if (Cfg.bool(Opt.IMPORT_INVENTORIES) && !this.plugin.realm().on() && players != null) {
             for (File pd : players) {
                 UUID u;
                 try {
@@ -921,7 +926,7 @@ public final class OldImport implements Listener, CommandExecutor {
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPreLogin(org.bukkit.event.player.AsyncPlayerPreLoginEvent e) {
-        if (e.getLoginResult() != org.bukkit.event.player.AsyncPlayerPreLoginEvent.Result.ALLOWED || !Cfg.bool(Opt.IMPORT_INVENTORIES)) {
+        if (e.getLoginResult() != org.bukkit.event.player.AsyncPlayerPreLoginEvent.Result.ALLOWED || !Cfg.bool(Opt.IMPORT_INVENTORIES) || this.plugin.realm().on()) {
             return;
         }
 
@@ -987,7 +992,7 @@ public final class OldImport implements Listener, CommandExecutor {
     }
 
     private void welcome(Player p) {
-        if (net.vortexsmp.smp.KeepOnlineBot.isBot(p)) {
+        if (net.vortexsmp.smp.KeepOnlineBot.isBot(p) || this.plugin.realm().on()) {
             return;
         }
 
