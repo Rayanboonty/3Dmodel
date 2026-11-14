@@ -143,8 +143,9 @@ fun SetupScreen(s: UiState, a: SetupActions) {
                     downloadedNotOnPhone -> GradientButton("Add to phone", a.addRuntime, enabled = idle && s.canStage, height = 46.dp, modifier = Modifier.width(170.dp))
                     r != null && r.version != s.status?.runtimeVersion ->
                         GradientButton("Download ${r.version}", a.downloadRuntime, enabled = idle, height = 46.dp, modifier = Modifier.width(190.dp))
-                    r == null -> GlassButton(if (s.releaseError != null) "Try again" else "Look up", a.findRelease, enabled = !s.releaseLooking, icon = Icons.Rounded.Refresh)
                 }
+                // Always there: a newer runtime may have come out since the last look.
+                GlassButton(if (r == null && s.releaseError != null) "Try again" else "Check for a newer one", a.findRelease, enabled = !s.releaseLooking, icon = Icons.Rounded.Refresh)
                 GlassButton("Choose file", a.pickRuntime, enabled = idle && s.canStage, icon = Icons.Rounded.FolderOpen)
             }
             // Downloading needs only the internet; adding to the phone needs root and OneOS. Say which is missing.

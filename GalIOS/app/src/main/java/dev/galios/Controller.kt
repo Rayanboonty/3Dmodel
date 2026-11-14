@@ -159,7 +159,9 @@ class Controller(
         }
         if (build?.state == PhoneBuild.Status.State.RUNNING) watchPhoneBuild()
         if (checks.root) autoSaveSessionLog(status)
-        if (_state.value.release == null && !_state.value.releaseLooking) lookupRelease()
+        // A new runtime is published often: look again on every refresh (opening the app, coming back to it), at most
+        // once a minute, not only when none was found yet.
+        if (!_state.value.releaseLooking && (_state.value.release == null || System.currentTimeMillis() - lastReleaseLookup > 60_000)) lookupRelease()
         checkForUpdate()
     }
 
@@ -171,7 +173,10 @@ class Controller(
             ?.maxByOrNull { it.lastModified() }
 
     /** Finds the newest OneiOS runtime on GitHub. Needs only the internet, not root. */
+    @Volatile private var lastReleaseLookup = 0L
+
     fun lookupRelease() = scope.launch {
+        lastReleaseLookup = System.currentTimeMillis()
         _state.update { it.copy(releaseLooking = true, releaseError = null) }
         val (r, err) = try {
             val found = RuntimeRelease.newest()
