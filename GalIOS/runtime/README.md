@@ -10,31 +10,26 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
 - `0004-touch-stays-awake.patch`: `touch-sleep` defaults to 0, so the touch IC is not put to sleep when iOS's
   brightness reaches 0. On the S25 Ultra the lock screen dimmed and then took no touches.
 
-- `0002-ram-host-floor.patch`: `ram=auto` leaves Android at least 3.5 GiB (OneiOS: 1.5 GiB): iOS gets 7424 MiB on
-  the S25 Ultra. iOS fills its RAM with file cache down to about 600 MiB free, and Android's own part (kernel, KGSL,
-  display, xnuhost's page tables) took 3.0-3.5 GiB, so Android keeps about (floor - 2.9 GiB): with 1.5 GiB it fell
-  to 670 MiB and swapped 1.8 GB; 4 GiB (galios.4) left it 1.2 GiB and iOS never used its compressor; 3 GiB
-  (galios.6, galios.7) would leave about 200 MiB once iOS's cache is full.
-- `0003-side-key-without-actuator.patch`: `oneios-actuator=0` in the default boot arguments. With it (galios.4) the
-  side key locked iOS 0.85 s after the press (`request_power_change ... powerstate 0`); without it the presses
-  reached backboardd and nothing followed (OneiOS docs/newtodo.md 2). Haptics did nothing either way.
+- `0003-side-key-without-actuator.patch`: the default boot arguments get OneiOS docs/hardware.md 5's boot C
+  (`oneios-actuator=0`: on the S25 Ultra the side key then locked iOS in 0.85 s) and boot E
+  (`oneios-hid-buttons-builtin=1`: the side buttons published Built-In, Consumer Control; backboardd took them for an
+  external keyboard, the likely reason the volume keys did nothing). E needs a kernel from OneiOS a623515 on.
 - `0005-vcpus-keep-their-cores.patch`: every 2 s xnuhost reads each vCPU's affinity and sets it again when it is not
   its plan's (the iOS threads follow by the epoch). On the S25 Ultra, fast-charging, the two P vCPUs could not take
   the prime cores at the start (`vCPU 6 on host CPUs 0x40: Invalid argument`) and ran on the E cores beside the
   pinned vCPUs for the whole session: each vCPU got about a third of a core, single page faults took up to 16 s.
-
-- `0006-side-key-brings-brightness-back.patch`: iOS 27's CoreBrightness sends the slider as `DisplayBrightness`, a
-  float that IOKit's serialization hands the driver as the integer 0 (`Brightness number 0x0 ... nothing sent`), and
-  after the side key wakes the display it sends no other level, so the panel stayed at its floor (dim after every
-  lock). A side-key press while iOS's level is 0 now brings the last lit level back 600 ms later, unless iOS sets one.
-
-- `0007-brightness-dimmest-is-the-panels.patch`: the dimmest light level iOS asks for in a session goes on the
-  panel's floor, and the levels up to 10 % of the light are spread from there (above that nothing changes): iOS's
-  slider bottom lit the panel well above One UI's dimmest. OneiOS's brightness tests and new ones: 80 checks, 0 failures.
+- `0006-brightness-key-fallback-and-dimmest.patch`: (1) the dimmest light level iOS asks for in a session goes on
+  the panel's floor and the levels up to 10 % of the light are spread from there (iOS's bottom lit the panel well above
+  One UI's dimmest); (2) for a kernel without hosted 0069 (no display power from iOS's framebuffer), a side-key press
+  while iOS's display counts as on and its level is 0 brings iOS's last level back after 600 ms (after a lock the
+  panel stayed at its floor). With 0069 the display power does that and the fallback stays out. Brightness tests:
+  90 checks, 0 failures (OneiOS's 82 and 8 new, both kernels' cases).
 - `0008-animation-boost-finds-the-vcpus.patch`: adds a drm2kgsl patch. drm2kgsl raises the vCPU threads' uclamp.min
   to 1024 while the compositor animates (Droid-VM measured page swipes held back by schedutil at 2.2-2.7 GHz), but it
   looked for crosvm's thread names only (`crosvm_vcpu*`); xnuhost's are `xnu-cpuN`, so the phone logged
   `vCPU uclamp.min 1024: 0 of 0 threads` and the boost never happened.
 
-History: galios.4 had 0002 at 4 GiB and 0003 and felt worse than galios.3; its log showed the cause was the
-P vCPUs' lost cores (0005), not those two. galios.5 had only 0001 and 0004.
+History: galios.4 had a 4 GiB RAM floor and `oneios-actuator=0` and felt worse than galios.3; its log showed the cause
+was the P vCPUs' lost cores (0005). galios.6-8 had a RAM floor of their own (3-3.5 GiB) and the touch IC kept awake at
+level 0; OneiOS main now fits `ram=auto` to the session's needs (#30) and sleeps the touch IC only at a real display
+off (#29, hosted 0069), so galios.9 (OneiOS 3233fed) takes theirs and drops both.

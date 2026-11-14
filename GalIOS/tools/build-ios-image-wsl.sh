@@ -212,6 +212,23 @@ if [ ! -x out/bin/ipsw ]; then
 fi
 ok "OneiOS ready: $(git log -1 --format='%h %cs')"
 
+# A newer OneiOS whose kernel changed (its hosted patches, the drivers, the kernel's pins, the generators and the
+# prelink in oneios-tool): the kernel, its collection and the image are made again, from a clean kernel build, and
+# the pinned sources are fetched again when the pins moved. Git's tree hashes of those folders name what the kernel
+# was built from; a kernel built before GalIOS kept that record counts as an old one.
+src_of() { local out="" p; for p in "$@"; do out="$out $(git rev-parse -q --verify "HEAD:$p" 2>/dev/null || echo none)"; done; echo "${out# }"; }
+kernel_src=$(src_of kernel drivers tools/oneios-tool/crates/oneios-kernel tools/oneios-tool/crates/oneios-prelink)
+pins_src=$(src_of kernel/pins.sh)
+if is_done kernel && [ "$(cat "$WORK/.kernel-src" 2>/dev/null)" != "$kernel_src" ]; then
+  say "OneiOS's kernel changed since this kernel was built ($(git log -1 --format='%h %cs' -- kernel drivers)): it is built again with the image"
+  rm -f "$WORK/.done-kernel" "$WORK/.done-prelink" "$WORK/.done-image" "$WORK/.done-verify"
+  rm -rf "$ONEIOS/out/kernel-hosted-galios"
+  if [ "$(cat "$WORK/.kernel-pins" 2>/dev/null)" != "$pins_src" ]; then
+    say "Getting the kernel's pinned sources again (the pins moved)"
+    kernel/fetch.sh
+  fi
+fi
+
 if [ "$setup_only" = 1 ]; then
   say "Setup done. Run again with the path of your .ipsw to build the image."
   exit 0
@@ -271,6 +288,8 @@ if ! is_done kernel; then
     ok "kernel helpers installed in this Ubuntu's /usr/bin (no overlay needed)"
   fi
   env HOSTED_OUT=galios XNU_FILESET_REFERENCE=1 kernel/build-hosted.sh || { kernel_failed; false; }
+  echo "$kernel_src" > "$WORK/.kernel-src"
+  echo "$pins_src" > "$WORK/.kernel-pins"
   done_mark kernel
 fi
 if ! is_done prelink; then

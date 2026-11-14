@@ -64,11 +64,11 @@ jobs:
           for b in bin/xnuhost bin/gpuctl; do ! strings "$d/$b" | grep -q 'this build has no drm2kgsl'; done
           # the fence table is made (GalIOS/runtime/patches/0001, or OneiOS's own fix)
           grep -q 'virgl_fence_table_init' OneiOS/runtime/xnuhost/src/*.c
-          # GalIOS's setting is in this source: the touch IC stays awake at iOS's level 0
-          grep -q 'c->touch_sleep = false' OneiOS/runtime/xnuhost/src/config.c
+          # GalIOS's fixes are in this source (GalIOS/runtime/patches)
           grep -q 'place_watch_start' OneiOS/runtime/xnuhost/src/main.c
-          grep -q 'br_bright_power_key' OneiOS/runtime/xnuhost/src/main.c
+          grep -q 'key_fallback' OneiOS/runtime/bridges/brightness/brightness.c
           grep -q 'bottom_remap' OneiOS/runtime/bridges/brightness/brightness.c
+          strings "$d/bin/xnuhost" | grep -q 'oneios-hid-buttons-builtin=1'
           test -f OneiOS/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
           strings "$d/bin/xnuhost" | grep -q 'oneios-actuator=0'
           # the display helper must load in app_process: every symbol it uses from a library it names (OneiOS f7bb1c3:
