@@ -298,7 +298,8 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                             if (pick == null) {
                                 sender.sendMessage(Text.mm("<red>No backup " + Text.esc(args[3]) + ". <gray>See /pvpadmin invbackup " + Text.esc(args[1])));
                             } else {
-                                sender.sendMessage(Text.mm("<green>" + Text.esc(this.plugin.modes().restoreBackup(op.getUniqueId(), pick))));
+                                String res = this.plugin.modes().restoreBackup(op.getUniqueId(), pick);
+                                sender.sendMessage(Text.mm(res.equals("now") ? "<green>" + Text.esc(args[1]) + " has it now (what they had is in a backup)." : res.equals("pending") ? "<green>Saved - " + Text.esc(args[1]) + " gets it the next time they are in that world." : "<red>" + Text.esc(res)));
                             }
 
                             break;

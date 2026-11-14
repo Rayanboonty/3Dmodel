@@ -1021,3 +1021,14 @@ The SMP is part of VortexRealm again, like the old plugin. **Remove VortexSMP**:
   - **Bring Back SMP Data:** pick a Data Vault backup (one is made before every update), the old plugin files or the VortexSMP folder. You see what it has, then bring back everything (only what's missing) or replace with it. Inventories and ender chests come back too, including what players were carrying.
   - **Player Inventories:** every player's backups, with one-click restore.
 - **Console:** `/pvpadmin smp restore`, then `/pvpadmin smp restore <n> preview|missing|replace`.
+
+
+## 3.8.2 / 2.8.2 — restore the old plugin's SMP
+
+1. Upload the old plugin folder or its `.zip` anywhere on the server: the server folder, `plugins/` or `plugins/VortexRealm/`.
+2. Go to `/pvpadmin` → **SMP** → **Bring Back SMP Data** and pick **Old plugin: <your zip>**.
+3. Click **Restore everything as it was**.
+
+Every player gets the SMP inventory, ender chest and XP from the old plugin: online players right away, the others when they join (also when they logged out inside the SMP). Old homes and warps come back too. What players had before is kept in **SMP → Player Inventories**, and a Data Vault backup is taken first.
+
+Console: `pvpadmin smp restore`, then `pvpadmin smp restore <n> all`.

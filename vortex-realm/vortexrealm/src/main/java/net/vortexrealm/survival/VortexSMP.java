@@ -308,7 +308,7 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Text.mm(" <yellow>" + (i + 1) + "</yellow> <white>" + Text.esc(src.get(i).label()) + " <dark_gray>• <gray>" + Text.esc(src.get(i).detail())));
             }
 
-            sender.sendMessage(Text.mm("<gray>/pvpadmin smp restore <n> preview <dark_gray>| <gray>missing <dark_gray>(only what's missing) <dark_gray>| <gray>replace"));
+            sender.sendMessage(Text.mm("<gray>/pvpadmin smp restore <n> preview <dark_gray>| <gray>all <dark_gray>(everything as it was) <dark_gray>| <gray>missing <dark_gray>(only what's missing)"));
             return;
         }
 
@@ -327,12 +327,12 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
         net.vortexrealm.smp.SmpRestore.Source s = src.get(n - 1);
         String how = a.length > 1 ? a[1].toLowerCase(java.util.Locale.ROOT) : "preview";
         try {
-            if (how.equals("missing") || how.equals("replace")) {
+            if (how.equals("missing") || how.equals("replace") || how.equals("all")) {
                 sender.sendMessage(Text.mm("<gray>Taking a Data Vault snapshot first..."));
                 this.host.vaultSnapshot("before-smp-restore", (name, err) -> {
                     try {
-                        net.vortexrealm.smp.SmpRestore.Preview pv = this.restore.run(s, java.util.EnumSet.allOf(net.vortexrealm.smp.SmpRestore.Part.class), how.equals("replace"), false);
-                        sender.sendMessage(Text.mm("<green>Brought back from " + Text.esc(s.label()) + ": <white>" + Text.esc(pv.summary())));
+                        net.vortexrealm.smp.SmpRestore.Preview pv = this.restore.run(s, java.util.EnumSet.allOf(net.vortexrealm.smp.SmpRestore.Part.class), !how.equals("missing"), false);
+                        sender.sendMessage(Text.mm("<green>Brought back from " + Text.esc(s.label()) + ": <white>" + Text.esc(pv.result()) + "<gray>; " + Text.esc(pv.summary())));
                     } catch (Exception e) {
                         sender.sendMessage(Text.mm("<red>Failed: " + Text.esc(String.valueOf(e.getMessage()))));
                     }

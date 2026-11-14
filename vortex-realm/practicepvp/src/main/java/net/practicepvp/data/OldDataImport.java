@@ -761,7 +761,7 @@ public final class OldDataImport {
     }
 
     /** Unpacks a .zip, .tar, .tar.gz or .tgz (detected from the content, whatever the name says). */
-    static void unpack(File archive, File out) throws IOException {
+    public static void unpack(File archive, File out) throws IOException {
         Files.createDirectories(out.toPath());
         Path root = out.toPath().toAbsolutePath().normalize();
         byte[] head = new byte[4];

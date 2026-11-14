@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'SMP fixes: /rtp /home /back work from the lobby, SMP always starts, old homes always come in, a backup of every player on join, new /pvpadmin SMP page (settings + bring back homes/inventories/ender chests from any Data Vault backup or old plugin files)',
-    'PracticePvP': 'SMP fixes: /rtp /home /back work from the lobby, SMP always starts, old homes always come in, a backup of every player on join, new /pvpadmin SMP page (settings + bring back homes/inventories/ender chests from any Data Vault backup or old plugin files)',
+    'VortexRealm': 'Bring Back SMP data really restores: finds an uploaded old plugin zip/folder anywhere, Restore everything as it was gives every player their old SMP inventory, ender chest and XP (online right away, offline on join), homes and warps',
+    'PracticePvP': 'Bring Back SMP data really restores: finds an uploaded old plugin zip/folder anywhere, Restore everything as it was gives every player their old SMP inventory, ender chest and XP (online right away, offline on join), homes and warps',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

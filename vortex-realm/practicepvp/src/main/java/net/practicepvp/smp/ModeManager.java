@@ -562,6 +562,14 @@ public final class ModeManager {
 
         String carried = this.carried(p);
         if (target.equals(carried)) {
+            if (this.isPending(p.getUniqueId(), target)) {
+                // an admin brought an old inventory back while they carried this one: it replaces it now
+                this.backup(p, target, false);
+                this.loadGroup(p, target);
+                this.plugin.getLogger().info("Inventory: " + p.getName() + " got the " + target + " inventory an admin brought back (" + countStacks(p) + " stacks).");
+                p.sendMessage(net.practicepvp.util.Text.mm("<green>Your " + target.toLowerCase(Locale.ROOT) + " inventory and ender chest were brought back."));
+            }
+
             return;
         }
 
@@ -594,6 +602,12 @@ public final class ModeManager {
                     p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
                     return;
                 }
+            }
+        } else if (this.isPending(p.getUniqueId(), carried)) {
+            // an admin brought an old inventory back for that world: it stays; what they carry goes to their backups
+            File keep = new File(this.backupFolder(p.getUniqueId()), carried.toLowerCase(Locale.ROOT) + "-carried-before-restore-" + System.currentTimeMillis() + ".yml");
+            if (!this.saveGroupTo(p, keep, carried, false)) {
+                return;
             }
         } else {
             if (!this.saveGroup(p, carried)) {
@@ -695,10 +709,41 @@ public final class ModeManager {
     }
 
     /** Loads a group's saved inventory exactly (empty when the group has nothing saved yet). */
-    private void loadGroup(Player p, String group) {
-        if (!group.equals("HUB")) {
-            this.pickNewest(p.getUniqueId(), group);
+    // ------------------------------------------------------------------ restores waiting for a player
+
+    private File pendingFile() {
+        return new File(this.groupDir.getParentFile(), "pending-restore.yml");
+    }
+
+    private boolean isPending(UUID u, String group) {
+        return YamlConfiguration.loadConfiguration(this.pendingFile()).getStringList(u.toString()).contains(group);
+    }
+
+    private void setPending(UUID u, String group, boolean on) {
+        File f = this.pendingFile();
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
+        List<String> l = new ArrayList<>(y.getStringList(u.toString()));
+        if (on == l.contains(group)) {
+            return;
         }
+
+        if (on) {
+            l.add(group);
+        } else {
+            l.remove(group);
+        }
+
+        y.set(u.toString(), l.isEmpty() ? null : l);
+        try {
+            y.save(f);
+        } catch (IOException e) {
+            this.plugin.getLogger().log(Level.WARNING, "Could not save pending-restore.yml", e);
+        }
+    }
+
+    private void loadGroup(Player p, String group) {
+        this.setPending(p.getUniqueId(), group, false);
+        // (no automatic "newest copy" swap any more: every other copy is offered in /pvpadmin -> SMP -> Player Inventories)
 
         File f = this.groupFile(p.getUniqueId(), group);
         p.getInventory().clear();
@@ -823,8 +868,14 @@ public final class ModeManager {
 
     /** The backups of a player, newest first. */
     public List<File> backups(UUID u) {
-        File[] fs = this.backupFolder(u).listFiles((d, n) -> n.endsWith(".yml"));
+        File[] fs = this.backupFolder(u).listFiles((d, n) -> n.endsWith(".yml") && !n.equals("seen.yml"));
         List<File> out = new ArrayList<>(fs == null ? List.of() : List.of(fs));
+        // older copies kept next to the saved inventories (the previous one, items of unknown origin)
+        File[] kept = new File(this.groupDir, u.toString()).listFiles((d, n) -> n.endsWith(".prev.yml") || n.contains("-unsorted-"));
+        if (kept != null) {
+            out.addAll(List.of(kept));
+        }
+
         out.sort(Comparator.comparingLong(File::lastModified).reversed());
         return out;
     }
@@ -840,11 +891,16 @@ public final class ModeManager {
         File target = this.groupFile(u, group);
         Player p = Bukkit.getPlayer(u);
         try {
-            if (p != null && group.equals(this.carried(p)) && group.equals(this.groupOf(p.getWorld()))) {
+            if (p != null && group.equals(this.carried(p)) && group.equals(this.groupOf(p.getWorld())) && !this.plugin.worlds().isMarked(p)) {
                 this.backup(p, group, false);
-                Files.copy(backup.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                if (!backup.getCanonicalFile().equals(target.getCanonicalFile())) {
+                    target.getParentFile().mkdirs();
+                    Files.copy(backup.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+
                 this.loadGroup(p, group);
-                return "Restored " + backup.getName() + " - " + p.getName() + " has it now (what they had is in a new backup).";
+                this.plugin.getLogger().info("Inventory: " + p.getName() + " got " + backup.getName() + " (" + group + ", " + countStacks(p) + " stacks) right away.");
+                return "now";
             }
 
             if (target.exists()) {
@@ -854,13 +910,16 @@ public final class ModeManager {
             }
 
             target.getParentFile().mkdirs();
-            Files.copy(backup.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            if (p != null && group.equals(this.carried(p))) {
-                // they carry this group somewhere else (a hub?) - the switch loads the file next time
-                return "Restored " + backup.getName() + " into the saved " + group + " inventory; they get it when they next enter the " + group + " world.";
+            if (!backup.getCanonicalFile().equals(target.getCanonicalFile())) {
+                Files.copy(backup.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
             }
 
-            return "Restored " + backup.getName() + " into the saved " + group + " inventory (they get it in the " + group + " world).";
+            if (p == null || group.equals(this.carried(p))) {
+                // offline (maybe logged out inside that world) or carrying it elsewhere: loaded the next time they are there
+                this.setPending(u, group, true);
+            }
+
+            return "pending";
         } catch (IOException e) {
             return "Restoring failed: " + e.getMessage();
         }

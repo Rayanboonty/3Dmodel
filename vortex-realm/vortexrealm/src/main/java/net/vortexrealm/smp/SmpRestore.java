@@ -71,7 +71,16 @@ public final class SmpRestore {
         public int carried;
         public int backups;
         public int spots;
+        /** Inventories given right away, waiting for the next login, kept only as backups. */
+        public int now;
+        public int pending;
+        public int kept;
         public final List<String> notes = new ArrayList<>();
+
+        public String result() {
+            return this.now + " inventories given back right away, " + this.pending + " given at their next login / when they enter the SMP"
+                + (this.kept > 0 ? ", " + this.kept + " put in backups (the player already had items)" : "");
+        }
 
         public String summary() {
             return this.homes + " homes (" + this.homesNew + " not here), " + this.warps + " warps (" + this.warpsNew + " not here), " + this.inventories
@@ -100,40 +109,88 @@ public final class SmpRestore {
     // ------------------------------------------------------------------ sources
 
     public List<Source> sources() {
-        List<Source> out = new ArrayList<>();
-        File vault = this.plugin.vault() == null ? null : this.plugin.vault().dir();
-        File[] zips = vault == null ? null : vault.listFiles((d, n) -> n.endsWith(".zip"));
+        List<Source> old = new ArrayList<>();
+        File data = this.plugin.getDataFolder().getAbsoluteFile();
+        File plugins = data.getParentFile();
+        File server = plugins == null ? null : plugins.getParentFile();
+        File vaultDir = this.plugin.vault() == null ? null : this.plugin.vault().dir().getAbsoluteFile();
+        Set<String> seen = new java.util.HashSet<>();
+        // uploaded old plugin zips and folders, wherever they are: found by what is inside, not by their name
+        List<File> look = new ArrayList<>();
+        for (File dir : new File[]{server, plugins, data, new File(data, "import"), this.importDir()}) {
+            File[] fs = dir == null ? null : dir.listFiles();
+            if (fs != null) {
+                look.addAll(List.of(fs));
+            }
+        }
+
+        for (File f : look) {
+            String n = f.getName().toLowerCase(Locale.ROOT);
+            if (!seen.add(f.getAbsolutePath()) || f.equals(data) || f.equals(vaultDir) || n.equals("readme.txt") || n.startsWith(".")
+                || f.isDirectory() && data.equals(f.getAbsoluteFile().getParentFile())) {
+                continue;
+            }
+
+            boolean archive = f.isFile() && (n.endsWith(".zip") || n.endsWith(".tar.gz") || n.endsWith(".tgz") || n.endsWith(".tar"));
+            if (archive && f.length() > 0L) {
+                String what = this.describe(f);
+                if (what != null) {
+                    old.add(new Source("file:" + f.getAbsolutePath(), "Old plugin: " + f.getName(), what + " • " + rel(server, f), f, f.lastModified()));
+                }
+            } else if (f.isDirectory() && looksOld(f)) {
+                old.add(new Source("dir:" + f.getAbsolutePath(), "Old plugin folder: " + f.getName(), describeDir(f) + " • " + rel(server, f), f, f.lastModified()));
+            }
+        }
+
+        old.sort(Comparator.comparingLong(Source::time).reversed());
+        List<Source> out = new ArrayList<>(old);
+        File[] zips = vaultDir == null ? null : vaultDir.listFiles((d, n) -> n.endsWith(".zip"));
         if (zips != null) {
             java.util.Arrays.sort(zips, Comparator.comparingLong(File::lastModified).reversed());
             for (File z : zips) {
                 String n = z.getName().replace("vault-", "").replace(".zip", "");
                 String why = n.contains("pre-update") ? "before an update" : (n.contains("shutdown") ? "at a shutdown" : (n.contains("manual") ? "made by hand" : "automatic"));
-                out.add(new Source("vault:" + z.getName(), "Data Vault " + n.substring(0, Math.min(19, n.length())).replace('_', ' '), "Snapshot " + why, z, z.lastModified()));
+                out.add(new Source("vault:" + z.getName(), "Data Vault " + n.substring(0, Math.min(19, n.length())).replace('_', ' '), "Backup " + why, z, z.lastModified()));
             }
         }
 
-        out.add(new Source("own", "This plugin's old SMP files", "homes.yml / warps.yml / inventories of the old plugin in this folder", this.plugin.getDataFolder(), 0L));
-        File plugins = this.plugin.getDataFolder().getAbsoluteFile().getParentFile();
-        File vsmp = new File(plugins, "VortexSMP");
-        if (vsmp.isDirectory()) {
-            out.add(new Source("vortexsmp", "Old VortexSMP plugin folder", "plugins/VortexSMP: its homes and warps", vsmp, vsmp.lastModified()));
-            File[] bz = new File(vsmp, "backups").listFiles((d, n) -> n.endsWith(".zip"));
-            for (File z : bz == null ? new File[0] : bz) {
-                out.add(new Source("vsmpzip:" + z.getName(), "VortexSMP backup " + z.getName().replace(".zip", ""), "plugins/VortexSMP/backups", z, z.lastModified()));
-            }
-        }
-
-        File[] dropped = this.importDir().listFiles(f -> f.isDirectory() || f.getName().endsWith(".zip"));
-        for (File f : dropped == null ? new File[0] : dropped) {
-            out.add(new Source("drop:" + f.getName(), "Imported: " + f.getName(), "smp/import/" + f.getName(), f, f.lastModified()));
-        }
-
-        File[] done = new File(this.plugin.getDataFolder(), "import").listFiles(f -> f.isDirectory() && f.getName().startsWith("done-"));
-        for (File f : done == null ? new File[0] : done) {
-            out.add(new Source("done:" + f.getName(), "Old import " + f.getName().replace("done-", ""), "import/" + f.getName(), f, f.lastModified()));
-        }
-
+        out.add(new Source("own", "This plugin's own old files", "homes.yml / warps.yml left from the old plugin in this folder", data, 0L));
         return out;
+    }
+
+    private static String rel(File server, File f) {
+        String s = f.getAbsolutePath();
+        String base = server == null ? "" : server.getAbsolutePath();
+        return s.startsWith(base) ? s.substring(base.length()).replaceFirst("^[/\\\\]", "") : s;
+    }
+
+    private static boolean looksOld(File dir) {
+        return new File(dir, "inventories/groups").isDirectory() || new File(dir, "homes.yml").isFile() && new File(dir, "config.yml").isFile();
+    }
+
+    private static String describeDir(File dir) {
+        File[] ps = new File(dir, "inventories/groups").listFiles(File::isDirectory);
+        return (ps == null ? 0 : ps.length) + " players' inventories" + (new File(dir, "homes.yml").isFile() ? ", homes" : "");
+    }
+
+    /** What an archive has, or null when it isn't an old plugin folder. */
+    private String describe(File f) {
+        try (Reader r = this.reader(f)) {
+            Set<String> players = new java.util.HashSet<>();
+            boolean homes = false;
+            for (String n : r.names()) {
+                Matcher m = Pattern.compile("inventories/groups/([0-9a-fA-F-]{36})/").matcher(n);
+                if (m.find()) {
+                    players.add(m.group(1));
+                }
+
+                homes |= n.endsWith("homes.yml");
+            }
+
+            return players.isEmpty() && !homes ? null : players.size() + " players' inventories" + (homes ? ", homes" : "");
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
     }
 
     public Source source(String id) {
@@ -154,7 +211,18 @@ public final class SmpRestore {
         InputStream open(String name) throws IOException;
     }
 
-    private static Reader reader(File f) throws IOException {
+    private Reader reader(File f) throws IOException {
+        String ln = f.getName().toLowerCase(Locale.ROOT);
+        if (f.isFile() && (ln.endsWith(".tar.gz") || ln.endsWith(".tgz") || ln.endsWith(".tar"))) {
+            // unpacked once next to the other imports
+            File out = new File(this.importDir(), ".unpacked/" + f.getName().replaceAll("[^A-Za-z0-9._-]", "_") + "-" + Long.toHexString(f.lastModified()));
+            if (!out.isDirectory()) {
+                net.vortexrealm.data.OldDataImport.unpack(f, out);
+            }
+
+            f = out;
+        }
+
         if (f.isDirectory()) {
             Path root = f.toPath();
             List<String> names = new ArrayList<>();
@@ -183,14 +251,19 @@ public final class SmpRestore {
 
         ZipFile z = new ZipFile(f);
         List<String> names = new ArrayList<>();
-        z.stream().filter(e -> !e.isDirectory()).forEach(e -> names.add(e.getName().replace('\\', '/')));
+        Map<String, String> raw = new java.util.HashMap<>();
+        z.stream().filter(e -> !e.isDirectory()).forEach(e -> {
+            String n = e.getName().replace('\\', '/');
+            names.add(n);
+            raw.put(n, e.getName());
+        });
         return new Reader() {
             public List<String> names() {
                 return names;
             }
 
             public InputStream open(String name) throws IOException {
-                ZipEntry e = z.getEntry(name);
+                ZipEntry e = z.getEntry(raw.getOrDefault(name, name));
                 return e == null ? InputStream.nullInputStream() : z.getInputStream(e);
             }
 
@@ -202,6 +275,13 @@ public final class SmpRestore {
 
     /** The folder inside a source that holds the plugin files ("" or "VortexRealm/" in a zip of the folder). */
     private static String prefix(List<String> names) {
+        for (String n : names) {
+            int i = n.indexOf("inventories/groups/");
+            if (i >= 0 && (i == 0 || n.charAt(i - 1) == '/')) {
+                return n.substring(0, i);
+            }
+        }
+
         String best = null;
         for (String n : names) {
             for (String marker : List.of("inventories/groups/", "smp/homes.yml", "homes.yml", "warps.yml", "last-locations.yml", "worlds.yml")) {
@@ -237,7 +317,7 @@ public final class SmpRestore {
         net.vortexrealm.survival.VortexSMP smp = this.plugin.survival();
         ModeManager modes = this.modes();
         String tag = s.id().replaceAll("[^A-Za-z0-9_-]+", "-").replaceAll("-+$", "");
-        try (Reader r = reader(s.file())) {
+        try (Reader r = this.reader(s.file())) {
             String pre = prefix(r.names());
             if (parts.contains(Part.HOMES) && smp != null && smp.essentials() != null) {
                 for (String f : List.of("smp/homes.yml", "homes.yml")) {
@@ -269,80 +349,14 @@ public final class SmpRestore {
             }
 
             if (parts.contains(Part.INVENTORIES) && modes != null) {
-                // what players carried (player files of a snapshot) first: it is newer than their saved file
-                for (String n : r.names()) {
-                    Matcher m = DAT.matcher(n);
-                    if (!m.matches() || !n.startsWith("worlds-playerdata/")) {
-                        continue;
-                    }
-
-                    UUID u = UUID.fromString(m.group(2));
-                    PlayerDat d;
-                    try (InputStream in = r.open(n)) {
-                        d = PlayerDat.read(in);
-                    } catch (IOException | RuntimeException e) {
-                        pv.notes.add("couldn't read " + n);
-                        continue;
-                    }
-
-                    if (!this.hasRealItems(d.inventory) && !this.hasRealItems(d.ender)) {
-                        continue;
-                    }
-
-                    String group = d.group != null && !d.group.equalsIgnoreCase("HUB") ? d.group.toUpperCase(Locale.ROOT) : null;
-                    if (group == null && d.world != null && modes.smpWorld(d.world)) {
-                        group = modes.mode(d.world).name();
-                    }
-
-                    pv.carried++;
-                    if (!dry) {
-                        File b = this.writeBackup(u, group == null ? "SURVIVAL" : group, "carried-" + tag, d, m.group(1));
-                        if (group != null && b != null && (replace || modes.groupEmpty(u, group))) {
-                            modes.restoreBackup(u, b);
-                        }
-                    }
-                }
-
-                for (String n : r.names()) {
-                    if (!n.startsWith(pre)) {
-                        continue;
-                    }
-
-                    String rel = n.substring(pre.length());
-                    Matcher g = GROUP.matcher(rel);
-                    Matcher b = BACKUP.matcher(rel);
-                    if (g.matches() && !g.group(2).equals("hub")) {
-                        UUID u = UUID.fromString(g.group(1));
-                        String group = g.group(2).toUpperCase(Locale.ROOT);
-                        byte[] data;
-                        try (InputStream in = r.open(n)) {
-                            data = in.readAllBytes();
-                        }
-
-                        pv.inventories++;
-                        File now = modes.groupFile(u, group);
-                        boolean differs = !now.isFile() || !java.util.Arrays.equals(Files.readAllBytes(now.toPath()), data);
-                        pv.inventoriesNew += differs ? 1 : 0;
-                        if (!dry && differs && !emptyItems(data)) {
-                            File keep = new File(modes.backupDir(), u + "/" + group.toLowerCase(Locale.ROOT) + "-from-" + tag + ".yml");
-                            keep.getParentFile().mkdirs();
-                            Files.write(keep.toPath(), data);
-                            if (replace || modes.groupEmpty(u, group)) {
-                                modes.restoreBackup(u, keep);
-                            }
-                        }
-                    } else if (b.matches()) {
-                        File to = new File(modes.backupDir(), b.group(1) + "/" + b.group(2));
-                        if (!to.exists()) {
-                            pv.backups++;
-                            if (!dry) {
-                                to.getParentFile().mkdirs();
-                                try (InputStream in = r.open(n)) {
-                                    Files.copy(in, to.toPath());
-                                }
-                            }
-                        }
-                    }
+                // "replace": the saved inventories first, then what players carried (newer) on top;
+                // "only missing": what they carried first, the saved ones only where nothing is there yet
+                if (replace) {
+                    this.groupFiles(r, pre, tag, replace, dry, pv);
+                    this.carried(r, tag, replace, dry, pv);
+                } else {
+                    this.carried(r, tag, replace, dry, pv);
+                    this.groupFiles(r, pre, tag, replace, dry, pv);
                 }
             }
 
@@ -370,6 +384,103 @@ public final class SmpRestore {
         }
 
         return pv;
+    }
+
+    private void count(String result, Preview pv) {
+        if ("now".equals(result)) {
+            pv.now++;
+        } else if ("pending".equals(result)) {
+            pv.pending++;
+        }
+    }
+
+    private void carried(Reader r, String tag, boolean replace, boolean dry, Preview pv) {
+        ModeManager modes = this.modes();
+        for (String n : r.names()) {
+            Matcher m = DAT.matcher(n);
+            if (!m.matches()) {
+                continue;
+            }
+
+            UUID u = UUID.fromString(m.group(2));
+            PlayerDat d;
+            try (InputStream in = r.open(n)) {
+                d = PlayerDat.read(in);
+            } catch (IOException | RuntimeException e) {
+                pv.notes.add("couldn't read " + n);
+                continue;
+            }
+
+            if (!this.hasRealItems(d.inventory) && !this.hasRealItems(d.ender)) {
+                continue;
+            }
+
+            String group = d.group != null && !d.group.equalsIgnoreCase("HUB") ? d.group.toUpperCase(Locale.ROOT) : null;
+            if (group == null && d.world != null && modes.smpWorld(d.world)) {
+                group = modes.mode(d.world).name();
+            }
+
+            pv.carried++;
+            if (!dry) {
+                File b = this.writeBackup(u, group == null ? "SURVIVAL" : group, "carried-" + tag, d, m.group(1));
+                if (group != null && b != null && (replace || modes.groupEmpty(u, group))) {
+                    this.count(modes.restoreBackup(u, b), pv);
+                } else {
+                    pv.kept++;
+                }
+            }
+        }
+    }
+
+    private void groupFiles(Reader r, String pre, String tag, boolean replace, boolean dry, Preview pv) throws IOException {
+        ModeManager modes = this.modes();
+        for (String n : r.names()) {
+            if (!n.startsWith(pre)) {
+                continue;
+            }
+
+            String rel = n.substring(pre.length());
+            Matcher g = GROUP.matcher(rel);
+            Matcher b = BACKUP.matcher(rel);
+            if (g.matches() && !g.group(2).equals("hub")) {
+                UUID u = UUID.fromString(g.group(1));
+                String group = g.group(2).toUpperCase(Locale.ROOT);
+                byte[] data;
+                try (InputStream in = r.open(n)) {
+                    data = in.readAllBytes();
+                }
+
+                if (emptyItems(data)) {
+                    continue;
+                }
+
+                pv.inventories++;
+                File now = modes.groupFile(u, group);
+                boolean differs = !now.isFile() || !java.util.Arrays.equals(Files.readAllBytes(now.toPath()), data) || modes.groupEmpty(u, group);
+                pv.inventoriesNew += differs ? 1 : 0;
+                if (!dry) {
+                    File keep = new File(modes.backupDir(), u + "/" + group.toLowerCase(Locale.ROOT) + "-from-" + tag + ".yml");
+                    keep.getParentFile().mkdirs();
+                    Files.write(keep.toPath(), data);
+                    if (replace || modes.groupEmpty(u, group)) {
+                        this.count(modes.restoreBackup(u, keep), pv);
+                    } else {
+                        pv.kept++;
+                    }
+                }
+            } else if (b.matches()) {
+                File to = new File(modes.backupDir(), b.group(1) + "/" + b.group(2));
+                if (!to.exists()) {
+                    pv.backups++;
+                    if (!dry) {
+                        to.getParentFile().mkdirs();
+                        try (InputStream in = r.open(n)) {
+                            Files.copy(in, to.toPath());
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static int totalHomes(YamlConfiguration y) {

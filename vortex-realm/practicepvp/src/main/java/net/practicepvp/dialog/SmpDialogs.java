@@ -154,19 +154,20 @@ public final class SmpDialogs {
             }
 
             List<LobbyDialogs.Tile> tiles = new ArrayList<>();
-            tiles.add(tile(Material.LIME_CONCRETE, "<green><b>Bring back everything", "<gray>Only what's missing (safe)",
-                () -> this.apply(p, s, EnumSet.allOf(SmpRestore.Part.class), false),
-                "Homes and warps that aren't here are added.", "Old inventories load where a player has none", "(or an empty one); otherwise they wait in that",
-                "player's backups - one click to restore."));
-            tiles.add(tile(Material.RED_BED, "<white><b>Homes & warps only", "<gray>Only what's missing", () -> this.apply(p, s, EnumSet.of(SmpRestore.Part.HOMES), false)));
-            tiles.add(tile(Material.ENDER_CHEST, "<white><b>Inventories only", "<gray>Only what's missing", () -> this.apply(p, s, EnumSet.of(SmpRestore.Part.INVENTORIES), false)));
-            tiles.add(tile(Material.ORANGE_CONCRETE, "<gold><b>Replace with this backup", "<gray>Old over new, current kept as backups",
+            tiles.add(tile(Material.LIME_CONCRETE, "<green><b>Restore everything as it was", "<gray>Inventories, ender chests, XP, homes, warps",
                 () -> this.apply(p, s, EnumSet.allOf(SmpRestore.Part.class), true),
-                "Every old home and inventory in this backup", "replaces the current one. What players have", "now is put in their backups first."));
+                "Every player gets the SMP inventory, ender", "chest and XP from this backup - online players", "right away, the others when they join.",
+                "Old homes and warps come back. What players", "have now is kept in their backups."));
+            tiles.add(tile(Material.ENDER_CHEST, "<white><b>Inventories & ender chests only", "<gray>As they were in this backup",
+                () -> this.apply(p, s, EnumSet.of(SmpRestore.Part.INVENTORIES), true)));
+            tiles.add(tile(Material.RED_BED, "<white><b>Homes & warps only", "<gray>As they were in this backup", () -> this.apply(p, s, EnumSet.of(SmpRestore.Part.HOMES), true)));
+            tiles.add(tile(Material.LIGHT_GRAY_CONCRETE, "<gray><b>Only add what's missing", "<gray>Never changes what players have",
+                () -> this.apply(p, s, EnumSet.allOf(SmpRestore.Part.class), false),
+                "Only players with nothing in the SMP get the", "old inventory; the others find it in their", "backups (SMP → Player Inventories)."));
             List<Component> head = new ArrayList<>();
             head.add(Text.mm("<white><b>" + Text.esc(s.label())));
             head.add(Text.mm("<gray>Homes: <white>" + pv.homes + "</white> (<green>" + pv.homesNew + " not here</green>) <dark_gray>• <gray>Warps: <white>" + pv.warps + "</white> (<green>" + pv.warpsNew + " not here</green>)"));
-            head.add(Text.mm("<gray>Saved SMP inventories: <white>" + pv.inventories + "</white> (<green>" + pv.inventoriesNew + " differ from now</green>) <dark_gray>• <gray>Players carrying items: <white>" + pv.carried));
+            head.add(Text.mm("<gray>Players' SMP inventories: <white>" + pv.inventories + "</white> (<green>" + pv.inventoriesNew + " different from what they have now</green>) <dark_gray>• <gray>Players carrying items: <white>" + pv.carried));
             head.add(Text.mm("<gray>Old backups: <white>" + pv.backups + " <dark_gray>• <gray>Last spots: <white>" + pv.spots));
             head.add(Text.mm("<gray>A full Data Vault snapshot is taken before anything changes."));
             this.ui().screen(p, LobbyDialogs.title("Bring Back", s.label()), tiles, head, null, List.of(this.back(p, () -> this.sources(p))), 2, this.ui().close(p));
@@ -184,8 +185,10 @@ public final class SmpDialogs {
             this.plugin.vaultSnapshot("before-smp-restore", (name, err) -> {
                 try {
                     SmpRestore.Preview pv = this.restore().run(s, parts, replace, false);
-                    p.sendMessage(Text.mm("<green><b>Done.</b> <gray>Brought back from <white>" + Text.esc(s.label()) + "</white>: " + Text.esc(pv.summary())));
-                    p.sendMessage(Text.mm("<gray>Players see it right away in the SMP. Anything that didn't replace what they have is in <white>SMP → Player Inventories</white>."));
+                    p.sendMessage(Text.mm("<green><b>Done.</b> <gray>From <white>" + Text.esc(s.label()) + "</white>:"));
+                    p.sendMessage(Text.mm("<gray>• <white>" + Text.esc(pv.result())));
+                    p.sendMessage(Text.mm("<gray>• Homes: <white>" + pv.homes + "</white> in the backup (" + pv.homesNew + " were missing) <dark_gray>• <gray>warps: <white>" + pv.warps + " <dark_gray>• <gray>old backups copied: <white>" + pv.backups));
+                    p.sendMessage(Text.mm("<gray>What players had before is in <white>SMP → Player Inventories</white>."));
                 } catch (Exception e) {
                     p.sendMessage(Text.mm("<red>Failed: " + Text.esc(String.valueOf(e.getMessage())) + " <gray>(nothing else changed; see the console)"));
                     this.plugin.getLogger().log(java.util.logging.Level.WARNING, "SMP restore failed", e);
@@ -259,7 +262,8 @@ public final class SmpDialogs {
                     Text.mm("<gray>" + c[0] + " stacks, " + c[1] + " in the ender chest, level " + y.getInt("level") + "."),
                     Text.mm("<gray>What they have now in " + Text.esc(group) + " goes into a new backup first.")
                 ), () -> {
-                    p.sendMessage(Text.mm("<green>" + Text.esc(modes.restoreBackup(u, f))));
+                    String res = modes.restoreBackup(u, f);
+                    p.sendMessage(Text.mm(res.equals("now") ? "<green>" + Text.esc(name) + " has it now (what they had is in a backup)." : res.equals("pending") ? "<green>Saved - " + Text.esc(name) + " gets it the next time they are in that world." : "<red>" + Text.esc(res)));
                     this.player(p, u, name);
                 }),
                 Text.esc(f.getName())));
