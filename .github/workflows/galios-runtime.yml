@@ -58,6 +58,9 @@ jobs:
           make -C brightness test
           make build/host/test_audio_helper
           ASAN_OPTIONS=detect_leaks=0 build/host/test_audio_helper
+          # the bridges' own tests: also compile audio/backend.c (0017) with -Werror on the host
+          make build/host/test_bridges
+          build/host/test_bridges
       - name: Package
         run: |
           cd OneiOS
@@ -86,6 +89,8 @@ jobs:
           # 0012: the widgets' read wait and the spin traces of the keyboard, Settings and Clock
           strings "$d/bin/xnuhost" | grep -q 'oneios-gpu-read-wait=1'
           strings "$d/bin/xnuhost" | grep -q 'oneios-ubt=kbd,Spotlight,Preferences,InputUI,MobileTimer,backboardd'
+          # 0017: the volume keys set the speaker's level
+          strings "$d/bin/xnuhost" | grep -q 'GalIOS volume %u of %u'
           # 0016: the audio helper's target up to 200 ms (fewer crackles)
           strings "$d/bin/oneios-audio" | grep -q 'ONEIOS_AUDIO_TARGET_MAX_MS'
           # 0015: the owner's tuning switches from the stage (galios-bootargs, a short list of keys)

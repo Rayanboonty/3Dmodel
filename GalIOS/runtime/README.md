@@ -95,6 +95,14 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
   coming. CI now also runs the helper's host test. Not the volume slider: iOS's speaker device (UniXNU-droidvm's
   `DroidVMAudio.cpp`, built into the kernel) publishes no volume control, so iOS pins the slider at the top; that is a
   kernel driver change (ROADMAP).
+- `0017-volume-keys-set-the-speaker-level.patch`: since iOS's slider cannot move (above: `DroidVMAudio.cpp` at
+  UniXNU-droidvm f9121cd publishes `"controls"` as an empty array and answers SetControlValue, selector 2, with
+  kIOReturnBadArgument), the phone's volume keys set the level on the host. xnuhost's input passes each press (value 1,
+  not the repeats) of KEY_VOLUMEUP/KEY_VOLUMEDOWN to `br_audio_volume_key` (still sending it to iOS as before);
+  `audio/backend.c` keeps 16 steps and scales the speaker's samples on their way to the helper by the square of the
+  step's fraction (Q15), starting at 16, which passes them unchanged. Log line: `audio: GalIOS volume N of 16 (the volume
+  keys)`. The weak reference keeps a build without the back end linking. The real fix, a control iOS's HAL reads, needs
+  IOAudio2's control dictionary as 24A446's HAL parses it (read in the image's shared cache): ROADMAP 29b.
 
 History: galios.4 had a 4 GiB RAM floor and `oneios-actuator=0` and felt worse than galios.3; its log showed the cause
 was the P vCPUs' lost cores (0005). galios.6-8 had a RAM floor of their own (3-3.5 GiB) and the touch IC kept awake at

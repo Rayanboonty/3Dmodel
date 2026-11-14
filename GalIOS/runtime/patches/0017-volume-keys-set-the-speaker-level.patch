@@ -1,0 +1,73 @@
+diff --git a/runtime/bridges/audio/backend.c b/runtime/bridges/audio/backend.c
+index f24e318..bdb2bf3 100644
+--- a/runtime/bridges/audio/backend.c
++++ b/runtime/bridges/audio/backend.c
+@@ -34,6 +34,30 @@ static void null_close(void *ctx) { (void)ctx; }
+ static const br_audio_backend null_backend = { null_start, null_stop, null_write, null_read, null_close };
+ const br_audio_backend *br_audio_null(void **ctx) { *ctx = NULL; return &null_backend; }
+ 
++// ---- GalIOS: the volume keys' level -------------------------------------------------------------
++// iOS's speaker device publishes no volume control (UniXNU-droidvm's DroidVMAudio.cpp: "controls" is an empty array), so
++// iOS pins its slider at the top and every sound plays at full scale. xnuhost's input passes each volume-key press here as
++// well (it still reaches iOS). The level scales what the helper is sent: 16 steps, the amplitude the square of the step's
++// fraction (even steps to the ear), starting at the top, which is how it played before. Step 16 passes the samples as they are.
++#define GALIOS_STEPS 16u
++static unsigned galios_step = GALIOS_STEPS;
++
++unsigned br_audio_volume_key(int direction)
++{
++  unsigned s = __atomic_load_n(&galios_step, __ATOMIC_RELAXED);
++  if (direction > 0 && s < GALIOS_STEPS) s++;
++  else if (direction < 0 && s > 0) s--;
++  __atomic_store_n(&galios_step, s, __ATOMIC_RELAXED);
++  br_log(1, "audio: GalIOS volume %u of %u (the volume keys)", s, GALIOS_STEPS);
++  return s;
++}
++
++static void galios_scale(int16_t *out, const int16_t *in, unsigned samples, unsigned step)
++{
++  int32_t q = (int32_t)((step * step * 32768u) / (GALIOS_STEPS * GALIOS_STEPS));   // Q15: 32768 at the top
++  for (unsigned k = 0; k < samples; k++) out[k] = (int16_t)(((int32_t)in[k] * q) >> 15);
++}
++
+ // ---- the helper ---------------------------------------------------------------------------------
+ typedef struct { int fd; pid_t pid; unsigned in_channels; } helper;
+ 
+@@ -68,6 +92,12 @@ static int helper_write(void *ctx, const int16_t *pcm, unsigned frames)
+ {
+   if (frames > AU_MAX_FRAMES) frames = AU_MAX_FRAMES;
+   struct au_header header = { .kind = AU_PCM, .output = 1, .channels = 2, .value = frames };
++  unsigned step = __atomic_load_n(&galios_step, __ATOMIC_RELAXED);
++  if (step < GALIOS_STEPS) {                     // GalIOS: below the top, the volume keys' level
++    int16_t scaled[AU_MAX_FRAMES * 2];
++    galios_scale(scaled, pcm, frames * 2u, step);
++    return send_message(ctx, &header, scaled, frames * 4u) ? 0 : (int)frames;
++  }
+   return send_message(ctx, &header, pcm, frames * 4u) ? 0 : (int)frames;
+ }
+ 
+diff --git a/runtime/xnuhost/src/input.c b/runtime/xnuhost/src/input.c
+index 1a75570..125ce2a 100644
+--- a/runtime/xnuhost/src/input.c
++++ b/runtime/xnuhost/src/input.c
+@@ -22,6 +22,9 @@
+ // its next frame (xh_input_frame_shown, called from the display).
+ #define _GNU_SOURCE
+ #include "xnuhost.h"
++
++// GalIOS: the volume keys' level in the audio back end (bridges/audio/backend.c); weak, so a build without it links.
++__attribute__((weak)) unsigned br_audio_volume_key(int direction);
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <poll.h>
+@@ -195,6 +198,10 @@ void xh_input_feed(xh_input_source *s, const xh_input_ev *ev, unsigned n, int64_
+       bool side = v->code == KEY_VOLUMEDOWN_ || v->code == KEY_VOLUMEUP_ || v->code == KEY_POWER_ || v->code == KEY_MUTE_ || v->code == KEY_HOMEPAGE_;
+       if (side || (s->touch && v->code == BTN_TOUCH_)) send_event(s, EV_KEY_, v->code, v->value);
+       if (v->code == KEY_POWER_ && v->value == 1 && xh_input_power_key) xh_input_power_key();
++      // GalIOS: a volume-key press (not its repeats) also moves the speaker's level (audio/backend.c), since iOS's own
++      // slider cannot (its speaker device has no volume control). Weak: a build without the audio back end skips it.
++      if ((v->code == KEY_VOLUMEUP_ || v->code == KEY_VOLUMEDOWN_) && v->value == 1 && br_audio_volume_key)
++        br_audio_volume_key(v->code == KEY_VOLUMEUP_ ? 1 : -1);
+     } else if (v->type == EV_ABS_ && s->touch) {
+       if (v->code == ABS_MT_SLOT_ || v->code == ABS_MT_TRACKING_ID_ || v->code == ABS_MT_POSITION_X_ || v->code == ABS_MT_POSITION_Y_ ||
+           v->code == ABS_MT_PRESSURE_ || v->code == ABS_MT_TOUCH_MAJOR_)
