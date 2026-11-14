@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
                 startPhoneBuild = { controller.startPhoneBuild(it) },
                 stopPhoneBuild = { controller.stopPhoneBuild() },
                 openPhoneBuildLog = { controller.openPhoneBuildLog() },
+                resetIosData = { controller.resetIosData() },
             ),
             boot = { controller.boot() },
             returnToOneUi = { controller.returnToOneUi() },

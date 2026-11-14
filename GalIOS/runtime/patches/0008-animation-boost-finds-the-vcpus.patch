@@ -1,0 +1,19 @@
+diff --git a/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch b/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
+new file mode 100644
+index 0000000..02bed8d
+--- /dev/null
++++ b/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
+@@ -0,0 +1,13 @@
++--- a/src/drm/drm2kgsl/drm2kgsl_renderer.c
+++++ b/src/drm/drm2kgsl/drm2kgsl_renderer.c
++@@ -1708,7 +1708,9 @@
++                continue;
++             ssize_t n = read(fd, comm, sizeof(comm) - 1);
++             close(fd);
++-            if (n <= 0 || strncmp(comm, "crosvm_vcpu", 11))
+++            /* crosvm's vCPU threads, or xnuhost's (xnu-cpu0..; GalIOS: with only crosvm's name, xnuhost's 8 vCPUs were
+++             * never found and the clamp reached 0 of 0 threads). */
+++            if (n <= 0 || (strncmp(comm, "crosvm_vcpu", 11) && strncmp(comm, "xnu-cpu", 7)))
++                continue;
++             struct kgsl_sched_attr attr = {
++                .size = sizeof(attr),

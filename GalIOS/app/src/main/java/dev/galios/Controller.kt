@@ -507,6 +507,16 @@ class Controller(
     }
 
     fun closeLog() = _state.update { it.copy(openLog = null, openLogId = null) }
+
+    /** Start iOS fresh: its Data store is made again from the image on the next boot (the camera's plug-in with it). */
+    fun resetIosData() = run("Erasing iOS's data") {
+        val st = stage.status()
+        if (st.sessionOpen) throw IllegalStateException("An iOS session is running: return to One UI first.")
+        val r = stage.resetData()
+        if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not erase iOS's data" })
+        "iOS's data is erased. The next boot sets iOS up from the start (that first boot takes a few minutes longer), " +
+            "and brings what your image has that the old data lacked, such as the camera's plug-in."
+    }
 }
 
 object BuildConfigCompat {

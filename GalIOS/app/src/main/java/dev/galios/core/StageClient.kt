@@ -101,6 +101,27 @@ class StageClient(private val shell: RootShell, val stage: String = DEFAULT_STAG
         return parts.filter { it.isNotEmpty() }.joinToString("\n")
     }
 
+    /**
+     * Erases iOS's Data store (`data/data.img`, and a half-made one), so the next boot makes a new store from the
+     * image's seed, as the first boot did: what an image's seed brings that an older store lacks (the capture plug-in)
+     * comes with it. The guest's chip ID beside it is kept. Never during a session (the caller checks the status).
+     */
+    fun resetData(): Reply {
+        val d = shq("$stage/data")
+        val command = """
+            d=$d
+            [ -d "${'$'}d" ] || { echo "@@OK reset 0"; exit 0; }
+            n=0
+            for f in "${'$'}d"/data.img "${'$'}d"/data.img.*; do
+                [ -e "${'$'}f" ] || continue
+                rm -f "${'$'}f" || { echo "@@FAILED could not delete ${'$'}f"; exit 4; }
+                n=${'$'}((n + 1))
+            done
+            echo "@@OK reset ${'$'}n"
+        """.trimIndent()
+        return Reply.parse(shell.exec(command, null))
+    }
+
     enum class Kind(val word: String, val manifest: String) { RUNTIME("runtime", "runtime.json"), IMAGE("image", "manifest.json") }
 
     /** What a verb answered. [ok] when its last @@ line is @@OK. */
