@@ -6,8 +6,6 @@
 #   helpers/                  OneiOS's signed guest helpers
 #   camera/                   the capture plug-in
 #
-# The release also carries OneiOS's runtime built from the same commit (the runtime job).
-#
 # The pack holds only code built from OneiOS's and its references' sources (linked against the SDK's stubs; no Apple
 # binary inside). It is published as a release of this repository; GalIOS Studio downloads it, puts it in the WSL
 # build's out/userland, and rebuilds the image, whose hook places and trusts it.
@@ -92,71 +90,17 @@ jobs:
           tar -czf "$GITHUB_WORKSPACE/galios-gpu-pack.tar.gz" userland
           cd "$GITHUB_WORKSPACE" && shasum -a 256 galios-gpu-pack.tar.gz | tee galios-gpu-pack.tar.gz.sha256
           echo "tag=galios-gpu-$(date -u +%Y%m%d)-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "oneios=$(git -C "$GITHUB_WORKSPACE/OneiOS" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: galios-gpu-pack
           path: |
             galios-gpu-pack.tar.gz
             galios-gpu-pack.tar.gz.sha256
-    outputs:
-      tag: ${{ steps.pack.outputs.tag }}
-      oneios: ${{ steps.pack.outputs.oneios }}
-
-  # The runtime (xnuhost and the phone-side tools) from the same OneiOS commit as the kernel GalIOS builds, with
-  # OneiOS's own release steps (NDK, drm2kgsl for the 3D GPU): the newest Wi-Fi, audio, USB and GPU host fixes are
-  # on main before OneiOS publishes a release.
-  runtime:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: GalIOS/gpu
-      - name: OneiOS
-        run: |
-          ref=$(cat GalIOS/gpu/ONEIOS_REF 2>/dev/null | tr -d ' \n' || true)
-          git clone -q https://github.com/akshaynexus/OneiOS.git
-          [ -z "$ref" ] || git -C OneiOS checkout -q "$ref"
-          git -C OneiOS log -1 --format='OneiOS %H %cd %s'
-      - name: NDK, Rust target and oneios-tool (OneiOS's setup-build.sh)
-        run: cd OneiOS && .github/scripts/setup-build.sh
-      - name: drm2kgsl's sources (the 3D GPU path)
-        run: |
-          cd OneiOS && scripts/setup/get-references.sh virglrenderer
-          test -f external/virglrenderer/src/drm/drm2kgsl/drm2kgsl_renderer.c
-      - name: Package
-        run: |
-          cd OneiOS
-          v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); v=${v:-0.1.8}
-          echo "VERSION=$v-galios.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
-          runtime/package.sh "$v-galios.${GITHUB_RUN_NUMBER}"
-          ls -la out/release
-      - name: xnuhost and gpuctl have drm2kgsl
-        run: |
-          d=$(mktemp -d); zstd -dc OneiOS/out/release/oneios-runtime-$VERSION-arm64.tar.zst | tar -x -C "$d"
-          for b in bin/xnuhost bin/gpuctl; do ! strings "$d/$b" | grep -q 'this build has no drm2kgsl'; done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: galios-runtime
-          path: |
-            OneiOS/out/release/oneios-runtime-*.tar.zst
-            OneiOS/out/release/oneios-runtime-*.tar.zst.sha256
-
-  publish:
-    needs: [build, runtime]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dl
-          merge-multiple: true
-      - name: Release
+      - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ls -la dl
-          gh release create "${{ needs.build.outputs.tag }}" dl/* \
+          gh release create "${{ steps.pack.outputs.tag }}" galios-gpu-pack.tar.gz galios-gpu-pack.tar.gz.sha256 \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "GalIOS GPU pack ${{ needs.build.outputs.tag }}" \
-            --notes "For GalIOS Studio (it downloads this by itself). OneiOS's Metal plug-in, guest helpers and capture plug-in for iPhone18,2 24A446, built on macOS with Xcode, and OneiOS's runtime from the same commit (${{ needs.build.outputs.oneios }}), built with OneiOS's own release steps. OneiOS's and its references' code only: no Apple firmware or binaries."
+            --title "GalIOS GPU pack ${{ steps.pack.outputs.tag }}" \
+            --notes "OneiOS's Metal plug-in, guest helpers and capture plug-in for iPhone18,2 24A446, built on macOS with Xcode by OneiOS's own scripts. GalIOS Studio downloads it by itself."

@@ -1,0 +1,65 @@
+# GalIOS runtime: OneiOS's runtime (xnuhost and the phone-side tools) built from OneiOS's main with OneiOS's own release
+# steps (NDK, drm2kgsl for the 3D GPU), so it matches the kernel GalIOS builds from the same main: the newest Wi-Fi,
+# audio, USB and GPU host fixes are there before OneiOS publishes a release. It is attached to the newest GalIOS GPU
+# pack release (galios-gpu-*), where GalIOS Studio looks for it first. OneiOS's own code only: no Apple file.
+name: GalIOS runtime
+on:
+  push:
+    branches: [ccr-a2c53c06-k8pnxp]
+    paths: ['.github/workflows/galios-runtime.yml', 'GalIOS/gpu/ONEIOS_REF']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: galios-runtime
+  cancel-in-progress: true
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: GalIOS/gpu
+      - name: OneiOS
+        run: |
+          ref=$(cat GalIOS/gpu/ONEIOS_REF 2>/dev/null | tr -d ' \n' || true)
+          git clone -q https://github.com/akshaynexus/OneiOS.git
+          [ -z "$ref" ] || git -C OneiOS checkout -q "$ref"
+          git -C OneiOS log -1 --format='OneiOS %H %cd %s'
+      - name: NDK, Rust target and oneios-tool (OneiOS's setup-build.sh)
+        run: cd OneiOS && .github/scripts/setup-build.sh
+      - name: drm2kgsl's sources (the 3D GPU path)
+        run: |
+          cd OneiOS && scripts/setup/get-references.sh virglrenderer
+          test -f external/virglrenderer/src/drm/drm2kgsl/drm2kgsl_renderer.c
+      - name: Package
+        run: |
+          cd OneiOS
+          v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); v=${v:-0.1.8}
+          echo "VERSION=$v-galios.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          runtime/package.sh "$v-galios.${GITHUB_RUN_NUMBER}"
+          ls -la out/release
+      - name: xnuhost and gpuctl have drm2kgsl
+        run: |
+          d=$(mktemp -d); zstd -dc OneiOS/out/release/oneios-runtime-$VERSION-arm64.tar.zst | tar -x -C "$d"
+          for b in bin/xnuhost bin/gpuctl; do ! strings "$d/$b" | grep -q 'this build has no drm2kgsl'; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: galios-runtime
+          path: |
+            OneiOS/out/release/oneios-runtime-*.tar.zst
+            OneiOS/out/release/oneios-runtime-*.tar.zst.sha256
+      - name: Attach to the newest GPU pack release (waits for it, up to 75 minutes)
+        run: |
+          for i in $(seq 75); do
+            tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 40 --json tagName --jq '[.[] | select(.tagName | startswith("galios-gpu-"))][0].tagName')
+            [ -n "$tag" ] && break
+            sleep 60
+          done
+          [ -n "$tag" ] || { echo "no GPU pack release yet: the runtime stays an artifact of this run"; exit 0; }
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
+            OneiOS/out/release/oneios-runtime-$VERSION-arm64.tar.zst OneiOS/out/release/oneios-runtime-$VERSION-arm64.tar.zst.sha256
+          echo "attached oneios-runtime-$VERSION to $tag"
