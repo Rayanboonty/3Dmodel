@@ -47,7 +47,8 @@ jobs:
       - name: References (the plug-in's sources)
         run: |
           cd OneiOS
-          scripts/setup/get-references.sh NativeMetal NativeAdreno AdrenoPM4 metal2vulkan mesa-droidvm Droid-VM-UniXNU NativeMobileDisplay
+          scripts/setup/get-references.sh NativeMetal NativeAdreno AdrenoPM4 metal2vulkan mesa-droidvm NativeMobileDisplay
+          kernel/fetch.sh Droid-VM-UniXNU     # the kernel base: one of the kernel's pinned sources
       - name: Tools
         run: |
           brew install ninja glslang shaderc spirv-tools bison llvm meson || true
