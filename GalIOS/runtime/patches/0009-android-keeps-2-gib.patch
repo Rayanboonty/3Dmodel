@@ -1,0 +1,13 @@
+diff --git a/runtime/xnuhost/src/xnuhost.h b/runtime/xnuhost/src/xnuhost.h
+index 0822028..351a68a 100644
+--- a/runtime/xnuhost/src/xnuhost.h
++++ b/runtime/xnuhost/src/xnuhost.h
+@@ -125,7 +125,7 @@ uint64_t xh_parse_size(const char *text, bool *ok);
+ // 0 when that leaves the guest less than 1 GiB. Portable (unit-tested).
+ #define XH_RAM_AUTO_PERCENT 90
+ #define XH_RAM_AUTO_FLOOR   (3ull << 29)    // 1.5 GiB
+-#define XH_RAM_SESSION_RESERVE (1ull << 30) // ram-session-reserve: the headroom what fits leaves the host (surfaceflinger, helpers, zram, kernel)
++#define XH_RAM_SESSION_RESERVE (2ull << 30) // ram-session-reserve: the headroom what fits leaves the host (surfaceflinger, helpers, zram, kernel)
+ #define XH_RAM_UNLOCK_BELOW    (256ull << 20)   // ram-unlock-below: the lock's valve
+ #define XH_RAM_GPU_RESERVE     (256ull << 20)   // ram-gpu-reserve
+ #define XH_RAM_PAGETABLE_PERCENT 8              // ram-pagetable-percent: the phone, 2026-11-14: 575 MiB for 7263 MiB held

@@ -29,7 +29,12 @@ main before `runtime/package.sh`. Each one is skipped when OneiOS already has th
 - `0008-animation-boost-finds-the-vcpus.patch`: adds a drm2kgsl patch. drm2kgsl raises the vCPU threads' uclamp.min
   to 1024 while the compositor animates (Droid-VM measured page swipes held back by schedutil at 2.2-2.7 GHz), but it
   looked for crosvm's thread names only (`crosvm_vcpu*`); xnuhost's are `xnu-cpuN`, so the phone logged
-  `vCPU uclamp.min 1024: 0 of 0 threads` and the boost never happened.
+  `vCPU uclamp.min 1024: 0 of 0 threads` and the boost never happened. galios.11: the E vCPUs only (xnu-cpu0..5).
+  With all eight (`8 of 8 threads`, galios.8-10) the prime cores reached 96-104 C within 5 s of the boot, iOS was told
+  its thermal state was heavy (it slows itself and dims) and the session flapped between heavy and nominal.
+- `0009-android-keeps-2-gib.patch`: `ram-session-reserve` 2 GiB (OneiOS: 1 GiB). With OneiOS's fit and 1 GiB the
+  galios.10 session started at 8958 MiB available, gave iOS 6912 MiB, and Android fell to 740-900 MiB and swapped
+  320 MiB of iOS's RAM (swap-ins up to 5 MB/s). With 2 GiB iOS gets about 6144 MiB and Android keeps about 1.5 GiB.
 
 History: galios.4 had a 4 GiB RAM floor and `oneios-actuator=0` and felt worse than galios.3; its log showed the cause
 was the P vCPUs' lost cores (0005). galios.6-8 had a RAM floor of their own (3-3.5 GiB) and the touch IC kept awake at

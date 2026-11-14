@@ -1,19 +1,22 @@
 diff --git a/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch b/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
 new file mode 100644
-index 0000000..02bed8d
+index 0000000..0fc15e3
 --- /dev/null
 +++ b/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,16 @@
 +--- a/src/drm/drm2kgsl/drm2kgsl_renderer.c
 ++++ b/src/drm/drm2kgsl/drm2kgsl_renderer.c
-+@@ -1708,7 +1708,9 @@
++@@ -1708,7 +1708,12 @@
 +                continue;
 +             ssize_t n = read(fd, comm, sizeof(comm) - 1);
 +             close(fd);
 +-            if (n <= 0 || strncmp(comm, "crosvm_vcpu", 11))
-++            /* crosvm's vCPU threads, or xnuhost's (xnu-cpu0..; GalIOS: with only crosvm's name, xnuhost's 8 vCPUs were
-++             * never found and the clamp reached 0 of 0 threads). */
-++            if (n <= 0 || (strncmp(comm, "crosvm_vcpu", 11) && strncmp(comm, "xnu-cpu", 7)))
+++            /* crosvm's vCPU threads, or xnuhost's E vCPUs (xnu-cpu0..5; GalIOS). With only crosvm's name xnuhost's vCPUs
+++             * were never found (0 of 0 threads); with all eight, the S25 Ultra's two prime cores (xnu-cpu6/7) held at
+++             * their top clock reached 96-104 C within seconds of the boot and iOS was told its thermal state was heavy
+++             * (it slows itself and dims). The P vCPUs keep the governor's clock. */
+++            if (n <= 0 || (strncmp(comm, "crosvm_vcpu", 11) &&
+++                           !(strncmp(comm, "xnu-cpu", 7) == 0 && comm[7] >= '0' && comm[7] <= '5' && (comm[8] == 0 || comm[8] == '\n'))))
 +                continue;
 +             struct kgsl_sched_attr attr = {
 +                .size = sizeof(attr),
