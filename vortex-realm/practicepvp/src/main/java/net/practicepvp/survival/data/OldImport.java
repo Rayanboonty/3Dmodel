@@ -82,6 +82,12 @@ public final class OldImport implements Listener, CommandExecutor {
     /** At start-up, before homes and warps load: imports a dropped folder once. */
     public void prepare() {
         this.state = YamlConfiguration.loadConfiguration(this.stateFile);
+        if (this.plugin.realm().on()) {
+            // part of the main plugin: SmpRestore brings old homes, warps and inventories back (/pvpadmin -> SMP)
+            this.summary = "see /pvpadmin -> SMP -> Bring back SMP data";
+            return;
+        }
+
         if (!this.dir.exists()) {
             this.dir.mkdirs();
             try {

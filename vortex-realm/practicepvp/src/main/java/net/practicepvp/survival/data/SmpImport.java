@@ -71,7 +71,8 @@ public final class SmpImport {
         }
 
         int copied = 0;
-        File[] files = old.listFiles(f -> f.isFile() && f.getName().endsWith(".yml"));
+        // its import-state.yml stays behind: it must not stop old homes from coming in
+        File[] files = old.listFiles(f -> f.isFile() && f.getName().endsWith(".yml") && !f.getName().equals("import-state.yml"));
         for (File f : files == null ? new File[0] : files) {
             File to = new File(this.plugin.getDataFolder(), f.getName());
             if (!to.exists()) {

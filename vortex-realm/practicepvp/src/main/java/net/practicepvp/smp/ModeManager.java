@@ -446,6 +446,31 @@ public final class ModeManager {
         return true;
     }
 
+    /** Items that aren't this plugin's own hub/lobby/kit items (those carry its tags). */
+    private boolean hasForeign(Player p) {
+        String ns = this.plugin.getName().toLowerCase(Locale.ROOT);
+        for (ItemStack[] all : List.of(p.getInventory().getContents(), p.getEnderChest().getContents())) {
+            for (ItemStack it : all) {
+                if (it == null || it.isEmpty()) {
+                    continue;
+                }
+
+                boolean ours = false;
+                if (it.hasItemMeta()) {
+                    for (NamespacedKey k : it.getItemMeta().getPersistentDataContainer().getKeys()) {
+                        ours |= k.getNamespace().equals(ns);
+                    }
+                }
+
+                if (!ours) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static boolean hasItems(Player p) {
         for (ItemStack it : p.getInventory().getContents()) {
             if (it != null && !it.isEmpty()) {
@@ -504,7 +529,7 @@ public final class ModeManager {
     }
 
     /** The inventory group of a world: HUB, an SMP mode, or null for the PvP worlds (their own inventory system). */
-    private String groupOf(World w) {
+    public String groupOf(World w) {
         if (w == null || this.plugin.worlds().managed(w)) {
             return null;
         }
@@ -553,8 +578,9 @@ public final class ModeManager {
             if (hasItems(p)) {
                 // items of an unknown group (no marker): keep them safe, never over a saved inventory
                 File existing = this.groupFile(p.getUniqueId(), target);
+                // kept in their backups, where /pvpadmin invbackup and the SMP page show it
                 File f = existing.exists()
-                    ? new File(existing.getParentFile(), target.toLowerCase(Locale.ROOT) + "-unsorted-" + System.currentTimeMillis() + ".yml")
+                    ? new File(this.backupFolder(p.getUniqueId()), target.toLowerCase(Locale.ROOT) + "-unsorted-" + System.currentTimeMillis() + ".yml")
                     : existing;
                 if (!this.saveGroupTo(p, f, target, false)) {
                     return;
@@ -575,8 +601,24 @@ public final class ModeManager {
             }
         }
 
+        int before = countStacks(p);
         this.loadGroup(p, target);
         p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
+        this.plugin.getLogger().info("Inventory: " + p.getName() + " " + (carried == null ? "?" : carried) + " (" + before + " stacks, saved) -> " + target + " ("
+            + countStacks(p) + " stacks)");
+    }
+
+    private static int countStacks(Player p) {
+        int n = 0;
+        for (ItemStack it : p.getInventory().getContents()) {
+            n += it != null && !it.isEmpty() ? 1 : 0;
+        }
+
+        for (ItemStack it : p.getEnderChest().getContents()) {
+            n += it != null && !it.isEmpty() ? 1 : 0;
+        }
+
+        return n;
     }
 
     private boolean saveGroup(Player p, String group) {
@@ -825,6 +867,58 @@ public final class ModeManager {
     }
 
     // ------------------------------------------------------------------ last spots in the SMP worlds
+
+    /** True when the player has nothing in that group: live when they carry it now, else the saved file. */
+    public boolean groupEmpty(UUID u, String group) {
+        Player p = Bukkit.getPlayer(u);
+        if (p != null && group.equals(this.carried(p)) && !this.plugin.worlds().isMarked(p)) {
+            return !hasItems(p);
+        }
+
+        File f = this.groupFile(u, group);
+        if (!f.isFile()) {
+            return true;
+        }
+
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
+        for (String key : List.of("contents", "enderchest")) {
+            try {
+                for (ItemStack it : ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(y.getString(key, "")))) {
+                    if (it != null && !it.isEmpty()) {
+                        return false;
+                    }
+                }
+            } catch (RuntimeException ignored) {
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The first time this version sees a player: a full copy of what they carry (inventory, ender chest, XP) in their
+     * backups, before anything can switch it - so an update can never lose it.
+     */
+    public void firstSeen(Player p) {
+        String ver = this.plugin.getPluginMeta().getVersion();
+        File stateFile = new File(this.backupFolder(p.getUniqueId()), "seen.yml");
+        YamlConfiguration st = YamlConfiguration.loadConfiguration(stateFile);
+        if (st.getBoolean(ver.replace('.', '_')) || this.plugin.worlds().isMarked(p) || !this.hasForeign(p)) {
+            return;
+        }
+
+        String carried = this.carried(p);
+        String g = carried != null ? carried : this.groupOf(p.getWorld());
+        File f = new File(this.backupFolder(p.getUniqueId()), (g == null ? "carried" : g.toLowerCase(Locale.ROOT)) + "-on-join-" + ver + "-"
+            + new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date()) + ".yml");
+        if (this.saveGroupTo(p, f, g == null || g.equals("HUB") ? "SURVIVAL" : g, false)) {
+            st.set(ver.replace('.', '_'), true);
+            try {
+                st.save(stateFile);
+            } catch (IOException ignored) {
+            }
+        }
+    }
 
     public File backupDir() {
         return this.backupDir;

@@ -1631,15 +1631,19 @@ public final class PracticePlugin extends JavaPlugin {
                 java.io.File jar = new java.io.File(old.getClass().getProtectionDomain().getCodeSource().getLocation().toURI());
                 java.io.File to = new java.io.File(jar.getParentFile(), jar.getName() + ".merged-into-" + this.getName());
                 if (jar.isFile() && jar.renameTo(to)) {
-                    this.getLogger().warning("The SMP is part of " + this.getName() + " now: " + jar.getName() + " was renamed to " + to.getName()
-                        + " and won't load again. Restart once - its homes, warps and market are copied in then.");
+                    this.getLogger().warning("The SMP is part of " + this.getName() + " now: " + jar.getName() + " was renamed to " + to.getName() + " and won't load again.");
                 }
             } catch (Exception e) {
-                this.getLogger().warning("The SMP is part of " + this.getName() + " now: delete " + old.getName() + "'s jar from plugins/ and restart.");
+                this.getLogger().warning("The SMP is part of " + this.getName() + " now: delete " + old.getName() + "'s jar from plugins/.");
             }
 
-            this.survivalPending = true;
-            return;
+            // it starts after this plugin (its commands lost their names to ours): switch it off right away
+            Tasks.later(1L, () -> {
+                if (old.isEnabled()) {
+                    this.getServer().getPluginManager().disablePlugin(old);
+                    this.getLogger().info("Switched the old VortexSMP plugin off - its homes, warps and market are in " + this.getName() + " now.");
+                }
+            });
         }
 
         this.survival = new net.practicepvp.survival.VortexSMP(this);

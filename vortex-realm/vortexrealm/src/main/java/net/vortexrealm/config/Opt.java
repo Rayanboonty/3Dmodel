@@ -1954,16 +1954,16 @@ public final class Opt<T> {
     public static final Opt<Boolean> SMP_SAME_SERVER = bool(
         "smp.same-server",
         true,
-        Opt.Section.NETWORK,
+        Opt.Section.SMP,
         "SMP On This Server",
         "The SMP worlds of worlds.yml run on this server again: the selector opens them, every SMP world group keeps its own inventory, ender chest and XP (saved and backed up), and VortexSMP adds homes, tpa, rtp and more. Off = the SMP is on another server (transfer).",
         Material.GRASS_BLOCK
     );
     public static final Opt<Integer> SMP_BACKUP_MINUTES = integer(
-        "smp.backup-minutes", 10, Opt.Section.NETWORK, "Inventory Backups", "Minutes between automatic backups of every SMP player's inventory and ender chest (also on every world switch and logout).", Material.CHEST, 2, 120, 1
+        "smp.backup-minutes", 10, Opt.Section.SMP, "Inventory Backups", "Minutes between automatic backups of every SMP player's inventory and ender chest (also on every world switch and logout).", Material.CHEST, 2, 120, 1
     );
     public static final Opt<Integer> SMP_BACKUP_KEEP = integer(
-        "smp.backup-keep", 30, Opt.Section.NETWORK, "Backups Kept", "Inventory backups kept per player and world group (the oldest are removed).", Material.BOOKSHELF, 5, 500, 5
+        "smp.backup-keep", 30, Opt.Section.SMP, "Backups Kept", "Inventory backups kept per player and world group (the oldest are removed).", Material.BOOKSHELF, 5, 500, 5
     );
     public static final Opt<Boolean> UPDATES = bool(
         "updates.enabled",
@@ -2066,6 +2066,18 @@ public final class Opt<T> {
         return Collections.unmodifiableList(ALL);
     }
 
+    /** An SMP setting (the SMP part's own options live in config.yml under smp. like every other setting). */
+    @SuppressWarnings("unchecked")
+    public static <T> Opt<T> smp(String path, T def, String name, String desc, Material icon, double min, double max, double step, boolean gui) {
+        Opt.Type t = def instanceof Boolean ? Opt.Type.BOOL : (def instanceof Integer ? Opt.Type.INT : Opt.Type.STRING);
+        return new Opt<>(path, t, def, Opt.Section.SMP, name, desc, icon, min, max, step, null, gui);
+    }
+
+    static {
+        // the SMP part's settings join this list before config.yml loads
+        net.vortexrealm.survival.config.Opt.all();
+    }
+
     private static Opt<Boolean> bool(String path, boolean def, Opt.Section s, String name, String desc, Material icon) {
         return new Opt<>(path, Opt.Type.BOOL, def, s, name, desc, icon, 0.0, 1.0, 1.0, null, true);
     }
@@ -2156,7 +2168,8 @@ public final class Opt<T> {
         NETWORK("Network & Servers", Material.ENDER_EYE),
         BOTS("Practice Bots & Training", Material.ARMOR_STAND),
         CHAT("Chat & Messages", Material.WRITABLE_BOOK),
-        WEB("Website & Resource Pack", Material.FILLED_MAP);
+        WEB("Website & Resource Pack", Material.FILLED_MAP),
+        SMP("SMP (Survival)", Material.GRASS_BLOCK);
 
         public final String title;
         public final Material icon;

@@ -1006,3 +1006,18 @@ The SMP is part of VortexRealm again, like the old plugin. **Remove VortexSMP**:
   4. Nothing is overwritten, and the inventories folder is zipped first.
 - `/pvpadmin smp` shows the SMP status, `reload`, `import` and the keep-online `bot`.
 - **Tab fix:** names next to flag icons no longer show as empty boxes.
+
+
+## 3.8.1 / 2.8.1 — SMP fixes and the SMP page
+
+- **The SMP always starts.** If the old VortexSMP jar is still installed, it's switched off and renamed, and VortexRealm's SMP runs right away.
+- **`/home`, `/homes`, `/back` and `/rtp` work from the lobby.** They take the player into the SMP, and their SMP inventory loads.
+- **Old homes and warps always come in** (only what's missing) from the old plugin files and from `plugins/VortexSMP`.
+- **Join backup:** each new version backs up what every player carries the first time it sees them, before anything can switch it.
+- **`/pvpadmin` → SMP:**
+  - turn the SMP on or off;
+  - **SMP Settings** (homes, tpa, rtp, warps, teleports, combat tag, market, trade, drills, backups), now in `config.yml` under `smp.`;
+  - SMP worlds;
+  - **Bring Back SMP Data:** pick a Data Vault backup (one is made before every update), the old plugin files or the VortexSMP folder. You see what it has, then bring back everything (only what's missing) or replace with it. Inventories and ender chests come back too, including what players were carrying.
+  - **Player Inventories:** every player's backups, with one-click restore.
+- **Console:** `/pvpadmin smp restore`, then `/pvpadmin smp restore <n> preview|missing|replace`.

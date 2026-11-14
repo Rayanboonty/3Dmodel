@@ -7,9 +7,43 @@ import java.util.List;
 /** Every setting of VortexSMP (config.yml). Paths match the old SMP settings of VortexRealm/VortexRealm. */
 public final class Opt<T> {
     private static final List<Opt<?>> ALL = new ArrayList<>();
+    /** The settings shown in /pvpadmin: name, icon, min, max, step. The rest belonged to the separate plugin. */
+    private static final java.util.Map<String, String[]> UI = java.util.Map.ofEntries(
+        java.util.Map.entry("extras.smp-sidebar", new String[]{"SMP Sidebar", "PAINTING", "0", "1", "1"}),
+        java.util.Map.entry("extras.smp-commands", new String[]{"/craft /ec /hat /trash /nv /near", "CRAFTING_TABLE", "0", "1", "1"}),
+        java.util.Map.entry("extras.web-map-url", new String[]{"Web Map Link", "FILLED_MAP", "0", "256", "1"}),
+        java.util.Map.entry("smp.essentials", new String[]{"Homes, tpa, rtp, warps, back", "COMPASS", "0", "1", "1"}),
+        java.util.Map.entry("smp.homes.enabled", new String[]{"Homes", "RED_BED", "0", "1", "1"}),
+        java.util.Map.entry("smp.homes.max", new String[]{"Homes Per Player", "RED_BED", "1", "100", "1"}),
+        java.util.Map.entry("smp.homes.helper", new String[]{"Homes (Helper)", "RED_BED", "1", "100", "1"}),
+        java.util.Map.entry("smp.homes.mod", new String[]{"Homes (Mod)", "RED_BED", "1", "100", "1"}),
+        java.util.Map.entry("smp.homes.admin", new String[]{"Homes (Admin)", "RED_BED", "1", "100", "1"}),
+        java.util.Map.entry("smp.tpa.enabled", new String[]{"/tpa", "ENDER_PEARL", "0", "1", "1"}),
+        java.util.Map.entry("smp.tpa.expire-seconds", new String[]{"Tpa Expires After (s)", "CLOCK", "10", "600", "10"}),
+        java.util.Map.entry("smp.back.enabled", new String[]{"/back", "RECOVERY_COMPASS", "0", "1", "1"}),
+        java.util.Map.entry("smp.back.on-death-modes", new String[]{"/back After Death In", "SKELETON_SKULL", "0", "256", "1"}),
+        java.util.Map.entry("smp.rtp.enabled", new String[]{"/rtp", "COMPASS", "0", "1", "1"}),
+        java.util.Map.entry("smp.rtp.max-radius", new String[]{"Rtp Farthest", "MAP", "500", "100000", "500"}),
+        java.util.Map.entry("smp.rtp.min-radius", new String[]{"Rtp Closest", "MAP", "0", "50000", "100"}),
+        java.util.Map.entry("smp.rtp.cooldown-seconds", new String[]{"Rtp Cooldown (s)", "CLOCK", "0", "3600", "10"}),
+        java.util.Map.entry("smp.warps.enabled", new String[]{"Warps", "ENDER_EYE", "0", "1", "1"}),
+        java.util.Map.entry("smp.teleport.warmup-seconds", new String[]{"Teleport Warmup (s)", "CLOCK", "0", "30", "1"}),
+        java.util.Map.entry("smp.teleport.cooldown-seconds", new String[]{"Teleport Cooldown (s)", "CLOCK", "0", "600", "5"}),
+        java.util.Map.entry("smp.teleport.cancel-on-move", new String[]{"Moving Cancels Teleports", "LEATHER_BOOTS", "0", "1", "1"}),
+        java.util.Map.entry("smp.teleport.cancel-on-damage", new String[]{"Damage Cancels Teleports", "IRON_SWORD", "0", "1", "1"}),
+        java.util.Map.entry("smp.combat-tag-seconds", new String[]{"Combat Tag (s)", "IRON_SWORD", "0", "120", "5"}),
+        java.util.Map.entry("drills.enabled", new String[]{"Drills (Discord invites)", "DIAMOND_PICKAXE", "0", "1", "1"}),
+        java.util.Map.entry("trade.enabled", new String[]{"/trade", "CHEST", "0", "1", "1"}),
+        java.util.Map.entry("market.enabled", new String[]{"/market", "EMERALD", "0", "1", "1"}),
+        java.util.Map.entry("market.max-offers", new String[]{"Market Offers Per Player", "EMERALD", "1", "54", "1"}),
+        java.util.Map.entry("keepalive.enabled", new String[]{"Keep-Online Bot", "ARMOR_STAND", "0", "1", "1"})
+    );
+
     public final String path;
     public final T def;
     public final String desc;
+    /** The same setting in the main config.yml (path smp.…), shown in /pvpadmin → Settings → SMP. */
+    public final net.vortexrealm.config.Opt<T> main;
 
     // network: where /hub and /lobby send players (the Practice server)
     public static final Opt<String> HUB_HOST = new Opt<>("network.hub.host", "", "Address of the Practice/lobby server, e.g. play.example.net (empty = /hub is off).");
@@ -76,8 +110,23 @@ public final class Opt<T> {
         this.path = path;
         this.def = def;
         this.desc = desc;
+        String mainPath = "smp." + (path.startsWith("smp.") ? path.substring(4) : path);
+        String[] ui = UI.get(path);
+        if (ui == null) {
+            this.main = net.vortexrealm.config.Opt.smp(mainPath, def, title(path), desc, org.bukkit.Material.PAPER, 0, 100000, 1, false);
+        } else {
+            this.main = net.vortexrealm.config.Opt.smp(mainPath, def, ui[0], desc, org.bukkit.Material.matchMaterial(ui[1]),
+                Double.parseDouble(ui[2]), Double.parseDouble(ui[3]), Double.parseDouble(ui[4]), true);
+        }
+
         ALL.add(this);
     }
+
+    private static String title(String path) {
+        String last = path.substring(path.lastIndexOf('.') + 1).replace('-', ' ');
+        return Character.toUpperCase(last.charAt(0)) + last.substring(1);
+    }
+
 
     public static List<Opt<?>> all() {
         return Collections.unmodifiableList(ALL);

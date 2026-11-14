@@ -1,20 +1,20 @@
 {
   "PracticePvP": {
-    "version": "2.8.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.8.0.jar",
-    "sha256": "16ccf1184d1a9304dfd0876aa2ae22bd4c7bff057a2638ce9f9dfc5203b15a6e",
-    "notes": "All-in-one: the SMP (homes, tpa, rtp, warps, back, combat tag, trade, market, drills) is part of this plugin now - remove VortexSMP. Import old SMP data via the import folder. Flag icons no longer turn names into boxes"
+    "version": "2.8.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.8.1.jar",
+    "sha256": "23f00fb5d06d1451297e723bc67f365df0b450119a1d29aa3ed00718f070a53d",
+    "notes": "SMP fixes: /rtp /home /back work from the lobby, SMP always starts, old homes always come in, a backup of every player on join, new /pvpadmin SMP page (settings + bring back homes/inventories/ender chests from any Data Vault backup or old plugin files)"
   },
   "VortexRealm": {
-    "version": "3.8.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.8.0.jar",
-    "sha256": "d02b2d2f6fdf8d5bc5e9c504c09f4e9bc6ec3273575b74495d354403b78d41a0",
-    "notes": "All-in-one: the SMP (homes, tpa, rtp, warps, back, combat tag, trade, market, drills) is part of this plugin now - remove VortexSMP. Import old SMP data via the import folder. Flag icons no longer turn names into boxes"
+    "version": "3.8.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.8.1.jar",
+    "sha256": "a234755f8c8cd94cb67b505ecf66d8d621e1c8b2e549b9ee9d4bb84c82f0c33b",
+    "notes": "SMP fixes: /rtp /home /back work from the lobby, SMP always starts, old homes always come in, a backup of every player on join, new /pvpadmin SMP page (settings + bring back homes/inventories/ender chests from any Data Vault backup or old plugin files)"
   },
   "VortexSMP": {
     "version": "1.6.0",
     "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexSMP-1.6.0.jar",
     "sha256": "1b66747e5c2088dfb25f6028bc37b639e7e690569256543f1a5bd15d82ea3425",
-    "notes": "VortexSMP is now part of VortexRealm 3.8.0 - remove this plugin"
+    "notes": "VortexSMP is now part of VortexRealm - remove this plugin"
   }
 }

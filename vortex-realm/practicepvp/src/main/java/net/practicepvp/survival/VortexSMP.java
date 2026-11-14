@@ -55,6 +55,7 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
     private Sidebar sidebar;
     private OldImport oldImport;
     private SmpImport smpImport;
+    private net.practicepvp.smp.SmpRestore restore;
     private net.practicepvp.survival.data.DiscordLink discord;
     private net.practicepvp.survival.trade.TradeManager trades;
     private net.practicepvp.survival.trade.Market market;
@@ -122,9 +123,16 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
         pm.registerEvents(new MenuListener(this), this.host);
         this.oldImport = new OldImport(this);
         this.oldImport.prepare();
-        this.smpImport.startup();
         this.essentials = new Essentials(this, this.modes);
         this.essentials.load();
+        // old homes, warps and inventories: this plugin's old files, the VortexSMP folder and smp/import/ (only what's missing)
+        this.restore = new net.practicepvp.smp.SmpRestore(this.host);
+        try {
+            this.restore.startup();
+        } catch (RuntimeException e) {
+            this.getLogger().log(Level.WARNING, "Bringing old SMP data in failed", e);
+        }
+
         pm.registerEvents(this.essentials, this.host);
         this.bind(this.essentials, "spawn", "sethome", "home", "delhome", "homes", "back", "rtp", "tpa", "tpahere", "tpaccept", "tpdeny", "tpacancel", "tptoggle", "warp", "warps", "setwarp", "delwarp");
         Tasks.timer(20L, 20L, this.essentials::tick);
@@ -250,7 +258,8 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Text.mm("<green>SMP settings reloaded (smp/config.yml)."));
                 break;
             case "import":
-                this.smpImport.command(sender, java.util.Arrays.copyOfRange(args, 1, args.length));
+            case "restore":
+                this.restoreCommand(sender, java.util.Arrays.copyOfRange(args, 1, args.length));
                 break;
             case "check":
                 this.oldImport.command(sender, new String[]{"check"});
@@ -290,6 +299,52 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
         return List.of();
     }
 
+    /** /pvpadmin smp restore [<n> [preview|missing|replace]] - the console way of the SMP page's "Bring back". */
+    private void restoreCommand(CommandSender sender, String[] a) {
+        List<net.practicepvp.smp.SmpRestore.Source> src = this.restore.sources();
+        if (a.length == 0) {
+            sender.sendMessage(Text.mm("<gold><b>Bring back SMP data</b> <gray>- pick a source:"));
+            for (int i = 0; i < src.size(); i++) {
+                sender.sendMessage(Text.mm(" <yellow>" + (i + 1) + "</yellow> <white>" + Text.esc(src.get(i).label()) + " <dark_gray>• <gray>" + Text.esc(src.get(i).detail())));
+            }
+
+            sender.sendMessage(Text.mm("<gray>/pvpadmin smp restore <n> preview <dark_gray>| <gray>missing <dark_gray>(only what's missing) <dark_gray>| <gray>replace"));
+            return;
+        }
+
+        int n;
+        try {
+            n = Integer.parseInt(a[0]);
+        } catch (NumberFormatException e) {
+            n = -1;
+        }
+
+        if (n < 1 || n > src.size()) {
+            sender.sendMessage(Text.mm("<red>No source " + Text.esc(a[0]) + "."));
+            return;
+        }
+
+        net.practicepvp.smp.SmpRestore.Source s = src.get(n - 1);
+        String how = a.length > 1 ? a[1].toLowerCase(java.util.Locale.ROOT) : "preview";
+        try {
+            if (how.equals("missing") || how.equals("replace")) {
+                sender.sendMessage(Text.mm("<gray>Taking a Data Vault snapshot first..."));
+                this.host.vaultSnapshot("before-smp-restore", (name, err) -> {
+                    try {
+                        net.practicepvp.smp.SmpRestore.Preview pv = this.restore.run(s, java.util.EnumSet.allOf(net.practicepvp.smp.SmpRestore.Part.class), how.equals("replace"), false);
+                        sender.sendMessage(Text.mm("<green>Brought back from " + Text.esc(s.label()) + ": <white>" + Text.esc(pv.summary())));
+                    } catch (Exception e) {
+                        sender.sendMessage(Text.mm("<red>Failed: " + Text.esc(String.valueOf(e.getMessage()))));
+                    }
+                });
+            } else {
+                sender.sendMessage(Text.mm("<gold>" + Text.esc(s.label()) + ": <white>" + Text.esc(this.restore.preview(s).summary())));
+            }
+        } catch (Exception e) {
+            sender.sendMessage(Text.mm("<red>Couldn't read it: " + Text.esc(String.valueOf(e.getMessage()))));
+        }
+    }
+
     /** Players outside the SMP worlds (for the SMP sidebar). */
     public int lobbyPlayers() {
         int n = 0;
@@ -322,6 +377,10 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
 
     public OldImport oldImport() {
         return this.oldImport;
+    }
+
+    public net.practicepvp.smp.SmpRestore restore() {
+        return this.restore;
     }
 
     public SmpImport smpImport() {

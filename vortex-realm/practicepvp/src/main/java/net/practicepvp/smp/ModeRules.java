@@ -133,6 +133,13 @@ public final class ModeRules implements Listener, CommandExecutor, TabCompleter 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent e) {
         Player p = e.getPlayer();
+        // a copy of everything they carry before this version touches it
+        try {
+            this.modes.firstSeen(p);
+        } catch (RuntimeException ex) {
+            this.plugin.getLogger().log(java.util.logging.Level.WARNING, "Join backup of " + p.getName() + " failed", ex);
+        }
+
         // first thing: a player who logged off in an old SMP world keeps those items in a saved file
         this.modes.stashLegacy(p);
         Tasks.later(2L, () -> {

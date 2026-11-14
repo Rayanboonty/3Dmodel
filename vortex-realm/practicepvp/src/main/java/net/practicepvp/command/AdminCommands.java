@@ -251,7 +251,9 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         break;
                 }
                 case "smp": {
-                        if (this.plugin.survival() == null) {
+                        if (p != null && args.length == 1) {
+                            this.plugin.dialogs().smp().open(p);
+                        } else if (this.plugin.survival() == null) {
                             sender.sendMessage(Text.mm(this.plugin.survivalPending()
                                 ? "<yellow>The SMP starts after the next restart (the old VortexSMP plugin is still running until then)."
                                 : "<red>The SMP didn't start - see the console."));

@@ -347,6 +347,18 @@ public final class AdminDialogs {
         );
         tiles.add(
             tile(
+                Material.GRASS_BLOCK,
+                "<green><b>SMP",
+                "<gray>Settings, worlds, bring back old data",
+                () -> this.plugin.dialogs().smp().open(p),
+                "The survival SMP of this server: on/off,",
+                "all its settings, the SMP worlds, bringing",
+                "homes and inventories back from a backup or",
+                "the old plugin files, every player's backups."
+            )
+        );
+        tiles.add(
+            tile(
                 Material.ENDER_CHEST,
                 "<gold><b>Data Vault",
                 "<gray>" + this.plugin.vault().files().size() + " snapshots",

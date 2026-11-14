@@ -10,9 +10,9 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'All-in-one: the SMP (homes, tpa, rtp, warps, back, combat tag, trade, market, drills) is part of this plugin now - remove VortexSMP. Import old SMP data via the import folder. Flag icons no longer turn names into boxes',
-    'PracticePvP': 'All-in-one: the SMP (homes, tpa, rtp, warps, back, combat tag, trade, market, drills) is part of this plugin now - remove VortexSMP. Import old SMP data via the import folder. Flag icons no longer turn names into boxes',
-    'VortexSMP': 'VortexSMP is now part of VortexRealm 3.8.0 - remove this plugin',
+    'VortexRealm': 'SMP fixes: /rtp /home /back work from the lobby, SMP always starts, old homes always come in, a backup of every player on join, new /pvpadmin SMP page (settings + bring back homes/inventories/ender chests from any Data Vault backup or old plugin files)',
+    'PracticePvP': 'SMP fixes: /rtp /home /back work from the lobby, SMP always starts, old homes always come in, a backup of every player on join, new /pvpadmin SMP page (settings + bring back homes/inventories/ender chests from any Data Vault backup or old plugin files)',
+    'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 
 

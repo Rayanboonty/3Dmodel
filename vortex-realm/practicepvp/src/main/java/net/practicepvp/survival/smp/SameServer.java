@@ -59,7 +59,7 @@ public final class SameServer implements Listener {
         if (c instanceof PluginCommand pc && pc.getPlugin() == this.plugin.host() && SMP_ONLY.contains(pc.getName().toLowerCase(Locale.ROOT)) && !inSmp
             && !(pc.getName().equalsIgnoreCase("drill") && p.hasPermission("vortexsmp.admin"))) {
             e.setCancelled(true);
-            p.sendMessage(Text.mm("<red>That works in the SMP. <gray>Use <white>/smp</white> first."));
+            p.sendMessage(Text.mm("<red>That works in the SMP. <click:run_command:'/smp'><hover:show_text:'<gray>Go to the SMP'><green>[Go to the SMP]</green></hover></click>"));
             Snd.error(p);
         }
     }

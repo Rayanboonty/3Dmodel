@@ -143,6 +143,109 @@ public final class Essentials implements Listener, TabExecutor {
         }
     }
 
+    // ------------------------------------------------------------------ bringing old homes and warps back
+
+    /**
+     * Adds the homes of a homes.yml (homes.&lt;uuid&gt;.&lt;MODE&gt;.&lt;name&gt;: this plugin's, the 2.x one and VortexSMP's all
+     * use it). {@code replace}: a home with the same name is set to the old spot too. {@code dry}: only counts.
+     * Returns how many homes were (or would be) added or changed.
+     */
+    public int mergeHomes(YamlConfiguration y, boolean replace, boolean dry) {
+        int n = 0;
+        ConfigurationSection root = y.getConfigurationSection("homes");
+        if (root == null) {
+            return 0;
+        }
+
+        for (String uuid : root.getKeys(false)) {
+            UUID u;
+            try {
+                u = UUID.fromString(uuid);
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+
+            ConfigurationSection perMode = root.getConfigurationSection(uuid);
+            for (String mode : perMode == null ? java.util.Set.<String>of() : perMode.getKeys(false)) {
+                ConfigurationSection hs = perMode.getConfigurationSection(mode);
+                for (String name : hs == null ? java.util.Set.<String>of() : hs.getKeys(false)) {
+                    String loc = hs.getString(name);
+                    if (loc == null) {
+                        continue;
+                    }
+
+                    Map<String, String> mine = dry ? this.homes.getOrDefault(u, Map.of()).getOrDefault(mode, Map.of()) : this.homesOf(u, mode);
+                    String now = mine.get(name);
+                    if (now == null || replace && !now.equals(loc)) {
+                        if (!dry) {
+                            mine.put(name, loc);
+                        }
+
+                        n++;
+                    }
+                }
+            }
+        }
+
+        if (!dry && n > 0) {
+            this.saveData();
+        }
+
+        return n;
+    }
+
+    /** Adds the warps of a warps.yml (warps.&lt;MODE&gt;.&lt;name&gt;.location/icon), the same way as {@link #mergeHomes}. */
+    public int mergeWarps(YamlConfiguration y, boolean replace, boolean dry) {
+        int n = 0;
+        ConfigurationSection ws = y.getConfigurationSection("warps");
+        for (String mode : ws == null ? java.util.Set.<String>of() : ws.getKeys(false)) {
+            ConfigurationSection m = ws.getConfigurationSection(mode);
+            for (String name : m == null ? java.util.Set.<String>of() : m.getKeys(false)) {
+                String loc = m.getString(name + ".location");
+                if (loc == null) {
+                    continue;
+                }
+
+                Essentials.Warp now = this.warps.getOrDefault(mode, Map.of()).get(name);
+                if (now == null || replace && !now.location().equals(loc)) {
+                    if (!dry) {
+                        Material icon = Material.matchMaterial(m.getString(name + ".icon", "ENDER_PEARL"));
+                        this.warps.computeIfAbsent(mode, k -> new LinkedHashMap<>())
+                            .put(name, new Essentials.Warp(name, loc, icon != null && icon.isItem() ? icon : Material.ENDER_PEARL));
+                    }
+
+                    n++;
+                }
+            }
+        }
+
+        if (!dry && n > 0) {
+            this.saveWarps();
+        }
+
+        return n;
+    }
+
+    public int homeCount() {
+        int n = 0;
+        for (Map<String, Map<String, String>> byMode : this.homes.values()) {
+            for (Map<String, String> m : byMode.values()) {
+                n += m.size();
+            }
+        }
+
+        return n;
+    }
+
+    public int warpCount() {
+        int n = 0;
+        for (Map<String, Essentials.Warp> m : this.warps.values()) {
+            n += m.size();
+        }
+
+        return n;
+    }
+
     /** Moves the homes of a player whose ID changed (moved to a host with another online-mode). */
     public void rekeyHomes(UUID from, UUID to) {
         Map<String, Map<String, String>> old = this.homes.remove(from);
@@ -206,6 +309,19 @@ public final class Essentials implements Listener, TabExecutor {
 
     private boolean smp(World w) {
         return w != null && !this.plugin.worlds().managed(w) && this.modes.mode(w).smp();
+    }
+
+    /**
+     * The SMP world a command is about: the one the player is in, or the main SMP world from the hub (homes, /rtp and
+     * /back work from the lobby too - the inventory switches when they arrive). Null in the practice worlds.
+     */
+    private World here(Player p) {
+        World w = p.getWorld();
+        if (this.smp(w)) {
+            return w;
+        }
+
+        return this.plugin.worlds().managed(w) ? null : this.plugin.realm().smpWorld();
     }
 
     private boolean hub(World w) {
@@ -568,8 +684,10 @@ public final class Essentials implements Listener, TabExecutor {
                 case "homes":
                     if (!Cfg.bool(Opt.ESS_HOMES)) {
                         err(p, "Homes are disabled on this server.");
-                    } else if (!this.smp(p.getWorld())) {
-                        err(p, "Homes only work in the SMP worlds.");
+                    } else if (this.here(p) == null) {
+                        err(p, this.plugin.realm().smpWorld() == null ? "There is no SMP world yet." : "Leave Practice first: /hub, then try again.");
+                    } else if (cmd.equals("sethome") && !this.smp(p.getWorld())) {
+                        err(p, "Set homes in the SMP: /smp first.");
                     } else {
                         switch (cmd) {
                             case "sethome":
@@ -594,8 +712,8 @@ public final class Essentials implements Listener, TabExecutor {
                 case "back":
                     if (!Cfg.bool(Opt.ESS_BACK)) {
                         err(p, "/back is disabled on this server.");
-                    } else if (!this.smp(p.getWorld())) {
-                        err(p, "/back only works in the SMP worlds.");
+                    } else if (this.here(p) == null) {
+                        err(p, "Leave Practice first: /hub, then try again.");
                     } else {
                         this.back(p);
                     }
@@ -603,8 +721,11 @@ public final class Essentials implements Listener, TabExecutor {
                 case "rtp":
                     if (!Cfg.bool(Opt.ESS_RTP)) {
                         err(p, "Random teleport is disabled on this server.");
-                    } else if (!this.smp(p.getWorld())) {
-                        err(p, "/rtp only works in the SMP worlds.");
+                    } else if (this.here(p) == null) {
+                        err(p, this.plugin.realm().smpWorld() == null ? "There is no SMP world yet." : "Leave Practice first: /hub, then /rtp.");
+                    } else if (!this.smp(p.getWorld()) && args.length == 0) {
+                        // from the lobby: a random spot in the SMP
+                        this.rtpIn(p, this.here(p));
                     } else if (args.length == 0 && this.rtpWorlds(p).size() > 1) {
                         this.rtpMenu(p);
                     } else if (args.length > 0) {
@@ -717,7 +838,7 @@ public final class Essentials implements Listener, TabExecutor {
 
     private void back(Player p) {
         Map<String, Location> m = this.back.get(p.getUniqueId());
-        Location l = m == null ? null : m.get(this.group(p.getWorld()));
+        Location l = m == null ? null : m.get(this.group(this.here(p)));
         if (l != null && l.getWorld() != null) {
             Location target = l.clone();
             this.warmup(p, "your last location", () -> this.arrive(p, target, "Back"));
@@ -761,7 +882,7 @@ public final class Essentials implements Listener, TabExecutor {
     }
 
     private void home(Player p, String raw) {
-        Map<String, String> mine = this.homesOf(p.getUniqueId(), this.group(p.getWorld()));
+        Map<String, String> mine = this.homesOf(p.getUniqueId(), this.group(this.here(p)));
         if (mine.isEmpty()) {
             msg(p, "<gray>You have no homes in " + this.modeLabel(p.getWorld()) + "<gray> yet. <gold>/sethome [name]");
         } else {
@@ -797,7 +918,7 @@ public final class Essentials implements Listener, TabExecutor {
 
     private void delHome(Player p, String raw) {
         String name = raw.toLowerCase(Locale.ROOT);
-        Map<String, String> mine = this.homesOf(p.getUniqueId(), this.group(p.getWorld()));
+        Map<String, String> mine = this.homesOf(p.getUniqueId(), this.group(this.here(p)));
         if (mine.remove(name) == null) {
             err(p, "No home called '" + raw + "'.");
         } else {
@@ -807,7 +928,7 @@ public final class Essentials implements Listener, TabExecutor {
     }
 
     public void homesMenu(Player p) {
-        String mode = this.group(p.getWorld());
+        String mode = this.group(this.here(p));
         Map<String, String> mine = this.homesOf(p.getUniqueId(), mode);
         int max = this.maxHomes(p);
         if (ClientVersion.supportsDialogs(p)) {
@@ -942,7 +1063,8 @@ public final class Essentials implements Listener, TabExecutor {
 
     private List<World> rtpWorlds(Player p) {
         List<World> out = new ArrayList<>();
-        String n = p.getWorld().getName();
+        World at = this.here(p);
+        String n = (at == null ? p.getWorld() : at).getName();
         String base = n.endsWith("_nether") ? n.substring(0, n.length() - 7) : (n.endsWith("_the_end") ? n.substring(0, n.length() - 8) : n);
 
         for (String s : new String[]{"", "_nether", "_the_end"}) {
@@ -1024,7 +1146,7 @@ public final class Essentials implements Listener, TabExecutor {
     }
 
     public void homesChest(Player p) {
-        String mode = this.group(p.getWorld());
+        String mode = this.group(this.here(p));
         final Map<String, String> mine = this.homesOf(p.getUniqueId(), mode);
         final int max = this.maxHomes(p);
         (new Menu(this.plugin, p) {
@@ -1518,7 +1640,7 @@ public final class Essentials implements Listener, TabExecutor {
                 case "home":
                 case "delhome":
                 case "sethome":
-                    out.addAll(this.homesOf(p.getUniqueId(), this.group(p.getWorld())).keySet());
+                    out.addAll(this.homesOf(p.getUniqueId(), this.group(this.here(p))).keySet());
                     break;
                 case "warp":
                 case "delwarp":
