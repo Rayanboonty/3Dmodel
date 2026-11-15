@@ -1,0 +1,89 @@
+diff --git a/runtime/bridges/brightness/brightness.c b/runtime/bridges/brightness/brightness.c
+index 0cfb556..40b8a6b 100644
+--- a/runtime/bridges/brightness/brightness.c
++++ b/runtime/bridges/brightness/brightness.c
+@@ -135,6 +135,11 @@ struct br_bright {
+   uint32_t key_lit;                       // GalIOS: iOS's last level above 0, as asked, for the side key's fallback
+   bool key_lit_linear;
+   uint32_t lin_min;                       // GalIOS: the dimmest light level iOS asked for (BOTTOM_START at most)
++  // GalIOS 0022: what iOS reads back (br_bright_level) from its display's off until it sets a level again: its level
++  // from before the off, not the floor the panel is at (or still at, the instant it comes back on). Reading the floor
++  // set iOS's slider to 0 after every lock while the panel came back bright, and raising the slider dimmed it.
++  bool hold;
++  uint32_t held_level;
+   bool new_driver;                        // GalIOS: iOS's slider position or display power arrived (a kernel from
+                                           // OneiOS 2e24760 on): its slider reaches the floor itself, no remap
+   // light sensor
+@@ -479,6 +484,7 @@ static void bright_set(br_bright *b, uint32_t level, bool linear, uint32_t fade_
+   if (fade_ms > 10000) fade_ms = 10000;
+   pthread_mutex_lock(&b->lock);
+   if (from_guest && !linear && level > 0) b->new_driver = true;      // the slider's position: only the new driver sends it
++  if (from_guest && level > 0 && b->display_on) b->hold = false;     // GalIOS 0022: iOS set its own level again
+   if (level > 0) { b->key_lit = level; b->key_lit_linear = linear; }   // as iOS asked: the fallback asks it again
+   if (linear && level > 0) level = bottom_remap(b, level);
+   b->from = b->level;
+@@ -499,6 +505,11 @@ void br_bright_display(br_bright *b, bool on, const char *why)
+   bool was = b->display_on;
+   b->display_on = on;
+   if (!on && was) {
++    // GalIOS 0022: iOS reads its level from before the off until it sets one again (see hold). The panel's level now,
++    // else, when iOS had already gone to 0 before the off, the last slider position it asked for.
++    uint32_t now_level = level_of(__atomic_load_n(&b->written, __ATOMIC_RELAXED), b->info.floor, b->info.ceiling);
++    if (b->target == 0 && b->key_lit && !b->key_lit_linear) now_level = b->key_lit;
++    if (now_level) { b->held_level = now_level; b->hold = true; }
+     // Off: the IC sleeps, then the backlight goes to the floor; the level is kept for the way back on.
+     b->lit_level = b->target;
+     b->lit_linear = b->linear;
+@@ -563,7 +574,15 @@ void br_bright_key(br_bright *b)
+ 
+ uint32_t br_bright_current(br_bright *b) { return __atomic_load_n(&b->written, __ATOMIC_RELAXED); }
+ 
+-uint32_t br_bright_level(br_bright *b) { return level_of(br_bright_current(b), b->info.floor, b->info.ceiling); }
++uint32_t br_bright_level(br_bright *b)
++{
++  pthread_mutex_lock(&b->lock);
++  bool hold = b->hold;
++  uint32_t held = b->held_level;
++  pthread_mutex_unlock(&b->lock);
++  if (hold) return held;                  // GalIOS 0022
++  return level_of(br_bright_current(b), b->info.floor, b->info.ceiling);
++}
+ 
+ void br_bright_listen(br_bright *b, br_als_fn fn, void *ctx)
+ {
+diff --git a/runtime/bridges/brightness/test_brightness.c b/runtime/bridges/brightness/test_brightness.c
+index 49b49b9..97b7415 100644
+--- a/runtime/bridges/brightness/test_brightness.c
++++ b/runtime/bridges/brightness/test_brightness.c
+@@ -310,6 +310,31 @@ static void test_session(void)
+     CHECK(mid > 12750 && mid < 25500);
+     usleep(250000);
+     CHECK(get(panel, "brightness") == 25500);
++    // GalIOS 0022: across iOS's display off and on, iOS reads its own level back, never the floor the panel is at
++    br_bright_set(b, BR_BRIGHT_FULL / 2, false, 0);
++    usleep(100000);
++    uint32_t before = br_bright_level(b);
++    CHECK(before > BR_BRIGHT_FULL / 2 - 400 && before < BR_BRIGHT_FULL / 2 + 400);
++    br_bright_display(b, false, "test");
++    usleep(100000);
++    CHECK(get(panel, "brightness") == 1 && br_bright_level(b) == before);
++    br_bright_display(b, true, "test");
++    CHECK(br_bright_level(b) == before);                            // at once, before the panel is written again
++    usleep(100000);
++    CHECK(get(panel, "brightness") > 1 && br_bright_level(b) == before);
++    br_bright_set(b, BR_BRIGHT_FULL, false, 0);                     // iOS sets its own again: the panel's level
++    usleep(100000);
++    CHECK(br_bright_level(b) == BR_BRIGHT_FULL);
++    // iOS went to 0 before the off: it reads back the last slider position it asked for
++    br_bright_set(b, 0, false, 0);
++    usleep(100000);
++    br_bright_display(b, false, "test");
++    usleep(100000);
++    CHECK(br_bright_level(b) == BR_BRIGHT_FULL);
++    br_bright_display(b, true, "test");
++    usleep(100000);
++    br_bright_set(b, BR_BRIGHT_FULL, false, 0);
++    usleep(100000);
+     // A fade cut short by the close still leaves One UI's value.
+     br_bright_set(b, 0, false, 5000);
+     usleep(50000);

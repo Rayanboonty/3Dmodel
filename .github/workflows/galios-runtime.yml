@@ -89,6 +89,7 @@ jobs:
           grep -q 'identity_screen_only' OneiOS/runtime/loader/src/machine.c
           grep -q 'galios_widen_cpuset' OneiOS/runtime/xnuhost/src/main.c
           grep -q 'DRM2KGSL_PRIORITIES' OneiOS/runtime/xnuhost/src/config.c
+          grep -q 'held_level' OneiOS/runtime/bridges/brightness/brightness.c
           ! grep -q 'ram_bytes = 10ull << 30' OneiOS/runtime/xnuhost/src/config.c
           grep -q 'BOTTOM_START 16400u' OneiOS/runtime/bridges/brightness/brightness.c
           strings "$d/bin/xnuhost" | grep -q 'GalIOS maximum performance'
