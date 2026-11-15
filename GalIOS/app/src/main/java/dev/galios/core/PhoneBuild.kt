@@ -78,6 +78,24 @@ object PhoneBuild {
         shell.exec("${env(scripts)} sh ${shq(scripts.runner.path)} log").lines
             .filter { it.startsWith("| ") || it == "|" }.joinToString("\n") { it.removePrefix("|").removePrefix(" ") }
 
+    /**
+     * Free up space: deletes the on-phone build's work folder ([HOME]: Ubuntu, the sources, the firmware it read, the
+     * intermediate files; tens of GB). The finished image is already in the stage once imported, so nothing iOS needs
+     * goes. Refused while anything under [HOME] is mounted (the build's chroot binds /proc, /dev and more: deleting
+     * through a live bind would reach the phone's own files). The caller makes sure no build is running.
+     */
+    fun clean(shell: RootShell): StageClient.Reply {
+        val h = shq(HOME)
+        return reply(shell.exec("""
+            h=$h
+            [ -d "${'$'}h" ] || { echo "@@OK 0"; exit 0; }
+            if grep -q " ${'$'}h" /proc/mounts; then echo "@@ERROR the build's Ubuntu is still mounted: stop the build, or restart the phone, then try again"; exit 4; fi
+            kb=${'$'}(du -sk "${'$'}h" 2>/dev/null | cut -f1)
+            rm -rf "${'$'}h" || { echo "@@ERROR could not delete ${'$'}h"; exit 4; }
+            echo "@@OK ${'$'}((${'$'}{kb:-0} * 1024))"
+        """.trimIndent()))
+    }
+
     fun stop(shell: RootShell, scripts: Scripts): StageClient.Reply =
         reply(shell.exec("${env(scripts)} sh ${shq(scripts.runner.path)} stop"))
 

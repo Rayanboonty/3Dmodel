@@ -122,6 +122,10 @@ function render() {
     if ((img.getAttribute('src') || '') !== src) { if (src) img.setAttribute('src', src); else img.removeAttribute('src'); }
     b.classList.toggle('set', !!st);
   });
+  // the page's colour: the newest card's wallpaper, blurred behind everything
+  const amb = ['27', '26', '18', '16'].find((v) => walls[v]);
+  const ambCss = amb ? `url("/api/wallpaper?v=${amb}&t=${walls[amb]}")` : 'none';
+  if (document.body.style.getPropertyValue('--ambient') !== ambCss) document.body.style.setProperty('--ambient', ambCss);
   const hp = s.heroPicture || 0;
   if (hp) { const src = '/api/hero?v=' + hp; if ($('#heroImg').getAttribute('src') !== src) $('#heroImg').setAttribute('src', src); }
   $('#heroImg').classList.toggle('hidden', !hp);

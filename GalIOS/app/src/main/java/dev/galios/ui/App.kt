@@ -113,6 +113,9 @@ class AppActions(
     /** Chooses (or clears) the owner's wallpaper for one iOS card ("16", "18", "26", "27"). */
     val pickWallpaper: (String) -> Unit = {},
     val clearWallpaper: (String) -> Unit = {},
+    /** The card menu: free the build's work files; delete iOS (the whole stage) from this phone. */
+    val freeUpSpace: () -> Unit = {},
+    val deleteIos: () -> Unit = {},
 )
 
 @Composable
@@ -128,10 +131,14 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
             val page = rememberLayerBackdrop()
             var detail by remember { mutableStateOf<String?>(null) }
             var lastDetail by remember { mutableStateOf("27") }
+            // the colour behind everything: the card in front on Boot (its wallpaper, blurred deep), iOS 27 elsewhere
+            var ambient by remember { mutableStateOf("27") }
             androidx.activity.compose.BackHandler(enabled = detail != null) { detail = null }
             Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().layerBackdrop(page).background(Gal.Black)) {
+                Ambient(if (tab == Tab.BOOT) ambient else "27", s, Modifier.fillMaxSize())
                 Column(
-                    Modifier.fillMaxSize().layerBackdrop(page).background(Gal.Black).verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
                         .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 118.dp),
                 ) {
                     Header(tab, s) { about = true }
@@ -150,12 +157,17 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                     ) { t ->
                         Column {
                             when (t) {
-                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh, onPickPicture = a.pickPicture, onClearPicture = a.clearPicture, onOpenVersion = { v -> lastDetail = v; detail = v })
+                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh, onPickPicture = a.pickPicture, onClearPicture = a.clearPicture, onOpenVersion = { v -> lastDetail = v; detail = v }, onVersionShown = { ambient = it },
+                                    menu = CardMenuActions(
+                                        details = { v -> lastDetail = v; detail = v }, status = { tab = Tab.SETUP },
+                                        wallpaper = a.pickWallpaper, freeUpSpace = a.freeUpSpace, eraseData = a.setup.resetIosData, deleteIos = a.deleteIos,
+                                    ))
                                 Tab.SETUP -> SetupScreen(s, a.setup)
                                 Tab.LOGS -> LogsScreen(s.logs, a.loadLogs, a.openLog, a.saveLog)
                             }
                         }
                     }
+                }
                 }
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
                     NavBar(tab, page) { t -> tab = t; if (t == Tab.LOGS) a.loadLogs() }

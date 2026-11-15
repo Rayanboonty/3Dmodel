@@ -41,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -53,6 +54,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.galios.UiState
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.CleaningServices
+import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import kotlin.math.absoluteValue
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.aspectRatio
@@ -92,10 +101,12 @@ fun BootScreen(
     onPickPicture: () -> Unit = {},
     onClearPicture: () -> Unit = {},
     onOpenVersion: (String) -> Unit = {},
+    onVersionShown: (String) -> Unit = {},
+    menu: CardMenuActions = CardMenuActions(),
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         DeviceRow(s, onSetup, onLogs, onRefresh, onPickPicture, onClearPicture)
-        VersionCards(s, onBoot, onReturn, onSetup, onOpenVersion)
+        VersionCards(s, onBoot, onReturn, onSetup, onOpenVersion, onVersionShown, menu)
         s.bootBlocker?.takeIf { s.status?.sessionOpen != true }?.let { blocker ->
             Appear {
                 Glass(padding = 18.dp, tint = Gal.Amber) {
@@ -168,8 +179,9 @@ private fun DeviceRow(s: UiState, onSetup: () -> Unit, onLogs: () -> Unit, onRef
  * centre. iOS 27 is in front when the screen opens, and the cards rise in once: the screen's one entrance moment.
  */
 @Composable
-private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onOpen: (String) -> Unit) {
+private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onOpen: (String) -> Unit, onShown: (String) -> Unit, menu: CardMenuActions) {
     val pager = rememberPagerState(initialPage = versions.lastIndex) { versions.size }
+    LaunchedEffect(pager.currentPage) { onShown(versions[pager.currentPage].number) }
     val rise = remember { Animatable(1f) }
     LaunchedEffect(Unit) { rise.animateTo(0f, spring(dampingRatio = 0.78f, stiffness = 180f)) }
     Column(Modifier.graphicsLayer { translationY = rise.value * 60f * density; alpha = 1f - rise.value }) {
@@ -184,7 +196,7 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
                 scaleX = k; scaleY = k
                 alpha = 1f - offset * 0.45f
             }) {
-                VersionCard(v, s, onBoot, onReturn, onSetup) { onOpen(v.number) }
+                VersionCard(v, s, onBoot, onReturn, onSetup, menu) { onOpen(v.number) }
             }
         }
         VSpace(12.dp)
@@ -198,7 +210,7 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
 }
 
 @Composable
-private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onOpen: () -> Unit) {
+private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, menu: CardMenuActions, onOpen: () -> Unit) {
     val shape = RoundedCornerShape(34.dp)
     val open = s.status?.sessionOpen == true
     val press = rememberGlassPress()
@@ -210,15 +222,20 @@ private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn:
     ) {
         Box(Modifier.fillMaxSize().layerBackdrop(art)) { CardBackground(v, s.wallpapers[v.number], Modifier.fillMaxSize()) }
         Column(Modifier.fillMaxSize().padding(20.dp)) {
-            Pill(
-                when {
-                    !v.bootable -> "Coming soon"
-                    open -> "Running now"
-                    s.readyToBoot -> "Optimized for S25 Ultra"
-                    else -> "Not set up yet"
-                },
-                when { !v.bootable -> Gal.Gray; open -> Gal.Teal; s.readyToBoot -> Gal.Mint; else -> Gal.Amber },
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    Pill(
+                        when {
+                            !v.bootable -> "Coming soon"
+                            open -> "Running now"
+                            s.readyToBoot -> "Optimized for S25 Ultra"
+                            else -> "Not set up yet"
+                        },
+                        when { !v.bootable -> Gal.Gray; open -> Gal.Teal; s.readyToBoot -> Gal.Mint; else -> Gal.Amber },
+                    )
+                }
+                CardMenu(v, s, art, menu)
+            }
             Spacer(Modifier.weight(1f))
             Text(
                 v.number,
@@ -241,6 +258,76 @@ private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn:
                 else -> Spacer(Modifier.height(54.dp))
             }
         }
+    }
+}
+
+/** What a card's menu can do (OneOS-style: details, status, the wallpaper, space, start fresh, delete). */
+class CardMenuActions(
+    val details: (String) -> Unit = {},
+    val status: () -> Unit = {},
+    val wallpaper: (String) -> Unit = {},
+    val freeUpSpace: () -> Unit = {},
+    val eraseData: () -> Unit = {},
+    val deleteIos: () -> Unit = {},
+)
+
+/**
+ * The card's menu: a small glass disc with "more" that opens a dark menu. The destructive choices (erase iOS's data,
+ * delete iOS) ask first, with what goes and what stays.
+ */
+@Composable
+private fun CardMenu(v: IosVersion, s: UiState, art: LayerBackdrop, menu: CardMenuActions) {
+    var open by remember { mutableStateOf(false) }
+    var ask by remember { mutableStateOf<String?>(null) }
+    val press = rememberGlassPress()
+    val canChange = s.rootOk && s.busy == null && s.status?.sessionOpen != true
+    Box {
+        Box(
+            Modifier.size(38.dp).then(press.gesture)
+                .liquidBackdrop(art, CircleShape, press = press, blurDp = 6f, lensDp = 10f, tint = Color(0x33000000))
+                .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { open = true },
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Rounded.MoreHoriz, "More for iOS ${v.number}", tint = Color.White, modifier = Modifier.size(20.dp)) }
+        androidx.compose.material3.DropdownMenu(
+            expanded = open, onDismissRequest = { open = false },
+            containerColor = Color(0xF21C1C1E), shape = RoundedCornerShape(22.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x29FFFFFF)),
+        ) {
+            @Composable
+            fun item(text: String, icon: ImageVector, enabled: Boolean = true, danger: Boolean = false, onClick: () -> Unit) =
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(text, style = Type.Body.copy(color = if (!enabled) Gal.Faint else if (danger) Gal.Rose else Gal.Text)) },
+                    leadingIcon = { Icon(icon, null, tint = if (!enabled) Gal.Faint else if (danger) Gal.Rose else Gal.Text, modifier = Modifier.size(20.dp)) },
+                    enabled = enabled, onClick = { open = false; onClick() },
+                )
+            item("System details", Icons.Rounded.Info) { menu.details(v.number) }
+            item(if (s.wallpapers[v.number] == null) "Choose wallpaper" else "Change wallpaper", Icons.Rounded.Image) { menu.wallpaper(v.number) }
+            if (v.bootable) {
+                item("Phone status", Icons.Rounded.Tune) { menu.status() }
+                item("Free up space", Icons.Rounded.CleaningServices, enabled = canChange && !s.phoneBuildRunning) { ask = "space" }
+                item("Erase iOS data", Icons.Rounded.RestartAlt, enabled = canChange && s.status?.imageVersion != null, danger = true) { ask = "erase" }
+                item("Delete iOS ${v.number}", Icons.Rounded.DeleteOutline, enabled = canChange && s.engineInstalled, danger = true) { ask = "delete" }
+            }
+        }
+    }
+    ask?.let { what ->
+        val (title, body, action) = when (what) {
+            "space" -> Triple("Free up space?", "Deletes the on-phone build's work files (Ubuntu, sources, firmware it read): often tens of GB. iOS, its image and its data stay.", menu.freeUpSpace)
+            "erase" -> Triple("Erase iOS's data?", "iOS starts fresh at its next boot: its apps, settings and files are erased. The image stays, and One UI is untouched. This cannot be undone.", menu.eraseData)
+            else -> Triple("Delete iOS ${v.number}?", "Deletes everything iOS uses on this phone: the boot engine, the runtime, the image and iOS's data and logs. One UI and its apps are untouched. To use iOS again, run Setup again. This cannot be undone.", menu.deleteIos)
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { ask = null },
+            containerColor = Gal.Paper, titleContentColor = Gal.Text, textContentColor = Gal.Dim, shape = RoundedCornerShape(28.dp),
+            title = { Text(title, style = Type.Title) },
+            text = { Text(body, style = Type.Body.copy(color = Gal.Dim)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton({ ask = null; action() }) {
+                    Text(if (what == "space") "Free up space" else if (what == "erase") "Erase" else "Delete", style = Type.Label.copy(color = if (what == "space") Gal.Text else Gal.Rose))
+                }
+            },
+            dismissButton = { androidx.compose.material3.TextButton({ ask = null }) { Text("Cancel", style = Type.Label.copy(color = Gal.Dim)) } },
+        )
     }
 }
 
@@ -369,6 +456,41 @@ private fun DetailRow(title: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.Top) {
         Text(title, style = Type.Body.copy(color = Gal.Dim), modifier = Modifier.width(150.dp))
         Text(value, style = Type.Body, modifier = Modifier.weight(1f))
+    }
+}
+
+/**
+ * The colour behind the whole app: the version's wallpaper (the owner's, when chosen) blurred deep and dimmed so text
+ * reads on it, or its own colour world as soft washes; it crossfades as the cards are swiped. The liquid glass refracts it.
+ */
+@Composable
+fun Ambient(number: String, s: UiState, modifier: Modifier) {
+    androidx.compose.animation.Crossfade(number, modifier, animationSpec = androidx.compose.animation.core.tween(600), label = "ambient") { n ->
+        val v = versions.firstOrNull { it.number == n } ?: versions.last()
+        val wallpaper = s.wallpapers[n]
+        val bitmap = remember(wallpaper) { wallpaper?.let { (path, _) -> decodeScaled(path, 360) } }
+        Box(Modifier.fillMaxSize()) {
+            if (bitmap != null) {
+                androidx.compose.foundation.Image(
+                    bitmap, null, contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.25f; scaleY = 1.25f }
+                        .blur(70.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                )
+            } else {
+                Canvas(Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+                    drawRect(v.top)
+                    drawCircle(Brush.radialGradient(listOf(v.bandB.copy(alpha = 0.55f), Color.Transparent), center = Offset(w * 0.9f, h * 0.08f), radius = w * 1.1f), radius = w * 1.1f, center = Offset(w * 0.9f, h * 0.08f))
+                    drawCircle(Brush.radialGradient(listOf(v.bandA.copy(alpha = 0.40f), Color.Transparent), center = Offset(w * 0.05f, h * 0.55f), radius = w * 0.9f), radius = w * 0.9f, center = Offset(w * 0.05f, h * 0.55f))
+                }
+            }
+            // dim it so white text reads, and deepen towards the bottom
+            Canvas(Modifier.fillMaxSize()) {
+                drawRect(Color(0x80000000))
+                drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)), startY = size.height * 0.35f, endY = size.height))
+            }
+        }
     }
 }
 

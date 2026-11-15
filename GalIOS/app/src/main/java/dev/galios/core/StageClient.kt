@@ -123,6 +123,25 @@ class StageClient(private val shell: RootShell, val stage: String = DEFAULT_STAG
     }
 
     /** GalIOS's maximum performance (runtime galios.14 on): the file `galios-max` in the stage, read by xnuhost. */
+    /**
+     * Deletes iOS from this phone: the whole stage (boot engine, runtime, image, iOS's data, logs, GalaxyIOS's switches),
+     * as OneOS's "Remove OneOS data" does. Refused while a session is open or anything under the stage is mounted. Says
+     * how many bytes it freed.
+     */
+    fun deleteAll(): Reply {
+        val st = shq(stage)
+        val command = """
+            st=$st
+            [ -d "${'$'}st" ] || { echo "@@OK deleted 0"; exit 0; }
+            if grep -q " ${'$'}st" /proc/mounts; then echo "@@FAILED something under the stage is still mounted: return to One UI or restart the phone first"; exit 4; fi
+            [ -f "${'$'}st/session/active" ] && { echo "@@FAILED an iOS session is running: return to One UI first"; exit 4; }
+            kb=${'$'}(du -sk "${'$'}st" 2>/dev/null | cut -f1)
+            rm -rf "${'$'}st" || { echo "@@FAILED could not delete ${'$'}st"; exit 4; }
+            echo "@@OK deleted ${'$'}((${'$'}{kb:-0} * 1024))"
+        """.trimIndent()
+        return Reply.parse(shell.exec(command, null))
+    }
+
     fun maxPerformance(): Boolean = shell.exec("[ -e ${shq("$stage/galios-max")} ] && echo on || echo off", null).lines.any { it.trim() == "on" }
 
     fun setMaxPerformance(on: Boolean): Reply {

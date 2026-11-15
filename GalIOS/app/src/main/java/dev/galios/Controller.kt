@@ -669,6 +669,28 @@ class Controller(
     }
 
     /** Start iOS fresh: its Data store is made again from the image on the next boot (the camera's plug-in with it). */
+    /** Free up space: deletes the on-phone build's work files (the imported image stays in the stage). */
+    fun freeUpSpace() = run("Freeing up space") {
+        val b = PhoneBuild.status(shell, scripts())
+        if (b.state == PhoneBuild.Status.State.RUNNING) throw IllegalStateException("A build is running on the phone: stop it first (Setup, step 4).")
+        val r = PhoneBuild.clean(shell)
+        if (!r.ok) throw IllegalStateException(r.message)
+        val freed = r.lines.lastOrNull { it.startsWith("@@OK ") }?.removePrefix("@@OK ")?.trim()?.toLongOrNull() ?: 0L
+        refresh()
+        if (freed > 0) "Freed ${dev.galios.ui.bytes(freed)}: the on-phone build's work files are gone. iOS and its image stay." else "Nothing to free: there are no build files on this phone."
+    }
+
+    /** Deletes iOS 27 from this phone: the whole stage (engine, runtime, image, iOS's data). Setup can put it back. */
+    fun deleteIos() = run("Deleting iOS 27 from this phone") {
+        val st = stage.status()
+        if (st.sessionOpen) throw IllegalStateException("An iOS session is running: return to One UI first.")
+        val r = stage.deleteAll()
+        if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not delete iOS" })
+        val freed = r.message.removePrefix("deleted").trim().toLongOrNull() ?: 0L
+        refresh()
+        "iOS 27 is deleted from this phone (${dev.galios.ui.bytes(freed)} freed). One UI is untouched. To use iOS again, run Setup or Studio's Do everything."
+    }
+
     fun resetIosData() = run("Erasing iOS's data") {
         val st = stage.status()
         if (st.sessionOpen) throw IllegalStateException("An iOS session is running: return to One UI first.")

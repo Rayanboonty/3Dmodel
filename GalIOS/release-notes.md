@@ -1,11 +1,23 @@
-GalaxyIOS 1.27 and GalaxyIOS Studio 1.18
+GalaxyIOS 1.28 and GalaxyIOS Studio 1.19
 
-**Your photo on the phone too.** The photo you chose on Studio's Boot card now goes to GalaxyIOS on the phone: Do everything sends it once root works, or click "Show this picture on the phone" under it on Studio's Boot card. GalaxyIOS shows it in the device row the next time it refreshes. You can also choose it on the phone itself: tap the phone picture in the device row.
+**Real liquid glass.** The tab bar is now real liquid glass (Kyant's Backdrop library). It bends the light of the page scrolling under it, blurs it and catches light on its rim. The selected tab is a glass lens. Tap a tab and it springs there. Hold it and it swells, its edge bends the light with a rainbow fringe. Drag it and it follows your finger, stretching with its speed, then settles on the nearest tab. Buttons on the cards are glass that bends the card's wallpaper, and everything you press swells a little with a light under your finger.
 
-**Cleaner version cards.** iOS 16, 18 and 26 just say "Coming soon" and "Not available on this phone". No long text, no button.
+**Colour again.** The page is no longer only black: the card in front (its wallpaper, blurred deep) colours the whole app, and the colour changes as you swipe the cards.
 
-**Liquid glass.** Cards, buttons, the tab bar and Studio's panels are now clear glass: lighter where the light enters, a sheen across the top, a darker thick bottom and a bright rim at the edge. The selected tab is a brighter glass lens that slides between tabs.
+**Your wallpapers on the cards.** Choose a wallpaper for each iOS card (the card's menu, or the pop-out), or let Studio send the ones you chose on your PC together with your photo.
 
-Also in 1.26: true black, the iOS version cards, and iPhone screen features from your IPSW without a PC (Setup, step 7).
+**Cards pop out.** Tap a card and it pops out into its details over the frosted page. Tabs now expand into place.
 
-Both the app and Studio update themselves (the app with root, Studio when no task runs).
+**A menu on each card, like OneOS.** Tap the ⋯ on a card for:
+- System details, Phone status and the wallpaper.
+- Free up space: deletes the on-phone build's work files (often tens of GB).
+- Erase iOS data: start fresh.
+- Delete iOS 27: removes the boot engine, runtime, image and data from this phone. One UI is untouched.
+
+The last two ask first.
+
+**Studio.**
+- The sidebar has a WebGL liquid glass lens (ybouane's liquidglass) that springs to the page you choose and follows a drag.
+- The page takes its colour from your iOS 27 wallpaper.
+- It has a Card wallpapers section.
+- Fixed: Studio 1.15 to 1.18 kept their settings in a renamed folder, so they forgot your choices and copied the 11 GB image again. They are back in their old place, and anything saved meanwhile is carried over.

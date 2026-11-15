@@ -79,6 +79,8 @@ class MainActivity : ComponentActivity() {
             clearPicture = { controller.clearHeroPicture() },
             pickWallpaper = { v -> wallpaperFor = v; pickWallpaper.launch(arrayOf("image/*")) },
             clearWallpaper = { v -> controller.clearWallpaper(v) },
+            freeUpSpace = { controller.freeUpSpace() },
+            deleteIos = { controller.deleteIos() },
         )
         controller.loadHeroPicture()
         setContent {
