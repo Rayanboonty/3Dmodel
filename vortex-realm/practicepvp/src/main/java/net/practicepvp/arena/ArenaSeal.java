@@ -44,6 +44,10 @@ public final class ArenaSeal {
     private List<Object[]> areas() {
         List<Object[]> out = new ArrayList<>();
         for (Arena a : this.plugin.arenas().all()) {
+            if (a.theme != null && a.theme.isVanilla()) {
+                continue;
+            }
+
             for (ArenaInstance i : a.instances) {
                 if (a.bounds != null && i.world() != null) {
                     out.add(new Object[]{i.world(), i.bounds()});
@@ -54,13 +58,61 @@ public final class ArenaSeal {
         if (this.plugin.ffa() != null) {
             for (net.practicepvp.ffa.FfaArena f : this.plugin.ffa().all()) {
                 World w = f.worldName == null ? null : Bukkit.getWorld(f.worldName);
-                if (w != null && f.bounds != null) {
+                if (w != null && f.bounds != null && (f.theme == null || !f.theme.isVanilla())) {
                     out.add(new Object[]{w, f.bounds});
                 }
             }
         }
 
         return out;
+    }
+
+    /**
+     * Once after this update: every generated arena (not the vanilla maps) is rebuilt from zero, one at a time, and
+     * the walls are built after - a few minutes in the background, light on memory.
+     */
+    public void rebuildOnce() {
+        if (this.done.getBoolean("rebuilt-with-walls") || !Cfg.bool(Opt.ARENA_BARRIER_WALLS)) {
+            this.sealAll(false);
+            return;
+        }
+
+        this.running = true;
+        List<Arena> list = new ArrayList<>();
+        for (Arena a : this.plugin.arenas().all()) {
+            if (a.generated && a.theme != null && a.theme != ArenaTheme.CUSTOM && !a.theme.isVanilla()) {
+                list.add(a);
+            }
+        }
+
+        this.plugin.getLogger().info("Rebuilding " + list.size() + " arenas one by one with invisible walls (the vanilla maps stay as they are)...");
+        CompletableFuture<Integer> chain = CompletableFuture.completedFuture(0);
+        for (Arena a : list) {
+            chain = chain.thenCompose(n -> {
+                CompletableFuture<Integer> f = new CompletableFuture<>();
+                net.practicepvp.util.Tasks.later(100L, () -> this.plugin.arenas().rebuild(a).whenComplete((v, err) -> {
+                    if (err != null) {
+                        this.plugin.getLogger().log(Level.WARNING, "Rebuilding arena " + a.id + " failed", err);
+                    } else {
+                        this.plugin.getLogger().info("Arena rebuilt: " + a.id + " (" + (n + 1) + "/" + list.size() + ")");
+                    }
+
+                    f.complete(n + 1);
+                }));
+                return f;
+            });
+        }
+
+        chain.whenComplete((n, err) -> net.practicepvp.util.Tasks.ensureSync(() -> {
+            this.running = false;
+            for (String k : new ArrayList<>(this.done.getKeys(false))) {
+                this.done.set(k, null);
+            }
+
+            this.done.set("rebuilt-with-walls", true);
+            this.save();
+            this.sealAll(false);
+        }));
     }
 
     /** Builds the walls of every arena that has none yet (or all of them with {@code force}). */
@@ -100,7 +152,7 @@ public final class ArenaSeal {
 
         World w = (World)a[0];
         Cuboid c = (Cuboid)a[1];
-        this.plugin.jobs().submit(this.job(w, c, true)).whenComplete((v, err) -> net.practicepvp.util.Tasks.ensureSync(() -> {
+        this.plugin.jobs().submit(this.job(w, c, true)).whenComplete((v, err) -> net.practicepvp.util.Tasks.later(100L, () -> {
             if (err != null) {
                 this.plugin.getLogger().log(Level.WARNING, "Arena walls at " + c + " failed", err);
             } else {
@@ -160,7 +212,8 @@ public final class ArenaSeal {
         }
 
         int bottom = Math.max(w.getMinHeight(), c.minY() - 3);
-        int top = w.getMaxHeight() - 1;
+        // 20 blocks above the arena's top: high enough to stop everyone, low enough to keep memory use small
+        int top = Math.min(w.getMaxHeight() - 1, c.maxY() + 20);
         return new BlockJobs.Job() {
             int col = 0;
             int y = bottom;

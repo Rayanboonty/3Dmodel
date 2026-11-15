@@ -723,7 +723,8 @@ public final class PracticePlugin extends JavaPlugin {
             Tasks.later(100L, this.arenas::verifyAll);
             // invisible walls around every arena (new copies get theirs within two minutes)
             this.arenaSeal = new net.practicepvp.arena.ArenaSeal(this);
-            Tasks.timer(400L, 2400L, () -> this.arenaSeal.sealAll(false));
+            Tasks.later(1200L, this.arenaSeal::rebuildOnce);
+            Tasks.timer(6000L, 6000L, () -> this.arenaSeal.sealAll(false));
         }));
         MapModel.warmLater(this);
         Tasks.later(1200L, () -> {
