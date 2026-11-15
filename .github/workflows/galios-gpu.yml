@@ -44,6 +44,14 @@ jobs:
           git clone -q https://github.com/akshaynexus/OneiOS.git
           [ -z "$ref" ] || git -C OneiOS checkout -q "$ref"
           git -C OneiOS log -1 --format='OneiOS %H %cd %s'
+          # OneiOS 9f4459b: oneios-common's job.rs asks Linux's scheduler class (sched_getscheduler, sched_setscheduler),
+          # which macOS's libc does not have, so oneios-tool does not compile on this Mac. The Mac is only the build
+          # host and is never in a realtime class: say so there. Nothing that goes into the pack is changed.
+          f=OneiOS/tools/oneios-tool/crates/oneios-common/src/job.rs
+          if [ -f "$f" ] && grep -q 'libc::sched_getscheduler(0)' "$f"; then
+            perl -0pi -e 's/libc::sched_getscheduler\(0\)/SCHED_OTHER/g; s/libc::sched_setscheduler\(0, SCHED_OTHER, &param\) != 0/{ let _ = &param; false }/g' "$f"
+            grep -c 'sched_getscheduler' "$f" || true
+          fi
       - name: References (the plug-in's sources)
         run: |
           cd OneiOS

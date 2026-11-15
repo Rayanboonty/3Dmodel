@@ -1,6 +1,6 @@
 # iOS 18 on the Galaxy S25 Ultra: the build plan
 
-Status, 2026-11-15: **stage 0 started** (the porting matrix runs on GitHub: `.github/workflows/galios-ios18.yml`).
+Status, 2026-11-15: **stage 0 done, stage 1 has its worklist.** On xnu-11417.140.69 all 93 patches of the iPadOS 18 board layer apply; of the hosted layer's 62 patches 32 apply whole, and of the other 30 only 77 of 289 hunks do not fit (0001, the machine layer itself: 16 of 104). The run's artifact `ios18-porting-matrix` holds the tree as one diff against Apple's source and each rejected hunk under `rejects/`: stage 1 is rewriting those 77.
 Nothing here boots yet. This file says what an iOS 18 boot needs, in order, with what already exists elsewhere.
 
 ## Why this is a new port, not a setting
