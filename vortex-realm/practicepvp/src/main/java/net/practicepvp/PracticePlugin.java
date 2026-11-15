@@ -146,6 +146,7 @@ public final class PracticePlugin extends JavaPlugin {
     private StaffManager staff;
     private Extras extras;
     private ModeManager modes;
+    private net.practicepvp.arena.ArenaSeal arenaSeal;
     private net.practicepvp.survival.VortexSMP survival;
     private boolean survivalPending;
     private ModeRules modeRules;
@@ -712,6 +713,9 @@ public final class PracticePlugin extends JavaPlugin {
             this.arenasReady = true;
             Tasks.later(40L, this::firstRunSetup);
             Tasks.later(100L, this.arenas::verifyAll);
+            // invisible walls around every arena (new copies get theirs within two minutes)
+            this.arenaSeal = new net.practicepvp.arena.ArenaSeal(this);
+            Tasks.timer(400L, 2400L, () -> this.arenaSeal.sealAll(false));
         }));
         MapModel.warmLater(this);
         Tasks.later(1200L, () -> {
@@ -1536,6 +1540,10 @@ public final class PracticePlugin extends JavaPlugin {
 
     public ArenaManager arenas() {
         return this.arenas;
+    }
+
+    public net.practicepvp.arena.ArenaSeal arenaSeal() {
+        return this.arenaSeal;
     }
 
     public BlockJobs jobs() {

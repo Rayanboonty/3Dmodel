@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Bring Back SMP data really restores: finds an uploaded old plugin zip/folder anywhere, Restore everything as it was gives every player their old SMP inventory, ender chest and XP (online right away, offline on join), homes and warps',
-    'PracticePvP': 'Bring Back SMP data really restores: finds an uploaded old plugin zip/folder anywhere, Restore everything as it was gives every player their old SMP inventory, ender chest and XP (online right away, offline on join), homes and warps',
+    'VortexRealm': 'Every duel, FFA and bot arena is closed with invisible barrier walls up to the sky (nobody can walk, pearl or fly out)',
+    'PracticePvP': 'Every duel, FFA and bot arena is closed with invisible barrier walls up to the sky (nobody can walk, pearl or fly out)',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.8.2",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.8.2.jar",
-    "sha256": "bf9f67f73b7a6710f65b8da9ace9f5ecd6a54b6168e654501faa138386c5c0c6",
-    "notes": "Bring Back SMP data really restores: finds an uploaded old plugin zip/folder anywhere, Restore everything as it was gives every player their old SMP inventory, ender chest and XP (online right away, offline on join), homes and warps"
+    "version": "2.8.3",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.8.3.jar",
+    "sha256": "f2c3fa2096a3cbce37d162d04c47b21211f21b0355f5be9372e400649de02b0f",
+    "notes": "Every duel, FFA and bot arena is closed with invisible barrier walls up to the sky (nobody can walk, pearl or fly out)"
   },
   "VortexRealm": {
-    "version": "3.8.2",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.8.2.jar",
-    "sha256": "4c9f90d6005c515cd94b347ad2d1f8f6d9a50ad93c518863d4614e71df787279",
-    "notes": "Bring Back SMP data really restores: finds an uploaded old plugin zip/folder anywhere, Restore everything as it was gives every player their old SMP inventory, ender chest and XP (online right away, offline on join), homes and warps"
+    "version": "3.8.3",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.8.3.jar",
+    "sha256": "03368833f206a9e3fdf755aa0e08fa4a936158650261519ae126fdb38e67e511",
+    "notes": "Every duel, FFA and bot arena is closed with invisible barrier walls up to the sky (nobody can walk, pearl or fly out)"
   },
   "VortexSMP": {
     "version": "1.6.0",

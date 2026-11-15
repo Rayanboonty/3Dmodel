@@ -1032,3 +1032,14 @@ The SMP is part of VortexRealm again, like the old plugin. **Remove VortexSMP**:
 Every player gets the SMP inventory, ender chest and XP from the old plugin: online players right away, the others when they join (also when they logged out inside the SMP). Old homes and warps come back too. What players had before is kept in **SMP → Player Inventories**, and a Data Vault backup is taken first.
 
 Console: `pvpadmin smp restore`, then `pvpadmin smp restore <n> all`.
+
+
+## 3.8.3 / 2.8.3 — closed arenas
+
+Every duel, FFA and bot arena is closed with **invisible barrier walls**, one block outside the arena, from under the floor up to the top of the world. There's no roof, so mace and wind-charge jumps still work, but nobody can walk, pearl or fly out.
+
+- The walls are built in the background on startup (about a minute) and for new arena copies.
+- Resets never remove them.
+- Terrain and builds are never replaced.
+- Setting: Settings → Arenas & Reset → **Invisible Arena Walls**.
+- Commands: `/pvpadmin walls` (rebuild them all) and `/pvpadmin walls off` (remove them).

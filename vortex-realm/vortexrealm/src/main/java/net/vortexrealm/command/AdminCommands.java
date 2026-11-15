@@ -250,6 +250,24 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         }
                         break;
                 }
+                case "walls": {
+                        // /pvpadmin walls [rebuild|off]
+                        net.vortexrealm.arena.ArenaSeal seal = this.plugin.arenaSeal();
+                        String w = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "rebuild";
+                        if (seal == null) {
+                            sender.sendMessage(Text.mm("<red>The arenas are still loading - try again in a minute."));
+                        } else if (w.equals("off")) {
+                            Cfg.set(Opt.ARENA_BARRIER_WALLS, false);
+                            sender.sendMessage(Text.mm("<gray>Removing the invisible arena walls..."));
+                            seal.removeAll().thenAccept(n -> net.vortexrealm.util.Tasks.ensureSync(() -> sender.sendMessage(Text.mm("<green>Walls removed from " + n + " arenas."))));
+                        } else {
+                            Cfg.set(Opt.ARENA_BARRIER_WALLS, true);
+                            sender.sendMessage(Text.mm("<gray>Closing every arena with invisible walls (background)..."));
+                            seal.sealAll(true).thenAccept(n -> net.vortexrealm.util.Tasks.ensureSync(() -> sender.sendMessage(Text.mm("<green>" + n + " arenas closed with invisible walls."))));
+                        }
+
+                        break;
+                }
                 case "smp": {
                         if (p != null && args.length == 1) {
                             this.plugin.dialogs().smp().open(p);
@@ -1216,6 +1234,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                     List.of(
                         "staff",
                         "invbackup",
+                        "walls",
                         "smp",
                         "rebuild",
                         "reload",

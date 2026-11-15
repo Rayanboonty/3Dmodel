@@ -1066,6 +1066,14 @@ public final class Opt<T> {
         Material.STONE_BRICK_WALL,
         Opt.WallStyle.class
     );
+    public static final Opt<Boolean> ARENA_BARRIER_WALLS = bool(
+        "arena.barrier-walls",
+        true,
+        Opt.Section.ARENA,
+        "Invisible Arena Walls",
+        "Closes every duel, FFA and bot arena with invisible barrier walls up to the sky (no roof), so nobody can walk, pearl or fly out. Built in the background; off = removed again.",
+        Material.BARRIER
+    );
     public static final Opt<Boolean> ARENA_PLANTS = bool(
         "arena.plants",
         false,
