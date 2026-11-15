@@ -363,7 +363,11 @@ public final class VortexRealm extends JavaPlugin {
             }
 
             // the SMP on this server: inventory backups and last spots
-            Tasks.timer(1200L, Math.max(2, Cfg.i(Opt.SMP_BACKUP_MINUTES)) * 1200L, this.modes::backupAll);
+            Tasks.timer(1200L, Math.max(2, Cfg.i(Opt.SMP_BACKUP_MINUTES)) * 1200L, () -> {
+                if (Cfg.bool(Opt.AUTO_BACKUPS)) {
+                    this.modes.backupAll();
+                }
+            });
             Tasks.timer(600L, 1200L, this.modes::saveLocations);
         });
         // the SMP (homes, tpa, rtp, warps, trade, market...) needs the worlds and modes above
@@ -485,7 +489,11 @@ public final class VortexRealm extends JavaPlugin {
                 }
             });
         });
-        this.module("data vault", () -> Tasks.timer(6000L, 432000L, () -> this.vaultSnapshot("auto", null)));
+        this.module("data vault", () -> Tasks.timer(6000L, 432000L, () -> {
+            if (Cfg.bool(Opt.AUTO_BACKUPS)) {
+                this.vaultSnapshot("auto", null);
+            }
+        }));
         this.module("ai assistant", () -> {
             this.ai = new AiAgent(this);
             this.bind("ai", new AiCommand(this, this.ai));
@@ -904,10 +912,16 @@ public final class VortexRealm extends JavaPlugin {
             this.profiles.saveAllNow();
 
             try {
+                if (!Cfg.bool(Opt.AUTO_BACKUPS)) {
+                    throw new IllegalStateException("off");
+                }
+
                 String name = this.vault.snapshot("shutdown", this.db::vaultCopy);
                 this.getLogger().info("Data vault: saved " + name);
             } catch (Throwable var4) {
-                this.getLogger().log(Level.WARNING, "Data vault snapshot at shutdown failed", var4);
+                if (!"off".equals(var4.getMessage())) {
+                    this.getLogger().log(Level.WARNING, "Data vault snapshot at shutdown failed", var4);
+                }
             }
 
             this.db.close();

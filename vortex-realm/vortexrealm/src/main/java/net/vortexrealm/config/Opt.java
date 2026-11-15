@@ -1066,6 +1066,14 @@ public final class Opt<T> {
         Material.STONE_BRICK_WALL,
         Opt.WallStyle.class
     );
+    public static final Opt<Boolean> AUTO_BACKUPS = bool(
+        "backups.automatic",
+        false,
+        Opt.Section.GENERAL,
+        "Automatic Backups",
+        "Full backups (plugins/VortexRealm-Vault) by themselves every 6 hours, at shutdown and before updates. Off = only when you click Backup Everything in /pvpadmin (saves storage).",
+        Material.ENDER_CHEST
+    );
     public static final Opt<Boolean> ARENA_BARRIER_WALLS = bool(
         "arena.barrier-walls",
         true,

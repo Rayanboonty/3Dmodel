@@ -250,6 +250,11 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         }
                         break;
                 }
+                case "backupall": {
+                        note(sender, "<gray>Backing up everything (SMP + Practice)...");
+                        this.plugin.vaultSnapshot("manual", (name, err) -> note(sender, err != null ? "<red>Backup failed: " + Text.esc(String.valueOf(err.getMessage())) : "<green>Backed up: <white>" + name + "</white> in plugins/VortexRealm-Vault"));
+                        break;
+                }
                 case "walls": {
                         // /pvpadmin walls [rebuild|off]
                         net.practicepvp.arena.ArenaSeal seal = this.plugin.arenaSeal();
@@ -1234,6 +1239,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                     List.of(
                         "staff",
                         "invbackup",
+                        "backupall",
                         "walls",
                         "smp",
                         "rebuild",

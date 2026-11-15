@@ -1051,3 +1051,9 @@ There's a new lobby style, **Club Spawn**: the MCPVP.CLUB spawn map (by Xter/SFF
 
 - **Build it:** stand where you want it and run `/pvpadmin hub build club_spawn`, or pick it in `/pvpadmin` → Lobby builds.
 - **What you get:** the spawn is set on the main plaza, and 8 NPC spots are placed around it.
+
+
+## 3.9.1 / 2.9.1 — backups only when you want them
+
+- **Automatic backups are off.** The plugin no longer backs up by itself every 6 hours, at shutdown or before updates, and on the first start it deletes the old automatic backups to free storage. Backups you made with the button stay. To turn automatic backups back on: Settings → General → **Automatic Backups**.
+- **Backup Everything button** in `/pvpadmin` (and on the SMP page): one click saves everything from the SMP and Practice. That's settings, kits, arenas, ranks, stats, homes, and every player's inventory, ender chest and XP. It goes into `plugins/VortexRealm-Vault/`. The 3 newest are kept, and you restore them in Data Vault. Console: `pvpadmin backupall`.

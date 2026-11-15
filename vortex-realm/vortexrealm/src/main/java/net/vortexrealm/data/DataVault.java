@@ -62,6 +62,26 @@ public final class DataVault {
         }
     }
 
+    /** Automatic backups (every 6 hours, shutdown, before updates): off unless backups.automatic is true. */
+    public boolean automatic() {
+        return org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(new File(this.data, "config.yml")).getBoolean("backups.automatic", false);
+    }
+
+    /** Deletes the automatic backups (keeps the ones made with the button). */
+    public int dropAutomatic() {
+        int n = 0;
+        for (String f : this.files()) {
+            if (!f.contains("manual") && !f.contains("before-smp-restore") && !f.contains("before-restore")) {
+                File z = new File(this.vault, f);
+                if (z.delete()) {
+                    n++;
+                }
+            }
+        }
+
+        return n;
+    }
+
     public void beforeLoad() {
         try {
             if (!this.vault.exists() && !this.vault.mkdirs()) {
@@ -105,11 +125,19 @@ public final class DataVault {
             YamlConfiguration y = YamlConfiguration.loadConfiguration(state);
             String last = y.getString("last-version");
             String now = this.plugin.getPluginMeta().getVersion() + "#" + this.jarStamp();
-            if (last != null && !last.equals(now) && new File(this.data, "config.yml").exists()) {
+            boolean autoOn = this.automatic();
+            if (!autoOn) {
+                int gone = this.dropAutomatic();
+                if (gone > 0) {
+                    this.plugin.getLogger().info("Automatic backups are off: deleted " + gone + " old automatic backups to free storage. Use /pvpadmin -> Backup Everything.");
+                }
+            }
+
+            if (autoOn && last != null && !last.equals(now) && new File(this.data, "config.yml").exists()) {
                 this.updatedFrom = last.contains("#") ? last.substring(0, last.indexOf('#')) : last;
                 this.updateSnapshot = this.snapshotRaw("pre-update");
                 this.plugin.getLogger().info("Plugin updated - the old data is saved in the vault (pre-update snapshot).");
-            } else if (last == null && new File(this.data, "config.yml").exists()) {
+            } else if (autoOn && last == null && new File(this.data, "config.yml").exists()) {
                 // first start of this plugin on existing data (for example data just moved over from another of our
                 // plugins): keep a copy of it as it is now, before any player joins
                 this.updateSnapshot = this.snapshotRaw("first-start");
@@ -314,7 +342,7 @@ public final class DataVault {
             (f.contains("pre-update") || f.contains("first-start") ? updates : regular).add(f);
         }
 
-        for (int i = 6; i < regular.size(); i++) {
+        for (int i = 3; i < regular.size(); i++) {
             this.delete(regular.get(i));
         }
 

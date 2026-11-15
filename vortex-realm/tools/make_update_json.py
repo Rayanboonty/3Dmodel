@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'New lobby: Club Spawn (the MCPVP.CLUB spawn map) - /pvpadmin hub build club_spawn. Arenas closed with invisible walls.',
-    'PracticePvP': 'New lobby: Club Spawn (the MCPVP.CLUB spawn map) - /pvpadmin hub build club_spawn. Arenas closed with invisible walls.',
+    'VortexRealm': 'Automatic backups off (frees storage, old automatic ones deleted); new Backup Everything button in /pvpadmin backs up SMP + Practice in one click',
+    'PracticePvP': 'Automatic backups off (frees storage, old automatic ones deleted); new Backup Everything button in /pvpadmin backs up SMP + Practice in one click',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

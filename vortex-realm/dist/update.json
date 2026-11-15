@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.9.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.9.0.jar",
-    "sha256": "06d776596150815b49e32a8736a4b426b1adefe07e8ca95293e2cd59649f771b",
-    "notes": "New lobby: Club Spawn (the MCPVP.CLUB spawn map) - /pvpadmin hub build club_spawn. Arenas closed with invisible walls."
+    "version": "2.9.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.9.1.jar",
+    "sha256": "a8365e44863d187f59077259d996e2a3583f5bab177b0374cc9dc3095eebb3f0",
+    "notes": "Automatic backups off (frees storage, old automatic ones deleted); new Backup Everything button in /pvpadmin backs up SMP + Practice in one click"
   },
   "VortexRealm": {
-    "version": "3.9.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.9.0.jar",
-    "sha256": "f52c2452073f10611bff32ba1786a2cb76fb65e072bf59bdc076b0e1e717c519",
-    "notes": "New lobby: Club Spawn (the MCPVP.CLUB spawn map) - /pvpadmin hub build club_spawn. Arenas closed with invisible walls."
+    "version": "3.9.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.9.1.jar",
+    "sha256": "12244a3de58592ce77067ae88d6d4e877e16832fa19323bb3963775a4b4d8817",
+    "notes": "Automatic backups off (frees storage, old automatic ones deleted); new Backup Everything button in /pvpadmin backs up SMP + Practice in one click"
   },
   "VortexSMP": {
     "version": "1.6.0",

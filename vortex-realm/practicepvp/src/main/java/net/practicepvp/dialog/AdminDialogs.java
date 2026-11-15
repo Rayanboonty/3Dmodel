@@ -347,6 +347,18 @@ public final class AdminDialogs {
         );
         tiles.add(
             tile(
+                Material.CHEST_MINECART,
+                "<gold><b>Backup Everything",
+                "<gray>One click: SMP + Practice",
+                () -> this.backupNow(p),
+                "Saves everything now: settings, kits, arenas,",
+                "ranks, stats, homes, every player's SMP and",
+                "Practice inventory, ender chest and XP.",
+                "Kept in plugins/VortexRealm-Vault."
+            )
+        );
+        tiles.add(
+            tile(
                 Material.GRASS_BLOCK,
                 "<green><b>SMP",
                 "<gray>Settings, worlds, bring back old data",
@@ -1997,6 +2009,15 @@ public final class AdminDialogs {
                 2,
                 this.ui.btn(p, "<gray>« Rank", null, () -> this.rank(p, r))
             );
+    }
+
+    /** The Backup Everything button: a full backup now (the plugin, the SMP and every player's items). */
+    public void backupNow(Player p) {
+        p.closeDialog();
+        p.sendMessage(Text.mm("<gray>Backing up everything (SMP + Practice)..."));
+        this.plugin.vaultSnapshot("manual", (name, err) -> p.sendMessage(Text.mm(err != null
+            ? "<red>Backup failed - see the console."
+            : "<green><b>Backed up.</b> <gray>Saved as <white>" + name + "</white> in plugins/VortexRealm-Vault (restore it in Data Vault).")));
     }
 
     public void vault(Player p) {

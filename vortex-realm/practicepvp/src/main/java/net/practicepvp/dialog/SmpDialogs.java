@@ -81,6 +81,8 @@ public final class SmpDialogs {
             "Homes per player, /rtp distance and cooldown,", "teleport warmup, combat tag, market, trade,", "drills, backups..."));
         tiles.add(tile(Material.GRASS_BLOCK, "<gold><b>SMP Worlds", "<gray>" + (world == null ? "<red>none set" : world.getName() + " • " + inSmp + " playing"),
             () -> this.plugin.dialogs().admin().worlds(p), "Set a world to SURVIVAL (or ECO) in the", "World Manager: it becomes an SMP world."));
+        tiles.add(tile(Material.CHEST_MINECART, "<gold><b>Backup Everything", "<gray>One click: SMP + Practice", () -> this.plugin.dialogs().admin().backupNow(p),
+            "Saves every player's SMP and Practice", "inventory, ender chest, XP, homes and", "all settings right now."));
         tiles.add(tile(Material.ENDER_CHEST, "<gold><b>Bring Back SMP Data", "<gray>From a backup or the old plugin files", () -> this.sources(p),
             "Homes, warps, inventories, ender chests and", "last spots from a Data Vault snapshot (made", "before every update), the old plugin files",
             "or the old VortexSMP folder. Nothing current", "is lost: it goes into backups first."));
