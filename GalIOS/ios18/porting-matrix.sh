@@ -57,16 +57,16 @@ try() {   # $1: the patch file. Prints one table row; returns 0 when it went in.
 }
 series() { grep -v '^[[:space:]]*#' "$1" | sed '/^[[:space:]]*$/d'; }
 
-echo "# GalaxyIOS iOS 18: kernel porting matrix"
+echo "# GalaxyIOS ${TARGET_NAME:-iOS 18}: kernel porting matrix"
 echo
 echo "Base: \`$(git describe --tags --always 2>/dev/null)\` (Apple's published XNU source). OneiOS at \`$(git -C "$O" rev-parse --short HEAD)\`."
 echo
 
-echo "## 1. The iPadOS 18 board layer (UniXNU-y2q)"
+echo "## 1. The board layer (${BOARD_NAME:-UniXNU-y2q, iPadOS 18})"
 echo
 if [ -n "$Y" ]; then
-  dir="$Y/patches/xnu-ipados18"
-  echo "UniXNU-y2q at \`$(git -C "$Y" rev-parse --short HEAD 2>/dev/null)\`, \`patches/xnu-ipados18\`."
+  dir="$Y/${BOARD_DIR:-patches/xnu-ipados18}"
+  echo "At \`$(git -C "$Y" rev-parse --short HEAD 2>/dev/null)\`, \`${BOARD_DIR:-patches/xnu-ipados18}\`."
   echo
   echo "| Patch | Result | Files |"
   echo "| --- | --- | --- |"
@@ -100,7 +100,7 @@ echo "## Summary"
 echo
 echo "| Layer | Applies | 3-way | To port |"
 echo "| --- | --- | --- | --- |"
-echo "| iPadOS 18 board (y2q) | $y_applied | $y_merged | $y_port |"
+echo "| Board layer | $y_applied | $y_merged | $y_port |"
 echo "| OneiOS own | $d_applied | $d_merged | $d_port |"
 echo "| Hosted machine layer | $applied | $merged | $port |"
 echo

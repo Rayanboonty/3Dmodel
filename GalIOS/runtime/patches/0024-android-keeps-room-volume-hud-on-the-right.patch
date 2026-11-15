@@ -1,0 +1,91 @@
+diff --git a/runtime/loader/src/machine.c b/runtime/loader/src/machine.c
+index 739241f..396de0d 100644
+--- a/runtime/loader/src/machine.c
++++ b/runtime/loader/src/machine.c
+@@ -331,6 +331,30 @@ xl_adt_node *xl_machine_tree(const xl_machine *m, const char **error)
+       for (unsigned i = 0; i < id_product->nprops; i++)
+         if (xl_machine_screen_prop(id_product->props[i].name))
+           xl_adt_set(product, id_product->props[i].name, id_product->props[i].value, id_product->props[i].length);
++    // GalIOS 0024: the buttons where the S25 Ultra has them, so iOS's volume HUD shows beside the keys. Each
++    // *-button-location is five u32 (1/10000 mm: two words naming the edge, the position from the top, the length,
++    // 10000). The iPhone's volume buttons are on its left edge (iOS drew the HUD there, across from the S25 Ultra's
++    // keys); its side button is on the right. The volume buttons take the side button's edge words and keep their own
++    // place; the side button moves below them, as the S25 Ultra's power key is (75 mm from the top).
++    if (id_product) {
++      const xl_adt_prop *side = xl_adt_get(id_product, "side-button-location");
++      if (side && side->length == 20) {
++        static const char *const volume[] = { "volume-up-button-location", "volume-down-button-location" };
++        for (unsigned k = 0; k < 2; k++) {
++          const xl_adt_prop *p = xl_adt_get(id_product, volume[k]);
++          if (!p || p->length != 20) continue;
++          uint8_t v[20];
++          memcpy(v, p->value, 20);
++          memcpy(v, side->value, 8);
++          xl_adt_set(product, volume[k], v, 20);
++        }
++        uint8_t s[20];
++        memcpy(s, side->value, 20);
++        uint32_t at = 750000;
++        memcpy(s + 8, &at, 4);
++        xl_adt_set(product, "side-button-location", s, 20);
++      }
++    }
+   }
+   // The artwork scale follows the UI scale (the identity tree's is the iPhone panel's 3). The artwork subtype
+   // stays the identity's (2868 for iPhone18,2): it names a set of assets, and no set exists for another height.
+diff --git a/runtime/loader/tests/test_loader.c b/runtime/loader/tests/test_loader.c
+index a3d8cd0..0127c8d 100644
+--- a/runtime/loader/tests/test_loader.c
++++ b/runtime/loader/tests/test_loader.c
+@@ -297,6 +297,29 @@ static void test_machine(void)
+     CHECK(xl_adt_get(t, "target-type") == NULL);
+     xl_adt_free(t);
+   }
++  // GalIOS 0024: the volume buttons on the side button's edge (the phone's own values, 2026-11-15)
++  {
++    static const uint32_t vol_up[5] = { 0x000b1e18, 0x001827fc, 0x00062926, 0x0001b580, 10000 };
++    static const uint32_t side_b[5] = { 0x000b1e40, 0x00182824, 0x0006bbc5, 0x0002b336, 10000 };
++    xl_adt_set(product, "volume-up-button-location", vol_up, sizeof vol_up);
++    xl_adt_set(product, "side-button-location", side_b, sizeof side_b);
++    t = xl_machine_tree(&m, &err);
++    CHECK(t != NULL);
++    if (t) {
++      const xl_adt_node *pr = xl_adt_find(t, "product");
++      const xl_adt_prop *vu = xl_adt_get(pr, "volume-up-button-location"), *sb = xl_adt_get(pr, "side-button-location");
++      uint32_t w[5] = { 0 };
++      CHECK(vu && vu->length == 20);
++      if (vu && vu->length == 20) {
++        memcpy(w, vu->value, 20);
++        CHECK(w[0] == side_b[0] && w[1] == side_b[1] && w[2] == vol_up[2] && w[3] == vol_up[3] && w[4] == 10000);
++      }
++      CHECK(sb && sb->length == 20);
++      if (sb && sb->length == 20) { memcpy(w, sb->value, 20); CHECK(w[0] == side_b[0] && w[2] == 750000 && w[3] == side_b[3]); }
++      CHECK(xl_adt_get(pr, "volume-down-button-location") == NULL);     // only what the identity has
++      xl_adt_free(t);
++    }
++  }
+   CHECK(xl_machine_screen_prop("island-notch-location") && xl_machine_screen_prop("oled-display"));
+   CHECK(!xl_machine_screen_prop("graphics-featureset-class") && !xl_machine_screen_prop("compatible-device-fallback"));
+   m.identity_screen_only = false;
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+index d201094..17b8d5a 100644
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -483,6 +483,17 @@ int xh_config_finish(xh_config *c)
+   // session is up.
+   if (c->ram_lock && c->ram_session_reserve < c->ram_unlock_below + (int64_t)XH_RAM_VALVE_MARGIN)
+     c->ram_session_reserve = c->ram_unlock_below + (int64_t)XH_RAM_VALVE_MARGIN;
++#ifdef __ANDROID__
++  // GalIOS 0024: on the S25 Ultra (11 GiB) the locked default left Android 848 MiB within a minute: 7424 MiB locked,
++  // the host swapping 30-40 MB/s, xnuhost's own pages faulted back 140,000 times in 30 s, the CPU at 711 % (sys 430 %),
++  // and then Android's low-memory killer ended xnuhost with no line in the log (eight sessions of 2026-11-15, each 55 to
++  // 135 s). iOS itself had 5.4 GiB free. The headroom is at least 3 GiB with the lock and 2 GiB without: about 5.4 GiB
++  // for iOS on that phone, and Android, its GPU memory and the iOS threads' kernel memory keep room to grow.
++  {
++    int64_t floor = (int64_t)(c->ram_lock_expected ? (3ull << 30) : (2ull << 30));
++    if (c->ram_session_reserve < floor) c->ram_session_reserve = floor;
++  }
++#endif
+   if (c->ram_fit_on < 0) c->ram_fit_on = from_image.ram_fit_on < 0 ? 1 : from_image.ram_fit_on;
+   if (c->ram_huge < 0) c->ram_huge = from_image.ram_huge < 0 ? 1 : from_image.ram_huge;
+   if (c->ram_gpu_reserve < 0) c->ram_gpu_reserve = from_image.ram_gpu_reserve < 0 ? (int64_t)XH_RAM_GPU_RESERVE : from_image.ram_gpu_reserve;

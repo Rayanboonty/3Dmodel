@@ -85,6 +85,8 @@ jobs:
           strings "$d/bin/xnuhost" | grep -q 'oneios-hid-queue-kib=256'
           test -f OneiOS/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
           grep -q 'br_thermal_level_for_guest' OneiOS/runtime/bridges/devices/bridge_dev.c
+          grep -q 'GalIOS 0024' OneiOS/runtime/xnuhost/src/config.c
+          grep -q 'side-button-location' OneiOS/runtime/loader/src/machine.c
           grep -q 'identity_screen_only' OneiOS/runtime/loader/src/machine.c
           grep -q 'galios_widen_cpuset' OneiOS/runtime/xnuhost/src/main.c
           grep -q 'DRM2KGSL_PRIORITIES' OneiOS/runtime/xnuhost/src/config.c

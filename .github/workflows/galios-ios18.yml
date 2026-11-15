@@ -47,3 +47,40 @@ jobs:
         with:
           name: ios18-porting-matrix
           path: out
+
+  # iOS 16 (the owner's ask, 2026-11-15): Apple's xnu-8796 (iOS 16) and ios-sweet's board layer, the one the Galaxy S9's
+  # iOS 16 port (ios-s9) is built on, under the same hosted layer. Bare-metal iOS 16 needs an unlocked bootloader; this
+  # measures what running it beside Android would take, as for iOS 18.
+  ios16-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            GalIOS/ios18
+            GalIOS/gpu
+      - name: Sources (XNU 8796, OneiOS, ios-sweet)
+        run: |
+          set -u
+          tag=$(git ls-remote --tags https://github.com/apple-oss-distributions/xnu.git 'refs/tags/xnu-8796.*' | sed 's|.*refs/tags/||; s|\^{}||' | sort -uV | tail -n 1)
+          echo "XNU tag: $tag"
+          git -c advice.detachedHead=false clone -q --depth 1 --branch "$tag" https://github.com/apple-oss-distributions/xnu.git xnu16
+          ref=$(tr -d ' \n' < GalIOS/gpu/ONEIOS_REF 2>/dev/null || true)
+          git clone -q --filter=blob:none --no-checkout https://github.com/akshaynexus/OneiOS.git OneiOS
+          git -C OneiOS sparse-checkout set kernel/patches kernel/device/patches
+          git -C OneiOS -c advice.detachedHead=false checkout -q ${ref:-HEAD}
+          git clone -q --depth 1 https://github.com/dipa-studio/ios-sweet.git sweet || echo "::warning::ios-sweet not reachable"
+      - name: Porting matrix
+        run: |
+          mkdir -p out/rejects
+          TARGET_NAME="iOS 16" BOARD_NAME="ios-sweet, iOS 16.7.16" BOARD_DIR=xnu/patches REJECTS="$PWD/out/rejects" \
+            bash GalIOS/ios18/porting-matrix.sh xnu16 OneiOS sweet > ios16-porting-matrix.md
+          cp ios16-porting-matrix.md out/
+          git -C xnu16 diff "$(git -C xnu16 rev-list --max-parents=0 HEAD)" HEAD > out/xnu-8796-galaxyios-stage1.diff
+          cat ios16-porting-matrix.md >> "$GITHUB_STEP_SUMMARY"
+          tail -n 8 ios16-porting-matrix.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios16-porting-matrix
+          path: out

@@ -187,11 +187,19 @@ ok "rust: $(rustc --version)"
 # ---------------------------------------------------------------------------------------------------------------
 # 5. OneiOS and its references
 # ---------------------------------------------------------------------------------------------------------------
+# The same OneiOS commit as GalaxyIOS's runtime and GPU pack (GalIOS/gpu/ONEIOS_REF): its main moves many times a day,
+# and a kernel built from whatever main was at that moment could fail to build or not match the runtime (the
+# on-phone build's kernel error). ONEIOS_REF=main builds from the newest main instead.
+ONEIOS_REF="${ONEIOS_REF:-9f4459b4323c96b5debed9bfbc6b846d99d5dc1b}"
 if [ ! -d "$ONEIOS/.git" ]; then
   say "Getting OneiOS"
   git clone -q https://github.com/akshaynexus/OneiOS.git "$ONEIOS"
+fi
+git -C "$ONEIOS" fetch -q origin || echo "    (could not update OneiOS; using the copy already here)"
+if [ "$ONEIOS_REF" = main ]; then
+  git -C "$ONEIOS" checkout -q -B main origin/main 2>/dev/null || true
 else
-  git -C "$ONEIOS" pull -q --ff-only || echo "    (could not update OneiOS; using the copy already here)"
+  git -C "$ONEIOS" -c advice.detachedHead=false checkout -q "$ONEIOS_REF" || die "OneiOS $ONEIOS_REF is not reachable: check the connection and run again"
 fi
 cd "$ONEIOS"
 if ! is_done references; then
