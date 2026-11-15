@@ -1,0 +1,63 @@
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+index 50e17bf..2d11e37 100644
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -253,7 +253,7 @@ static bool exists(const char *dir, const char *name, char *out, size_t size)
+ static const char *const galios_tuning_keys[] = {
+   "sheng-vsync", "oneios-disable-jobs", "oneios-enable-jobs", "oneios-gpu-read-wait", "oneios-hid-queue-kib",
+   "oneios-ubt", "oneios-ubt-at", "oneios-ubt-every", "oneios-ubt-count", "oneios-iouc", "oneios-sysfail",
+-  "oneios-log-persist", "oneios-bl-mode",
++  "oneios-log-persist", "oneios-bl-mode", "ca-triple-buffer",
+ };
+ 
+ static bool galios_tuning_word_ok(const char *w)
+@@ -349,12 +349,14 @@ int xh_config_finish(xh_config *c)
+            // surfaces "while written"; oneios-gpu-pixels: 4 of 14 of its surfaces zero). OneiOS's read wait (docs/gpu.md
+            // 5.1, in kernels with the widget counters; that session logged "oneios-gpu-read-wait: off").
+            "oneios-gpu-read-wait=1 "
+-           // Where the keyboard, Settings and Clock spin (that session: kbd at 25 % of a vCPU for minutes, Preferences at
+-           // 100 % for a minute, keys that stay pressed): user backtraces, IOKit clients and failed system calls of those
+-           // processes, in the log (OneiOS newtodo 1, 11 and 12; read with oneios-tool sym). Each list fits its 128 bytes.
+-           "oneios-ubt=kbd,Spotlight,Preferences,InputUI,MobileTimer,backboardd oneios-ubt-at=120 oneios-ubt-every=30 "
+-           "oneios-ubt-count=60 oneios-iouc=kbd,Spotlight,WidgetRenderer_Default,chronod,Preferences "
+-           "oneios-sysfail=kbd,Spotlight,Preferences,MobileTimer");
++           // GalIOS 0023: the traces 0012 added (user backtraces of kbd, Spotlight, Preferences, InputUI, MobileTimer and
++           // backboardd, their IOKit calls and failed system calls) are off: they were for finding where those spun, and they
++           // instrumented the keyboard's own process in every session. The tuning file can still turn them on (oneios-ubt=...,
++           // oneios-iouc=..., oneios-sysfail=...). In their place CoreAnimation's triple buffering, as Droid-VM's board runs
++           // the render server through the same Metal plug-in (ipados27/board.toml: CA_FORCE_TRIPLE_BUFFERED_LATENCY; its
++           // macOS window drags went from about 60 to about 118 frames a second): the render server draws one frame ahead.
++           // ca-triple-buffer=0 in the tuning file turns it off.
++           "ca-triple-buffer=1");
+   galios_tuning_boot_args(c->boot_args, sizeof c->boot_args, "/data/galios-bootargs");
+   if (c->ndisk == 0) { memcpy(c->disk, from_image.disk, sizeof c->disk); c->ndisk = from_image.ndisk; }
+   if (!*c->kernel && !exists(c->image, "kernel.kc", c->kernel, sizeof c->kernel) &&
+diff --git a/runtime/xnuhost/src/main.c b/runtime/xnuhost/src/main.c
+index 945f781..33a9224 100644
+--- a/runtime/xnuhost/src/main.c
++++ b/runtime/xnuhost/src/main.c
+@@ -723,6 +723,24 @@ static int boot(void)
+         if (p->props[i].length >= 4) memcpy(&u, v, 4);
+         LOGI("GalIOS identity: %s = %u bytes, u32 %u, hex %s, text \"%s\"", p->props[i].name, (unsigned)p->props[i].length, u, hex, text);
+       }
++      // GalIOS 0023: every /product property's name (where iOS learns its buttons' side, for the volume HUD), and the
++      // values of those about buttons, volume or the HUD
++      {
++        char names[3072];
++        size_t used = 0;
++        names[0] = 0;
++        for (unsigned i = 0; p && i < p->nprops && used + 2 < sizeof names; i++)
++          used += (size_t)snprintf(names + used, sizeof names - used, "%s%s", used ? " " : "", p->props[i].name);
++        LOGI("GalIOS identity: /product holds %u properties: %s", p ? p->nprops : 0, names);
++        for (unsigned i = 0; p && i < p->nprops; i++) {
++          const char *n = p->props[i].name;
++          if (!strstr(n, "button") && !strstr(n, "volume") && !strstr(n, "hud") && !strstr(n, "side") && !strstr(n, "ringer")) continue;
++          char hex[3 * 32 + 1] = "";
++          unsigned len = p->props[i].length < 32 ? p->props[i].length : 32;
++          for (unsigned k = 0; k < len; k++) snprintf(hex + 3 * k, 4, "%02x ", ((const uint8_t *)p->props[i].value)[k]);
++          LOGI("GalIOS identity: %s = %u bytes, hex %s", n, (unsigned)p->props[i].length, hex);
++        }
++      }
+       LOGI("GalIOS identity: %s (%u screen properties kept; board, model and GPU feature sets stay the guest's)",
+            machine.identity_screen_only ? "screen only" : "the whole iPhone (galios-identity-full)", kept);
+     }

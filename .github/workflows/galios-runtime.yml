@@ -90,13 +90,15 @@ jobs:
           grep -q 'galios_widen_cpuset' OneiOS/runtime/xnuhost/src/main.c
           grep -q 'DRM2KGSL_PRIORITIES' OneiOS/runtime/xnuhost/src/config.c
           grep -q 'held_level' OneiOS/runtime/bridges/brightness/brightness.c
+          grep -q 'ca-triple-buffer=1' OneiOS/runtime/xnuhost/src/config.c
+          ! grep -q '"oneios-ubt=kbd' OneiOS/runtime/xnuhost/src/config.c
           ! grep -q 'ram_bytes = 10ull << 30' OneiOS/runtime/xnuhost/src/config.c
           grep -q 'BOTTOM_START 16400u' OneiOS/runtime/bridges/brightness/brightness.c
           strings "$d/bin/xnuhost" | grep -q 'GalIOS maximum performance'
           strings "$d/bin/xnuhost" | grep -q 'oneios-actuator=0'
-          # 0012: the widgets' read wait and the spin traces of the keyboard, Settings and Clock
+          # 0012: the widgets' read wait (0023 took the spin traces out of the defaults and put triple buffering in)
           strings "$d/bin/xnuhost" | grep -q 'oneios-gpu-read-wait=1'
-          strings "$d/bin/xnuhost" | grep -q 'oneios-ubt=kbd,Spotlight,Preferences,InputUI,MobileTimer,backboardd'
+          strings "$d/bin/xnuhost" | grep -q 'ca-triple-buffer=1'
           # 0017: the volume keys set the speaker's level
           strings "$d/bin/xnuhost" | grep -q 'GalIOS volume %u of %u'
           # 0016: the audio helper's target up to 200 ms (fewer crackles)

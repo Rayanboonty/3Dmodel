@@ -28,10 +28,14 @@ val LocalTabScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
 @OptIn(ExperimentalSharedTransitionApi::class)
 private val openSpring = BoundsTransform { _, _ -> spring(dampingRatio = 0.9f, stiffness = 280f) }
 
-/** Makes this element one end of the container transform [key]; [shape] is its outline while it moves. */
+/**
+ * Makes this element one end of the container transform [key]; [shape] is its outline while it moves. [inOverlay]
+ * false draws the transform in place, inside the page: the liquid glass tab bar then keeps refracting it (drawn in the
+ * overlay, above the page, it left the bar with nothing under it for the whole transform).
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun Modifier.sharedContainer(key: String, scope: AnimatedVisibilityScope?, shape: Shape): Modifier {
+fun Modifier.sharedContainer(key: String, scope: AnimatedVisibilityScope?, shape: Shape, inOverlay: Boolean = true): Modifier {
     val shared = LocalShared.current ?: return this
     if (scope == null) return this
     return with(shared) {
@@ -41,6 +45,7 @@ fun Modifier.sharedContainer(key: String, scope: AnimatedVisibilityScope?, shape
             enter = fadeIn(tween(220)),
             exit = fadeOut(tween(180)),
             boundsTransform = openSpring,
+            renderInOverlayDuringTransition = inOverlay,
             clipInOverlayDuringTransition = OverlayClip(shape),
         )
     }

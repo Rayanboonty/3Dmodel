@@ -147,15 +147,11 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                     VSpace(24.dp)
                     s.update?.let { UpdateCard(it.version, a.update, a.dismissUpdate); VSpace(14.dp) }
                     s.message?.let { MessageCard(it.text, it.error, a.dismissMessage); VSpace(14.dp) }
-                    // A tab expands into place: it grows from a little smaller at the top on a spring and fades in, while the
-                    // one it replaces swells away and fades.
+                    // Tabs change with a short crossfade, nothing more. The one opening that grows is the card's
+                    // "Set up" button into the Setup page (sharedContainer "setup" on both ends).
                     androidx.compose.animation.AnimatedContent(
                         tab, label = "tab",
-                        transitionSpec = {
-                            val grow = spring<Float>(dampingRatio = 0.78f, stiffness = 320f)
-                            (scaleIn(grow, initialScale = 0.9f, transformOrigin = TransformOrigin(0.5f, 0f)) + fadeIn(tween(240))) togetherWith
-                                (scaleOut(spring(stiffness = 500f), targetScale = 1.04f, transformOrigin = TransformOrigin(0.5f, 0f)) + fadeOut(tween(140)))
-                        },
+                        transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
                     ) { t ->
                         val tabScope = this
                         androidx.compose.runtime.CompositionLocalProvider(LocalTabScope provides tabScope) {
@@ -166,8 +162,9 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                                         details = { v -> lastDetail = v; detail = v }, status = { tab = Tab.SETUP },
                                         freeUpSpace = a.freeUpSpace, eraseData = a.setup.resetIosData, deleteIos = a.deleteIos,
                                     ))
-                                // the Setup page grows out of the Setup button it was opened from
-                                Tab.SETUP -> Column(Modifier.sharedContainer("setup", tabScope, RoundedCornerShape(26.dp))) { SetupScreen(s, a.setup) }
+                                // the Setup page grows out of the card's "Set up" button when it was opened from there,
+                                // drawn in place so the tab bar's glass keeps refracting it
+                                Tab.SETUP -> Column(Modifier.sharedContainer("setup", tabScope, RoundedCornerShape(26.dp), inOverlay = false)) { SetupScreen(s, a.setup) }
                                 Tab.LOGS -> LogsScreen(s.logs, a.loadLogs, a.openLog, a.saveLog)
                             }
                         }
@@ -219,7 +216,19 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
 private fun Header(tab: Tab, s: UiState, onAbout: () -> Unit) {
     Column(Modifier.padding(top = 36.dp, start = 4.dp, end = 4.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(tab.title, style = Type.Display, modifier = Modifier.weight(1f))
+            if (tab == Tab.BOOT) {
+                // the project's own mark and name at the top, in place of "Boot"
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.foundation.Image(
+                        androidx.compose.ui.res.painterResource(dev.galios.R.drawable.ic_launcher), "GalaxyIOS",
+                        modifier = Modifier.size(46.dp).padding(end = 2.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("GalaxyIOS", style = Type.Display)
+                }
+            } else {
+                Text(tab.title, style = Type.Display, modifier = Modifier.weight(1f))
+            }
             if (s.refreshing || s.busy != null) { Box(Modifier.padding(bottom = 10.dp)) { Spinner() }; Spacer(Modifier.width(14.dp)) }
             IconButton(onAbout, Modifier.size(40.dp)) {
                 Icon(Icons.Rounded.Info, "About", tint = Gal.Blue, modifier = Modifier.size(24.dp))

@@ -79,19 +79,19 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 /**
- * An iOS version as a card. Only the one OneiOS boots (27.0.1) can be booted here; the others say "Coming soon" and
- * "Not available on this phone", nothing more. Each card's colours and art are GalaxyIOS's own.
+ * An iOS version as a card, with its own wallpaper (the owner's choice, built in: res/drawable-nodpi/card_iosN.jpg).
+ * Only the one OneiOS boots (27.0.1) can be booted here; the others say "Coming soon" and "Not available on this phone".
  */
-private data class IosVersion(val number: String, val bootable: Boolean, val top: Color, val bottom: Color, val bandA: Color, val bandB: Color) {
-    /** The card's one flat colour (when no wallpaper is chosen). */
+private data class IosVersion(val number: String, val bootable: Boolean, val top: Color, val bottom: Color, val bandA: Color, val bandB: Color, val wallpaper: Int) {
+    /** The card's one flat colour, behind the wallpaper. */
     val flat: Color get() = when (number) { "16" -> Color(0xFF2F5BDE); "18" -> Color(0xFFD9566B); "26" -> Color(0xFF169C8C); else -> Color(0xFF6A4BE0) }
 }
 
 private val versions = listOf(
-    IosVersion("16", false, Color(0xFF06123A), Color(0xFF030616), Color(0xFF3B5BFF), Color(0xFF6FE3FF)),
-    IosVersion("18", false, Color(0xFF2A0716), Color(0xFF0D0208), Color(0xFFFF5A3C), Color(0xFFFF2E93)),
-    IosVersion("26", false, Color(0xFF032A2A), Color(0xFF010C0E), Color(0xFF19C9B6), Color(0xFFB8F5E8)),
-    IosVersion("27", true, Color(0xFF1B0A3D), Color(0xFF070312), Color(0xFFFF7A45), Color(0xFF9B5CFF)),
+    IosVersion("16", false, Color(0xFF06123A), Color(0xFF030616), Color(0xFF3B5BFF), Color(0xFF6FE3FF), dev.galios.R.drawable.card_ios16),
+    IosVersion("18", false, Color(0xFF2A0716), Color(0xFF0D0208), Color(0xFFFF5A3C), Color(0xFFFF2E93), dev.galios.R.drawable.card_ios18),
+    IosVersion("26", false, Color(0xFF032A2A), Color(0xFF010C0E), Color(0xFF19C9B6), Color(0xFFB8F5E8), dev.galios.R.drawable.card_ios26),
+    IosVersion("27", true, Color(0xFF1B0A3D), Color(0xFF070312), Color(0xFFFF7A45), Color(0xFF9B5CFF), dev.galios.R.drawable.card_ios27),
 )
 
 @Composable
@@ -110,7 +110,7 @@ fun BootScreen(
     openVersion: String? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        DeviceRow(s, onSetup, onLogs, onRefresh, onPickPicture, onClearPicture)
+        DeviceRow(s, onSetup, onLogs, onRefresh)
         VersionCards(s, onBoot, onReturn, onSetup, onOpenVersion, onVersionShown, menu, openVersion)
         s.bootBlocker?.takeIf { s.status?.sessionOpen != true }?.let { blocker ->
             Appear {
@@ -154,28 +154,43 @@ fun BootScreen(
     }
 }
 
-/** The phone in one compact row: its picture, its name and state, and three round actions. */
+/**
+ * The phone's card, as it was before the compact row: the Galaxy S25 Ultra's photo (built in), its name and state, and
+ * the three actions with their names. The photo floats on its own layer: it moves a little with the phone's tilt.
+ */
 @Composable
-private fun DeviceRow(s: UiState, onSetup: () -> Unit, onLogs: () -> Unit, onRefresh: () -> Unit, onPick: () -> Unit, onClear: () -> Unit) {
+private fun DeviceRow(s: UiState, onSetup: () -> Unit, onLogs: () -> Unit, onRefresh: () -> Unit) {
     val open = s.status?.sessionOpen == true
-    Glass(padding = 12.dp, radius = 28.dp) {
+    val tilt by rememberTilt()
+    Glass(padding = 18.dp, radius = 30.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            HeroPicture(s.heroPicture, onPick, onClear, Modifier.width(52.dp).height(64.dp))
-            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(s.device.label, style = Type.Headline, maxLines = 1)
-                VSpace(4.dp)
+                Text(s.device.label, style = Type.Title.copy(fontSize = 24.sp), maxLines = 1)
+                VSpace(8.dp)
                 Pill(
                     when { open -> "iOS running"; s.readyToBoot -> "Ready to boot"; else -> "Setup needed" },
                     when { open -> Gal.Teal; s.readyToBoot -> Gal.Mint; else -> Gal.Amber },
                 )
+                VSpace(6.dp)
+                Text(
+                    s.status?.imageVersion?.let { "iOS $it (${s.status.imageBuild}) on this phone" } ?: "iOS 27.0.1 (24A446)",
+                    style = Type.Caption, maxLines = 1,
+                )
+                VSpace(16.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    RoundAction(Icons.Rounded.Tune, "Setup", onSetup, size = 46.dp)
+                    RoundAction(Icons.Rounded.ListAlt, "Logs", onLogs, size = 46.dp)
+                    RoundAction(Icons.Rounded.Refresh, "Refresh", onRefresh, enabled = !s.refreshing, size = 46.dp)
+                }
             }
-            // the Setup page grows out of this button
-            RoundAction(Icons.Rounded.Tune, "Setup", onSetup, size = 40.dp, showLabel = false, modifier = Modifier.sharedContainer("setup", LocalTabScope.current, CircleShape))
-            Spacer(Modifier.width(6.dp))
-            RoundAction(Icons.Rounded.ListAlt, "Logs", onLogs, size = 40.dp, showLabel = false)
-            Spacer(Modifier.width(6.dp))
-            RoundAction(Icons.Rounded.Refresh, "Refresh", onRefresh, enabled = !s.refreshing, size = 40.dp, showLabel = false)
+            androidx.compose.foundation.Image(
+                androidx.compose.ui.res.painterResource(dev.galios.R.drawable.phone_s25_ultra), "Galaxy S25 Ultra",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.width(100.dp).height(176.dp).graphicsLayer {
+                    translationX = tilt.x * 6.dp.toPx(); translationY = tilt.y * 6.dp.toPx()
+                    rotationZ = tilt.x * 1.5f
+                },
+            )
         }
     }
 }
@@ -209,7 +224,10 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
                         enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)),
                         exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)),
                     ) {
-                        VersionCard(v, s, onBoot, onReturn, onSetup, menu, Modifier.sharedContainer("card-${v.number}", this, RoundedCornerShape(34.dp))) { onOpen(v.number) }
+                        VersionCard(
+                            v, s, onBoot, onReturn, onSetup, menu, Modifier.sharedContainer("card-${v.number}", this, RoundedCornerShape(34.dp)),
+                            pageOffset = { (pager.currentPage - page) + pager.currentPageOffsetFraction },
+                        ) { onOpen(v.number) }
                     }
                 }
             }
@@ -225,17 +243,21 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
 }
 
 @Composable
-private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, menu: CardMenuActions, modifier: Modifier, onOpen: () -> Unit) {
+private fun VersionCard(
+    v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, menu: CardMenuActions, modifier: Modifier,
+    pageOffset: () -> Float = { 0f }, onOpen: () -> Unit,
+) {
     val shape = RoundedCornerShape(34.dp)
     val open = s.status?.sessionOpen == true
     val press = rememberGlassPress()
+    val tilt by rememberTilt()
     // The card's wallpaper is the backdrop its glass button refracts.
     val art = rememberLayerBackdrop()
     Box(
         modifier.fillMaxWidth().height(400.dp).then(press.gesture).then(press.effect(1.03f)).clip(shape).border(1.dp, Color(0x22FFFFFF), shape)
             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null, onClick = onOpen),
     ) {
-        Box(Modifier.fillMaxSize().layerBackdrop(art)) { CardBackground(v, s.wallpapers[v.number], Modifier.fillMaxSize()) }
+        Box(Modifier.fillMaxSize().layerBackdrop(art)) { CardBackground(v, Modifier.fillMaxSize(), pageOffset = pageOffset, tilt = { tilt }) }
         Column(Modifier.fillMaxSize().padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
@@ -252,24 +274,33 @@ private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn:
                 CardMenu(v, s, art, menu)
             }
             Spacer(Modifier.weight(1f))
-            Text(
-                v.number,
-                style = TextStyle(
-                    fontSize = 150.sp, lineHeight = 140.sp, fontWeight = FontWeight.Black, letterSpacing = (-10).sp,
-                    color = Color.White,
-                ),
-            )
-            Text("iOS ${v.number}", style = Type.Title.copy(fontSize = 24.sp))
-            Text(
-                if (v.bootable) s.status?.imageVersion?.let { "Version $it (${s.status.imageBuild})" } ?: "Build or import its image in Setup"
-                else "Not available on this phone",
-                style = Type.Caption.copy(color = Color(0xCCFFFFFF)), maxLines = 2,
-            )
+            // The numeral and the title float above the wallpaper: a soft shadow under them, and they move a little
+            // against the wallpaper's own movement when the phone tilts (the wallpaper is the deeper layer).
+            Column(Modifier.graphicsLayer { translationX = -tilt.x * 5.dp.toPx(); translationY = -tilt.y * 5.dp.toPx() }) {
+                Text(
+                    v.number,
+                    style = TextStyle(
+                        fontSize = 150.sp, lineHeight = 140.sp, fontWeight = FontWeight.Black, letterSpacing = (-10).sp,
+                        color = Color.White,
+                        shadow = androidx.compose.ui.graphics.Shadow(Color(0x66000000), Offset(0f, 10f), blurRadius = 36f),
+                    ),
+                )
+                Text("iOS ${v.number}", style = Type.Title.copy(fontSize = 24.sp, shadow = androidx.compose.ui.graphics.Shadow(Color(0x66000000), Offset(0f, 3f), blurRadius = 12f)))
+                Text(
+                    if (v.bootable) s.status?.imageVersion?.let { "Version $it (${s.status.imageBuild})" } ?: "Build or import its image in Setup"
+                    else "Not available on this phone",
+                    style = Type.Caption.copy(color = Color(0xE6FFFFFF), shadow = androidx.compose.ui.graphics.Shadow(Color(0x80000000), Offset(0f, 2f), blurRadius = 8f)), maxLines = 2,
+                )
+            }
             Spacer(Modifier.weight(0.5f))
             when {
                 v.bootable && open -> GlassAction("Return to One UI", Icons.Rounded.Undo, art, onReturn)
                 v.bootable && s.readyToBoot -> GlassAction("Boot iOS ${v.number}", Icons.Rounded.PowerSettingsNew, art, onBoot, enabled = s.busy == null)
-                v.bootable -> GlassAction("Set up", Icons.Rounded.Tune, art, onSetup)
+                // the one button that opens Setup by growing into it (the Setup page takes its place, frame by frame)
+                v.bootable -> GlassAction(
+                    "Set up", Icons.Rounded.Tune, art, onSetup,
+                    modifier = Modifier.sharedContainer("setup", LocalTabScope.current, RoundedCornerShape(27.dp), inOverlay = false),
+                )
                 else -> Spacer(Modifier.height(54.dp))
             }
         }
@@ -346,30 +377,33 @@ private fun CardMenu(v: IosVersion, s: UiState, art: LayerBackdrop, menu: CardMe
 }
 
 /**
- * A card's background: the owner's own wallpaper for this iOS when they chose one (on this phone, or sent by GalaxyIOS
- * Studio), cropped to the card and darkened at the bottom so the text and the button read; else the drawn art.
+ * A card's background: its iOS's wallpaper, built in, with depth. The wallpaper is a deeper layer than the card: it is
+ * drawn a little larger than the card and moves less than the card when the cards are swiped ([pageOffset], -1..1
+ * across a swipe) and the other way when the phone tilts ([tilt], -1..1 each axis), as iOS's perspective wallpapers
+ * do. A light dim keeps the white text readable.
  */
 @Composable
-private fun CardBackground(v: IosVersion, wallpaper: Pair<String, Long>?, modifier: Modifier) {
-    val bitmap = remember(wallpaper) { wallpaper?.let { (path, _) -> decodeScaled(path, 1440) } }
-    if (bitmap == null) {
-        CardArt(v, modifier)
-        return
-    }
-    Box(modifier) {
-        androidx.compose.foundation.Image(bitmap, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        Canvas(Modifier.fillMaxSize()) {
-            drawRect(Color(0x4D000000))
-        }
+private fun CardBackground(v: IosVersion, modifier: Modifier, pageOffset: () -> Float = { 0f }, tilt: () -> Offset = { Offset.Zero }) {
+    Box(modifier.background(v.flat)) {
+        androidx.compose.foundation.Image(
+            androidx.compose.ui.res.painterResource(v.wallpaper), null, contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                scaleX = 1.16f; scaleY = 1.16f
+                val t = tilt()
+                translationX = pageOffset() * size.width * 0.22f + t.x * 12.dp.toPx()
+                translationY = t.y * 12.dp.toPx()
+            },
+        )
+        Box(Modifier.fillMaxSize().background(Color(0x40000000)))
     }
 }
 
 /** An action on a card: a plain black capsule with white text and icon, that swells a little while pressed. */
 @Composable
-private fun GlassAction(text: String, icon: ImageVector, backdrop: LayerBackdrop, onClick: () -> Unit, enabled: Boolean = true) {
+private fun GlassAction(text: String, icon: ImageVector, backdrop: LayerBackdrop, onClick: () -> Unit, enabled: Boolean = true, modifier: Modifier = Modifier) {
     val press = rememberGlassPress()
     Row(
-        Modifier.fillMaxWidth().height(54.dp)
+        modifier.fillMaxWidth().height(54.dp)
             .then(if (enabled) press.gesture else Modifier).then(press.effect(1.03f))
             .clip(RoundedCornerShape(27.dp)).background(Color(0xF0000000)).border(1.dp, Color(0x26FFFFFF), RoundedCornerShape(27.dp))
             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null, enabled = enabled, onClick = onClick),
@@ -408,7 +442,7 @@ fun VersionDetail(
             .verticalScroll(rememberScrollState()),
     ) {
         Box(Modifier.fillMaxWidth().height(300.dp)) {
-            Box(Modifier.fillMaxSize().layerBackdrop(art)) { CardBackground(v, s.wallpapers[v.number], Modifier.fillMaxSize()) }
+            Box(Modifier.fillMaxSize().layerBackdrop(art)) { CardBackground(v, Modifier.fillMaxSize()) }
             Text(
                 v.number,
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 20.dp, bottom = 6.dp),
@@ -468,36 +502,56 @@ private fun DetailRow(title: String, value: String) {
 }
 
 /**
- * The colour behind the whole app: the version's wallpaper (the owner's, when chosen) blurred deep and dimmed so text
- * reads on it, or its own colour world as soft washes; it crossfades as the cards are swiped. The liquid glass refracts it.
+ * The colour behind the whole app: the card in front's wallpaper, blurred deep and dimmed so text reads on it; it
+ * crossfades as the cards are swiped. The liquid glass refracts it.
  */
 @Composable
-fun Ambient(number: String, s: UiState, modifier: Modifier) {
+fun Ambient(number: String, @Suppress("UNUSED_PARAMETER") s: UiState, modifier: Modifier) {
     androidx.compose.animation.Crossfade(number, modifier, animationSpec = androidx.compose.animation.core.tween(600), label = "ambient") { n ->
         val v = versions.firstOrNull { it.number == n } ?: versions.last()
-        val wallpaper = s.wallpapers[n]
-        val bitmap = remember(wallpaper) { wallpaper?.let { (path, _) -> decodeScaled(path, 360) } }
-        Box(Modifier.fillMaxSize()) {
-            if (bitmap != null) {
-                androidx.compose.foundation.Image(
-                    bitmap, null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.25f; scaleY = 1.25f }
-                        .blur(70.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
-                )
-            } else {
-                // no wallpaper: the version's colour, flat and deep
-                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.lerp(v.flat, Color.Black, 0.72f)))
-            }
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.lerp(v.flat, Color.Black, 0.72f))) {
+            androidx.compose.foundation.Image(
+                androidx.compose.ui.res.painterResource(v.wallpaper), null, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.25f; scaleY = 1.25f }
+                    .blur(70.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+            )
             // dim it, flat, so white text reads
             Box(Modifier.fillMaxSize().background(Color(0x99000000)))
         }
     }
 }
 
-/** A card's own colour when it has no wallpaper: one flat colour, nothing drawn on it. */
+/**
+ * The phone's tilt, -1..1 on each axis, smoothed: how far it leans from where it was held when the screen opened (that
+ * centre follows slowly, so holding it at any angle settles back to 0). From the game rotation vector (no compass, no
+ * permission); zero where the phone has none (the JVM screenshot tests).
+ */
 @Composable
-private fun CardArt(v: IosVersion, modifier: Modifier) {
-    Box(modifier.background(v.flat))
+fun rememberTilt(): androidx.compose.runtime.State<Offset> {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val tilt = remember { mutableStateOf(Offset.Zero) }
+    androidx.compose.runtime.DisposableEffect(context) {
+        val sm = context.getSystemService(android.content.Context.SENSOR_SERVICE) as? android.hardware.SensorManager
+        val sensor = sm?.getDefaultSensor(android.hardware.Sensor.TYPE_GAME_ROTATION_VECTOR)
+        var centre: FloatArray? = null
+        val rot = FloatArray(9)
+        val angles = FloatArray(3)
+        val listener = object : android.hardware.SensorEventListener {
+            override fun onSensorChanged(e: android.hardware.SensorEvent) {
+                android.hardware.SensorManager.getRotationMatrixFromVector(rot, e.values)
+                android.hardware.SensorManager.getOrientation(rot, angles)           // azimuth, pitch, roll (radians)
+                val c = centre ?: floatArrayOf(angles[1], angles[2]).also { centre = it }
+                c[0] += (angles[1] - c[0]) * 0.02f; c[1] += (angles[2] - c[1]) * 0.02f
+                val target = Offset(((angles[2] - c[1]) / 0.35f).coerceIn(-1f, 1f), ((angles[1] - c[0]) / 0.35f).coerceIn(-1f, 1f))
+                val now = tilt.value
+                tilt.value = Offset(now.x + (target.x - now.x) * 0.25f, now.y + (target.y - now.y) * 0.25f)
+            }
+            override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
+        }
+        if (sensor != null) sm.registerListener(listener, sensor, android.hardware.SensorManager.SENSOR_DELAY_GAME)
+        onDispose { sm?.unregisterListener(listener) }
+    }
+    return tilt
 }
 
 @Composable

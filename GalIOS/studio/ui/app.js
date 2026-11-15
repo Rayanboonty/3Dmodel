@@ -124,12 +124,14 @@ function render() {
   });
   // the page's colour: the newest card's wallpaper, blurred behind everything
   const amb = ['27', '26', '18', '16'].find((v) => walls[v]);
-  const ambCss = amb ? `url("/api/wallpaper?v=${amb}&t=${walls[amb]}")` : 'none';
+  const ambCss = amb ? `url("/api/wallpaper?v=${amb}&t=${walls[amb]}")` : 'url("card_ios27.jpg")';
   if (document.body.style.getPropertyValue('--ambient') !== ambCss) document.body.style.setProperty('--ambient', ambCss);
   const hp = s.heroPicture || 0;
-  if (hp) { const src = '/api/hero?v=' + hp; if ($('#heroImg').getAttribute('src') !== src) $('#heroImg').setAttribute('src', src); }
-  $('#heroImg').classList.toggle('hidden', !hp);
-  $('#heroArt').classList.toggle('hidden', !!hp);
+  // the Boot card's phone: a picture chosen in Studio, else the Galaxy S25 Ultra's photo built into Studio (ui/phone.png)
+  const heroSrc = hp ? '/api/hero?v=' + hp : 'phone.png';
+  if ($('#heroImg').getAttribute('src') !== heroSrc) $('#heroImg').setAttribute('src', heroSrc);
+  $('#heroImg').classList.remove('hidden');
+  $('#heroArt').classList.add('hidden');
   $('#heroClear').classList.toggle('hidden', !hp);
   $('#heroSend').classList.toggle('hidden', !hp && !Object.keys(walls).length);
   $('#bootLine').textContent = ph.connected ? `${ph.label} · ${st.image ? 'iOS ' + st.image : 'no image yet'}` : 'Connect the phone';

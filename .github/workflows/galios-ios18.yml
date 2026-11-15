@@ -1,0 +1,44 @@
+# GalaxyIOS iOS 18, stage 0 (GalIOS/ios18/PLAN.md): the kernel porting matrix, built on GitHub. Apple's published
+# xnu-11417 source (iPadOS/iOS 18), UniXNU-y2q's iPadOS 18 board layer, and OneiOS's kernel patches at the pinned
+# OneiOS (GalIOS/gpu/ONEIOS_REF): which of them carry over to iOS 18's kernel and which must be ported. Source only:
+# no Apple firmware is fetched. The report is the run's summary and the artifact ios18-porting-matrix.
+name: GalaxyIOS iOS 18 kernel
+on:
+  push:
+    branches: [ccr-a2c53c06-k8pnxp]
+    paths: ['.github/workflows/galios-ios18.yml', 'GalIOS/ios18/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  porting-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            GalIOS/ios18
+            GalIOS/gpu
+      - name: Sources (XNU 11417, OneiOS, UniXNU-y2q)
+        run: |
+          set -u
+          tag=xnu-11417.140.69
+          git ls-remote --tags https://github.com/apple-oss-distributions/xnu.git "refs/tags/$tag" | grep -q . || \
+            tag=$(git ls-remote --tags https://github.com/apple-oss-distributions/xnu.git 'refs/tags/xnu-11417.*' | sed 's|.*refs/tags/||; s|\^{}||' | sort -uV | tail -n 1)
+          echo "XNU tag: $tag"
+          git -c advice.detachedHead=false clone -q --depth 1 --branch "$tag" https://github.com/apple-oss-distributions/xnu.git xnu18
+          ref=$(tr -d ' \n' < GalIOS/gpu/ONEIOS_REF 2>/dev/null || true)
+          git clone -q --filter=blob:none --no-checkout https://github.com/akshaynexus/OneiOS.git OneiOS
+          git -C OneiOS sparse-checkout set kernel/patches kernel/device/patches
+          git -C OneiOS -c advice.detachedHead=false checkout -q ${ref:-HEAD}
+          git clone -q --depth 1 https://github.com/kmu1757/UniXNU-y2q.git y2q || echo "::warning::UniXNU-y2q not reachable: the board layer is left out of this run"
+      - name: Porting matrix
+        run: |
+          bash GalIOS/ios18/porting-matrix.sh xnu18 OneiOS y2q > ios18-porting-matrix.md
+          cat ios18-porting-matrix.md >> "$GITHUB_STEP_SUMMARY"
+          tail -n 8 ios18-porting-matrix.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios18-porting-matrix
+          path: ios18-porting-matrix.md
