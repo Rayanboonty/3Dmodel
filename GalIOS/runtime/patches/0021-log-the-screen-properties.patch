@@ -1,0 +1,26 @@
+diff --git a/runtime/xnuhost/src/main.c b/runtime/xnuhost/src/main.c
+index 557cf4b..945f781 100644
+--- a/runtime/xnuhost/src/main.c
++++ b/runtime/xnuhost/src/main.c
+@@ -709,7 +709,20 @@ static int boot(void)
+       // its touch stop on the S25 Ultra.
+       machine.identity_screen_only = access("/data/galios-identity-full", F_OK) != 0;
+       unsigned kept = 0;
+-      for (unsigned i = 0; p && i < p->nprops; i++) kept += xl_machine_screen_prop(p->props[i].name);
++      for (unsigned i = 0; p && i < p->nprops; i++) {
++        if (!xl_machine_screen_prop(p->props[i].name)) continue;
++        kept++;
++        // GalIOS 0021: each screen property with its value, to fit the island to this phone's punch-hole
++        char hex[3 * 32 + 1] = "", text[33] = "";
++        const uint8_t *v = p->props[i].value;
++        unsigned n = p->props[i].length < 32 ? p->props[i].length : 32, t = 0;
++        for (unsigned k = 0; k < n; k++) snprintf(hex + 3 * k, 4, "%02x ", v[k]);
++        for (unsigned k = 0; k < n && v[k]; k++) text[t++] = v[k] >= 0x20 && v[k] < 0x7f ? (char)v[k] : '.';
++        text[t] = 0;
++        uint32_t u = 0;
++        if (p->props[i].length >= 4) memcpy(&u, v, 4);
++        LOGI("GalIOS identity: %s = %u bytes, u32 %u, hex %s, text \"%s\"", p->props[i].name, (unsigned)p->props[i].length, u, hex, text);
++      }
+       LOGI("GalIOS identity: %s (%u screen properties kept; board, model and GPU feature sets stay the guest's)",
+            machine.identity_screen_only ? "screen only" : "the whole iPhone (galios-identity-full)", kept);
+     }
