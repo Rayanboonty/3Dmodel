@@ -36,8 +36,8 @@ async function start() {
   const size = () => { const a = current(); if (a) { lens.style.width = a.offsetWidth + 'px'; lens.style.height = a.offsetHeight + 'px'; } };
   size();
   lens.dataset.config = JSON.stringify({
-    refraction: 0.85, chromAberration: 0.09, edgeHighlight: 0.22, specular: 0.35, fresnel: 1, blurAmount: 0.04,
-    cornerRadius: (first ? first.offsetHeight : 46) / 2, zRadius: 26, shadowOpacity: 0.35, shadowSpread: 12, bevelMode: 0,
+    refraction: 0.3, chromAberration: 0.015, edgeHighlight: 0.1, specular: 0.12, fresnel: 0.6, blurAmount: 0,
+    cornerRadius: (first ? first.offsetHeight : 46) / 2, zRadius: 14, shadowOpacity: 0.35, shadowSpread: 12, bevelMode: 0,
   });
 
   // the nav's own look (dark, the selected item clear) must be in place before the library first captures it

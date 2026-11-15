@@ -10,7 +10,7 @@
   --text: #fff; --dim: rgba(255,255,255,.62); --faint: rgba(255,255,255,.38);
   --r: 26px;
   /* glass in flat colour: one even tint and one even hairline (the gradients only carry a single colour each) */
-  --lg-body: linear-gradient(rgba(255,255,255,.09), rgba(255,255,255,.09));
+  --lg-body: linear-gradient(rgba(255,255,255,.06), rgba(255,255,255,.06));
   --lg-rim: linear-gradient(rgba(255,255,255,.16), rgba(255,255,255,.16));
   --lg-depth: 0 8px 30px rgba(0,0,0,.3);
   --spring: cubic-bezier(.34, 1.4, .64, 1);
@@ -28,7 +28,7 @@ body { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: 1fr;
 body::before { content: ""; position: fixed; inset: -80px; z-index: -1; pointer-events: none;
   background: var(--ambient, none) center / cover no-repeat,
     #1d1440;
-  filter: blur(70px) saturate(1.5) brightness(.42); transition: background .6s; }
+  filter: blur(70px) saturate(1.3) brightness(.3); transition: background .6s; }
 :focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 ::selection { background: rgba(255,255,255,.28); }
 ::-webkit-scrollbar { width: 10px; } ::-webkit-scrollbar-thumb { background: var(--glass-2); border-radius: 5px; border: 2px solid #000; }
@@ -81,7 +81,7 @@ header p { margin: 0 0 28px; color: var(--dim); max-width: 68ch; line-height: 1.
   main { padding: 28px 22px 150px; } .task { left: 106px; right: 22px; } header h1 { font-size: 34px; } }
 
 /* the two lead cards, Do everything and the Boot card: a touch brighter glass, and compact */
-.auto, .hero { background: rgba(255,255,255,.12) padding-box, var(--lg-rim) border-box; }
+.auto, .hero { background: rgba(255,255,255,.09) padding-box, var(--lg-rim) border-box; }
 .hero-pick { background: none; height: auto; padding: 0; border-radius: 20px; flex: none; }
 .hero-pick:hover .hero-art { filter: drop-shadow(0 10px 28px rgba(255,255,255,.12)); }
 .hero-art { width: 112px; height: 176px; flex: none; margin: -4px 4px -8px 0; animation: float-in 1s var(--spring) both .1s; }

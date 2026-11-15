@@ -62,6 +62,8 @@ jobs:
           make build/host/test_bridges
           # as OneiOS's make test runs it: the devices live as long as xnuhost (the transport has no destroy)
           ASAN_OPTIONS=detect_leaks=0 build/host/test_bridges
+          # the loader's tests: iPhone screen features take the screen properties only (0018)
+          make -C ../loader test
       - name: Package
         run: |
           cd OneiOS
@@ -84,6 +86,7 @@ jobs:
           test -f OneiOS/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
           grep -q 'XH_RAM_SESSION_RESERVE (2ull << 30)' OneiOS/runtime/xnuhost/src/xnuhost.h
           grep -q 'l->soc\[0\] = 1070' OneiOS/runtime/bridges/thermal/thermal.c
+          grep -q 'identity_screen_only' OneiOS/runtime/loader/src/machine.c
           grep -q 'BOTTOM_START 16400u' OneiOS/runtime/bridges/brightness/brightness.c
           strings "$d/bin/xnuhost" | grep -q 'GalIOS maximum performance'
           strings "$d/bin/xnuhost" | grep -q 'oneios-actuator=0'

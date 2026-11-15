@@ -12,7 +12,7 @@ function show(page) {
   if (page === 'logs') renderLog(true);
   try { localStorage.setItem('page', page); } catch (_) {}
 }
-try { const p = localStorage.getItem('page'); if (p && document.getElementById(p)) show(p); } catch (_) {}
+try { const p = location.hash.slice(1) || localStorage.getItem('page'); if (p && document.getElementById(p)) show(p); } catch (_) {}
 
 // ---- actions
 document.addEventListener('click', async (e) => {

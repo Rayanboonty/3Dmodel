@@ -210,7 +210,7 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             )
         }
 
-        Step(7, "iPhone screen features", "Tells iOS it has the iPhone's OLED panel, its Dynamic Island and its rounded corners, using the iPhone's own description read from your IPSW: choose the IPSW here (no PC needed), or let GalaxyIOS Studio's Do everything copy it. That is what iOS needs before it offers the always-on display and draws the Dynamic Island. It changes many things iOS knows about the screen at once, so it is a switch: turn it off if iOS gets worse. Needs runtime galios.16 or newer; takes effect at the next boot.", done = s.iphoneIdentity) {
+        Step(7, "iPhone screen features", "Gives iOS only the iPhone's screen details: the Dynamic Island, the OLED panel, its rounded corners and the always-on display. iOS keeps this phone's own graphics and touch, so it stays smooth and touch works (the first version also took the whole iPhone, which made iOS lag and stopped touch). Read from your IPSW: choose it here (no PC needed), or let GalaxyIOS Studio's Do everything copy it. Needs the newest runtime (step 3); takes effect at the next boot.", done = s.iphoneIdentity) {
             Check("Now", if (s.iphoneIdentity) "On: the iPhone's panel" else "Off: the plain panel", true)
             Check("The iPhone's description", if (s.identityFile != null) "found on this phone" else "not on this phone yet: choose your IPSW below (no PC needed)", s.identityFile != null || s.iphoneIdentity)
             VSpace(10.dp)

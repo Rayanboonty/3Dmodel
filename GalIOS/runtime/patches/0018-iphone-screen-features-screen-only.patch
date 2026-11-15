@@ -1,0 +1,147 @@
+diff --git a/runtime/loader/include/xnuloader/machine.h b/runtime/loader/include/xnuloader/machine.h
+index 020f32d..4dd61af 100644
+--- a/runtime/loader/include/xnuloader/machine.h
++++ b/runtime/loader/include/xnuloader/machine.h
+@@ -61,6 +61,9 @@ typedef struct {
+   // which model, target-type, the board name and /product are taken; NULL gives a generic machine
+   // with model/product names from the strings below (which may be NULL).
+   const xl_adt_node *identity;
++  // GalIOS: take only the screen properties of the identity's /product (the Dynamic Island, the OLED panel, its
++  // corner radius, the always-on display); the guest keeps its own board name, model and GPU feature sets.
++  bool        identity_screen_only;
+   const char *model;                      // "iPhone18,2"
+   const char *display_gamut;              // /product artwork-display-gamut, default "P3"
+   // The guest's display (0 = say nothing): the mode in pixels, the UI scale (pixels per point, 2 or 3: /chosen
+@@ -76,6 +79,9 @@ typedef struct {
+   uint32_t    host_page_size;
+ } xl_machine;
+ 
++// GalIOS: whether an identity /product property is one of the screen's (identity_screen_only keeps only these).
++bool xl_machine_screen_prop(const char *name);
++
+ // The board xnuhost emulates: where its windows are (physical addresses inside /arm-io).
+ #define XL_BOARD_ARMIO_BASE     0x1000ull
+ #define XL_BOARD_ARMIO_SIZE     (0x40000000ull - XL_BOARD_ARMIO_BASE)
+diff --git a/runtime/loader/src/machine.c b/runtime/loader/src/machine.c
+index 9928989..10d6feb 100644
+--- a/runtime/loader/src/machine.c
++++ b/runtime/loader/src/machine.c
+@@ -84,6 +84,21 @@ static bool product_dropped(const char *name)
+   return false;
+ }
+ 
++// GalIOS: the identity's screen properties, all that identity_screen_only takes from its /product: the Dynamic
++// Island, the OLED panel, its corner radius and the always-on display. Not the board's name, its GPU feature sets or
++// the rest: those made iOS take the iPhone's heaviest rendering paths and its own touch tables, on a phone that has
++// neither (iOS lagged and touch stopped).
++bool xl_machine_screen_prop(const char *name)
++{
++  static const char *const exact[] = { "oled-display", "display-corner-radius", "supports-burnin-mitigation" };
++  static const char *const within[] = { "island", "always-on", "aod", "burn-in", "burnin", "notch" };
++  for (unsigned i = 0; i < sizeof exact / sizeof *exact; i++)
++    if (!strcmp(name, exact[i])) return true;
++  for (unsigned i = 0; i < sizeof within / sizeof *within; i++)
++    if (strstr(name, within[i])) return true;
++  return false;
++}
++
+ // graphics-featureset-fallbacks without APPLE2 and MTL2,2 (a NUL-terminated, colon-separated list):
+ // with them MobileGestalt answers DeviceSupportsASTC and SplashBoard writes app snapshots in the AGX
+ // GPU's own ASTC layout, which no other GPU decodes.
+@@ -137,13 +152,15 @@ xl_adt_node *xl_machine_tree(const xl_machine *m, const char **error)
+   if (m->panic_size && ((m->panic_base | m->panic_size) & 0x3fff)) FAIL("the panic region must be 16 KiB aligned");
+ 
+   const xl_adt_node *id = m->identity, *id_product = id ? xl_adt_child(id, "product") : NULL;
+-  if (id && (!id_product || !xl_adt_get(id, "model") || !xl_adt_get(id, "target-type")))
++  if (id && m->identity_screen_only && !id_product)
++    { *error = "the identity tree has no /product"; return NULL; }
++  if (id && !m->identity_screen_only && (!id_product || !xl_adt_get(id, "model") || !xl_adt_get(id, "target-type")))
+     { *error = "the identity tree has no model, target-type or /product"; return NULL; }
+ 
+   root = xl_adt_new("device-tree");
+   char compatible[160];
+   size_t used = 0;
+-  if (id) {
++  if (id && !m->identity_screen_only) {
+     const xl_adt_prop *p = xl_adt_get(id, "model");
+     xl_adt_set(root, "model", p->value, p->length);
+     p = xl_adt_get(id, "target-type");
+@@ -293,7 +310,7 @@ xl_adt_node *xl_machine_tree(const xl_machine *m, const char **error)
+   xl_adt_set_u32(buttons, "home-button-type", 2);
+ 
+   xl_adt_node *product = xl_adt_add(root, "product");
+-  if (id_product) {
++  if (id_product && !m->identity_screen_only) {
+     for (unsigned i = 0; i < id_product->nprops; i++) {
+       const xl_adt_prop *p = &id_product->props[i];
+       if (product_dropped(p->name)) continue;
+@@ -308,6 +325,11 @@ xl_adt_node *xl_machine_tree(const xl_machine *m, const char **error)
+     if (acoustic) xl_adt_set(audio, "acoustic-id", acoustic->value, acoustic->length);
+   } else {
+     xl_adt_set_str(product, "product-name", "OneiOS guest");
++    // GalIOS: screen only: the guest's own product, with the iPhone's screen properties added
++    if (id_product)
++      for (unsigned i = 0; i < id_product->nprops; i++)
++        if (xl_machine_screen_prop(id_product->props[i].name))
++          xl_adt_set(product, id_product->props[i].name, id_product->props[i].value, id_product->props[i].length);
+   }
+   // The artwork scale follows the UI scale (the identity tree's is the iPhone panel's 3). The artwork subtype
+   // stays the identity's (2868 for iPhone18,2): it names a set of assets, and no set exists for another height.
+diff --git a/runtime/loader/tests/test_loader.c b/runtime/loader/tests/test_loader.c
+index 7084855..a3d8cd0 100644
+--- a/runtime/loader/tests/test_loader.c
++++ b/runtime/loader/tests/test_loader.c
+@@ -277,8 +277,34 @@ static void test_machine(void)
+     CHECK(xl_adt_get(xl_adt_find(t, "product/audio"), "acoustic-id"));
+     xl_adt_free(t);
+   }
++  // GalIOS: screen only: the iPhone's screen properties, nothing else of it (not its board, model or GPU sets)
++  xl_adt_set_u32(product, "oled-display", 1);
++  xl_adt_set_u32(product, "island-notch-location", 144);
++  xl_adt_set_u32(product, "display-corner-radius", 186);
++  xl_adt_set_u32(product, "supports-burnin-mitigation", 1);
++  m.identity_screen_only = true;
++  t = xl_machine_tree(&m, &err);
++  CHECK(t != NULL);
++  if (t) {
++    const xl_adt_node *pr = xl_adt_find(t, "product");
++    CHECK(xl_adt_get(pr, "oled-display") && xl_adt_get(pr, "island-notch-location"));
++    CHECK(xl_adt_get(pr, "display-corner-radius") && xl_adt_get(pr, "supports-burnin-mitigation"));
++    CHECK(!xl_adt_get(pr, "graphics-featureset-fallbacks") && !xl_adt_get(pr, "artwork-device-subtype"));
++    CHECK(!strcmp((const char *)xl_adt_get(pr, "product-name")->value, "OneiOS guest"));
++    CHECK(strcmp((const char *)xl_adt_get(t, "model")->value, "Fixture1,1") != 0);   // the board stays the guest's
++    p = xl_adt_get(t, "compatible");
++    CHECK(p && memcmp(p->value, "F1AP", 4) != 0);
++    CHECK(xl_adt_get(t, "target-type") == NULL);
++    xl_adt_free(t);
++  }
++  CHECK(xl_machine_screen_prop("island-notch-location") && xl_machine_screen_prop("oled-display"));
++  CHECK(!xl_machine_screen_prop("graphics-featureset-class") && !xl_machine_screen_prop("compatible-device-fallback"));
++  m.identity_screen_only = false;
+   xl_adt_remove(donor, "product");
+   CHECK(xl_machine_tree(&m, &err) == NULL && err);
++  m.identity_screen_only = true;
++  CHECK(xl_machine_tree(&m, &err) == NULL && err);                                 // screen only still needs /product
++  m.identity_screen_only = false;
+   xl_adt_free(donor);
+ 
+   // the bridged Bluetooth controller, the cpufreq windows and the bridge channel
+diff --git a/runtime/xnuhost/src/main.c b/runtime/xnuhost/src/main.c
+index f217af7..a7e734d 100644
+--- a/runtime/xnuhost/src/main.c
++++ b/runtime/xnuhost/src/main.c
+@@ -679,6 +679,14 @@ static int boot(void)
+       LOGI("GalIOS identity: %u /product properties from the iPhone's tree (oled-display %s, island-notch-location %s, display-corner-radius %s)",
+            p ? p->nprops : 0, p && xl_adt_get(p, "oled-display") ? "yes" : "no",
+            p && xl_adt_get(p, "island-notch-location") ? "yes" : "no", p && xl_adt_get(p, "display-corner-radius") ? "yes" : "no");
++      // Screen only unless the owner asks for the whole iPhone (galios-identity-full in the stage): the whole
++      // identity also renames the board and gives iOS the iPhone's GPU feature sets, which made iOS crawl and
++      // its touch stop on the S25 Ultra.
++      machine.identity_screen_only = access("/data/galios-identity-full", F_OK) != 0;
++      unsigned kept = 0;
++      for (unsigned i = 0; p && i < p->nprops; i++) kept += xl_machine_screen_prop(p->props[i].name);
++      LOGI("GalIOS identity: %s (%u screen properties kept; board, model and GPU feature sets stay the guest's)",
++           machine.identity_screen_only ? "screen only" : "the whole iPhone (galios-identity-full)", kept);
+     }
+     machine.identity = identity;
+   }

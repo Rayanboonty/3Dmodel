@@ -62,6 +62,7 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import kotlin.math.absoluteValue
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.aspectRatio
@@ -106,10 +107,11 @@ fun BootScreen(
     onOpenVersion: (String) -> Unit = {},
     onVersionShown: (String) -> Unit = {},
     menu: CardMenuActions = CardMenuActions(),
+    openVersion: String? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         DeviceRow(s, onSetup, onLogs, onRefresh, onPickPicture, onClearPicture)
-        VersionCards(s, onBoot, onReturn, onSetup, onOpenVersion, onVersionShown, menu)
+        VersionCards(s, onBoot, onReturn, onSetup, onOpenVersion, onVersionShown, menu, openVersion)
         s.bootBlocker?.takeIf { s.status?.sessionOpen != true }?.let { blocker ->
             Appear {
                 Glass(padding = 18.dp, tint = Gal.Amber) {
@@ -168,7 +170,8 @@ private fun DeviceRow(s: UiState, onSetup: () -> Unit, onLogs: () -> Unit, onRef
                     when { open -> Gal.Teal; s.readyToBoot -> Gal.Mint; else -> Gal.Amber },
                 )
             }
-            RoundAction(Icons.Rounded.Tune, "Setup", onSetup, size = 40.dp, showLabel = false)
+            // the Setup page grows out of this button
+            RoundAction(Icons.Rounded.Tune, "Setup", onSetup, size = 40.dp, showLabel = false, modifier = Modifier.sharedContainer("setup", LocalTabScope.current, CircleShape))
             Spacer(Modifier.width(6.dp))
             RoundAction(Icons.Rounded.ListAlt, "Logs", onLogs, size = 40.dp, showLabel = false)
             Spacer(Modifier.width(6.dp))
@@ -182,7 +185,7 @@ private fun DeviceRow(s: UiState, onSetup: () -> Unit, onLogs: () -> Unit, onRef
  * centre. iOS 27 is in front when the screen opens, and the cards rise in once: the screen's one entrance moment.
  */
 @Composable
-private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onOpen: (String) -> Unit, onShown: (String) -> Unit, menu: CardMenuActions) {
+private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onOpen: (String) -> Unit, onShown: (String) -> Unit, menu: CardMenuActions, openVersion: String?) {
     val pager = rememberPagerState(initialPage = versions.lastIndex) { versions.size }
     LaunchedEffect(pager.currentPage) { onShown(versions[pager.currentPage].number) }
     val rise = remember { Animatable(1f) }
@@ -199,7 +202,16 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
                 scaleX = k; scaleY = k
                 alpha = 1f - offset * 0.45f
             }) {
-                VersionCard(v, s, onBoot, onReturn, onSetup, menu) { onOpen(v.number) }
+                // while its details are open the card is the details: it leaves here and grows into them
+                Box(Modifier.fillMaxWidth().height(400.dp)) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        openVersion != v.number,
+                        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)),
+                        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)),
+                    ) {
+                        VersionCard(v, s, onBoot, onReturn, onSetup, menu, Modifier.sharedContainer("card-${v.number}", this, RoundedCornerShape(34.dp))) { onOpen(v.number) }
+                    }
+                }
             }
         }
         VSpace(12.dp)
@@ -213,14 +225,14 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
 }
 
 @Composable
-private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, menu: CardMenuActions, onOpen: () -> Unit) {
+private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, menu: CardMenuActions, modifier: Modifier, onOpen: () -> Unit) {
     val shape = RoundedCornerShape(34.dp)
     val open = s.status?.sessionOpen == true
     val press = rememberGlassPress()
     // The card's wallpaper is the backdrop its glass button refracts.
     val art = rememberLayerBackdrop()
     Box(
-        Modifier.fillMaxWidth().height(400.dp).then(press.gesture).then(press.effect(1.03f)).clip(shape).border(1.dp, Color(0x22FFFFFF), shape)
+        modifier.fillMaxWidth().height(400.dp).then(press.gesture).then(press.effect(1.03f)).clip(shape).border(1.dp, Color(0x22FFFFFF), shape)
             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null, onClick = onOpen),
     ) {
         Box(Modifier.fillMaxSize().layerBackdrop(art)) { CardBackground(v, s.wallpapers[v.number], Modifier.fillMaxSize()) }
@@ -286,8 +298,8 @@ private fun CardMenu(v: IosVersion, s: UiState, art: LayerBackdrop, menu: CardMe
     val canChange = s.rootOk && s.busy == null && s.status?.sessionOpen != true
     Box {
         Box(
-            Modifier.size(38.dp).then(press.gesture)
-                .liquidBackdrop(art, CircleShape, press = press, blurDp = 6f, lensDp = 10f, tint = Color(0x33000000))
+            Modifier.size(38.dp).then(press.gesture).then(press.effect(1.08f))
+                .clip(CircleShape).background(Color(0xE6000000)).border(1.dp, Color(0x26FFFFFF), CircleShape)
                 .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { open = true },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Rounded.MoreHoriz, "More for iOS ${v.number}", tint = Color.White, modifier = Modifier.size(20.dp)) }
@@ -304,7 +316,6 @@ private fun CardMenu(v: IosVersion, s: UiState, art: LayerBackdrop, menu: CardMe
                     enabled = enabled, onClick = { open = false; onClick() },
                 )
             item("System details", Icons.Rounded.Info) { menu.details(v.number) }
-            item(if (s.wallpapers[v.number] == null) "Choose wallpaper" else "Change wallpaper", Icons.Rounded.Image) { menu.wallpaper(v.number) }
             if (v.bootable) {
                 item("Phone status", Icons.Rounded.Tune) { menu.status() }
                 item("Free up space", Icons.Rounded.CleaningServices, enabled = canChange && !s.phoneBuildRunning) { ask = "space" }
@@ -353,14 +364,14 @@ private fun CardBackground(v: IosVersion, wallpaper: Pair<String, Long>?, modifi
     }
 }
 
-/** An action on a card: a capsule of liquid glass that refracts the card's wallpaper under it, and answers touch. */
+/** An action on a card: a plain black capsule with white text and icon, that swells a little while pressed. */
 @Composable
 private fun GlassAction(text: String, icon: ImageVector, backdrop: LayerBackdrop, onClick: () -> Unit, enabled: Boolean = true) {
     val press = rememberGlassPress()
     Row(
         Modifier.fillMaxWidth().height(54.dp)
-            .then(if (enabled) press.gesture else Modifier)
-            .liquidBackdrop(backdrop, RoundedCornerShape(27.dp), press = press, blurDp = 6f, lensDp = 14f, tint = Color(0x40FFFFFF), aberration = true)
+            .then(if (enabled) press.gesture else Modifier).then(press.effect(1.03f))
+            .clip(RoundedCornerShape(27.dp)).background(Color(0xF0000000)).border(1.dp, Color(0x26FFFFFF), RoundedCornerShape(27.dp))
             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null, enabled = enabled, onClick = onClick),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -383,15 +394,14 @@ fun VersionDetail(
     onBoot: () -> Unit,
     onSetup: () -> Unit,
     onReturn: () -> Unit,
-    onPickWallpaper: () -> Unit,
-    onClearWallpaper: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val v = versions.firstOrNull { it.number == number } ?: versions.last()
     val open = s.status?.sessionOpen == true
     val shape = RoundedCornerShape(36.dp)
     val art = rememberLayerBackdrop()
     Column(
-        Modifier.padding(horizontal = 18.dp, vertical = 40.dp).fillMaxWidth().clip(shape).background(Gal.Paper)
+        Modifier.padding(horizontal = 18.dp, vertical = 40.dp).then(modifier).fillMaxWidth().clip(shape).background(Gal.Paper)
             .border(1.dp, Color(0x33FFFFFF), shape)
             // a tap inside the card stays inside it (the scrim behind closes)
             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) {}
@@ -445,11 +455,6 @@ fun VersionDetail(
             } else {
                 Text("Not available on this phone", style = Type.Body.copy(color = Gal.Dim))
             }
-            VSpace(12.dp)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GlassButton(if (s.wallpapers[v.number] == null) "Choose wallpaper" else "Change wallpaper", onPickWallpaper, icon = Icons.Rounded.Image)
-                if (s.wallpapers[v.number] != null) GlassButton("Remove", onClearWallpaper, icon = Icons.Rounded.HideImage)
-            }
         }
     }
 }
@@ -494,6 +499,39 @@ fun Ambient(number: String, s: UiState, modifier: Modifier) {
 private fun CardArt(v: IosVersion, modifier: Modifier) {
     Box(modifier.background(v.flat))
 }
+
+@Composable
+private fun Readiness(s: UiState) {
+    Glass(padding = 16.dp) {
+        val c = s.checks
+        StatusRow(Icons.Rounded.Key, "Root", when {
+            c == null -> "Checking…"
+            c.root -> "Active" + (if (s.rootVia == "helper") ", lent by GalaxyIOS Studio" else "") +
+                if (c.busybox == null || c.resetprop == null) ", tools missing" else ""
+            else -> "Not active: start temporary root"
+        }, when { c == null -> Mark.WAIT; c.root && c.busybox != null && c.resetprop != null -> Mark.OK; c.root -> Mark.WAIT; else -> Mark.BAD }, tile = Gal.Graphite)
+        RowDivider()
+        StatusRow(Icons.Rounded.Extension, "Boot engine", when {
+            s.engine == null -> "OneOS is not installed"
+            !s.engine.hasIos -> "OneOS ${s.engine.versionName} has no iOS engine"
+            else -> "OneOS ${s.engine.versionName}" + if (s.engineInstalled) ", installed" else ", not installed yet"
+        }, when { s.engine?.hasIos == true && s.engineInstalled -> Mark.OK; s.engine?.hasIos == true -> Mark.WAIT; else -> Mark.BAD }, tile = Gal.Indigo)
+        RowDivider()
+        StatusRow(Icons.Rounded.Inventory2, "OneiOS runtime", s.status?.runtimeVersion?.let { v ->
+            v + (s.release?.takeIf { it.version != v }?.let { ", ${it.version} is out" } ?: "")
+        } ?: "Not added", if (s.status?.runtimeVersion != null) Mark.OK else Mark.WAIT, tile = Gal.Teal)
+        RowDivider()
+        StatusRow(Icons.Rounded.Layers, "iOS image", s.status?.imageVersion?.let { "iOS $it (${s.status.imageBuild}), ${bytes(s.status.imageBytes)}" } ?: "Not added",
+            if (s.status?.imageVersion != null) Mark.OK else Mark.WAIT, tile = Gal.Purple)
+        RowDivider()
+        StatusRow(Icons.Rounded.Bolt, "Boot check", when {
+            s.status == null -> "Runs once the engine is installed"
+            s.status.ready -> "Passed"
+            else -> s.status.notReadyReason ?: "Not passed"
+        }, when { s.status?.ready == true -> Mark.OK; s.status == null -> Mark.OFF; else -> Mark.WAIT }, tile = Gal.Amber)
+    }
+}
+
 /**
  * The phone's picture: the owner's own, when they chose one on this phone (tap to choose another, press and hold to go
  * back to the drawing), else the drawing (tap to choose a picture). Decoded once per saved file, scaled to its size.
@@ -510,7 +548,7 @@ private fun HeroPicture(picture: Pair<String, Long>?, onPick: () -> Unit, onClea
         if (bitmap != null) {
             androidx.compose.foundation.Image(bitmap, "Your picture", Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
         } else {
-            PhoneArt(Modifier.fillMaxSize())
+            Icon(Icons.Rounded.PhoneAndroid, "Your phone", tint = Gal.Dim, modifier = Modifier.size(30.dp))
         }
     }
 }

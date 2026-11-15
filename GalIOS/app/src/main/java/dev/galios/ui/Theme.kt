@@ -239,11 +239,11 @@ fun GlassButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
 
 /** A round icon action on glass, its name under it. */
 @Composable
-fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit, enabled: Boolean = true, size: Dp = 48.dp, showLabel: Boolean = true) {
+fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit, enabled: Boolean = true, size: Dp = 48.dp, showLabel: Boolean = true, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
-            Modifier.size(size).pressable(interaction, enabled).liquidGlass(CircleShape, 1.4f)
+            modifier.size(size).pressable(interaction, enabled).liquidGlass(CircleShape, 1.4f)
                 .clickable(interaction, null, enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) { Icon(icon, label, tint = if (enabled) Gal.Text else Gal.Faint, modifier = Modifier.size(size * 0.42f)) }

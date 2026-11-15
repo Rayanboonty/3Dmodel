@@ -652,7 +652,7 @@ class Controller(
         if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not turn iPhone screen features on" })
         _state.update { it.copy(iphoneIdentity = true, identityFile = ownIdentity().path) }
         "Read the iPhone's description (${adt.size / 1024} KB) from your IPSW. iPhone screen features are on from the next boot. " +
-            "Needs runtime galios.16 or newer. If iOS behaves worse, turn this off in Setup."
+            "Screen details only: iOS keeps this phone's graphics and touch. Get the newest runtime in Setup, step 3."
     }
 
     /** iPhone screen features: the iPhone's identity (from the owner's IPSW, via the image build) into the stage, or out. */
@@ -664,7 +664,7 @@ class Controller(
         if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not change the setting" })
         _state.update { it.copy(iphoneIdentity = on) }
         if (on) "iPhone screen features are on from the next boot: iOS sees the iPhone's OLED panel, so it can offer the always-on display and the Dynamic Island. " +
-            "Needs runtime galios.16 or newer. If iOS behaves worse, turn this off here."
+            "Screen details only: iOS keeps this phone's graphics and touch. Get the newest runtime in Setup, step 3."
         else "iPhone screen features are off from the next boot: iOS gets the plain panel description again."
     }
 

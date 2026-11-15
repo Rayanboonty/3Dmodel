@@ -134,6 +134,8 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
             // the colour behind everything: the card in front on Boot (its wallpaper, blurred deep), iOS 27 elsewhere
             var ambient by remember { mutableStateOf("27") }
             androidx.activity.compose.BackHandler(enabled = detail != null) { detail = null }
+            androidx.compose.animation.SharedTransitionLayout(Modifier.fillMaxSize()) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalShared provides this) {
             Box(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxSize().layerBackdrop(page).background(Gal.Black)) {
                 Ambient(if (tab == Tab.BOOT) ambient else "27", s, Modifier.fillMaxSize())
@@ -155,16 +157,20 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                                 (scaleOut(spring(stiffness = 500f), targetScale = 1.04f, transformOrigin = TransformOrigin(0.5f, 0f)) + fadeOut(tween(140)))
                         },
                     ) { t ->
+                        val tabScope = this
+                        androidx.compose.runtime.CompositionLocalProvider(LocalTabScope provides tabScope) {
                         Column {
                             when (t) {
-                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh, onPickPicture = a.pickPicture, onClearPicture = a.clearPicture, onOpenVersion = { v -> lastDetail = v; detail = v }, onVersionShown = { ambient = it },
+                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh, onPickPicture = a.pickPicture, onClearPicture = a.clearPicture, onOpenVersion = { v -> lastDetail = v; detail = v }, onVersionShown = { ambient = it }, openVersion = detail,
                                     menu = CardMenuActions(
                                         details = { v -> lastDetail = v; detail = v }, status = { tab = Tab.SETUP },
-                                        wallpaper = a.pickWallpaper, freeUpSpace = a.freeUpSpace, eraseData = a.setup.resetIosData, deleteIos = a.deleteIos,
+                                        freeUpSpace = a.freeUpSpace, eraseData = a.setup.resetIosData, deleteIos = a.deleteIos,
                                     ))
-                                Tab.SETUP -> SetupScreen(s, a.setup)
+                                // the Setup page grows out of the Setup button it was opened from
+                                Tab.SETUP -> Column(Modifier.sharedContainer("setup", tabScope, RoundedCornerShape(26.dp))) { SetupScreen(s, a.setup) }
                                 Tab.LOGS -> LogsScreen(s.logs, a.loadLogs, a.openLog, a.saveLog)
                             }
+                        }
                         }
                     }
                 }
@@ -181,18 +187,20 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { detail = null },
                     )
                 }
+                // the card itself grows from where it sits into its details (a container transform), and back
                 AnimatedVisibility(
                     detail != null, modifier = Modifier.align(Alignment.Center),
-                    enter = scaleIn(spring(dampingRatio = 0.72f, stiffness = 300f), initialScale = 0.7f) + fadeIn(tween(160)),
-                    exit = scaleOut(spring(stiffness = 600f), targetScale = 0.85f) + fadeOut(tween(140)),
+                    enter = fadeIn(tween(200)), exit = fadeOut(tween(200)),
                 ) {
                     VersionDetail(
                         lastDetail, s, onClose = { detail = null },
                         onBoot = { detail = null; confirm = true }, onSetup = { detail = null; tab = Tab.SETUP },
                         onReturn = { detail = null; a.returnToOneUi() },
-                        onPickWallpaper = { a.pickWallpaper(lastDetail) }, onClearWallpaper = { a.clearWallpaper(lastDetail) },
+                        modifier = Modifier.sharedContainer("card-$lastDetail", this, RoundedCornerShape(36.dp)),
                     )
                 }
+            }
+            }
             }
             AnimatedVisibility(s.switching, enter = fadeIn(), exit = fadeOut()) { Switching() }
         }

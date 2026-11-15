@@ -69,20 +69,9 @@ class GlassPress(private val scope: CoroutineScope) {
         }
     }
 
-    /** The swell (scale up to [swell]) and the light under the finger. */
+    /** The swell while held (scale up to [swell]), on a spring. Nothing is drawn over the element: no glow, no shadow. */
     fun effect(swell: Float = 1.06f): Modifier = Modifier
         .graphicsLayer { val s = lerp(1f, swell, progress); scaleX = s; scaleY = s }
-        .drawWithContent {
-            drawContent()
-            val p = progress
-            if (p > 0.01f && touch != Offset.Unspecified) {
-                val r = size.maxDimension * 0.6f
-                drawCircle(
-                    Brush.radialGradient(listOf(Color.White.copy(alpha = 0.22f * p), Color.Transparent), center = touch, radius = r),
-                    radius = r, center = touch, blendMode = BlendMode.Plus,
-                )
-            }
-        }
 }
 
 @Composable
