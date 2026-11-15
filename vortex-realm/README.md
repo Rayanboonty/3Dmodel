@@ -1043,3 +1043,11 @@ Every duel, FFA and bot arena is closed with **invisible barrier walls**, one bl
 - Terrain and builds are never replaced.
 - Setting: Settings → Arenas & Reset → **Invisible Arena Walls**.
 - Commands: `/pvpadmin walls` (rebuild them all) and `/pvpadmin walls off` (remove them).
+
+
+## 3.9.0 / 2.9.0 — Club Spawn lobby
+
+There's a new lobby style, **Club Spawn**: the MCPVP.CLUB spawn map (by Xter/SFFredd), converted block by block from the uploaded Bedrock world.
+
+- **Build it:** stand where you want it and run `/pvpadmin hub build club_spawn`, or pick it in `/pvpadmin` → Lobby builds.
+- **What you get:** the spawn is set on the main plaza, and 8 NPC spots are placed around it.

@@ -1039,6 +1039,7 @@ public final class AdminDialogs {
                 case PRACTICE_TOWN -> "Practice Town - a hall for every mode, shops, market and parkour";
                 case COLOSSEUM_CITY -> "Colosseum City - 500 blocks, for practice";
                 case SKY_EMPIRE -> "Sky Empire - 500 blocks";
+                case CLUB_SPAWN -> "Club Spawn - the MCPVP.CLUB spawn map (by Xter/SFFredd): plaza, town, river and forest";
                 case VORTEX_ISLES -> "Vortex Isles - a floating island hub with the Vortex Spire, 8 gamemode shrines, hills, trees and a waterfall (pro-style)";
                 case JUNGLE -> "Jungle Temple";
                 case COLOSSEUM -> "Colosseum lobby - a round arena plaza";
@@ -1053,6 +1054,7 @@ public final class AdminDialogs {
             case CITADEL, GRAND_HUB -> Material.BEACON;
             case ARCHIPELAGO, SKY_EMPIRE -> Material.FEATHER;
             case VORTEX_ISLES -> Material.AMETHYST_CLUSTER;
+            case CLUB_SPAWN -> Material.EMERALD_BLOCK;
             case NEON -> Material.GLOW_INK_SAC;
             case KEEP, CASTLE_MARKET -> Material.STONE_BRICKS;
             case TOWN_SQUARE, PRACTICE_TOWN -> Material.BELL;
