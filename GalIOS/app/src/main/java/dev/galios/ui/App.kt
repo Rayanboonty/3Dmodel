@@ -1,7 +1,7 @@
 package dev.galios.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -92,15 +92,27 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
     var about by remember { mutableStateOf(false) }
     GalTheme {
         Backdrop {
-            Column(Modifier.fillMaxSize()) {
+            // The page fills the screen and scrolls under the tab bar, which floats on top over a soft bone fade:
+            // no hard edge where the content meets the bar. The bottom padding lets the last card clear the bar.
+            Box(Modifier.fillMaxSize()) {
                 Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp),
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
+                        .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 118.dp),
                 ) {
                     Header(tab, s) { about = true }
                     VSpace(24.dp)
                     s.update?.let { UpdateCard(it.version, a.update, a.dismissUpdate); VSpace(14.dp) }
                     s.message?.let { MessageCard(it.text, it.error, a.dismissMessage); VSpace(14.dp) }
-                    Crossfade(tab, animationSpec = tween(320), label = "tab") { t ->
+                    // Tabs slide in the direction you move (Boot, Setup, Logs from left to right) and fade, on a spring.
+                    androidx.compose.animation.AnimatedContent(
+                        tab, label = "tab",
+                        transitionSpec = {
+                            val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                            val spring = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = 0.86f, stiffness = 380f)
+                            (androidx.compose.animation.slideInHorizontally(spring) { it / 5 * dir } + fadeIn(tween(220))) togetherWith
+                                (androidx.compose.animation.slideOutHorizontally(spring) { -it / 5 * dir } + fadeOut(tween(160)))
+                        },
+                    ) { t ->
                         Column {
                             when (t) {
                                 Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh)
@@ -110,7 +122,12 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                         }
                     }
                 }
-                NavBar(tab) { t -> tab = t; if (t == Tab.LOGS) a.loadLogs() }
+                Box(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        .background(Brush.verticalGradient(listOf(Gal.Bone.copy(alpha = 0f), Gal.Bone.copy(alpha = 0.92f), Gal.Bone))),
+                ) {
+                    Box(Modifier.padding(top = 26.dp)) { NavBar(tab) { t -> tab = t; if (t == Tab.LOGS) a.loadLogs() } }
+                }
             }
             AnimatedVisibility(s.switching, enter = fadeIn(), exit = fadeOut()) { Switching() }
         }
@@ -190,7 +207,7 @@ private fun UpdateCard(version: String, onUpdate: () -> Unit, onDismiss: () -> U
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("GalIOS $version", style = Type.Headline)
+                    Text("GalaxyIOS $version", style = Type.Headline)
                     Text("Ready to install", style = Type.Caption)
                 }
                 GlassButton("Update", onUpdate)
@@ -272,13 +289,13 @@ private fun Switching() {
 private fun About(onClose: () -> Unit) {
     Dialog(onClose) {
         Column(Modifier.clip(RoundedCornerShape(32.dp)).background(Gal.Paper).padding(24.dp)) {
-            Text("GalIOS", style = Type.Title)
+            Text("GalaxyIOS", style = Type.Title)
             VSpace(10.dp)
             Text(
                 "A personal front end for booting iOS 27 next to One UI on a Galaxy S25 Ultra or S24 Ultra.\n\n" +
                     "The boot itself is done by OneiOS (akshaynexus/OneiOS: xnuhost, a source-built XNU running as a process on One UI's kernel) " +
-                    "through the OneOS app's iOS 27 engine (akshaynexus/OneOS, Apache License 2.0), which GalIOS reads from the installed OneOS app. " +
-                    "GalIOS ships no part of OneOS, OneiOS or iOS.\n\n" +
+                    "through the OneOS app's iOS 27 engine (akshaynexus/OneOS, Apache License 2.0), which GalaxyIOS reads from the installed OneOS app. " +
+                    "GalaxyIOS ships no part of OneOS, OneiOS or iOS.\n\n" +
                     "Not affiliated with Apple or Samsung. iOS is a trademark of Apple Inc.; Galaxy is a trademark of Samsung Electronics.",
                 style = Type.Caption,
             )

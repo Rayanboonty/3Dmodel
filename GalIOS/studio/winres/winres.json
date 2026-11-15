@@ -6,7 +6,7 @@
     "#1": {
       "0409": {
         "identity": { "name": "GalIOS.Studio", "version": "1.9.0.0" },
-        "description": "GalIOS Studio",
+        "description": "GalaxyIOS Studio",
         "minimum-os": "win10",
         "execution-level": "as invoker",
         "ui-access": false,
@@ -30,9 +30,9 @@
         "fixed": { "file_version": "1.9.0.0", "product_version": "1.9.0.0" },
         "info": {
           "0409": {
-            "FileDescription": "GalIOS Studio",
+            "FileDescription": "GalaxyIOS Studio",
             "FileVersion": "1.9",
-            "ProductName": "GalIOS Studio",
+            "ProductName": "GalaxyIOS Studio",
             "ProductVersion": "1.9",
             "OriginalFilename": "GalIOS-Studio.exe",
             "LegalCopyright": "Personal build"

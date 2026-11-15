@@ -210,8 +210,8 @@ func adbArgs(serial string, args ...string) []string {
 
 const (
 	bridgeVersion        = 10 // the first GalIOS with the root bridge
-	bundledGalIOSCode    = 23 // the GalIOS inside Studio (also takes root from Studio's root helper)
-	bundledGalIOSVersion = "1.23"
+	bundledGalIOSCode    = 24 // the GalIOS inside Studio (also takes root from Studio's root helper)
+	bundledGalIOSVersion = "1.24"
 )
 
 // packageVersionCode is an app's versionCode on the phone, or 0 when it is not installed.
@@ -234,7 +234,7 @@ func packageVersionCode(ctx context.Context, s Settings, serial, pkg string) int
 func installGalIOS(ctx context.Context, j *JobCtx, s Settings, serial string) error {
 	apk, err := assetFS.ReadFile("assets/GalIOS.apk")
 	if err != nil || len(apk) == 0 {
-		return fmt.Errorf("this Studio has no GalIOS inside")
+		return fmt.Errorf("this Studio has no GalaxyIOS inside")
 	}
 	tmp := filepath.Join(dataDir(), "GalIOS.apk")
 	os.MkdirAll(dataDir(), 0o755)
@@ -252,7 +252,7 @@ func installGalIOS(ctx context.Context, j *JobCtx, s Settings, serial string) er
 		return nil
 	}
 	if t := strings.Join(out, " "); strings.Contains(t, "UPDATE_INCOMPATIBLE") || strings.Contains(t, "VERSION_DOWNGRADE") {
-		line("replacing the GalIOS that is on the phone")
+		line("replacing the GalaxyIOS that is on the phone")
 		runLines(ctx, nil, adbExe(s), adbArgs(serial, "uninstall", "dev.galios")...)
 		out = nil
 		code, err = stream(ctx, nil, func(l string) { out = append(out, l); line(l) }, adbExe(s), adbArgs(serial, "install", tmp)...)

@@ -84,9 +84,9 @@ func startRootHelper(ctx context.Context, j *JobCtx, s Settings, serial string) 
 		return
 	}
 	if packageVersionCode(ctx, s, serial, "dev.galios") < bundledGalIOSCode {
-		say("installing GalIOS %s on the phone", bundledGalIOSVersion)
+		say("installing GalaxyIOS %s on the phone", bundledGalIOSVersion)
 		if err := installGalIOS(ctx, j, s, serial); err != nil {
-			say("GalIOS could not be installed: %v", err)
+			say("GalaxyIOS could not be installed: %v", err)
 			return
 		}
 	}
@@ -115,7 +115,7 @@ func startRootHelper(ctx context.Context, j *JobCtx, s Settings, serial string) 
 if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then echo running; exit 0; fi
 setsid sh `+remote+` </dev/null >/dev/null 2>&1 &
 echo started`)
-	say("root helper for GalIOS: %s", strings.TrimSpace(strings.Join(l, " ")))
+	say("root helper for GalaxyIOS: %s", strings.TrimSpace(strings.Join(l, " ")))
 }
 
 func detectRoot(ctx context.Context, s Settings, serial string, j *JobCtx) (Root, error) {
@@ -151,19 +151,19 @@ func detectRoot(ctx context.Context, s Settings, serial string, j *JobCtx) (Root
 		}
 	}
 	// The GalIOS bridge.
-	say("su does not answer over USB; trying root through GalIOS")
+	say("su does not answer over USB; trying root through GalaxyIOS")
 	if v := packageVersionCode(ctx, s, serial, "dev.galios"); v < bundledGalIOSCode {
-		say("installing GalIOS %s (its root bridge)", bundledGalIOSVersion)
+		say("installing GalaxyIOS %s (its root bridge)", bundledGalIOSVersion)
 		if err := installGalIOS(ctx, nil, s, serial); err != nil {
-			return Root{}, fmt.Errorf("root: su does not answer over USB, and GalIOS could not be installed: %v", err)
+			return Root{}, fmt.Errorf("root: su does not answer over USB, and GalaxyIOS could not be installed: %v", err)
 		}
 	}
 	rc, msg := bridgeCall(ctx, s, serial, "ping", "")
 	if rc == 0 {
-		return Root{Via: "galios", Detail: "through GalIOS"}, nil
+		return Root{Via: "galios", Detail: "through GalaxyIOS"}, nil
 	}
-	return Root{}, fmt.Errorf("root is not reachable: su does not answer over USB, and GalIOS has no root yet (%s). "+
-		"Start your temporary root, then in your root app allow GalIOS (and Shell), or tap Grant on the phone, and press Check again", msg)
+	return Root{}, fmt.Errorf("root is not reachable: su does not answer over USB, and GalaxyIOS has no root yet (%s). "+
+		"Start your temporary root, then in your root app allow GalaxyIOS (and Shell), or tap Grant on the phone, and press Check again", msg)
 }
 
 var bundleInt = regexp.MustCompile(`\b(rc|code)=(-?\d+)`)
@@ -184,7 +184,7 @@ func bridgeCall(ctx context.Context, s Settings, serial, method, arg string) (in
 		if err != nil && text == "" {
 			text = err.Error()
 		}
-		return -1, "GalIOS did not answer: " + strings.TrimSpace(text)
+		return -1, "GalaxyIOS did not answer: " + strings.TrimSpace(text)
 	}
 	rc, _ := strconv.Atoi(m[2])
 	msg := ""
@@ -247,7 +247,7 @@ func rootRun(ctx context.Context, s Settings, serial, script string) ([]string, 
 	// Through GalIOS: started detached; its exit code arrives in <id>.rc.
 	if rc, msg := bridgeCall(ctx, s, serial, "run", id); rc != 0 {
 		forgetRoot(serial)
-		return nil, -1, fmt.Errorf("GalIOS could not start it as root: %s", msg)
+		return nil, -1, fmt.Errorf("GalaxyIOS could not start it as root: %s", msg)
 	}
 	base := bridgeDir + "/" + id
 	wait := 300 * time.Millisecond

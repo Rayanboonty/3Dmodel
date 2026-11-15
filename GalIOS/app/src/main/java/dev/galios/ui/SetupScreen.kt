@@ -80,9 +80,9 @@ fun SetupScreen(s: UiState, a: SetupActions) {
         s.import?.let { ImportCard(it, a.cancelImport) }
 
         val c = s.checks
-        Step(1, "Root", "GalIOS needs root for every step. Start your temporary root first, then check.", done = c?.allGood == true) {
+        Step(1, "Root", "GalaxyIOS needs root for every step. Start your temporary root first, then check.", done = c?.allGood == true) {
             if (c != null) {
-                Check("Root shell", if (c.root) (if (s.rootVia == "helper") "uid 0 · lent by GalIOS Studio" else "uid 0") else "not active", c.root)
+                Check("Root shell", if (c.root) (if (s.rootVia == "helper") "uid 0 · lent by GalaxyIOS Studio" else "uid 0") else "not active", c.root)
                 Check("busybox", c.busybox ?: "missing: your root tool must provide it at /data/adb/ksu/bin, /data/adb/ap/bin or /data/adb/magisk", c.busybox != null)
                 Check("resetprop", c.resetprop ?: "missing: needed to put One UI's boot counters back on the return", c.resetprop != null)
                 Check("Volume keys", if (c.volumeUp && c.volumeDown) "both found: the way back works" else "not found", c.volumeUp && c.volumeDown)
@@ -94,7 +94,7 @@ fun SetupScreen(s: UiState, a: SetupActions) {
         }
 
         val e = s.engine
-        Step(2, "Boot engine", "OneOS's iOS 27 edition does the actual boot. GalIOS installs its engine and adapts its phone check for your ${s.device.label}.", done = e?.hasIos == true && s.engineInstalled) {
+        Step(2, "Boot engine", "OneOS's iOS 27 edition does the actual boot. GalaxyIOS installs its engine and adapts its phone check for your ${s.device.label}.", done = e?.hasIos == true && s.engineInstalled) {
             when {
                 e == null -> {
                     Text("OneOS is not installed.", style = Type.Body)
@@ -115,7 +115,7 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             }
         }
 
-        Step(3, "OneiOS runtime", "The program that runs iOS next to One UI's kernel. OneiOS's own code (no Apple files): GalIOS downloads its own build of it, with the GPU fixes.", done = s.status?.runtimeVersion != null) {
+        Step(3, "OneiOS runtime", "The program that runs iOS next to One UI's kernel. OneiOS's own code (no Apple files): GalaxyIOS downloads its own build of it, with the GPU fixes.", done = s.status?.runtimeVersion != null) {
             s.status?.runtimeVersion?.let { Check("On the phone", "version $it", true) }
             val r = s.release
             when {
@@ -211,7 +211,7 @@ fun SetupScreen(s: UiState, a: SetupActions) {
 
         Step(7, "iPhone screen features", "Tells iOS it has the iPhone's OLED panel, its Dynamic Island and its rounded corners, using the iPhone's own description read from your IPSW when the image was built. That is what iOS needs before it offers the always-on display and draws the Dynamic Island. It changes many things iOS knows about the screen at once, so it is a switch: turn it off if iOS gets worse. Needs runtime galios.16 or newer; takes effect at the next boot.", done = s.iphoneIdentity) {
             Check("Now", if (s.iphoneIdentity) "On: the iPhone's panel" else "Off: the plain panel", true)
-            Check("The iPhone's description", if (s.identityFile != null) "found on this phone" else "not on this phone yet: run Do everything in GalIOS Studio", s.identityFile != null || s.iphoneIdentity)
+            Check("The iPhone's description", if (s.identityFile != null) "found on this phone" else "not on this phone yet: run Do everything in GalaxyIOS Studio", s.identityFile != null || s.iphoneIdentity)
             VSpace(10.dp)
             GlassButton(
                 if (s.iphoneIdentity) "Turn off" else "Turn on",
@@ -300,7 +300,7 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
             }
             else -> {
                 Text(
-                    "GalIOS sets up a small Ubuntu inside the phone and runs OneiOS's build there, the same one a PC runs. " +
+                    "GalaxyIOS sets up a small Ubuntu inside the phone and runs OneiOS's build there, the same one a PC runs. " +
                         "It takes about 1–3 hours; the phone gets warm. When it is done, the image is imported by itself.",
                     style = Type.Caption,
                 )
@@ -331,7 +331,7 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
                 for (t in listOf(
                     "Takes about 1–3 hours. Keep the phone plugged in and on Wi-Fi; it will get warm.",
                     "Uses about 75 GB of storage while it builds.",
-                    "It keeps going if you leave GalIOS. Don't restart the phone: temporary root would be lost (Resume continues later).",
+                    "It keeps going if you leave GalaxyIOS. Don't restart the phone: temporary root would be lost (Resume continues later).",
                     "The image is for you only: it is built from Apple's firmware.",
                 )) Row(Modifier.padding(vertical = 5.dp)) {
                     Box(Modifier.padding(top = 8.dp).size(5.dp).clip(CircleShape).background(Gal.Dim)); Spacer(Modifier.width(12.dp))
@@ -474,7 +474,7 @@ fun ImportCard(i: ImportState, onCancel: () -> Unit) {
             GlassButton("Stop", onCancel)
         }
         Spacer(Modifier.height(2.dp))
-        Text("Keep GalIOS open or in the background; the phone stays awake until it is done.", style = Type.Caption.copy(color = Gal.Faint))
+        Text("Keep GalaxyIOS open or in the background; the phone stays awake until it is done.", style = Type.Caption.copy(color = Gal.Faint))
     }
 }
 

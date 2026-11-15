@@ -85,12 +85,12 @@ object Updater {
      * release has no sum or the file does not match it.
      */
     fun downloadChecked(info: UpdateInfo, dest: File, onProgress: (Long, Long) -> Unit = { _, _ -> }) {
-        val sumUrl = info.sumUrl ?: throw IOException("GalIOS ${info.version} has no SHA-256 beside it")
-        val want = parseSum(Http.text(sumUrl)) ?: throw IOException("GalIOS ${info.version}'s SHA-256 file is not a SHA-256")
+        val sumUrl = info.sumUrl ?: throw IOException("GalaxyIOS ${info.version} has no SHA-256 beside it")
+        val want = parseSum(Http.text(sumUrl)) ?: throw IOException("GalaxyIOS ${info.version}'s SHA-256 file is not a SHA-256")
         val got = Http.download(info.url, dest, onProgress = onProgress)
         if (got != want) {
             dest.delete()
-            throw IOException("GalIOS ${info.version} did not match its SHA-256: try again later")
+            throw IOException("GalaxyIOS ${info.version} did not match its SHA-256: try again later")
         }
     }
 }

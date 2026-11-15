@@ -1,11 +1,13 @@
-GalIOS 1.23 and GalIOS Studio 1.14
+GalaxyIOS 1.24 and GalaxyIOS Studio 1.15
 
-**A new design for both, "bone and ink".** A warm bone canvas; paper cards that sit on it with a soft shadow; ink black for the hero card and the main buttons; one signal yellow kept for the single action a screen is about (in GalIOS, "Boot iOS 27"). Green, amber and red only say state.
+**A new name: GalaxyIOS.** The app's name on the phone, its screens, Studio's window and the releases now say GalaxyIOS. Nothing else moves: the app stays the same app (updates install over it as before), the repository, the update files and the Downloads/GalIOS folder for logs keep their names.
 
-- **GalIOS:** the Boot screen opens on an ink card with the phone, iOS 27 and its version, a state chip, three round quick actions (Setup, Logs, Refresh) and the yellow Boot button. The status list has round icon washes and an ink check when a part is in place. The tab bar is a floating ink capsule; a bone pill springs to the tab you choose. Setup's steps have ink number badges, and the Tuning switches turn green when on. The status bar icons are dark on the light canvas.
-- **Studio:** the same canvas and cards; "Do everything" and the Boot card are ink with the yellow button; the page you are on is an ink pill in the sidebar; the task bar floats at the bottom as a paper card.
-- **Motion:** every button and tab sinks a little on a spring when pressed; screens and cards rise in, one after another; progress moves on a spring; the tab pill springs between tabs. Nothing loops except the activity ring while work runs. Studio honours Windows' "reduce motion" setting.
+**Frosted glass and a drawn phone.**
+- Behind everything, three large soft washes of light (peach, sage and lilac); the cards are frosted glass over them, with a bright hairline where light catches their edge. In Studio the cards and the sidebar blur what is behind them.
+- Right of "iOS 27", an original drawing of a titanium slab phone from the back, with its camera rings and stylus: it floats up and settles into a slight tilt as the screen opens. The same drawing is on Studio's Boot card. It is drawn in code: no photo, no logo.
+- The tab bar floats over the page: the content scrolls under it and fades out softly, with no hard cut above the bar.
+- Tabs slide in the direction you move (Boot, Setup, Logs from left to right) on a spring.
 
-Also since 1.22: runtime galios.20 (fewer sound crackles) and galios.22 (the volume keys set the speaker's level). Get the newest runtime in Setup, step 3.
+Also in this line: "bone and ink" (1.23), the volume keys set the speaker's level (runtime galios.22), fewer sound crackles (galios.20). Get the newest runtime in Setup, step 3.
 
-Both GalIOS and Studio update themselves (GalIOS with root, Studio when no task runs). If you still have GalIOS 1.17 or older, install this one once with Studio (Phone, Install GalIOS).
+Both the app and Studio update themselves (the app with root, Studio when no task runs). If you still have version 1.17 or older, install this one once with Studio (Phone, Install GalaxyIOS).

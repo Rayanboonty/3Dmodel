@@ -120,13 +120,13 @@ object SwitchScriptAdapter {
             val t = l.trim()
             t.startsWith("case \"\$P_MODEL\" in SM-S928*)") && t.endsWith("esac") && "refuse" in t
         }
-        if (model < 0) return Result.Unrecognised("the switch script's phone check is not the one GalIOS knows (no SM-S928 model line)")
+        if (model < 0) return Result.Unrecognised("the switch script's phone check is not the one GalaxyIOS knows (no SM-S928 model line)")
         // Then the codename and SoC test, and its refuse line.
         val soc = model + 1
         val refuse = model + 2
         val socOk = lines.getOrNull(soc)?.trim()?.let { it.startsWith("[ \"\$P_DEVICE\" = e3q ]") && "SM8650" in it && it.endsWith("||") } == true
         val refuseOk = lines.getOrNull(refuse)?.trim()?.startsWith("refuse ") == true
-        if (!socOk || !refuseOk) return Result.Unrecognised("the switch script's codename and SoC check is not the one GalIOS knows")
+        if (!socOk || !refuseOk) return Result.Unrecognised("the switch script's codename and SoC check is not the one GalaxyIOS knows")
         // Another S24-only test in the code (not a comment) would still refuse the S25 Ultra: say so rather than
         // stage half a fix.
         val elsewhere = lines.withIndex().firstOrNull { (i, l) ->

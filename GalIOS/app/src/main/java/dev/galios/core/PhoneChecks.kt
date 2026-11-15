@@ -85,7 +85,7 @@ object EngineSetup {
             is SwitchScriptAdapter.Result.Adapted -> r.script to true
             is SwitchScriptAdapter.Result.AlreadySupports -> r.script to false
             is SwitchScriptAdapter.Result.Unrecognised ->
-                throw ImportException("OneOS ${engine.versionName}: ${r.why}. GalIOS knows the OneOS iOS edition of November 2026.")
+                throw ImportException("OneOS ${engine.versionName}: ${r.why}. GalaxyIOS knows the OneOS iOS edition of November 2026.")
         }
         stage.stageScript("oneios_switch.sh", adapted.first).orThrow()
         stage.stageScript("oneios_return.sh", engine.read(OneosEngine.RETURN)).orThrow()

@@ -207,7 +207,7 @@ func adaptSwitch(script []byte) ([]byte, bool, error) {
 }
 
 // roMarker marks a script whose read-only step GalIOS already adapted.
-const roMarker = "# GalIOS (S25 Ultra): busybox's read-only bind, then Android's own mount;"
+const roMarker = "# GalaxyIOS (S25 Ultra): busybox's read-only bind, then Android's own mount;"
 
 var roBlock = []string{
 	roMarker,
@@ -286,7 +286,7 @@ func adaptPhoneCheck(script []byte) ([]byte, bool, error) {
 	}
 	indent := lines[model][:len(lines[model])-len(strings.TrimLeft(lines[model], " \t"))]
 	check := []string{
-		"# GalIOS: this phone check accepts the Galaxy S25 Ultra beside the S24 Ultra.",
+		"# GalaxyIOS: this phone check accepts the Galaxy S25 Ultra beside the S24 Ultra.",
 		`case "$P_MODEL" in`,
 		`    SM-S928*) [ "$P_DEVICE" = e3q ] && [ "$P_SOC" = SM8650 ] ||`,
 		`        refuse "iOS on the Galaxy S24 Ultra needs e3q, SM8650; this phone is ${P_DEVICE:-?}, ${P_SOC:-?}" ;;`,

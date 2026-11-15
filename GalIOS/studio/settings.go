@@ -33,7 +33,7 @@ func dataDir() string {
 	if err != nil {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "GalIOS Studio")
+	return filepath.Join(base, "GalaxyIOS Studio")
 }
 
 func defaultOutDir() string {

@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.14"
+const version = "1.15"
 
 type App struct {
 	hub           *Hub
@@ -97,7 +97,7 @@ func main() {
 		return
 	}
 	url := "http://" + ln.Addr().String() + "/"
-	log.Printf("GalIOS Studio %s at %s", version, url)
+	log.Printf("GalaxyIOS Studio %s at %s", version, url)
 	go func() { app.refreshPC(); app.refreshPhone() }()
 	go app.updateLoop()
 	if resume {
@@ -432,17 +432,17 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			rootMu.Unlock()
 			startRootHelper(ctx, j, s, serial)
 			if r.Via == "su" {
-				return "Root works: " + r.Detail + ". GalIOS on the phone can use it too until the phone restarts.", nil
+				return "Root works: " + r.Detail + ". GalaxyIOS on the phone can use it too until the phone restarts.", nil
 			}
 			return "Root works: " + r.Detail + ".", nil
 		})
 	case "phone.install-galios":
-		phone("Install GalIOS on the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			j.Step("Installing GalIOS " + bundledGalIOSVersion)
+		phone("Install GalaxyIOS on the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
+			j.Step("Installing GalaxyIOS " + bundledGalIOSVersion)
 			if err := installGalIOS(ctx, j, s, serial); err != nil {
 				return "", err
 			}
-			return "GalIOS " + bundledGalIOSVersion + " is installed on the phone.", nil
+			return "GalaxyIOS " + bundledGalIOSVersion + " is installed on the phone.", nil
 		})
 	case "phone.push-image":
 		phone("Copy the image to the phone's Download folder", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
@@ -455,7 +455,7 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 				return "", err
 			}
 			pushIdentity(ctx, j, s, serial)
-			return "The image is in the phone's Download folder: GalIOS lists it under Found on this phone.", nil
+			return "The image is in the phone's Download folder: GalaxyIOS lists it under Found on this phone.", nil
 		})
 	case "phone.engine":
 		phone("Install the boot engine", func(ctx context.Context, j *JobCtx, serial string) (string, error) {

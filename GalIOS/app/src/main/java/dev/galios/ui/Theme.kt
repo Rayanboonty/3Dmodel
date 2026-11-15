@@ -143,23 +143,41 @@ fun Modifier.pressable(interaction: MutableInteractionSource, enabled: Boolean =
 fun Modifier.softShadow(shape: Shape, elevation: Dp = 14.dp): Modifier =
     this.shadow(elevation, shape, clip = false, ambientColor = Gal.ShadowAmbient, spotColor = Gal.ShadowSpot)
 
-/** The canvas: bone, nothing behind the content. */
+/**
+ * The canvas: bone, with three large soft washes of color (peach high on the right, sage at the left, lilac low) that
+ * the frosted cards let through. An original, abstract light; drawn, not a picture.
+ */
 @Composable
 fun Backdrop(modifier: Modifier = Modifier, @Suppress("UNUSED_PARAMETER") drift: Boolean = false, content: @Composable BoxScope.() -> Unit) {
-    Box(modifier.fillMaxSize().background(Gal.Bone), content = content)
+    Box(modifier.fillMaxSize().background(Gal.Bone)) {
+        Canvas(Modifier.fillMaxSize()) {
+            fun wash(c: Color, x: Float, y: Float, r: Float) =
+                drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(c, c.copy(alpha = 0f)), center = androidx.compose.ui.geometry.Offset(x, y), radius = r),
+                    radius = r, center = androidx.compose.ui.geometry.Offset(x, y))
+            val w = size.width; val h = size.height
+            wash(Color(0x99F4C6A4), w * 0.92f, h * 0.10f, w * 0.85f)
+            wash(Color(0x80B9D6CB), w * 0.02f, h * 0.48f, w * 0.80f)
+            wash(Color(0x73D6CBEA), w * 0.70f, h * 0.92f, w * 0.90f)
+        }
+        content()
+    }
 }
 
-/** A paper card on the bone: deep rounding, a soft shadow, no border. [tint] washes it faintly with a state color. */
+/**
+ * A frosted card: paper at 80 % over the washes, a bright hairline on its edge as light catches glass, deep rounding,
+ * a soft shadow. [tint] washes it faintly with a state color.
+ */
 @Composable
 fun Glass(modifier: Modifier = Modifier, radius: Dp = 28.dp, padding: Dp = 20.dp, tint: Color? = null, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(radius)
     Column(
         modifier
             .fillMaxWidth()
-            .softShadow(shape)
+            .softShadow(shape, 10.dp)
             .clip(shape)
-            .background(Gal.Paper)
+            .background(Gal.Paper.copy(alpha = 0.80f))
             .then(if (tint != null) Modifier.background(tint.copy(alpha = 0.08f)) else Modifier)
+            .border(1.dp, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xCCFFFFFF), Color(0x33FFFFFF))), shape)
             .padding(padding),
         content = content,
     )

@@ -38,7 +38,7 @@ func runWindow(url string) bool {
 		DataPath:  filepath.Join(dataDir(), "webview"),
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
-			Title: "GalIOS Studio", Width: 1320, Height: 880, IconId: 1, Center: true,
+			Title: "GalaxyIOS Studio", Width: 1320, Height: 880, IconId: 1, Center: true,
 		},
 	})
 	if w == nil {

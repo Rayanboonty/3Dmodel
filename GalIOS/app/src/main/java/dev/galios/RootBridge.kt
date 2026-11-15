@@ -26,7 +26,7 @@ class RootBridge : ContentProvider() {
         val caller = Binder.getCallingUid()
         if (caller != SHELL_UID && caller != Process.ROOT_UID) {
             out.putInt("rc", 126)
-            out.putString("msg", "refused: only adb's shell may use the GalIOS bridge")
+            out.putString("msg", "refused: only adb's shell may use the GalaxyIOS bridge")
             return out
         }
         when (method) {
@@ -63,7 +63,7 @@ class RootBridge : ContentProvider() {
         val reader = Thread { text.append(p.inputStream.bufferedReader().readText()) }.apply { start() }
         if (!p.waitFor(seconds, TimeUnit.SECONDS)) {
             p.destroyForcibly()
-            Pair(124, "no answer from su in $seconds s (allow GalIOS in your root app)")
+            Pair(124, "no answer from su in $seconds s (allow GalaxyIOS in your root app)")
         } else {
             reader.join(2000)
             Pair(p.exitValue(), synchronized(text) { text.toString() })

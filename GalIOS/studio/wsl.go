@@ -39,7 +39,7 @@ func pushIdentity(ctx context.Context, j *JobCtx, s Settings, serial string) {
 		j.Log("could not copy %s to the phone: %v", identityName, err)
 		return
 	}
-	j.Log("%s is in the phone's Download folder: turn on iPhone screen features in GalIOS (Setup)", identityName)
+	j.Log("%s is in the phone's Download folder: turn on iPhone screen features in GalaxyIOS (Setup)", identityName)
 }
 
 func wslExe() string {
@@ -232,7 +232,7 @@ func ensureWSLConfig(ctx context.Context, j *JobCtx) {
 	if mem < 4 {
 		mem = 4
 	}
-	text := fmt.Sprintf("# Written by GalIOS Studio for the iOS image build: more memory and swap for Ubuntu.\r\n[wsl2]\r\nmemory=%dGB\r\nswap=16GB\r\n", mem)
+	text := fmt.Sprintf("# Written by GalaxyIOS Studio for the iOS image build: more memory and swap for Ubuntu.\r\n[wsl2]\r\nmemory=%dGB\r\nswap=16GB\r\n", mem)
 	if os.WriteFile(p, []byte(text), 0o644) == nil {
 		j.Log("gave Ubuntu %d GB of memory and 16 GB of swap (%s)", mem, p)
 		runLines(ctx, nil, wslExe(), "--shutdown")

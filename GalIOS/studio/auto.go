@@ -110,7 +110,7 @@ func waitRoot(ctx context.Context, j *JobCtx, s Settings, serial string) (Root, 
 		if ctx.Err() != nil {
 			return Root{}, ctx.Err()
 		}
-		msg := "Waiting for root: start your temporary root on the phone, and allow GalIOS in your root app"
+		msg := "Waiting for root: start your temporary root on the phone, and allow GalaxyIOS in your root app"
 		if msg != last {
 			j.Step(msg)
 			j.Log("%v", err)
@@ -219,12 +219,12 @@ func setAutoResume(on bool) {
 		if err != nil {
 			return
 		}
-		c := exec.Command("reg.exe", "add", key, "/v", "GalIOS Studio", "/t", "REG_SZ", "/d", `"`+exe+`" --resume`, "/f")
+		c := exec.Command("reg.exe", "add", key, "/v", "GalaxyIOS Studio", "/t", "REG_SZ", "/d", `"`+exe+`" --resume`, "/f")
 		hideWindow(c)
 		c.Run()
 		return
 	}
-	c := exec.Command("reg.exe", "delete", key, "/v", "GalIOS Studio", "/f")
+	c := exec.Command("reg.exe", "delete", key, "/v", "GalaxyIOS Studio", "/f")
 	hideWindow(c)
 	c.Run()
 }
@@ -233,7 +233,7 @@ func restartPC() error {
 	if runtime.GOOS != "windows" {
 		return fmt.Errorf("restarting is for Windows")
 	}
-	c := exec.Command("shutdown.exe", "/r", "/t", "5", "/c", "GalIOS Studio: restarting to finish installing WSL")
+	c := exec.Command("shutdown.exe", "/r", "/t", "5", "/c", "GalaxyIOS Studio: restarting to finish installing WSL")
 	hideWindow(c)
 	return c.Run()
 }

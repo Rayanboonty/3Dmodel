@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GalIOS Studio</title>
+<title>GalaxyIOS Studio</title>
 <link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <aside class="side">
-  <div class="brand"><img src="icon.svg" alt=""><div><b>GalIOS</b><span>Studio</span></div></div>
+  <div class="brand"><img src="icon.svg" alt=""><div><b>GalaxyIOS</b><span>Studio</span></div></div>
   <nav>
     <a data-page="overview" class="on" title="Overview"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></i><span>Overview</span></a>
     <a data-page="build" title="Build image"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg></i><span>Build image</span></a>
@@ -24,7 +24,7 @@
 <main>
   <!-- OVERVIEW -->
   <section id="overview" class="page on">
-    <header><small>GALIOS STUDIO</small><h1>iOS 27 on your Galaxy</h1><p>One button does it all: Ubuntu, your iOS 27 image, the phone. Steps already done are skipped, and when it needs you (plug in the phone, start root) it waits and carries on by itself.</p></header>
+    <header><small>GALAXYIOS STUDIO</small><h1>iOS 27 on your Galaxy</h1><p>One button does it all: Ubuntu, your iOS 27 image, the phone. Steps already done are skipped, and when it needs you (plug in the phone, start root) it waits and carries on by itself.</p></header>
     <div class="glass auto">
       <div class="auto-head">
         <div>
@@ -92,14 +92,14 @@
 
   <!-- PHONE -->
   <section id="phone" class="page">
-    <header><small>STEP 2</small><h1>Phone</h1><p>Connect the S25 Ultra by USB with USB debugging on, and start your temporary root. Studio finds root by itself: su over USB, or through the GalIOS app when your root app grants apps only.</p></header>
+    <header><small>STEP 2</small><h1>Phone</h1><p>Connect the S25 Ultra by USB with USB debugging on, and start your temporary root. Studio finds root by itself: su over USB, or through the GalaxyIOS app when your root app grants apps only.</p></header>
     <div class="glass">
       <h3>Connection</h3>
       <div class="rows" id="connRows"></div>
       <div class="btns">
         <button class="ghost" data-act="adb.get">Get adb</button>
         <button class="ghost" data-act="phone.refresh">Find phone</button>
-        <button class="ghost" data-act="phone.install-galios">Install GalIOS on the phone</button>
+        <button class="ghost" data-act="phone.install-galios">Install GalaxyIOS on the phone</button>
         <button class="ghost warn" data-act="phone.reboot" data-confirm="Restart the phone? It comes back in One UI; temporary root is lost.">Restart phone</button>
       </div>
     </div>
@@ -110,7 +110,7 @@
     </div>
     <div class="glass">
       <h3>Copy the image</h3>
-      <p class="muted">Puts the finished image in the phone's Download folder, where GalIOS finds it (one tap: Import). Or add it from here on the Boot page.</p>
+      <p class="muted">Puts the finished image in the phone's Download folder, where GalaxyIOS finds it (one tap: Import). Or add it from here on the Boot page.</p>
       <div class="btns"><button class="ghost" data-act="phone.push-image">Copy image to the phone</button></div>
     </div>
   </section>
@@ -124,6 +124,27 @@
         <h2>iOS 27</h2>
         <p class="muted" id="bootLine">—</p>
       </div>
+      <!-- An original drawing of a slab phone from the back, in the spirit of a titanium Galaxy Ultra (no photo, no logo). -->
+      <svg class="hero-art" viewBox="0 0 150 236" aria-hidden="true">
+        <defs>
+          <linearGradient id="frame" x1="0" x2="1"><stop offset="0" stop-color="#9e9c98"/><stop offset=".5" stop-color="#dad8d4"/><stop offset="1" stop-color="#a5a39f"/></linearGradient>
+          <linearGradient id="back" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1f0ee"/><stop offset=".45" stop-color="#dcdbd8"/><stop offset=".7" stop-color="#e9e8e5"/><stop offset="1" stop-color="#d3d2cf"/></linearGradient>
+          <linearGradient id="pen" x1="0" x2="1"><stop offset="0" stop-color="#b9b7b2"/><stop offset=".5" stop-color="#edece9"/><stop offset="1" stop-color="#c3c1bc"/></linearGradient>
+          <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#edece9"/><stop offset="1" stop-color="#8f8d89"/></linearGradient>
+          <radialGradient id="glass"><stop offset="0" stop-color="#2a3446"/><stop offset="1" stop-color="#0b0e14"/></radialGradient>
+          <radialGradient id="drop"><stop offset="0" stop-color="rgba(0,0,0,.45)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+          <g id="lens"><circle r="13" fill="url(#ring)"/><circle r="11.2" fill="#111"/><circle r="8.6" fill="url(#glass)"/><circle r="4" fill="none" stroke="#3b4558" stroke-width=".7"/><circle cx="-2.6" cy="-3" r="1.4" fill="rgba(255,255,255,.4)"/></g>
+        </defs>
+        <ellipse cx="88" cy="228" rx="62" ry="7" fill="url(#drop)"/>
+        <rect x="18" y="16" width="9" height="206" rx="4.5" fill="url(#pen)" transform="rotate(6 22 222)"/>
+        <rect x="38" y="4" width="104" height="220" rx="10" fill="url(#frame)"/>
+        <rect x="40.6" y="6.6" width="98.8" height="214.8" rx="8" fill="url(#back)"/>
+        <rect x="40.6" y="6.6" width="25" height="214.8" rx="8" fill="rgba(255,255,255,.28)"/>
+        <use href="#lens" x="68" y="34"/><use href="#lens" x="68" y="68"/><use href="#lens" x="68" y="102"/>
+        <use href="#lens" x="100" y="36" transform="translate(100 36) scale(.62) translate(-100 -36)"/>
+        <use href="#lens" x="100" y="70" transform="translate(100 70) scale(.62) translate(-100 -70)"/>
+        <circle cx="100" cy="53" r="3.2" fill="#e8dfb8"/>
+      </svg>
     </div>
     <div class="glass">
       <h3>Get it ready</h3>
@@ -162,7 +183,7 @@
       <label>Finished image folder<input id="s_outDir"></label>
       <label>.ipsw file<input id="s_ipsw" placeholder="empty: downloaded from Apple"></label>
       <label>GitHub token (optional)<input id="s_githubToken" type="password" placeholder="only if the kernel step says HTTP 403"></label>
-      <label>Root on the phone<input id="s_rootCmd" placeholder="auto"><span class="hint">auto (recommended): every usual su over USB, then through GalIOS · galios: only through GalIOS · or your own command, like su -c</span></label>
+      <label>Root on the phone<input id="s_rootCmd" placeholder="auto"><span class="hint">auto (recommended): every usual su over USB, then through GalaxyIOS · galios: only through GalaxyIOS · or your own command, like su -c</span></label>
       <label>adb path<input id="s_adbPath" placeholder="empty: the one Studio downloads"></label>
       <label>Phone serial<input id="s_serial" placeholder="empty: the only phone connected"></label>
       <div class="btns"><button class="primary" id="saveSettings">Save</button></div>

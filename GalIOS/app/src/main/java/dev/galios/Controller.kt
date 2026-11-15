@@ -100,7 +100,7 @@ data class UiState(
     val stageBlocker: String?
         get() = when {
             checks == null -> "Checking root…"
-            !rootOk -> "Root is not active: start your temporary root. If your root works only over USB, connect the phone to GalIOS Studio on your PC once: it lends GalIOS its root until the phone restarts."
+            !rootOk -> "Root is not active: start your temporary root. If your root works only over USB, connect the phone to GalaxyIOS Studio on your PC once: it lends GalaxyIOS its root until the phone restarts."
             engine == null -> "OneOS (iOS 27 edition) is not installed: it is the boot engine (step 2)."
             !engine.hasIos -> "This OneOS build is not the iOS 27 edition (step 2)."
             else -> null
@@ -108,11 +108,11 @@ data class UiState(
     val readyToBoot get() = device.supported && checks?.allGood == true && engine?.hasIos == true && status?.ready == true && import == null
     val bootBlocker: String?
         get() = when {
-            !device.supported -> "GalIOS boots iOS on the Galaxy S25 Ultra and S24 Ultra (Snapdragon) only; this is ${device.model}."
+            !device.supported -> "GalaxyIOS boots iOS on the Galaxy S25 Ultra and S24 Ultra (Snapdragon) only; this is ${device.model}."
             checks == null -> "Checking the phone…"
-            !checks.root -> "Root is not active. Start your temporary root (or connect the phone to GalIOS Studio once, if your root works only over USB), then pull to refresh."
+            !checks.root -> "Root is not active. Start your temporary root (or connect the phone to GalaxyIOS Studio once, if your root works only over USB), then pull to refresh."
             checks.busybox == null || checks.resetprop == null -> "Your root has no busybox or resetprop where the boot engine looks for them (see Setup, step 1)."
-            engine == null -> "Install OneOS's iOS 27 edition: it is GalIOS's boot engine."
+            engine == null -> "Install OneOS's iOS 27 edition: it is GalaxyIOS's boot engine."
             !engine.hasIos -> "This OneOS build has no iOS 27 engine: install its iOS 27 edition."
             status?.runtimeVersion == null -> "Add the OneiOS runtime (Setup, step 3)."
             status.imageVersion == null -> "Add your iOS 27 image (Setup, step 4)."
@@ -286,7 +286,7 @@ class Controller(
     /** One tap: an archive found on the phone, read through root. */
     fun importFound(f: ImageFinder.Found) {
         if (rootVia == "helper") {
-            _state.update { it.copy(message = Message("With root lent by GalIOS Studio, add the image from Studio on your PC (Boot page, step 3).", true)) }
+            _state.update { it.copy(message = Message("With root lent by GalaxyIOS Studio, add the image from Studio on your PC (Boot page, step 3).", true)) }
             return
         }
         startImport(f.kind, f.label) { RootFileStream(rootPrefix, f.path) to f.size }
@@ -363,22 +363,22 @@ class Controller(
         if (!s.rootOk || info.sumUrl == null || !idle || refusedCode == info.versionCode) return
         if (!autoUpdating.compareAndSet(false, true)) return
         try {
-            _state.update { it.copy(message = Message("Downloading GalIOS ${info.version}…", false)) }
+            _state.update { it.copy(message = Message("Downloading GalaxyIOS ${info.version}…", false)) }
             val apk = UpdateInstaller.apkFile(context)
             Updater.downloadChecked(info, apk)
-            _state.update { it.copy(message = Message("Installing GalIOS ${info.version}. GalIOS closes when it is in: open it again.", false)) }
+            _state.update { it.copy(message = Message("Installing GalaxyIOS ${info.version}. GalaxyIOS closes when it is in: open it again.", false)) }
             val r = RootUpdateInstaller.install(shell, apk)
             val msg = when {
-                r.ok -> Message("GalIOS ${info.version} is installed: close GalIOS and open it again.", false)
+                r.ok -> Message("GalaxyIOS ${info.version} is installed: close GalaxyIOS and open it again.", false)
                 r.signedDifferently -> {
                     refusedCode = info.versionCode
-                    Message("GalIOS ${info.version} is signed with a different key than this copy, so Android refused it. Install it once with GalIOS Studio (Install GalIOS); later updates then install themselves.", true)
+                    Message("GalaxyIOS ${info.version} is signed with a different key than this copy, so Android refused it. Install it once with GalaxyIOS Studio (Install GalaxyIOS); later updates then install themselves.", true)
                 }
-                else -> Message("GalIOS ${info.version} could not install itself (${r.message}). Tap Update to install it with Android's installer.", true)
+                else -> Message("GalaxyIOS ${info.version} could not install itself (${r.message}). Tap Update to install it with Android's installer.", true)
             }
             _state.update { it.copy(message = msg) }
         } catch (e: Exception) {
-            _state.update { it.copy(message = Message("GalIOS ${info.version} could not be downloaded: ${e.message}. GalIOS tries again at the next refresh.", true)) }
+            _state.update { it.copy(message = Message("GalaxyIOS ${info.version} could not be downloaded: ${e.message}. GalaxyIOS tries again at the next refresh.", true)) }
         } finally {
             autoUpdating.set(false)
         }
@@ -391,16 +391,16 @@ class Controller(
         val info = _state.value.update ?: return
         if (!UpdateInstaller.canInstall(context)) {
             context.startActivity(UpdateInstaller.allowInstallIntent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            _state.update { it.copy(message = Message("Allow GalIOS to install apps, then tap Update again.", false)) }
+            _state.update { it.copy(message = Message("Allow GalaxyIOS to install apps, then tap Update again.", false)) }
             return
         }
-        run("Downloading GalIOS ${info.version}") {
+        run("Downloading GalaxyIOS ${info.version}") {
             val apk = UpdateInstaller.apkFile(context)
             Updater.download(info, apk) { done, total ->
-                if (total > 0) _state.update { it.copy(busy = "Downloading GalIOS ${info.version} · ${done * 100 / total}%") }
+                if (total > 0) _state.update { it.copy(busy = "Downloading GalaxyIOS ${info.version} · ${done * 100 / total}%") }
             }
             UpdateInstaller.install(context, apk)
-            "Opening the installer for GalIOS ${info.version}."
+            "Opening the installer for GalaxyIOS ${info.version}."
         }
     }
 
@@ -449,7 +449,7 @@ class Controller(
             val r = PhoneBuild.start(shell, scripts, rootfs, ipsw)
             if (!r.ok) throw IllegalStateException(r.message)
             rootfs?.delete()                                   // unpacked now; 30 MB back
-            _state.update { it.copy(phoneBuildPreparing = null, message = Message("The build has started. It runs on its own; you can leave GalIOS and come back.", false)) }
+            _state.update { it.copy(phoneBuildPreparing = null, message = Message("The build has started. It runs on its own; you can leave GalaxyIOS and come back.", false)) }
             watchPhoneBuild()
         } catch (e: Exception) {
             _state.update { it.copy(phoneBuildPreparing = null, message = Message("Could not start the build: ${e.message}", true)) }
@@ -515,7 +515,7 @@ class Controller(
         val msg = try {
             val saved = LogSaver.save(context, id, stage.logFull(id))
             then?.let { f -> withContext(Dispatchers.Main) { f(saved) } }
-            Message("Saved: ${saved.path} (${saved.bytes / 1024} KB). Open the Files app, Downloads, GalIOS folder.", false)
+            Message("Saved: ${saved.path} (${saved.bytes / 1024} KB). Open the Files app, Downloads, GalaxyIOS folder.", false)
         } catch (e: Exception) {
             Message("Could not save the log: ${e.message ?: e.javaClass.simpleName}", true)
         }
@@ -578,7 +578,7 @@ class Controller(
     /** iPhone screen features: the iPhone's identity (from the owner's IPSW, via the image build) into the stage, or out. */
     fun setIphoneIdentity(on: Boolean) = run(if (on) "Turning iPhone screen features on" else "Turning iPhone screen features off") {
         val source = if (on) stage.findIdentityFile()
-            ?: throw IllegalStateException("${StageClient.IDENTITY_FILE} is not on this phone yet. Run Do everything in GalIOS Studio 1.10 or newer (it builds and copies it), or copy it from your PC's Downloads to the phone's Download folder.")
+            ?: throw IllegalStateException("${StageClient.IDENTITY_FILE} is not on this phone yet. Run Do everything in GalaxyIOS Studio 1.10 or newer (it builds and copies it), or copy it from your PC's Downloads to the phone's Download folder.")
         else null
         val r = stage.setIphoneIdentity(on, source)
         if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not change the setting" })

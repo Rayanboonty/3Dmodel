@@ -98,7 +98,7 @@ class QueueRootShell(val dir: java.io.File, private val freshMillis: Long = 15_0
     }
 
     override fun exec(command: String, stdin: InputStream?): RootShell.Result {
-        if (!alive()) throw IOException("GalIOS Studio's root helper is not running (connect the phone to Studio once)")
+        if (!alive()) throw IOException("GalaxyIOS Studio's root helper is not running (connect the phone to Studio once)")
         val id = "q" + System.nanoTime().toString(36) + (100..999).random()
         val input = java.io.File(dir, "$id.in")
         var script = command
@@ -115,7 +115,7 @@ class QueueRootShell(val dir: java.io.File, private val freshMillis: Long = 15_0
             while (!rc.exists()) {
                 if (!alive() && !java.io.File(dir, "$id.run").exists() && !rc.exists()) {
                     // The helper stopped (the phone restarted, or Studio stopped it) before it took the command.
-                    if (java.io.File(dir, "$id.sh").delete()) throw IOException("GalIOS Studio's root helper stopped")
+                    if (java.io.File(dir, "$id.sh").delete()) throw IOException("GalaxyIOS Studio's root helper stopped")
                 }
                 Thread.sleep(wait)
                 if (wait < 500) wait += 50

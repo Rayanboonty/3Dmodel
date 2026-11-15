@@ -177,5 +177,5 @@ jobs:
           (cd out && for f in *; do sha256sum "$f" > "$f.sha256"; done && cat *.sha256)
           notes=GalIOS/release-notes.md; [ -f "$notes" ] || { echo "GalIOS $NAME and GalIOS Studio $STUDIO." > notes.md; notes=notes.md; }
           gh release create "$tag" out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "GalIOS $NAME · Studio $STUDIO" --notes-file "$notes"
+            --title "GalaxyIOS $NAME · Studio $STUDIO" --notes-file "$notes"
           gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "\(.name) \(.size)"'

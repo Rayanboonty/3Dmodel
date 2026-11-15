@@ -30,7 +30,7 @@ class ImportService : Service() {
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Copying to the phone", NotificationManager.IMPORTANCE_LOW))
         startForeground(ID, notification(null), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         if (wake == null) {
-            wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GalIOS:import").apply { acquire(3 * 60 * 60 * 1000L) }
+            wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GalaxyIOS:import").apply { acquire(3 * 60 * 60 * 1000L) }
         }
         val controller = (application as GalIosApp).controller
         watch?.cancel()

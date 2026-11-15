@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
@@ -106,13 +107,19 @@ private fun Hero(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: 
                 onNight = true,
             )
         }
-        VSpace(18.dp)
-        Text("iOS 27", style = Type.Display.copy(fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-2.2).sp, color = Gal.OnNight))
-        VSpace(4.dp)
-        Text(
-            s.status?.imageVersion?.let { "Version $it (${s.status.imageBuild}) · ${bytes(s.status.imageBytes)}" } ?: "No image on this phone yet",
-            style = Type.Body.copy(fontSize = 15.sp, color = Gal.OnNightDim),
-        )
+        VSpace(10.dp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("iOS 27", style = Type.Display.copy(fontSize = 52.sp, lineHeight = 54.sp, letterSpacing = (-2.0).sp, color = Gal.OnNight))
+                VSpace(6.dp)
+                Text(
+                    s.status?.imageVersion?.let { "Version $it (${s.status.imageBuild})" } ?: "No image on this phone yet",
+                    style = Type.Body.copy(fontSize = 15.sp, color = Gal.OnNightDim),
+                )
+                s.status?.imageBytes?.let { Text(bytes(it), style = Type.Caption.copy(color = Gal.OnNightDim)) }
+            }
+            PhoneArt(Modifier.width(104.dp).height(164.dp))
+        }
         VSpace(22.dp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             RoundAction(Icons.Rounded.Tune, "Setup", onSetup)
@@ -131,7 +138,7 @@ private fun Readiness(s: UiState) {
         val c = s.checks
         StatusRow(Icons.Rounded.Key, "Root", when {
             c == null -> "Checking…"
-            c.root -> "Active" + (if (s.rootVia == "helper") " · lent by GalIOS Studio" else "") +
+            c.root -> "Active" + (if (s.rootVia == "helper") " · lent by GalaxyIOS Studio" else "") +
                 if (c.busybox == null || c.resetprop == null) " · tools missing" else ""
             else -> "Not active: start temporary root"
         }, when { c == null -> Mark.WAIT; c.root && c.busybox != null && c.resetprop != null -> Mark.OK; c.root -> Mark.WAIT; else -> Mark.BAD }, tile = Gal.Graphite)
