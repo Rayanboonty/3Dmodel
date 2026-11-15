@@ -54,6 +54,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.galios.UiState
 import kotlin.math.absoluteValue
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.HideImage
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 /**
  * An iOS version as a card. Only the one OneiOS boots (27.0.1) can be booted here; the others say "Coming soon" and
@@ -78,10 +91,11 @@ fun BootScreen(
     onRefresh: () -> Unit = {},
     onPickPicture: () -> Unit = {},
     onClearPicture: () -> Unit = {},
+    onOpenVersion: (String) -> Unit = {},
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         DeviceRow(s, onSetup, onLogs, onRefresh, onPickPicture, onClearPicture)
-        VersionCards(s, onBoot, onReturn, onSetup)
+        VersionCards(s, onBoot, onReturn, onSetup, onOpenVersion)
         s.bootBlocker?.takeIf { s.status?.sessionOpen != true }?.let { blocker ->
             Appear {
                 Glass(padding = 18.dp, tint = Gal.Amber) {
@@ -154,7 +168,7 @@ private fun DeviceRow(s: UiState, onSetup: () -> Unit, onLogs: () -> Unit, onRef
  * centre. iOS 27 is in front when the screen opens, and the cards rise in once: the screen's one entrance moment.
  */
 @Composable
-private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit) {
+private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onOpen: (String) -> Unit) {
     val pager = rememberPagerState(initialPage = versions.lastIndex) { versions.size }
     val rise = remember { Animatable(1f) }
     LaunchedEffect(Unit) { rise.animateTo(0f, spring(dampingRatio = 0.78f, stiffness = 180f)) }
@@ -170,7 +184,7 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
                 scaleX = k; scaleY = k
                 alpha = 1f - offset * 0.45f
             }) {
-                VersionCard(v, s, onBoot, onReturn, onSetup)
+                VersionCard(v, s, onBoot, onReturn, onSetup) { onOpen(v.number) }
             }
         }
         VSpace(12.dp)
@@ -184,11 +198,17 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
 }
 
 @Composable
-private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit) {
+private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onOpen: () -> Unit) {
     val shape = RoundedCornerShape(34.dp)
     val open = s.status?.sessionOpen == true
-    Box(Modifier.fillMaxWidth().height(400.dp).clip(shape).border(1.dp, Color(0x22FFFFFF), shape)) {
-        CardArt(v, Modifier.fillMaxSize())
+    val press = rememberGlassPress()
+    // The card's wallpaper is the backdrop its glass button refracts.
+    val art = rememberLayerBackdrop()
+    Box(
+        Modifier.fillMaxWidth().height(400.dp).then(press.gesture).then(press.effect(1.03f)).clip(shape).border(1.dp, Color(0x22FFFFFF), shape)
+            .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null, onClick = onOpen),
+    ) {
+        Box(Modifier.fillMaxSize().layerBackdrop(art)) { CardBackground(v, s.wallpapers[v.number], Modifier.fillMaxSize()) }
         Column(Modifier.fillMaxSize().padding(20.dp)) {
             Pill(
                 when {
@@ -215,12 +235,140 @@ private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn:
             )
             Spacer(Modifier.weight(0.5f))
             when {
-                v.bootable && open -> GradientButton("Return to One UI", onReturn, icon = Icons.Rounded.Undo)
-                v.bootable && s.readyToBoot -> GradientButton("Boot iOS ${v.number}", onBoot, enabled = s.busy == null, icon = Icons.Rounded.PowerSettingsNew)
-                v.bootable -> GradientButton("Set up", onSetup, icon = Icons.Rounded.Tune)
-                else -> Spacer(Modifier.height(52.dp))
+                v.bootable && open -> GlassAction("Return to One UI", Icons.Rounded.Undo, art, onReturn)
+                v.bootable && s.readyToBoot -> GlassAction("Boot iOS ${v.number}", Icons.Rounded.PowerSettingsNew, art, onBoot, enabled = s.busy == null)
+                v.bootable -> GlassAction("Set up", Icons.Rounded.Tune, art, onSetup)
+                else -> Spacer(Modifier.height(54.dp))
             }
         }
+    }
+}
+
+/**
+ * A card's background: the owner's own wallpaper for this iOS when they chose one (on this phone, or sent by GalaxyIOS
+ * Studio), cropped to the card and darkened at the bottom so the text and the button read; else the drawn art.
+ */
+@Composable
+private fun CardBackground(v: IosVersion, wallpaper: Pair<String, Long>?, modifier: Modifier) {
+    val bitmap = remember(wallpaper) { wallpaper?.let { (path, _) -> decodeScaled(path, 1440) } }
+    if (bitmap == null) {
+        CardArt(v, modifier)
+        return
+    }
+    Box(modifier) {
+        androidx.compose.foundation.Image(bitmap, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        Canvas(Modifier.fillMaxSize()) {
+            drawRect(Brush.verticalGradient(listOf(Color(0x33000000), Color.Transparent, Color(0xB3000000)), startY = 0f, endY = size.height))
+        }
+    }
+}
+
+/** An action on a card: a capsule of liquid glass that refracts the card's wallpaper under it, and answers touch. */
+@Composable
+private fun GlassAction(text: String, icon: ImageVector, backdrop: LayerBackdrop, onClick: () -> Unit, enabled: Boolean = true) {
+    val press = rememberGlassPress()
+    Row(
+        Modifier.fillMaxWidth().height(54.dp)
+            .then(if (enabled) press.gesture else Modifier)
+            .liquidBackdrop(backdrop, RoundedCornerShape(27.dp), press = press, blurDp = 6f, lensDp = 14f, tint = Color(0x40FFFFFF), aberration = true)
+            .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null, enabled = enabled, onClick = onClick),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val fg = if (enabled) Color.White else Gal.Faint
+        Icon(icon, null, tint = fg, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(9.dp))
+        Text(text, style = Type.Headline.copy(color = fg))
+    }
+}
+
+/**
+ * A version card popped out: its wallpaper (or art) large at the top with the numeral, then what this iOS is on this
+ * phone and what can be done with it, on liquid glass.
+ */
+@Composable
+fun VersionDetail(
+    number: String,
+    s: UiState,
+    onClose: () -> Unit,
+    onBoot: () -> Unit,
+    onSetup: () -> Unit,
+    onReturn: () -> Unit,
+    onPickWallpaper: () -> Unit,
+    onClearWallpaper: () -> Unit,
+) {
+    val v = versions.firstOrNull { it.number == number } ?: versions.last()
+    val open = s.status?.sessionOpen == true
+    val shape = RoundedCornerShape(36.dp)
+    val art = rememberLayerBackdrop()
+    Column(
+        Modifier.padding(horizontal = 18.dp, vertical = 40.dp).fillMaxWidth().clip(shape).background(Gal.Paper)
+            .border(1.dp, Brush.linearGradient(listOf(Color(0x80FFFFFF), Color(0x10FFFFFF), Color(0x40FFFFFF))), shape)
+            // a tap inside the card stays inside it (the scrim behind closes)
+            .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) {}
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Box(Modifier.fillMaxWidth().height(300.dp)) {
+            Box(Modifier.fillMaxSize().layerBackdrop(art)) { CardBackground(v, s.wallpapers[v.number], Modifier.fillMaxSize()) }
+            Text(
+                v.number,
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 20.dp, bottom = 6.dp),
+                style = TextStyle(
+                    fontSize = 120.sp, lineHeight = 112.sp, fontWeight = FontWeight.Black, letterSpacing = (-8).sp,
+                    brush = Brush.verticalGradient(listOf(Color.White, v.bandB.copy(alpha = 0.85f))),
+                ),
+            )
+            // close: a small glass disc over the wallpaper
+            val closePress = rememberGlassPress()
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(14.dp).size(40.dp)
+                    .then(closePress.gesture)
+                    .liquidBackdrop(art, CircleShape, press = closePress, blurDp = 6f, lensDp = 10f, tint = Color(0x33000000))
+                    .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null, onClick = onClose),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Close, "Close", tint = Color.White, modifier = Modifier.size(20.dp)) }
+        }
+        Column(Modifier.padding(20.dp)) {
+            Text("iOS ${v.number}", style = Type.Title.copy(fontSize = 26.sp))
+            VSpace(6.dp)
+            Pill(
+                when {
+                    !v.bootable -> "Coming soon"
+                    open -> "Running now"
+                    s.readyToBoot -> "Optimized for S25 Ultra"
+                    else -> "Not set up yet"
+                },
+                when { !v.bootable -> Gal.Gray; open -> Gal.Teal; s.readyToBoot -> Gal.Mint; else -> Gal.Amber },
+            )
+            VSpace(14.dp)
+            if (v.bootable) {
+                DetailRow("Version", s.status?.imageVersion?.let { "$it (${s.status.imageBuild})" } ?: "Build or import its image in Setup")
+                DetailRow("Image", s.status?.imageBytes?.takeIf { it > 0 }?.let { bytes(it) } ?: "Not added")
+                DetailRow("Runtime", s.status?.runtimeVersion ?: "Not added")
+                DetailRow("iPhone screen features", if (s.iphoneIdentity) "On" else "Off")
+                DetailRow("Coming back", "Hold Volume Up and Volume Down for 3 seconds")
+                VSpace(16.dp)
+                when {
+                    open -> GradientButton("Return to One UI", onReturn, icon = Icons.Rounded.Undo)
+                    s.readyToBoot -> GradientButton("Boot iOS ${v.number}", onBoot, enabled = s.busy == null, icon = Icons.Rounded.PowerSettingsNew)
+                    else -> GradientButton("Set up", onSetup, icon = Icons.Rounded.Tune)
+                }
+            } else {
+                Text("Not available on this phone", style = Type.Body.copy(color = Gal.Dim))
+            }
+            VSpace(12.dp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                GlassButton(if (s.wallpapers[v.number] == null) "Choose wallpaper" else "Change wallpaper", onPickWallpaper, icon = Icons.Rounded.Image)
+                if (s.wallpapers[v.number] != null) GlassButton("Remove", onClearWallpaper, icon = Icons.Rounded.HideImage)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(title: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.Top) {
+        Text(title, style = Type.Body.copy(color = Gal.Dim), modifier = Modifier.width(150.dp))
+        Text(value, style = Type.Body, modifier = Modifier.weight(1f))
     }
 }
 

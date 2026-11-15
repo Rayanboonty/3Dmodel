@@ -25,6 +25,8 @@ type Store struct {
 	s    Settings
 }
 
+// dataDir is %AppData%\GalIOS Studio. The folder keeps its first name on purpose: the GalaxyIOS rename (Studio 1.15 to
+// 1.18 used "GalaxyIOS Studio") must not cost anyone their settings or make Do everything copy the image again.
 func dataDir() string {
 	if d := os.Getenv("STUDIO_DATA"); d != "" {
 		return d
@@ -33,7 +35,29 @@ func dataDir() string {
 	if err != nil {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "GalaxyIOS Studio")
+	dir := filepath.Join(base, "GalIOS Studio")
+	adoptRenamedDataOnce.Do(func() { adoptRenamedData(filepath.Join(base, "GalaxyIOS Studio"), dir) })
+	return dir
+}
+
+var adoptRenamedDataOnce sync.Once
+
+// adoptRenamedData moves what Studio 1.15 to 1.18 saved in the renamed folder into the real one, file by file, where
+// the real one has nothing of that name yet (it never overwrites). The renamed folder is removed when it is empty.
+func adoptRenamedData(from, to string) {
+	entries, err := os.ReadDir(from)
+	if err != nil {
+		return
+	}
+	os.MkdirAll(to, 0o755)
+	for _, e := range entries {
+		dst := filepath.Join(to, e.Name())
+		if _, err := os.Stat(dst); err == nil {
+			continue
+		}
+		os.Rename(filepath.Join(from, e.Name()), dst)
+	}
+	os.Remove(from)
 }
 
 func defaultOutDir() string {

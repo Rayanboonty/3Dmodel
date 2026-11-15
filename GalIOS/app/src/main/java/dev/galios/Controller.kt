@@ -80,6 +80,8 @@ data class UiState(
     val tuning: Set<String> = emptySet(),
     /** The owner's own picture for the Boot card (its file in GalaxyIOS's private storage, and when it was saved); null: the drawing. */
     val heroPicture: Pair<String, Long>? = null,
+    /** The owner's wallpaper for each iOS card ("16", "18", "26", "27"): its file and when it changed. */
+    val wallpapers: Map<String, Pair<String, Long>> = emptyMap(),
     val switching: Boolean = false,
     val refreshing: Boolean = false,
     /** A newer GalIOS release found on GitHub, when one exists and the user has not dismissed it. */
@@ -153,7 +155,7 @@ class Controller(
 
     fun refresh() = scope.launch {
         // The Boot-card picture can also arrive from GalaxyIOS Studio (sent over USB): pick it up on every refresh.
-        _state.update { it.copy(refreshing = true, heroPicture = heroState()) }
+        _state.update { it.copy(refreshing = true, heroPicture = heroState(), wallpapers = wallpaperState()) }
         val engine = findEngine()
         val checks = PhoneChecks.run(shell)
         val status = if (checks.root) stage.status().takeIf { it.error == null } else null
@@ -568,10 +570,10 @@ class Controller(
 
     private fun heroState(): Pair<String, Long>? = heroFile().takeIf { it.isFile && it.length() > 0 }?.let { it.path to it.lastModified() }
 
-    fun loadHeroPicture() = _state.update { it.copy(heroPicture = heroState()) }
+    fun loadHeroPicture() = _state.update { it.copy(heroPicture = heroState(), wallpapers = wallpaperState()) }
 
-    fun setHeroPicture(uri: android.net.Uri) = run("Saving your picture") {
-        val f = heroFile()
+    /** Copies the picture at [uri] to [f] after checking it is a picture of at most 20 MB. */
+    private fun savePicture(uri: android.net.Uri, f: File) {
         val tmp = File(f.path + ".tmp")
         val input = context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("That picture could not be read.")
         input.use { i -> tmp.outputStream().use { i.copyTo(it) } }
@@ -580,8 +582,32 @@ class Controller(
         android.graphics.BitmapFactory.decodeFile(tmp.path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) { tmp.delete(); throw IllegalStateException("That file is not a picture (PNG, JPEG or WebP).") }
         if (!tmp.renameTo(f)) { tmp.delete(); throw IllegalStateException("Could not save the picture.") }
+    }
+
+    fun setHeroPicture(uri: android.net.Uri) = run("Saving your picture") {
+        savePicture(uri, heroFile())
         _state.update { it.copy(heroPicture = heroState()) }
         "Your picture is on the Boot card. Press and hold it to go back to the drawing."
+    }
+
+    // ---- The owner's wallpapers on the iOS cards: chosen on this phone or sent by GalaxyIOS Studio, kept here only ----
+
+    private fun wallpaperFile(version: String) = File(context.filesDir, "wallpaper-$version")
+
+    private fun wallpaperState(): Map<String, Pair<String, Long>> = CARD_VERSIONS.mapNotNull { v ->
+        wallpaperFile(v).takeIf { it.isFile && it.length() > 0 }?.let { v to (it.path to it.lastModified()) }
+    }.toMap()
+
+    fun setWallpaper(version: String, uri: android.net.Uri) = run("Saving the iOS $version wallpaper") {
+        require(version in CARD_VERSIONS) { "no iOS $version card" }
+        savePicture(uri, wallpaperFile(version))
+        _state.update { it.copy(wallpapers = wallpaperState()) }
+        "The iOS $version card has your wallpaper."
+    }
+
+    fun clearWallpaper(version: String) {
+        wallpaperFile(version).delete()
+        _state.update { it.copy(wallpapers = wallpaperState(), message = Message("The iOS $version card shows its drawn art again.", false)) }
     }
 
     fun clearHeroPicture() {
@@ -652,6 +678,9 @@ class Controller(
             "and brings what your image has that the old data lacked, such as the camera's plug-in."
     }
 }
+
+/** The iOS versions with a card on the Boot tab (the same list as GalaxyIOS Studio's cardVersions). */
+val CARD_VERSIONS = listOf("16", "18", "26", "27")
 
 object BuildConfigCompat {
     fun versionCode(context: Context): Long = context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode

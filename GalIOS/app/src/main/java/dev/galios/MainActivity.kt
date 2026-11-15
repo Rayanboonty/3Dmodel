@@ -26,6 +26,12 @@ class MainActivity : ComponentActivity() {
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     // The owner's own picture for the Boot card, chosen on this phone (it stays on this phone).
     private val pickPicture = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { controller.setHeroPicture(it) } }
+    // A wallpaper for one iOS card, chosen on this phone (it stays on this phone).
+    private var wallpaperFor: String? = null
+    private val pickWallpaper = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val v = wallpaperFor
+        if (uri != null && v != null) controller.setWallpaper(v, uri)
+    }
     // iPhone screen features without a PC: the owner's IPSW, read on this phone for the iPhone's device tree.
     private val pickIpsw = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { controller.identityFromIpsw(it) } }
 
@@ -71,6 +77,8 @@ class MainActivity : ComponentActivity() {
             dismissUpdate = { controller.dismissUpdate() },
             pickPicture = { pickPicture.launch(arrayOf("image/*")) },
             clearPicture = { controller.clearHeroPicture() },
+            pickWallpaper = { v -> wallpaperFor = v; pickWallpaper.launch(arrayOf("image/*")) },
+            clearWallpaper = { v -> controller.clearWallpaper(v) },
         )
         controller.loadHeroPicture()
         setContent {

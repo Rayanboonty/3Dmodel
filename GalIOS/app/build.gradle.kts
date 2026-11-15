@@ -7,7 +7,8 @@ plugins {
 
 android {
     namespace = "dev.galios"
-    compileSdk = 35
+    // 36: Backdrop (the liquid glass library) is built against it.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.galios"
@@ -48,9 +49,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
     }
@@ -73,6 +71,10 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+}
+
 // The on-phone image build: the same scripts that run on a PC (tools/), bundled as assets/galios-build/.
 val galiosBuildAssets = layout.buildDirectory.dir("generated/galios-build-assets")
 val copyBuildScripts by tasks.registering(Copy::class) {
@@ -83,7 +85,7 @@ android.sourceSets["main"].assets.srcDir(galiosBuildAssets)
 tasks.named("preBuild") { dependsOn(copyBuildScripts) }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
+    val composeBom = platform("androidx.compose:compose-bom:2026.02.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -98,8 +100,9 @@ dependencies {
     // .tar.zst: zstd (the @aar carries the Android native libraries) and tar.
     implementation("com.github.luben:zstd-jni:1.5.7-4@aar")
     implementation("org.apache.commons:commons-compress:1.27.1")
-    // Real backdrop blur for the frosted tab bar (Chris Banes's Haze, Apache 2.0).
-    implementation("dev.chrisbanes.haze:haze:1.1.1")
+    // Liquid glass: real refraction, blur and highlights of what is behind an element (Kyant's Backdrop, Apache 2.0,
+    // github.com/Kyant0/AndroidLiquidGlass). Refraction needs Android 13; the S25 Ultra has 15.
+    implementation("io.github.kyant0:backdrop:1.0.6")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")

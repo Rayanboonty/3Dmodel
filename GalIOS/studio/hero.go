@@ -79,13 +79,30 @@ func saveHero(src, dest string) error {
 // The GalaxyIOS app keeps its Boot-card picture in its own storage under this name (Controller.heroFile).
 const (
 	phoneAppDir   = "/data/data/dev.galios"
-	phoneHeroTemp = "/data/local/tmp/galios-hero.tmp"
+	phoneHeroTemp = "/data/local/tmp/galios-picture.tmp"
 )
 
-// heroToPhoneScript (run as root) puts the picture pushed to phoneHeroTemp in the GalaxyIOS app's storage, owned by
-// the app and with its storage's SELinux label, so the app shows it on its Boot card the next time it refreshes.
-func heroToPhoneScript() string {
-	return fmt.Sprintf(`app=%[1]s; src=%[2]s; dst=$app/files/hero-picture
+// cardVersions are the iOS versions with a card on GalaxyIOS's Boot tab; each can have the owner's own wallpaper.
+var cardVersions = []string{"16", "18", "26", "27"}
+
+// wallpaperPath is the owner's wallpaper for an iOS card, chosen on this PC (it stays on this PC and the phone).
+func wallpaperPath(version string) string { return filepath.Join(dataDir(), "wallpaper-"+version) }
+
+// pictureStamps says which pictures Studio has (hero and each card's wallpaper) and when each changed.
+func pictureStamps() map[string]int64 {
+	m := map[string]int64{}
+	for _, v := range cardVersions {
+		if fi, err := os.Stat(wallpaperPath(v)); err == nil && fi.Size() > 0 {
+			m[v] = fi.ModTime().UnixNano()
+		}
+	}
+	return m
+}
+
+// pictureToPhoneScript (run as root) puts the picture pushed to phoneHeroTemp in the GalaxyIOS app's storage as name,
+// owned by the app and with its storage's SELinux label, so the app shows it the next time it refreshes.
+func pictureToPhoneScript(name string) string {
+	return fmt.Sprintf(`app=%[1]s; src=%[2]s; dst=$app/files/%[3]s
 [ -d "$app" ] || { rm -f "$src"; echo '@@FAILED GalaxyIOS is not installed on the phone'; exit 4; }
 [ -s "$src" ] || { echo '@@FAILED the picture did not reach the phone'; exit 4; }
 u=$(stat -c %%u "$app"); label=$(ls -Zd "$app" | awk '{print $1}')
@@ -93,18 +110,15 @@ mkdir -p "$app/files" && chown "$u:$u" "$app/files" && chmod 0771 "$app/files"
 cp "$src" "$dst.tmp" && chown "$u:$u" "$dst.tmp" && chmod 0600 "$dst.tmp" || { rm -f "$src" "$dst.tmp"; echo '@@FAILED could not copy the picture'; exit 4; }
 [ -n "$label" ] && { chcon "$label" "$app/files" 2>/dev/null; chcon "$label" "$dst.tmp" 2>/dev/null; }
 mv -f "$dst.tmp" "$dst"; rm -f "$src"
-echo '@@OK picture'`, phoneAppDir, phoneHeroTemp)
+echo '@@OK picture'`, phoneAppDir, phoneHeroTemp, name)
 }
 
-// pushHeroToPhone sends the Boot-card picture chosen in Studio to the GalaxyIOS app on the phone (needs root).
-func pushHeroToPhone(ctx context.Context, j *JobCtx, s Settings, serial string) error {
-	if heroStamp() == 0 {
-		return fmt.Errorf("no picture chosen in Studio yet: click the phone on Studio's Boot card first")
-	}
-	if err := pushFile(ctx, j, s, serial, heroPath(), phoneHeroTemp); err != nil {
+// pushPictureToPhone sends one picture file to the GalaxyIOS app on the phone as name (needs root).
+func pushPictureToPhone(ctx context.Context, j *JobCtx, s Settings, serial, local, name string) error {
+	if err := pushFile(ctx, j, s, serial, local, phoneHeroTemp); err != nil {
 		return err
 	}
-	lines, code, err := rootRun(ctx, s, serial, heroToPhoneScript())
+	lines, code, err := rootRun(ctx, s, serial, pictureToPhoneScript(name))
 	if err != nil {
 		return err
 	}
@@ -118,6 +132,37 @@ func pushHeroToPhone(ctx context.Context, j *JobCtx, s Settings, serial string) 
 		}
 	}
 	return fmt.Errorf("no answer from root (exit %d)", code)
+}
+
+// pushPicturesToPhone sends every picture Studio has (the Boot-card photo and the cards' wallpapers) to GalaxyIOS on
+// the phone, and says how many went.
+func pushPicturesToPhone(ctx context.Context, j *JobCtx, s Settings, serial string) (int, error) {
+	n := 0
+	if heroStamp() != 0 {
+		if err := pushPictureToPhone(ctx, j, s, serial, heroPath(), "hero-picture"); err != nil {
+			return n, err
+		}
+		n++
+	}
+	for v := range pictureStamps() {
+		if err := pushPictureToPhone(ctx, j, s, serial, wallpaperPath(v), "wallpaper-"+v); err != nil {
+			return n, err
+		}
+		n++
+	}
+	if n == 0 {
+		return 0, fmt.Errorf("no pictures chosen in Studio yet: click the phone on the Boot card, or choose the cards' wallpapers")
+	}
+	return n, nil
+}
+
+func handleWallpaper(w http.ResponseWriter, r *http.Request) {
+	v := r.URL.Query().Get("v")
+	if _, ok := pictureStamps()[v]; !ok {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, wallpaperPath(v))
 }
 
 func handleHero(w http.ResponseWriter, r *http.Request) {

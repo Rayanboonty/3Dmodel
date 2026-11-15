@@ -155,12 +155,12 @@ func (a *App) autoAll(ctx context.Context, j *JobCtx, script []byte) (string, er
 	if _, err := waitRoot(ctx, j, s, serial); err != nil {
 		return "", err
 	}
-	// Your Boot-card picture, chosen in Studio, on the GalaxyIOS app's Boot card too.
-	if heroStamp() != 0 {
-		if err := pushHeroToPhone(ctx, j, s, serial); err != nil {
-			j.Log("your picture could not be sent to GalaxyIOS on the phone: %v", err)
+	// Your pictures chosen in Studio (the Boot-card photo, the cards' wallpapers) on GalaxyIOS on the phone too.
+	if heroStamp() != 0 || len(pictureStamps()) > 0 {
+		if n, err := pushPicturesToPhone(ctx, j, s, serial); err != nil {
+			j.Log("your pictures could not be sent to GalaxyIOS on the phone: %v", err)
 		} else {
-			j.Log("your picture is on GalaxyIOS's Boot card on the phone")
+			j.Log("%d of your pictures are on GalaxyIOS on the phone", n)
 		}
 	}
 	for packageVersion(ctx, s, serial, oneosPackage) == "" {

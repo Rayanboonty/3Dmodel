@@ -2,11 +2,30 @@ package dev.galios.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.togetherWith
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.haze
-import dev.chrisbanes.haze.hazeChild
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -91,6 +110,9 @@ class AppActions(
     /** Chooses the owner's own picture for the Boot card; [clearPicture] goes back to the drawing. */
     val pickPicture: () -> Unit = {},
     val clearPicture: () -> Unit = {},
+    /** Chooses (or clears) the owner's wallpaper for one iOS card ("16", "18", "26", "27"). */
+    val pickWallpaper: (String) -> Unit = {},
+    val clearWallpaper: (String) -> Unit = {},
 )
 
 @Composable
@@ -102,29 +124,33 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
         Backdrop {
             // The page fills the screen and scrolls under the tab bar, which floats on top over a soft bone fade:
             // no hard edge where the content meets the bar. The bottom padding lets the last card clear the bar.
-            val haze = remember { HazeState() }
+            // The page is the backdrop the liquid glass refracts (Backdrop records it, black included, into a layer).
+            val page = rememberLayerBackdrop()
+            var detail by remember { mutableStateOf<String?>(null) }
+            var lastDetail by remember { mutableStateOf("27") }
+            androidx.activity.compose.BackHandler(enabled = detail != null) { detail = null }
             Box(Modifier.fillMaxSize()) {
                 Column(
-                    Modifier.fillMaxSize().haze(haze).verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
+                    Modifier.fillMaxSize().layerBackdrop(page).background(Gal.Black).verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
                         .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 118.dp),
                 ) {
                     Header(tab, s) { about = true }
                     VSpace(24.dp)
                     s.update?.let { UpdateCard(it.version, a.update, a.dismissUpdate); VSpace(14.dp) }
                     s.message?.let { MessageCard(it.text, it.error, a.dismissMessage); VSpace(14.dp) }
-                    // Tabs slide in the direction you move (Boot, Setup, Logs from left to right) and fade, on a spring.
+                    // A tab expands into place: it grows from a little smaller at the top on a spring and fades in, while the
+                    // one it replaces swells away and fades.
                     androidx.compose.animation.AnimatedContent(
                         tab, label = "tab",
                         transitionSpec = {
-                            val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                            val spring = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = 0.86f, stiffness = 380f)
-                            (androidx.compose.animation.slideInHorizontally(spring) { it / 5 * dir } + fadeIn(tween(220))) togetherWith
-                                (androidx.compose.animation.slideOutHorizontally(spring) { -it / 5 * dir } + fadeOut(tween(160)))
+                            val grow = spring<Float>(dampingRatio = 0.78f, stiffness = 320f)
+                            (scaleIn(grow, initialScale = 0.9f, transformOrigin = TransformOrigin(0.5f, 0f)) + fadeIn(tween(240))) togetherWith
+                                (scaleOut(spring(stiffness = 500f), targetScale = 1.04f, transformOrigin = TransformOrigin(0.5f, 0f)) + fadeOut(tween(140)))
                         },
                     ) { t ->
                         Column {
                             when (t) {
-                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh, onPickPicture = a.pickPicture, onClearPicture = a.clearPicture)
+                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh, onPickPicture = a.pickPicture, onClearPicture = a.clearPicture, onOpenVersion = { v -> lastDetail = v; detail = v })
                                 Tab.SETUP -> SetupScreen(s, a.setup)
                                 Tab.LOGS -> LogsScreen(s.logs, a.loadLogs, a.openLog, a.saveLog)
                             }
@@ -132,7 +158,28 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                     }
                 }
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-                    NavBar(tab, haze) { t -> tab = t; if (t == Tab.LOGS) a.loadLogs() }
+                    NavBar(tab, page) { t -> tab = t; if (t == Tab.LOGS) a.loadLogs() }
+                }
+                // A version card pops out into its detail over the page, which frosts behind it.
+                AnimatedVisibility(detail != null, enter = fadeIn(tween(220)), exit = fadeOut(tween(200))) {
+                    Box(
+                        Modifier.fillMaxSize()
+                            .drawBackdrop(page, shape = { androidx.compose.ui.graphics.RectangleShape }, effects = { blur(24.dp.toPx()) }, highlight = null, shadow = null,
+                                onDrawSurface = { drawRect(Color(0x99000000)) })
+                            .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { detail = null },
+                    )
+                }
+                AnimatedVisibility(
+                    detail != null, modifier = Modifier.align(Alignment.Center),
+                    enter = scaleIn(spring(dampingRatio = 0.72f, stiffness = 300f), initialScale = 0.7f) + fadeIn(tween(160)),
+                    exit = scaleOut(spring(stiffness = 600f), targetScale = 0.85f) + fadeOut(tween(140)),
+                ) {
+                    VersionDetail(
+                        lastDetail, s, onClose = { detail = null },
+                        onBoot = { detail = null; confirm = true }, onSetup = { detail = null; tab = Tab.SETUP },
+                        onReturn = { detail = null; a.returnToOneUi() },
+                        onPickWallpaper = { a.pickWallpaper(lastDetail) }, onClearWallpaper = { a.clearWallpaper(lastDetail) },
+                    )
                 }
             }
             AnimatedVisibility(s.switching, enter = fadeIn(), exit = fadeOut()) { Switching() }
@@ -171,33 +218,87 @@ private fun Header(tab: Tab, s: UiState, onAbout: () -> Unit) {
 }
 
 /**
- * The tab bar: a floating frosted capsule. What scrolls under it is really blurred (Haze), tinted dark so the icons read;
- * a white pill springs to the selected tab and carries its icon and name in black.
+ * The tab bar: a floating capsule of liquid glass (Kyant's Backdrop) that really refracts the page scrolling under it.
+ * The selected tab is a glass lens: tap a tab and it springs there; hold it and it swells, its edge bends the light
+ * with chromatic aberration and an inner shadow; drag it and it follows the finger, stretching with its speed, and
+ * settles on the nearest tab when let go.
  */
 @Composable
-private fun NavBar(tab: Tab, haze: HazeState, onTab: (Tab) -> Unit) {
+private fun NavBar(tab: Tab, page: LayerBackdrop, onTab: (Tab) -> Unit) {
     val count = Tab.entries.size
     val bar = 64.dp
-    val shape = RoundedCornerShape(32.dp)
+    val scope = rememberCoroutineScope()
+    val pos = remember { Animatable(tab.ordinal.toFloat()) }
+    val press = remember { Animatable(0f) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragSpeed by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(tab) { if (!dragging) pos.animateTo(tab.ordinal.toFloat(), spring(dampingRatio = 0.7f, stiffness = 380f)) }
+    val barPress = rememberGlassPress()
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 26.dp, vertical = 12.dp)) {
         BoxWithConstraints(
-            Modifier.fillMaxWidth().height(bar).clip(shape)
-                // Liquid glass: the page blurred through a light tint, then the glass's sheen and specular rim on top.
-                .hazeChild(state = haze, style = HazeStyle(backgroundColor = Gal.Black, tints = listOf(HazeTint(Color(0x4D2C2C2E))), blurRadius = 22.dp, noiseFactor = 0.03f))
-                .liquidGlass(shape, 1.2f),
+            Modifier.fillMaxWidth().height(bar)
+                .then(barPress.gesture)
+                .liquidBackdrop(page, RoundedCornerShape(32.dp), press = barPress, blurDp = 8f, lensDp = 22f, tint = Color(0x66121212)),
         ) {
+            val slotPx = with(LocalDensity.current) { maxWidth.toPx() } / count
             val slot = maxWidth / count
-            val index = Tab.entries.indexOf(tab)
-            val offset by animateDpAsState(slot * index, androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 420f), label = "ind")
-            // the selected tab: a brighter glass lens that slides between tabs
-            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(6.dp).liquidGlass(RoundedCornerShape(26.dp), 2.2f))
-            Row(Modifier.fillMaxWidth().height(bar)) {
+            fun settle() {
+                dragging = false
+                dragSpeed = 0f
+                val target = pos.value.let { kotlin.math.round(it) }.coerceIn(0f, count - 1f)
+                scope.launch { press.animateTo(0f, spring(dampingRatio = 0.5f, stiffness = 300f)) }
+                scope.launch { pos.animateTo(target, spring(dampingRatio = 0.62f, stiffness = 340f)) }
+                Tab.entries[target.toInt()].let { if (it != tab) onTab(it) }
+            }
+            // the lens on the selected tab
+            Box(
+                Modifier
+                    .graphicsLayer {
+                        translationX = pos.value * slotPx
+                        val p = press.value
+                        val swell = lerp(1f, 1.22f, p)
+                        val v = (if (dragging) dragSpeed else pos.velocity / 12f).coerceIn(-0.25f, 0.25f)
+                        scaleX = swell * (1f + kotlin.math.abs(v) * 0.6f)
+                        scaleY = swell * (1f - kotlin.math.abs(v) * 0.25f)
+                    }
+                    .width(slot).height(bar).padding(6.dp)
+                    .drawBackdrop(
+                        backdrop = page,
+                        shape = { RoundedCornerShape(26.dp) },
+                        effects = {
+                            vibrancy()
+                            if (glassShaders) {
+                                val p = press.value
+                                lens((8f + 6f * p).dp.toPx(), (10f + 10f * p).dp.toPx(), chromaticAberration = true)
+                            }
+                        },
+                        highlight = { Highlight.Default.copy(alpha = 0.6f + 0.4f * press.value) },
+                        shadow = { Shadow(alpha = press.value) },
+                        innerShadow = { press.value.takeIf { it > 0.01f }?.let { InnerShadow(radius = 8.dp * it, alpha = it) } },
+                        onDrawSurface = { drawRect(Color.White.copy(alpha = 0.16f * (1f - press.value) + 0.04f)) },
+                    ),
+            )
+            Row(
+                Modifier.fillMaxWidth().height(bar).pointerInput(count) {
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            dragging = true
+                            scope.launch { press.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 500f)) }
+                        },
+                        onDragEnd = { settle() },
+                        onDragCancel = { settle() },
+                    ) { change, dx ->
+                        change.consume()
+                        dragSpeed = dx / slotPx
+                        scope.launch { pos.snapTo((pos.value + dx / slotPx).coerceIn(-0.15f, count - 0.85f)) }
+                    }
+                },
+            ) {
                 for (t in Tab.entries) {
                     val on = t == tab
-                    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     Row(
-                        Modifier.width(slot).height(bar).pressable(interaction).clip(RoundedCornerShape(25.dp))
-                            .clickable(interaction, null) { onTab(t) },
+                        Modifier.width(slot).height(bar).clip(RoundedCornerShape(25.dp))
+                            .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { onTab(t) },
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(t.icon, t.title, tint = if (on) Color.White else Gal.Dim, modifier = Modifier.size(21.dp))
@@ -211,7 +312,6 @@ private fun NavBar(tab: Tab, haze: HazeState, onTab: (Tab) -> Unit) {
         }
     }
 }
-
 @Composable
 private fun UpdateCard(version: String, onUpdate: () -> Unit, onDismiss: () -> Unit) {
     Appear {

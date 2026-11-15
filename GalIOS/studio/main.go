@@ -57,6 +57,7 @@ func main() {
 	mux.HandleFunc("/api/events", app.handleEvents)
 	mux.HandleFunc("/api/log", app.handleLog)
 	mux.HandleFunc("/api/hero", handleHero)
+	mux.HandleFunc("/api/wallpaper", handleWallpaper)
 	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		app.lastPing.Store(time.Now().Unix())
 		w.WriteHeader(204)
@@ -202,7 +203,7 @@ func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"version": version, "settings": a.store.Get(), "pc": a.pc, "phone": a.phone, "job": a.hub.Job(),
 		"windows": runtime.GOOS == "windows", "dataDir": dataDir(), "restartNeeded": a.restartNeeded.Load(),
-		"imageName": imageName, "ipswName": ipswName, "studioUpdate": a.upd.get(), "heroPicture": heroStamp(),
+		"imageName": imageName, "ipswName": ipswName, "studioUpdate": a.upd.get(), "heroPicture": heroStamp(), "wallpapers": pictureStamps(),
 	})
 }
 
@@ -352,6 +353,24 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		reply("Your picture is on the Boot card.", nil)
+	case "pick.wallpaper-16", "pick.wallpaper-18", "pick.wallpaper-26", "pick.wallpaper-27":
+		v := strings.TrimPrefix(req.Name, "pick.wallpaper-")
+		home, _ := os.UserHomeDir()
+		p, err := pickPath("Choose the wallpaper for the iOS "+v+" card", false, "Pictures (*.png;*.jpg;*.jpeg;*.webp)", "*.png;*.jpg;*.jpeg;*.webp", filepath.Join(home, "Pictures"))
+		if err != nil || p == "" {
+			reply("", err)
+			return
+		}
+		if err := saveHero(p, wallpaperPath(v)); err != nil {
+			reply("", err)
+			return
+		}
+		reply("The iOS "+v+" card has your wallpaper. Show it on the phone from the Boot page.", nil)
+	case "clear.wallpapers":
+		for _, v := range cardVersions {
+			os.Remove(wallpaperPath(v))
+		}
+		reply("The cards are back to their drawn art in Studio. (The phone keeps what it has until you change it there.)", nil)
 	case "clear.hero":
 		os.Remove(heroPath())
 		reply("The Boot card shows the drawing again.", nil)
@@ -474,12 +493,13 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			return "The image is in the phone's Download folder: GalaxyIOS lists it under Found on this phone.", nil
 		})
 	case "phone.push-hero":
-		phone("Send your picture to the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
-			j.Step("Copying your picture to GalaxyIOS on the phone")
-			if err := pushHeroToPhone(ctx, j, s, serial); err != nil {
+		phone("Send your pictures to the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
+			j.Step("Copying your photo and the cards' wallpapers to GalaxyIOS on the phone")
+			n, err := pushPicturesToPhone(ctx, j, s, serial)
+			if err != nil {
 				return "", err
 			}
-			return "Your picture is on GalaxyIOS's Boot card: open GalaxyIOS on the phone (or pull down to refresh) to see it.", nil
+			return fmt.Sprintf("%d pictures are on GalaxyIOS on the phone: open GalaxyIOS (or tap Refresh) to see them.", n), nil
 		})
 	case "phone.identity-on", "phone.identity-off":
 		on := req.Name == "phone.identity-on"
