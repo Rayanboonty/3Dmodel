@@ -146,31 +146,13 @@ fun Backdrop(modifier: Modifier = Modifier, @Suppress("UNUSED_PARAMETER") drift:
 }
 
 /**
- * Liquid glass: a clear body that is lighter where light enters (top left) and fades through, a sheen across its upper
- * part, a dark inner shade at the bottom where the glass is thickest, and a specular rim: bright at the top-left edge,
- * almost gone along the sides, a softer catch-light at the bottom right. [strength] scales it (1 for panels, more for
- * small controls, which sit closer to the light).
+ * A glass surface in flat colour: a clear white tint and one even hairline. No gradients. [strength] scales it (1 for
+ * panels, more for small controls).
  */
 fun Modifier.liquidGlass(shape: Shape, strength: Float = 1f): Modifier = this
     .clip(shape)
-    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.13f * strength), Color.White.copy(alpha = 0.05f * strength), Color.White.copy(alpha = 0.08f * strength))))
-    .drawBehind {
-        // the sheen: a soft band of light over the upper part
-        drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f * strength), Color.Transparent), startY = 0f, endY = size.height * 0.45f))
-        // the thick bottom of the glass: a little darker
-        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.18f)), startY = size.height * 0.6f, endY = size.height))
-    }
-    .border(
-        1.dp,
-        Brush.linearGradient(
-            0f to Color.White.copy(alpha = (0.55f * strength).coerceAtMost(0.8f)),
-            0.35f to Color.White.copy(alpha = 0.06f),
-            0.7f to Color.White.copy(alpha = 0.04f),
-            1f to Color.White.copy(alpha = (0.30f * strength).coerceAtMost(0.6f)),
-        ),
-        shape,
-    )
-
+    .background(Color.White.copy(alpha = (0.09f * strength).coerceAtMost(0.22f)))
+    .border(1.dp, Color.White.copy(alpha = (0.16f * strength).coerceAtMost(0.32f)), shape)
 /** A liquid glass panel over the black, deeply rounded. */
 @Composable
 fun Glass(modifier: Modifier = Modifier, radius: Dp = 26.dp, padding: Dp = 18.dp, tint: Color? = null, content: @Composable ColumnScope.() -> Unit) {

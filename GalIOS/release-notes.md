@@ -2,7 +2,7 @@ GalaxyIOS 1.28 and GalaxyIOS Studio 1.19
 
 **Real liquid glass.** The tab bar is now real liquid glass (Kyant's Backdrop library). It bends the light of the page scrolling under it, blurs it and catches light on its rim. The selected tab is a glass lens. Tap a tab and it springs there. Hold it and it swells, its edge bends the light with a rainbow fringe. Drag it and it follows your finger, stretching with its speed, then settles on the nearest tab. Buttons on the cards are glass that bends the card's wallpaper, and everything you press swells a little with a light under your finger.
 
-**Colour again.** The page is no longer only black: the card in front (its wallpaper, blurred deep) colours the whole app, and the colour changes as you swipe the cards.
+**Colour, flat.** The page is no longer only black. The card in front colours the whole app: your wallpaper blurred deep, or the card's own flat colour. It changes as you swipe. Gradients are gone everywhere: cards, numbers, glass and buttons are simple flat colours.
 
 **Your wallpapers on the cards.** Choose a wallpaper for each iOS card (the card's menu, or the pop-out), or let Studio send the ones you chose on your PC together with your photo.
 

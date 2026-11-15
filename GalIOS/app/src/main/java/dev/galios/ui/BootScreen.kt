@@ -81,7 +81,10 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
  * An iOS version as a card. Only the one OneiOS boots (27.0.1) can be booted here; the others say "Coming soon" and
  * "Not available on this phone", nothing more. Each card's colours and art are GalaxyIOS's own.
  */
-private data class IosVersion(val number: String, val bootable: Boolean, val top: Color, val bottom: Color, val bandA: Color, val bandB: Color)
+private data class IosVersion(val number: String, val bootable: Boolean, val top: Color, val bottom: Color, val bandA: Color, val bandB: Color) {
+    /** The card's one flat colour (when no wallpaper is chosen). */
+    val flat: Color get() = when (number) { "16" -> Color(0xFF2F5BDE); "18" -> Color(0xFFD9566B); "26" -> Color(0xFF169C8C); else -> Color(0xFF6A4BE0) }
+}
 
 private val versions = listOf(
     IosVersion("16", false, Color(0xFF06123A), Color(0xFF030616), Color(0xFF3B5BFF), Color(0xFF6FE3FF)),
@@ -241,7 +244,7 @@ private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn:
                 v.number,
                 style = TextStyle(
                     fontSize = 150.sp, lineHeight = 140.sp, fontWeight = FontWeight.Black, letterSpacing = (-10).sp,
-                    brush = Brush.verticalGradient(listOf(Color.White, v.bandB.copy(alpha = 0.85f))),
+                    color = Color.White,
                 ),
             )
             Text("iOS ${v.number}", style = Type.Title.copy(fontSize = 24.sp))
@@ -345,7 +348,7 @@ private fun CardBackground(v: IosVersion, wallpaper: Pair<String, Long>?, modifi
     Box(modifier) {
         androidx.compose.foundation.Image(bitmap, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Canvas(Modifier.fillMaxSize()) {
-            drawRect(Brush.verticalGradient(listOf(Color(0x33000000), Color.Transparent, Color(0xB3000000)), startY = 0f, endY = size.height))
+            drawRect(Color(0x4D000000))
         }
     }
 }
@@ -389,7 +392,7 @@ fun VersionDetail(
     val art = rememberLayerBackdrop()
     Column(
         Modifier.padding(horizontal = 18.dp, vertical = 40.dp).fillMaxWidth().clip(shape).background(Gal.Paper)
-            .border(1.dp, Brush.linearGradient(listOf(Color(0x80FFFFFF), Color(0x10FFFFFF), Color(0x40FFFFFF))), shape)
+            .border(1.dp, Color(0x33FFFFFF), shape)
             // a tap inside the card stays inside it (the scrim behind closes)
             .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) {}
             .verticalScroll(rememberScrollState()),
@@ -401,7 +404,7 @@ fun VersionDetail(
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 20.dp, bottom = 6.dp),
                 style = TextStyle(
                     fontSize = 120.sp, lineHeight = 112.sp, fontWeight = FontWeight.Black, letterSpacing = (-8).sp,
-                    brush = Brush.verticalGradient(listOf(Color.White, v.bandB.copy(alpha = 0.85f))),
+                    color = Color.White,
                 ),
             )
             // close: a small glass disc over the wallpaper
@@ -477,81 +480,20 @@ fun Ambient(number: String, s: UiState, modifier: Modifier) {
                         .blur(70.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
                 )
             } else {
-                Canvas(Modifier.fillMaxSize()) {
-                    val w = size.width
-                    val h = size.height
-                    drawRect(v.top)
-                    drawCircle(Brush.radialGradient(listOf(v.bandB.copy(alpha = 0.55f), Color.Transparent), center = Offset(w * 0.9f, h * 0.08f), radius = w * 1.1f), radius = w * 1.1f, center = Offset(w * 0.9f, h * 0.08f))
-                    drawCircle(Brush.radialGradient(listOf(v.bandA.copy(alpha = 0.40f), Color.Transparent), center = Offset(w * 0.05f, h * 0.55f), radius = w * 0.9f), radius = w * 0.9f, center = Offset(w * 0.05f, h * 0.55f))
-                }
+                // no wallpaper: the version's colour, flat and deep
+                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.lerp(v.flat, Color.Black, 0.72f)))
             }
-            // dim it so white text reads, and deepen towards the bottom
-            Canvas(Modifier.fillMaxSize()) {
-                drawRect(Color(0x80000000))
-                drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)), startY = size.height * 0.35f, endY = size.height))
-            }
+            // dim it, flat, so white text reads
+            Box(Modifier.fillMaxSize().background(Color(0x99000000)))
         }
     }
 }
 
-/** A card's own art: a deep vertical wash, two broad bands of light sweeping across it, and a soft glow. Drawn, not a picture. */
+/** A card's own colour when it has no wallpaper: one flat colour, nothing drawn on it. */
 @Composable
 private fun CardArt(v: IosVersion, modifier: Modifier) {
-    Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        drawRect(Brush.verticalGradient(listOf(v.top, v.bottom)))
-        drawCircle(Brush.radialGradient(listOf(v.bandB.copy(alpha = 0.35f), Color.Transparent), center = Offset(w * 0.85f, h * 0.18f), radius = w * 0.7f),
-            radius = w * 0.7f, center = Offset(w * 0.85f, h * 0.18f))
-        fun band(y0: Float, y1: Float, lift: Float, thick: Float, brush: Brush) {
-            val p = Path().apply {
-                moveTo(-w * 0.1f, h * y0)
-                cubicTo(w * 0.3f, h * (y0 - lift), w * 0.6f, h * (y1 + lift), w * 1.1f, h * y1)
-                lineTo(w * 1.1f, h * y1 + h * thick)
-                cubicTo(w * 0.6f, h * (y1 + lift) + h * thick, w * 0.3f, h * (y0 - lift) + h * thick, -w * 0.1f, h * y0 + h * thick)
-                close()
-            }
-            drawPath(p, brush)
-        }
-        band(0.30f, 0.52f, 0.18f, 0.16f, Brush.horizontalGradient(listOf(v.bandA.copy(alpha = 0.0f), v.bandA.copy(alpha = 0.75f), v.bandB.copy(alpha = 0.55f))))
-        band(0.46f, 0.70f, 0.10f, 0.08f, Brush.horizontalGradient(listOf(v.bandB.copy(alpha = 0.55f), v.bandA.copy(alpha = 0.35f), Color.Transparent)))
-        // the lower part darkens so the text and the button read on it
-        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color(0x99000000)), startY = h * 0.45f, endY = h))
-    }
+    Box(modifier.background(v.flat))
 }
-
-@Composable
-private fun Readiness(s: UiState) {
-    Glass(padding = 16.dp) {
-        val c = s.checks
-        StatusRow(Icons.Rounded.Key, "Root", when {
-            c == null -> "Checking…"
-            c.root -> "Active" + (if (s.rootVia == "helper") ", lent by GalaxyIOS Studio" else "") +
-                if (c.busybox == null || c.resetprop == null) ", tools missing" else ""
-            else -> "Not active: start temporary root"
-        }, when { c == null -> Mark.WAIT; c.root && c.busybox != null && c.resetprop != null -> Mark.OK; c.root -> Mark.WAIT; else -> Mark.BAD }, tile = Gal.Graphite)
-        RowDivider()
-        StatusRow(Icons.Rounded.Extension, "Boot engine", when {
-            s.engine == null -> "OneOS is not installed"
-            !s.engine.hasIos -> "OneOS ${s.engine.versionName} has no iOS engine"
-            else -> "OneOS ${s.engine.versionName}" + if (s.engineInstalled) ", installed" else ", not installed yet"
-        }, when { s.engine?.hasIos == true && s.engineInstalled -> Mark.OK; s.engine?.hasIos == true -> Mark.WAIT; else -> Mark.BAD }, tile = Gal.Indigo)
-        RowDivider()
-        StatusRow(Icons.Rounded.Inventory2, "OneiOS runtime", s.status?.runtimeVersion?.let { v ->
-            v + (s.release?.takeIf { it.version != v }?.let { ", ${it.version} is out" } ?: "")
-        } ?: "Not added", if (s.status?.runtimeVersion != null) Mark.OK else Mark.WAIT, tile = Gal.Teal)
-        RowDivider()
-        StatusRow(Icons.Rounded.Layers, "iOS image", s.status?.imageVersion?.let { "iOS $it (${s.status.imageBuild}), ${bytes(s.status.imageBytes)}" } ?: "Not added",
-            if (s.status?.imageVersion != null) Mark.OK else Mark.WAIT, tile = Gal.Purple)
-        RowDivider()
-        StatusRow(Icons.Rounded.Bolt, "Boot check", when {
-            s.status == null -> "Runs once the engine is installed"
-            s.status.ready -> "Passed"
-            else -> s.status.notReadyReason ?: "Not passed"
-        }, when { s.status?.ready == true -> Mark.OK; s.status == null -> Mark.OFF; else -> Mark.WAIT }, tile = Gal.Amber)
-    }
-}
-
 /**
  * The phone's picture: the owner's own, when they chose one on this phone (tap to choose another, press and hold to go
  * back to the drawing), else the drawing (tap to choose a picture). Decoded once per saved file, scaled to its size.

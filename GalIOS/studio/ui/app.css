@@ -9,10 +9,10 @@
   --mint: #32d74b; --amber: #ffb340; --rose: #ff6961;
   --text: #fff; --dim: rgba(255,255,255,.62); --faint: rgba(255,255,255,.38);
   --r: 26px;
-  /* liquid glass: a clear body lighter where light enters, a sheen, a darker thick bottom, a specular rim */
-  --lg-body: linear-gradient(135deg, rgba(255,255,255,.13), rgba(255,255,255,.05) 50%, rgba(255,255,255,.08));
-  --lg-rim: linear-gradient(135deg, rgba(255,255,255,.55), rgba(255,255,255,.06) 35%, rgba(255,255,255,.04) 70%, rgba(255,255,255,.3));
-  --lg-depth: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -14px 24px -12px rgba(0,0,0,.35), 0 8px 30px rgba(0,0,0,.35);
+  /* glass in flat colour: one even tint and one even hairline (the gradients only carry a single colour each) */
+  --lg-body: linear-gradient(rgba(255,255,255,.09), rgba(255,255,255,.09));
+  --lg-rim: linear-gradient(rgba(255,255,255,.16), rgba(255,255,255,.16));
+  --lg-depth: 0 8px 30px rgba(0,0,0,.3);
   --spring: cubic-bezier(.34, 1.4, .64, 1);
   --display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --body: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
@@ -27,9 +27,7 @@ body { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: 1fr;
 /* colour behind the glass: the iOS 27 wallpaper (when chosen) blurred deep and dimmed, else iOS 27's own wash */
 body::before { content: ""; position: fixed; inset: -80px; z-index: -1; pointer-events: none;
   background: var(--ambient, none) center / cover no-repeat,
-    radial-gradient(60vw 50vw at 85% 10%, rgba(155,92,255,.55), transparent 70%),
-    radial-gradient(55vw 45vw at 10% 90%, rgba(255,122,69,.38), transparent 70%),
-    radial-gradient(50vw 40vw at 40% 50%, rgba(27,10,61,.9), transparent 75%), #000;
+    #1d1440;
   filter: blur(70px) saturate(1.5) brightness(.42); transition: background .6s; }
 :focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 ::selection { background: rgba(255,255,255,.28); }
@@ -50,7 +48,7 @@ nav a svg { width: 19px; height: 19px; }
 nav a:hover { background: var(--glass); color: var(--text); }
 nav a:active { transform: scale(.97); }
 nav a { border: 1px solid transparent; }
-nav a.on { background: linear-gradient(135deg, rgba(255,255,255,.26), rgba(255,255,255,.1)) padding-box, var(--lg-rim) border-box; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }
+nav a.on { background: rgba(255,255,255,.16) padding-box, var(--lg-rim) border-box; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }
 /* with the WebGL liquid glass lens (glass.js): the lens is the selected page's glass, so the item itself is clear */
 nav { position: relative; }
 .nav-lens { position: absolute; left: 0; top: 0; border-radius: 999px; pointer-events: none; transform-origin: 50% 50%; will-change: transform; }
@@ -83,7 +81,7 @@ header p { margin: 0 0 28px; color: var(--dim); max-width: 68ch; line-height: 1.
   main { padding: 28px 22px 150px; } .task { left: 106px; right: 22px; } header h1 { font-size: 34px; } }
 
 /* the two lead cards, Do everything and the Boot card: a touch brighter glass, and compact */
-.auto, .hero { background: linear-gradient(160deg, rgba(255,255,255,.16), rgba(255,255,255,.05)) padding-box, var(--lg-rim) border-box; }
+.auto, .hero { background: rgba(255,255,255,.12) padding-box, var(--lg-rim) border-box; }
 .hero-pick { background: none; height: auto; padding: 0; border-radius: 20px; flex: none; }
 .hero-pick:hover .hero-art { filter: drop-shadow(0 10px 28px rgba(255,255,255,.12)); }
 .hero-art { width: 112px; height: 176px; flex: none; margin: -4px 4px -8px 0; animation: float-in 1s var(--spring) both .1s; }
@@ -98,7 +96,7 @@ img.hero-art { object-fit: contain; transform: none; animation: rise .6s var(--s
 .auto .btns { margin-top: 0; }
 .hero { display: flex; align-items: flex-end; justify-content: space-between; min-height: 160px; padding: 22px 26px; }
 .hero h2 { font: 700 56px/1 var(--display); margin: 14px 0 6px; letter-spacing: -2.4px;
-  background: linear-gradient(180deg, #fff, rgba(255,255,255,.55)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  color: #fff; }
 
 /* the cards' wallpapers: four small portrait tiles */
 .walls { display: grid; grid-template-columns: repeat(4, minmax(0, 120px)); gap: 14px; margin-top: 12px; }
@@ -107,7 +105,7 @@ img.hero-art { object-fit: contain; transform: none; animation: rise .6s var(--s
 .wall img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
 .wall.set img { opacity: 1; }
 .wall span { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 10px; font-size: 13px;
-  background: linear-gradient(transparent, rgba(0,0,0,.6)); }
+  background: rgba(0,0,0,.45); }
 .wall:hover:not(:disabled) { transform: translateY(-2px); }
 .rows { display: flex; flex-direction: column; }
 .row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
@@ -125,7 +123,7 @@ button { font: inherit; font-weight: 600; color: var(--text); border: 0; cursor:
 button:active:not(:disabled) { transform: scale(.96); }
 button:disabled { opacity: .35; cursor: default; }
 button.ghost { background: var(--lg-body) padding-box, var(--lg-rim) border-box; border: 1px solid transparent; box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
-button.ghost:hover:not(:disabled) { background: linear-gradient(135deg, rgba(255,255,255,.2), rgba(255,255,255,.09)) padding-box, var(--lg-rim) border-box; }
+button.ghost:hover:not(:disabled) { background: rgba(255,255,255,.16) padding-box, var(--lg-rim) border-box; }
 button.ghost.warn { color: var(--amber); }
 button.small { height: 34px; padding: 0 15px; font-size: 13px; }
 button.primary { background: #fff; color: #000; }
@@ -156,7 +154,7 @@ code { background: var(--glass-2); padding: 2px 7px; border-radius: 7px; font: 1
 
 /* the task bar: frosted glass floating over the bottom of the page */
 .task { position: fixed; left: 270px; right: 44px; bottom: 20px; z-index: 3; margin: 0; border-radius: 22px;
-  background: linear-gradient(135deg, rgba(60,60,64,.5), rgba(28,28,30,.45)) padding-box, var(--lg-rim) border-box; backdrop-filter: blur(30px) saturate(1.7);
+  background: rgba(36,36,40,.55) padding-box, var(--lg-rim) border-box; backdrop-filter: blur(30px) saturate(1.7);
   border: 1px solid transparent; box-shadow: var(--lg-depth);
   padding: 14px 20px 12px; transition: border-color .4s; }
 .task.running { box-shadow: var(--lg-depth), 0 0 0 1px rgba(255,255,255,.25); }
