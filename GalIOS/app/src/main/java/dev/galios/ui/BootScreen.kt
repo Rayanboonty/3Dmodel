@@ -10,14 +10,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.ListAlt
 import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.Icon
@@ -26,81 +29,105 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.galios.UiState
 
 @Composable
-fun BootScreen(s: UiState, onBoot: () -> Unit, onSetup: () -> Unit, onReturn: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Appear { Hero(s) }
-        Column {
-            if (s.status?.sessionOpen == true) {
-                GradientButton("Return to One UI", onReturn, icon = Icons.Rounded.Undo)
-            } else {
-                GradientButton("Boot iOS 27", onBoot, enabled = s.readyToBoot && s.busy == null, icon = Icons.Rounded.PowerSettingsNew)
-                s.bootBlocker?.let { blocker ->
+fun BootScreen(
+    s: UiState,
+    onBoot: () -> Unit,
+    onSetup: () -> Unit,
+    onReturn: () -> Unit,
+    onLogs: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Appear { Hero(s, onBoot, onReturn, onSetup, onLogs, onRefresh) }
+        s.bootBlocker?.takeIf { s.status?.sessionOpen != true }?.let { blocker ->
+            Appear(delayMillis = 60) {
+                Glass(padding = 18.dp, tint = Gal.Amber) {
+                    Text(blocker, style = Type.Body.copy(fontSize = 15.sp, lineHeight = 21.sp))
                     VSpace(12.dp)
-                    Text(blocker, style = Type.Caption, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
-                    VSpace(10.dp)
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { GlassButton("Open Setup", onSetup) }
+                    GlassButton("Open Setup", onSetup, icon = Icons.Rounded.Tune)
                 }
             }
         }
-        VSpace(12.dp)
-        Column {
-            SectionHeader("Status")
-            Appear { Readiness(s) }
-        }
-        VSpace(12.dp)
-        Column {
-            SectionHeader("Coming back")
-            Glass(padding = 16.dp) {
-                InfoRow(Icons.Rounded.VolumeUp, Gal.Graphite, "Volume Up + Volume Down", "Hold both for 3 seconds: One UI returns with your apps and data as you left them.")
+        VSpace(6.dp)
+        Appear(delayMillis = 90) {
+            Column {
+                SectionHeader("Status")
+                Readiness(s)
             }
-            s.status?.lastOutcome?.let { o ->
-                Text(
-                    when {
-                        o.startsWith("inplace") -> "The last session came back to One UI in place."
-                        o.startsWith("failsafe") -> "The last session ended with a safety restart. Start temporary root again."
-                        o.startsWith("reboot") -> "The last session ended with a restart. Start temporary root again."
-                        else -> o
-                    },
-                    style = Type.Caption, modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 8.dp),
-                )
+        }
+        VSpace(6.dp)
+        Appear(delayMillis = 140) {
+            Column {
+                SectionHeader("Coming back")
+                Glass(padding = 18.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(Gal.Graphite.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.VolumeUp, null, tint = Gal.Graphite, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text("Volume Up + Volume Down", style = Type.Body.copy(fontWeight = FontWeight.Medium))
+                            Text("Hold both for 3 seconds: One UI returns with your apps and data as you left them.", style = Type.Caption)
+                        }
+                    }
+                }
+                s.status?.lastOutcome?.let { o ->
+                    Text(
+                        when {
+                            o.startsWith("inplace") -> "The last session came back to One UI in place."
+                            o.startsWith("failsafe") -> "The last session ended with a safety restart. Start temporary root again."
+                            o.startsWith("reboot") -> "The last session ended with a restart. Start temporary root again."
+                            else -> o
+                        },
+                        style = Type.Caption, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp),
+                    )
+                }
             }
         }
     }
 }
 
-/** The state of the phone at a glance: what boots, from which image, and whether it can now. */
+/** The ink hero: the phone and the iOS on it, the state, three quick actions, and the one signal-yellow action. */
 @Composable
-private fun Hero(s: UiState) {
+private fun Hero(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onLogs: () -> Unit, onRefresh: () -> Unit) {
     val open = s.status?.sessionOpen == true
-    Glass(padding = 22.dp) {
+    NightCard(padding = 24.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("iOS 27", style = Type.Display.copy(fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-1.2).sp), modifier = Modifier.weight(1f))
+            Text(s.device.label, style = Type.Caption.copy(color = Gal.OnNightDim, fontWeight = FontWeight.Medium), modifier = Modifier.weight(1f))
             Pill(
                 when { open -> "Running"; s.readyToBoot -> "Ready"; else -> "Setup needed" },
-                when { open -> Gal.Blue; s.readyToBoot -> Gal.Mint; else -> Gal.Amber },
+                when { open -> Gal.Signal; s.readyToBoot -> Gal.Mint; else -> Gal.Amber },
+                onNight = true,
             )
         }
-        VSpace(6.dp)
+        VSpace(18.dp)
+        Text("iOS 27", style = Type.Display.copy(fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-2.2).sp, color = Gal.OnNight))
+        VSpace(4.dp)
         Text(
             s.status?.imageVersion?.let { "Version $it (${s.status.imageBuild}) · ${bytes(s.status.imageBytes)}" } ?: "No image on this phone yet",
-            style = Type.Body.copy(color = Gal.Dim),
+            style = Type.Body.copy(fontSize = 15.sp, color = Gal.OnNightDim),
         )
-        Text(s.device.chip, style = Type.Caption.copy(color = Gal.Faint))
+        VSpace(22.dp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            RoundAction(Icons.Rounded.Tune, "Setup", onSetup)
+            RoundAction(Icons.Rounded.ListAlt, "Logs", onLogs)
+            RoundAction(Icons.Rounded.Refresh, "Refresh", onRefresh, enabled = !s.refreshing)
+        }
+        VSpace(22.dp)
+        if (open) SignalButton("Return to One UI", onReturn, icon = Icons.Rounded.Undo)
+        else SignalButton("Boot iOS 27", onBoot, enabled = s.readyToBoot && s.busy == null, icon = Icons.Rounded.PowerSettingsNew)
     }
 }
 
 @Composable
 private fun Readiness(s: UiState) {
-    Glass(padding = 16.dp) {
+    Glass(padding = 18.dp) {
         val c = s.checks
         StatusRow(Icons.Rounded.Key, "Root", when {
             c == null -> "Checking…"
@@ -117,7 +144,7 @@ private fun Readiness(s: UiState) {
         RowDivider()
         StatusRow(Icons.Rounded.Inventory2, "OneiOS runtime", s.status?.runtimeVersion?.let { v ->
             v + (s.release?.takeIf { it.version != v }?.let { " · ${it.version} is out" } ?: "")
-        } ?: "Not added", if (s.status?.runtimeVersion != null) Mark.OK else Mark.WAIT, tile = Gal.Blue)
+        } ?: "Not added", if (s.status?.runtimeVersion != null) Mark.OK else Mark.WAIT, tile = Gal.Teal)
         RowDivider()
         StatusRow(Icons.Rounded.Layers, "iOS image", s.status?.imageVersion?.let { "iOS $it (${s.status.imageBuild})" } ?: "Not added",
             if (s.status?.imageVersion != null) Mark.OK else Mark.WAIT, tile = Gal.Purple)
@@ -126,21 +153,6 @@ private fun Readiness(s: UiState) {
             s.status == null -> "Runs once the engine is installed"
             s.status.ready -> "Passed"
             else -> s.status.notReadyReason ?: "Not passed"
-        }, when { s.status?.ready == true -> Mark.OK; s.status == null -> Mark.OFF; else -> Mark.WAIT }, tile = Gal.Teal)
-    }
-}
-
-/** A row that only informs: a tile, a title, a sentence. */
-@Composable
-private fun InfoRow(icon: ImageVector, tile: Color, title: String, text: String) {
-    Row(verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(tile), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Column {
-            Text(title, style = Type.Body.copy(fontWeight = FontWeight.Medium))
-            Text(text, style = Type.Caption)
-        }
+        }, when { s.status?.ready == true -> Mark.OK; s.status == null -> Mark.OFF; else -> Mark.WAIT }, tile = Gal.Amber)
     }
 }

@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.13"
+const version = "1.14"
 
 type App struct {
 	hub           *Hub

@@ -58,7 +58,7 @@ fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> 
         } else {
             Glass(padding = 0.dp) {
                 logs.forEachIndexed { i, l ->
-                    if (i > 0) Box(Modifier.padding(start = 16.dp)) { RowDivider(inset = 44.dp) }
+                    if (i > 0) Box(Modifier.padding(start = 18.dp)) { RowDivider(inset = 54.dp) }
                     LogRow(l, { onOpen(l) }, { onSave(l) })
                 }
             }
@@ -73,10 +73,10 @@ fun LogsScreen(logs: List<LogInfo>, onRefresh: () -> Unit, onOpen: (LogInfo) -> 
 /** One log in the list: a tile, its name and when, its last lines quietly below, Save and the way in at the end. */
 @Composable
 private fun LogRow(l: LogInfo, onOpen: () -> Unit, onSave: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 18.dp, vertical = 14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Gal.Graphite), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Description, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Box(Modifier.size(40.dp).clip(CircleShape).background(Gal.Graphite.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Description, null, tint = Gal.Graphite, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -88,7 +88,7 @@ private fun LogRow(l: LogInfo, onOpen: () -> Unit, onSave: () -> Unit) {
         }
         if (l.tail.isNotEmpty()) {
             VSpace(8.dp)
-            Column(Modifier.padding(start = 44.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Gal.Black).padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Column(Modifier.padding(start = 54.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Gal.Bone).padding(horizontal = 10.dp, vertical = 8.dp)) {
                 for (line in l.tail.takeLast(3)) Text(line, style = Type.Mono.copy(fontSize = 10.5.sp, color = Gal.Dim), maxLines = 1)
             }
         }

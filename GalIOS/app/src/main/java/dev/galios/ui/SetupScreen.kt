@@ -240,11 +240,11 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
     VSpace(12.dp)
     Column(
         Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-            .background(Gal.Raised).padding(16.dp),
+            .background(Gal.Bone).padding(18.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(30.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).background(Gal.Indigo), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Memory, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Box(Modifier.size(40.dp).clip(CircleShape).background(Gal.Indigo.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Memory, null, tint = Gal.Indigo, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(12.dp))
             Text("No PC? Build it on this phone", style = Type.Headline)
@@ -325,7 +325,7 @@ private fun PhoneBuildPanel(s: UiState, a: SetupActions) {
     }
     if (confirm) {
         androidx.compose.ui.window.Dialog({ confirm = false }) {
-            Column(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(30.dp)).background(Gal.Raised).padding(24.dp)) {
+            Column(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(32.dp)).background(Gal.Paper).padding(24.dp)) {
                 Text("Build on this phone?", style = Type.Title)
                 VSpace(10.dp)
                 for (t in listOf(
@@ -393,14 +393,14 @@ private fun Step(n: Int, title: String, text: String, done: Boolean, content: @C
     Glass(padding = 20.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(28.dp).clip(CircleShape).background(if (done) Gal.Mint else Gal.Raised),
+                Modifier.size(32.dp).clip(CircleShape).background(if (done) Gal.Mint else Gal.Night),
                 contentAlignment = Alignment.Center,
             ) {
-                if (done) Icon(Icons.Rounded.Check, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                else Text("$n", style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Gal.Dim))
+                if (done) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                else Text("$n", style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White))
             }
             Spacer(Modifier.width(12.dp))
-            Text(title, style = Type.Headline.copy(fontSize = 19.sp, lineHeight = 24.sp))
+            Text(title, style = Type.Title.copy(fontSize = 20.sp, lineHeight = 25.sp))
         }
         VSpace(8.dp)
         Text(text, style = Type.Caption.copy(fontSize = 14.sp, lineHeight = 20.sp))
@@ -423,8 +423,8 @@ private fun TuningRow(o: dev.galios.core.Tuning.Option, on: Boolean, enabled: Bo
             checked = on, onCheckedChange = onChange, enabled = enabled,
             colors = androidx.compose.material3.SwitchDefaults.colors(
                 checkedTrackColor = Gal.Mint, checkedThumbColor = Color.White, checkedBorderColor = Color.Transparent,
-                uncheckedTrackColor = Gal.Raised, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
-                disabledCheckedTrackColor = Gal.Mint.copy(alpha = 0.4f), disabledUncheckedTrackColor = Gal.Raised,
+                uncheckedTrackColor = Color(0xFFD9D3CA), uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
+                disabledCheckedTrackColor = Gal.Mint.copy(alpha = 0.4f), disabledUncheckedTrackColor = Gal.Line,
                 disabledCheckedThumbColor = Color.White.copy(alpha = 0.6f), disabledUncheckedThumbColor = Color.White.copy(alpha = 0.4f),
             ),
         )

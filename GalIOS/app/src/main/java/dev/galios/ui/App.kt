@@ -103,7 +103,7 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                     Crossfade(tab, animationSpec = tween(320), label = "tab") { t ->
                         Column {
                             when (t) {
-                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi)
+                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh)
                                 Tab.SETUP -> SetupScreen(s, a.setup)
                                 Tab.LOGS -> LogsScreen(s.logs, a.loadLogs, a.openLog, a.saveLog)
                             }
@@ -147,27 +147,32 @@ private fun Header(tab: Tab, s: UiState, onAbout: () -> Unit) {
     }
 }
 
-/** The tab bar: a quiet floating capsule; the selected tab is blue, with a faint plate behind it. */
+/** The tab bar: a floating ink capsule; a bone pill springs to the selected tab and carries its icon and name. */
 @Composable
 private fun NavBar(tab: Tab, onTab: (Tab) -> Unit) {
     val count = Tab.entries.size
-    val bar = 64.dp
-    Box(Modifier.fillMaxWidth().background(Gal.Black).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp)) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(bar).clip(RoundedCornerShape(32.dp)).background(Gal.Ink)) {
+    val bar = 66.dp
+    val shape = RoundedCornerShape(33.dp)
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 12.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(bar).softShadow(shape, 20.dp).clip(shape).background(Gal.Night)) {
             val slot = maxWidth / count
             val index = Tab.entries.indexOf(tab)
-            val offset by animateDpAsState(slot * index, tween(240), label = "ind")
-            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(6.dp).clip(RoundedCornerShape(26.dp)).background(Gal.Raised))
+            val offset by animateDpAsState(slot * index, androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 420f), label = "ind")
+            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(7.dp).clip(RoundedCornerShape(26.dp)).background(Gal.Bone))
             Row(Modifier.fillMaxWidth().height(bar)) {
                 for (t in Tab.entries) {
                     val on = t == tab
-                    Column(
-                        Modifier.width(slot).height(bar).clip(RoundedCornerShape(26.dp)).clickable { onTab(t) },
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    Row(
+                        Modifier.width(slot).height(bar).pressable(interaction).clip(RoundedCornerShape(26.dp))
+                            .clickable(interaction, null) { onTab(t) },
+                        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(t.icon, null, tint = if (on) Gal.Blue else Gal.Gray, modifier = Modifier.size(22.dp))
-                        Spacer(Modifier.height(2.dp))
-                        Text(t.title, style = Type.Caption.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = if (on) Gal.Blue else Gal.Gray))
+                        Icon(t.icon, t.title, tint = if (on) Gal.Night else Gal.OnNightDim, modifier = Modifier.size(21.dp))
+                        if (on) {
+                            Spacer(Modifier.width(7.dp))
+                            Text(t.title, style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Gal.Night))
+                        }
                     }
                 }
             }
@@ -180,7 +185,7 @@ private fun UpdateCard(version: String, onUpdate: () -> Unit, onDismiss: () -> U
     Appear {
         Glass(padding = 16.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Gal.Blue), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(Gal.Night), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.SystemUpdate, null, tint = Color.White, modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.width(14.dp))
@@ -216,7 +221,7 @@ private fun MessageCard(text: String, error: Boolean, onDismiss: () -> Unit) {
 fun BootConfirm(s: UiState, onCancel: () -> Unit, onBoot: () -> Unit) {
     var ack by remember { mutableStateOf(false) }
     Dialog(onCancel) {
-        Column(Modifier.clip(RoundedCornerShape(30.dp)).background(Gal.Raised).padding(24.dp)) {
+        Column(Modifier.clip(RoundedCornerShape(32.dp)).background(Gal.Paper).padding(24.dp)) {
             Text("Boot iOS 27?", style = Type.Title)
             VSpace(12.dp)
             Bullet("One UI stops in about 40 seconds. iOS's first screen comes about a minute and a half later; the first boot of a new image can take several minutes more.")
@@ -266,7 +271,7 @@ private fun Switching() {
 @Composable
 private fun About(onClose: () -> Unit) {
     Dialog(onClose) {
-        Column(Modifier.clip(RoundedCornerShape(30.dp)).background(Gal.Raised).padding(24.dp)) {
+        Column(Modifier.clip(RoundedCornerShape(32.dp)).background(Gal.Paper).padding(24.dp)) {
             Text("GalIOS", style = Type.Title)
             VSpace(10.dp)
             Text(
