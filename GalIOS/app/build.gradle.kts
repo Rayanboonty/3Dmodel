@@ -75,6 +75,16 @@ kotlin {
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }
 
+// A failing test shows its whole exception in the build log (CI has no other view of it).
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showCauses = true
+        showStackTraces = true
+    }
+}
+
 // The on-phone image build: the same scripts that run on a PC (tools/), bundled as assets/galios-build/.
 val galiosBuildAssets = layout.buildDirectory.dir("generated/galios-build-assets")
 val copyBuildScripts by tasks.registering(Copy::class) {
