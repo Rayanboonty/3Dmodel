@@ -1,13 +1,18 @@
-GalaxyIOS 1.30 and GalaxyIOS Studio 1.21
+GalaxyIOS 1.31 and GalaxyIOS Studio 1.22
 
-From your session log (15:11): iOS was slow for two reasons, both fixed in the newest runtime. Get it in Setup, step 3; Studio's Do everything gets it by itself.
+**Your wallpapers and your phone, built in.** The iOS 16, 18, 26 and 27 cards now show their own wallpapers, and the device card shows the Galaxy S25 Ultra's photo. They are always there; there is no setting.
 
-**The two fastest cores now run iOS.** Android had started the session where the two prime cores were off limits. iOS's two fastest processors were squeezed onto one small core for the whole session. The runtime now moves itself to where every core is allowed, so each of iOS's processors gets its own core.
+**Depth.** Each card's wallpaper sits deeper than the card. It moves less than the card when you swipe, and the other way when you tilt the phone, like iOS's perspective wallpapers. The big number floats above it with a soft shadow.
 
-**Maximum performance no longer makes iOS crawl.** It gave iOS a fixed 10 GB, but only 4.9 GB was free beside Android, so the phone swapped iOS's memory to storage. Now iOS gets what fits, and maximum performance only boosts every core while iOS animates.
+**The top of the app** shows the GalaxyIOS logo and name. **The phone's card** is the big one again: photo, name, state, and Setup, Logs and Refresh with their names.
 
-**iPhone screen features (from 1.29)** give iOS only the screen details: the Dynamic Island, the OLED panel, the corners and the always-on display. iOS keeps this phone's own graphics and touch.
+**Opening Setup.** Only the card's "Set up" button grows into the Setup page. The round Setup button and the tabs just switch, with a short fade. The tab bar's glass now keeps working while Setup opens.
 
-Also in 1.29: cards open smoothly from where they sit, black card buttons, no press glow, flat colours everywhere.
+**Smoother iOS (newest runtime, Setup, step 3):**
+- Triple buffering is on. Animations render one frame ahead, as the fastest iOS-on-Android project does; their window movement went from about 60 to about 118 frames a second. Setup, Tuning, "Triple buffering off" turns it off.
+- The diagnostic tracing that ran on the keyboard and five other processes in every session is off.
+- "Lighter iOS" (Setup, Tuning) now also stops photo and media analysis and analytics, which kept cores busy and the phone hot. Turning it off now really turns them back on.
+
+**Studio** shows the S25 Ultra's photo and the iOS 27 wallpaper by default.
 
 Both the app and Studio update themselves (the app with root, Studio when no task runs).
