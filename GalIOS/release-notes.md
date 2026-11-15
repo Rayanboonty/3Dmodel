@@ -1,15 +1,13 @@
-GalaxyIOS 1.29 and GalaxyIOS Studio 1.20
+GalaxyIOS 1.30 and GalaxyIOS Studio 1.21
 
-**iPhone screen features no longer make iOS lag or break touch.** The first version gave iOS the whole iPhone: its board name and its GPU feature sets too. iOS then chose the iPhone's heaviest drawing and the iPhone's own touch tables, on a phone that has neither, so it crawled and touch stopped. Now iOS gets only the screen details: the Dynamic Island, the OLED panel, the rounded corners and the always-on display. It keeps this phone's own graphics and touch. Get the newest runtime (Setup, step 3); it works from the next boot with the switch on.
+From your session log (15:11): iOS was slow for two reasons, both fixed in the newest runtime. Get it in Setup, step 3; Studio's Do everything gets it by itself.
 
-**Cards open smoothly.** Tap a card and it grows from exactly where it sits into its details, and shrinks back when you close them. The Setup button grows into the Setup page the same way. Each opening is one spring, frame by frame.
+**The two fastest cores now run iOS.** Android had started the session where the two prime cores were off limits. iOS's two fastest processors were squeezed onto one small core for the whole session. The runtime now moves itself to where every core is allowed, so each of iOS's processors gets its own core.
 
-**Cleaner cards.**
-- The buttons on the cards are plain black.
-- Nothing glows when you press and hold. Things just swell a little.
-- No wallpaper option: each card shows its wallpaper once Studio has sent it to the phone (Do everything sends it by itself).
-- The phone drawing is gone: your phone photo shows in its place once Studio sends it.
+**Maximum performance no longer makes iOS crawl.** It gave iOS a fixed 10 GB, but only 4.9 GB was free beside Android, so the phone swapped iOS's memory to storage. Now iOS gets what fits, and maximum performance only boosts every core while iOS animates.
 
-**Flat colours.** No gradients anywhere in the app or in Studio.
+**iPhone screen features (from 1.29)** give iOS only the screen details: the Dynamic Island, the OLED panel, the corners and the always-on display. iOS keeps this phone's own graphics and touch.
+
+Also in 1.29: cards open smoothly from where they sit, black card buttons, no press glow, flat colours everywhere.
 
 Both the app and Studio update themselves (the app with root, Studio when no task runs).

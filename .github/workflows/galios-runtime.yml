@@ -87,6 +87,8 @@ jobs:
           grep -q 'XH_RAM_SESSION_RESERVE (2ull << 30)' OneiOS/runtime/xnuhost/src/xnuhost.h
           grep -q 'l->soc\[0\] = 1070' OneiOS/runtime/bridges/thermal/thermal.c
           grep -q 'identity_screen_only' OneiOS/runtime/loader/src/machine.c
+          grep -q 'galios_widen_cpuset' OneiOS/runtime/xnuhost/src/main.c
+          ! grep -q 'ram_bytes = 10ull << 30' OneiOS/runtime/xnuhost/src/config.c
           grep -q 'BOTTOM_START 16400u' OneiOS/runtime/bridges/brightness/brightness.c
           strings "$d/bin/xnuhost" | grep -q 'GalIOS maximum performance'
           strings "$d/bin/xnuhost" | grep -q 'oneios-actuator=0'

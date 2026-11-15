@@ -1,0 +1,67 @@
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+index 686454b..e8f0b54 100644
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -399,13 +399,12 @@ int xh_config_finish(xh_config *c)
+     }
+   }
+   // GalIOS: Maximum performance, the owner's choice in GalIOS (Setup, "Maximum performance"): the file galios-max in
+-  // the stage, /data in the session. iOS gets 10 GiB whatever the host has free (the host may then swap iOS's RAM),
+-  // and drm2kgsl's animation boost takes every vCPU (GALIOS_BOOST_ALL), the prime cores' too.
++  // the stage, /data in the session: drm2kgsl's animation boost takes every vCPU (GALIOS_BOOST_ALL), the prime cores'
++  // too. The guest's RAM stays ram=auto (what fits beside Android without swapping): a fixed 10 GiB on a phone with
++  // 4.9 GiB to spare made the host swap iOS's RAM, and every page iOS touched there stalled it (GalIOS 0019).
+   if (access("/data/galios-max", F_OK) == 0) {
+-    if (!c->ram_given) { c->ram_bytes = 10ull << 30; c->ram_given = true; }
+     setenv("GALIOS_BOOST_ALL", "1", 1);
+-    fprintf(stderr, "xnuhost: GalIOS maximum performance: the guest gets %llu MiB, the animation boost every vCPU\n",
+-            (unsigned long long)(c->ram_bytes >> 20));
++    fprintf(stderr, "xnuhost: GalIOS maximum performance: the animation boost on every vCPU; the RAM as fits (ram=auto)\n");
+   }
+   // The guest's RAM: the command line's ram=, else the image set's, else auto.
+   if (!c->ram_given && from_image.ram_given) c->ram_bytes = from_image.ram_bytes;
+diff --git a/runtime/xnuhost/src/main.c b/runtime/xnuhost/src/main.c
+index a7e734d..557cf4b 100644
+--- a/runtime/xnuhost/src/main.c
++++ b/runtime/xnuhost/src/main.c
+@@ -303,6 +303,30 @@ static uint64_t affinity_of(int tid)
+   for (unsigned c = 0; c < 64 && c < CPU_SETSIZE; c++) if (CPU_ISSET(c, &have)) m |= 1ull << c;
+   return m;
+ }
++// GalIOS 0019: a vCPU refused its cores with EINVAL: they are outside the cpuset Android put this process in (the
++// shell that started the session was in a set without the prime cores), so both prime vCPUs ran on CPU 0 for the
++// whole session. Once, xnuhost moves itself to the root cpuset (every core) and the placement is tried again.
++static bool galios_widen_cpuset(void)
++{
++  static int tried;
++  if (tried) return false;
++  tried = 1;
++  char pid[16];
++  int n = snprintf(pid, sizeof pid, "%d", (int)getpid());
++  static const char *const sets[] = { "/dev/cpuset/cgroup.procs", "/dev/cpuset/top-app/cgroup.procs" };
++  int err = 0;
++  for (unsigned i = 0; i < sizeof sets / sizeof *sets; i++) {
++    int fd = open(sets[i], O_WRONLY | O_CLOEXEC);
++    if (fd < 0) { err = errno; continue; }
++    ssize_t w = write(fd, pid, (size_t)n);
++    err = errno;
++    close(fd);
++    if (w == n) { LOGI("cpu: xnuhost moved to the cpuset %s (every core), so each vCPU can have its own", sets[i]); return true; }
++  }
++  LOGE("cpu: xnuhost could not leave its cpuset (%s): the vCPUs stay where Android lets them", strerror(err));
++  return false;
++}
++
+ static void *place_watch(void *arg)
+ {
+   (void)arg;
+@@ -318,7 +342,8 @@ static void *place_watch(void *arg)
+       cpu_set_t set;
+       CPU_ZERO(&set);
+       for (unsigned c = 0; c < 64 && c < CPU_SETSIZE; c++) if (want >> c & 1) CPU_SET(c, &set);
+-      if (sched_setaffinity(tid, sizeof set, &set) == 0) {
++      if (sched_setaffinity(tid, sizeof set, &set) == 0 ||
++          (errno == EINVAL && galios_widen_cpuset() && sched_setaffinity(tid, sizeof set, &set) == 0)) {
+         LOGI("cpu: vCPU %u back on host CPUs 0x%llx (it was on 0x%llx)", i, (unsigned long long)want, (unsigned long long)got);
+         place_lost[i] = 0;
+         moved = true;

@@ -199,8 +199,8 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             )
         }
 
-        Step(6, "Performance", "Balanced (the default) sizes iOS's memory to what Android can spare and keeps the speed boost off the two hottest cores. Maximum performance gives iOS 10 GB and boosts every core while it animates: faster when the phone is cool, but Android may swap and the phone heats sooner. Needs runtime galios.14 or newer; takes effect at the next boot.", done = false) {
-            Check("Now", if (s.maxPerformance) "Maximum performance (10 GB, every core)" else "Balanced", true)
+        Step(6, "Performance", "Balanced (the default) sizes iOS's memory to what Android can spare and keeps the speed boost off the two hottest cores. Maximum performance boosts every core, the two fastest too, while iOS animates: smoother when the phone is cool, and it heats sooner. iOS's memory stays what fits beside Android (a fixed 10 GB made the phone swap and iOS crawl). Needs runtime galios.14 or newer; takes effect at the next boot.", done = false) {
+            Check("Now", if (s.maxPerformance) "Maximum performance (every core boosted)" else "Balanced", true)
             VSpace(10.dp)
             GlassButton(
                 if (s.maxPerformance) "Back to balanced" else "Maximum performance",

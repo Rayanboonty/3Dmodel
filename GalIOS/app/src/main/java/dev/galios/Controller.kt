@@ -619,8 +619,8 @@ class Controller(
         val r = stage.setMaxPerformance(on)
         if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not change the setting" })
         _state.update { it.copy(maxPerformance = on) }
-        if (on) "Maximum performance is on from the next boot: iOS gets 10 GB and every core is boosted while it animates. " +
-            "Watch the heat; turn it off here if iOS gets slower or dims."
+        if (on) "Maximum performance is on from the next boot: every core is boosted while iOS animates, and iOS's memory stays what fits beside Android. " +
+            "Watch the heat; turn it off here if iOS gets slower or dims. Needs the newest runtime (step 3)."
         else "Balanced from the next boot: iOS's memory fits beside Android's, and the two hottest cores are not boosted."
     }
 
