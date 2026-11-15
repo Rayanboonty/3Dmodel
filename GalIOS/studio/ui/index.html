@@ -123,9 +123,12 @@
         <span class="pill" id="readyPill">Not ready</span>
         <h2>iOS 27</h2>
         <p class="muted" id="bootLine">—</p>
+        <button class="link hero-clear hidden" id="heroClear" data-act="clear.hero">Use the drawing</button>
       </div>
       <!-- An original drawing of a slab phone from the back, in the spirit of a titanium Galaxy Ultra (no photo, no logo). -->
-      <svg class="hero-art" viewBox="0 0 150 236" aria-hidden="true">
+      <button class="hero-pick" data-act="pick.hero" title="Choose your own picture for this card" aria-label="Choose your own picture for this card">
+      <img class="hero-art hidden" id="heroImg" alt="Your picture">
+      <svg class="hero-art" id="heroArt" viewBox="0 0 150 236" aria-hidden="true">
         <defs>
           <linearGradient id="frame" x1="0" x2="1"><stop offset="0" stop-color="#9e9c98"/><stop offset=".5" stop-color="#dad8d4"/><stop offset="1" stop-color="#a5a39f"/></linearGradient>
           <linearGradient id="back" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1f0ee"/><stop offset=".45" stop-color="#dcdbd8"/><stop offset=".7" stop-color="#e9e8e5"/><stop offset="1" stop-color="#d3d2cf"/></linearGradient>
@@ -145,6 +148,7 @@
         <use href="#lens" x="100" y="70" transform="translate(100 70) scale(.62) translate(-100 -70)"/>
         <circle cx="100" cy="53" r="3.2" fill="#e8dfb8"/>
       </svg>
+      </button>
     </div>
     <div class="glass">
       <h3>Get it ready</h3>

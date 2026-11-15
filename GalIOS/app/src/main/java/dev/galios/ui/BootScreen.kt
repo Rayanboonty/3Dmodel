@@ -2,6 +2,7 @@ package dev.galios.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,9 +45,11 @@ fun BootScreen(
     onReturn: () -> Unit,
     onLogs: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onPickPicture: () -> Unit = {},
+    onClearPicture: () -> Unit = {},
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Appear { Hero(s, onBoot, onReturn, onSetup, onLogs, onRefresh) }
+        Appear { Hero(s, onBoot, onReturn, onSetup, onLogs, onRefresh, onPickPicture, onClearPicture) }
         s.bootBlocker?.takeIf { s.status?.sessionOpen != true }?.let { blocker ->
             Appear(delayMillis = 60) {
                 Glass(padding = 18.dp, tint = Gal.Amber) {
@@ -96,7 +100,7 @@ fun BootScreen(
 
 /** The ink hero: the phone and the iOS on it, the state, three quick actions, and the one signal-yellow action. */
 @Composable
-private fun Hero(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onLogs: () -> Unit, onRefresh: () -> Unit) {
+private fun Hero(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: () -> Unit, onLogs: () -> Unit, onRefresh: () -> Unit, onPickPicture: () -> Unit, onClearPicture: () -> Unit) {
     val open = s.status?.sessionOpen == true
     NightCard(padding = 24.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -118,7 +122,7 @@ private fun Hero(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, onSetup: 
                 )
                 s.status?.imageBytes?.let { Text(bytes(it), style = Type.Caption.copy(color = Gal.OnNightDim)) }
             }
-            PhoneArt(Modifier.width(104.dp).height(164.dp))
+            HeroPicture(s.heroPicture, onPickPicture, onClearPicture, Modifier.width(104.dp).height(164.dp))
         }
         VSpace(22.dp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -162,4 +166,36 @@ private fun Readiness(s: UiState) {
             else -> s.status.notReadyReason ?: "Not passed"
         }, when { s.status?.ready == true -> Mark.OK; s.status == null -> Mark.OFF; else -> Mark.WAIT }, tile = Gal.Amber)
     }
+}
+
+/**
+ * The picture beside "iOS 27": the owner's own, when they chose one on this phone (tap to choose another, press and hold
+ * to go back), else the drawing (tap to choose one). Decoded once per saved file, scaled down to the card's size.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun HeroPicture(picture: Pair<String, Long>?, onPick: () -> Unit, onClear: () -> Unit, modifier: Modifier) {
+    val bitmap = androidx.compose.runtime.remember(picture) { picture?.let { (path, _) -> decodeScaled(path, 720) } }
+    Box(
+        modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
+            .combinedClickable(onClick = onPick, onLongClick = { if (bitmap != null) onClear() }, onClickLabel = "Choose your picture"),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) {
+            androidx.compose.foundation.Image(bitmap, "Your picture", Modifier.matchParentSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+        } else {
+            PhoneArt(Modifier.matchParentSize())
+        }
+    }
+}
+
+/** A picture file decoded at about [maxSide] pixels on its longer side (no more memory than the card needs); null if it is not one. */
+private fun decodeScaled(path: String, maxSide: Int): androidx.compose.ui.graphics.ImageBitmap? {
+    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    android.graphics.BitmapFactory.decodeFile(path, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sample = 1
+    while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2
+    val bmp = android.graphics.BitmapFactory.decodeFile(path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+    return bmp.asImageBitmap()
 }

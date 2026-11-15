@@ -78,6 +78,8 @@ data class UiState(
     val identityFile: String? = null,
     /** The tuning switches' words in the stage (Tuning, runtime 0015). */
     val tuning: Set<String> = emptySet(),
+    /** The owner's own picture for the Boot card (its file in GalaxyIOS's private storage, and when it was saved); null: the drawing. */
+    val heroPicture: Pair<String, Long>? = null,
     val switching: Boolean = false,
     val refreshing: Boolean = false,
     /** A newer GalIOS release found on GitHub, when one exists and the user has not dismissed it. */
@@ -556,6 +558,35 @@ class Controller(
     }
 
     fun closeLog() = _state.update { it.copy(openLog = null, openLogId = null) }
+
+    // ---- The owner's picture on the Boot card --------------------------------------------------------------------
+    // A picture the owner chooses on this phone, copied into GalaxyIOS's private storage and shown on the Boot card in
+    // place of the drawing. It stays on this phone: nothing of it is in the app, its repository or its releases.
+
+    private fun heroFile() = File(context.filesDir, "hero-picture")
+
+    private fun heroState(): Pair<String, Long>? = heroFile().takeIf { it.isFile && it.length() > 0 }?.let { it.path to it.lastModified() }
+
+    fun loadHeroPicture() = _state.update { it.copy(heroPicture = heroState()) }
+
+    fun setHeroPicture(uri: android.net.Uri) = run("Saving your picture") {
+        val f = heroFile()
+        val tmp = File(f.path + ".tmp")
+        val input = context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("That picture could not be read.")
+        input.use { i -> tmp.outputStream().use { i.copyTo(it) } }
+        if (tmp.length() > 20L shl 20) { tmp.delete(); throw IllegalStateException("That picture is over 20 MB: choose a smaller one.") }
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(tmp.path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) { tmp.delete(); throw IllegalStateException("That file is not a picture (PNG, JPEG or WebP).") }
+        if (!tmp.renameTo(f)) { tmp.delete(); throw IllegalStateException("Could not save the picture.") }
+        _state.update { it.copy(heroPicture = heroState()) }
+        "Your picture is on the Boot card. Press and hold it to go back to the drawing."
+    }
+
+    fun clearHeroPicture() {
+        heroFile().delete()
+        _state.update { it.copy(heroPicture = null, message = Message("The Boot card shows the drawing again.", false)) }
+    }
 
     fun setMaxPerformance(on: Boolean) = run(if (on) "Turning maximum performance on" else "Turning maximum performance off") {
         val r = stage.setMaxPerformance(on)

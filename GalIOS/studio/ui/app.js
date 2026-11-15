@@ -113,6 +113,12 @@ function render() {
   const pill = $('#readyPill');
   pill.textContent = st.session ? 'iOS session open' : st.ready ? 'Ready to boot' : 'Not ready';
   pill.classList.toggle('ok', !!st.ready);
+  // The owner's own picture on the Boot card, when they chose one on this PC; else the drawing.
+  const hp = s.heroPicture || 0;
+  if (hp) { const src = '/api/hero?v=' + hp; if ($('#heroImg').getAttribute('src') !== src) $('#heroImg').setAttribute('src', src); }
+  $('#heroImg').classList.toggle('hidden', !hp);
+  $('#heroArt').classList.toggle('hidden', !!hp);
+  $('#heroClear').classList.toggle('hidden', !hp);
   $('#bootLine').textContent = ph.connected ? `${ph.label} · ${st.image ? 'iOS ' + st.image : 'no image yet'}` : 'Connect the phone';
 
   // Do everything: the checklist
@@ -162,7 +168,7 @@ function renderJob(j) {
   $('#taskBar').style.width = known ? j.progress * 100 + '%' : j.running ? '' : j.error ? '0' : j.result ? '100%' : '0';
   $('#stopBtn').disabled = !j.running;
   $$('[data-act]').forEach((b) => {
-    if (!['job.stop', 'quit', 'open.outdir', 'open.data', 'pc.refresh', 'phone.refresh', 'wsl.terminal', 'pc.restart'].includes(b.dataset.act)) b.disabled = !!j.running;
+    if (!['job.stop', 'quit', 'open.outdir', 'open.data', 'pc.refresh', 'phone.refresh', 'wsl.terminal', 'pc.restart', 'pick.hero', 'clear.hero'].includes(b.dataset.act)) b.disabled = !!j.running;
   });
 }
 

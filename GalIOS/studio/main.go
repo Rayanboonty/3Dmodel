@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.15"
+const version = "1.16"
 
 type App struct {
 	hub           *Hub
@@ -56,6 +56,7 @@ func main() {
 	mux.HandleFunc("/api/settings", app.handleSettings)
 	mux.HandleFunc("/api/events", app.handleEvents)
 	mux.HandleFunc("/api/log", app.handleLog)
+	mux.HandleFunc("/api/hero", handleHero)
 	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		app.lastPing.Store(time.Now().Unix())
 		w.WriteHeader(204)
@@ -201,7 +202,7 @@ func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"version": version, "settings": a.store.Get(), "pc": a.pc, "phone": a.phone, "job": a.hub.Job(),
 		"windows": runtime.GOOS == "windows", "dataDir": dataDir(), "restartNeeded": a.restartNeeded.Load(),
-		"imageName": imageName, "ipswName": ipswName, "studioUpdate": a.upd.get(),
+		"imageName": imageName, "ipswName": ipswName, "studioUpdate": a.upd.get(), "heroPicture": heroStamp(),
 	})
 }
 
@@ -339,6 +340,21 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		reply("Chosen and checked: "+filepath.Base(p), nil)
+	case "pick.hero":
+		home, _ := os.UserHomeDir()
+		p, err := pickPath("Choose a picture for the Boot card", false, "Pictures (*.png;*.jpg;*.jpeg;*.webp)", "*.png;*.jpg;*.jpeg;*.webp", filepath.Join(home, "Pictures"))
+		if err != nil || p == "" {
+			reply("", err)
+			return
+		}
+		if err := saveHero(p, heroPath()); err != nil {
+			reply("", err)
+			return
+		}
+		reply("Your picture is on the Boot card.", nil)
+	case "clear.hero":
+		os.Remove(heroPath())
+		reply("The Boot card shows the drawing again.", nil)
 	case "clear.ipsw":
 		s.IPSW = ""
 		reply("No .ipsw chosen: the build reads what it needs from Apple.", a.store.Set(s))

@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity() {
     private val pickRuntime = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { controller.importFile(StageClient.Kind.RUNTIME, it) } }
     private val pickImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { controller.importFile(StageClient.Kind.IMAGE, it) } }
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    // The owner's own picture for the Boot card, chosen on this phone (it stays on this phone).
+    private val pickPicture = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { controller.setHeroPicture(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,7 +66,10 @@ class MainActivity : ComponentActivity() {
             dismissMessage = { controller.dismissMessage() },
             update = { controller.installUpdate() },
             dismissUpdate = { controller.dismissUpdate() },
+            pickPicture = { pickPicture.launch(arrayOf("image/*")) },
+            clearPicture = { controller.clearHeroPicture() },
         )
+        controller.loadHeroPicture()
         setContent {
             val s by controller.state.collectAsStateWithLifecycle()
             GalIosApp(s, actions)

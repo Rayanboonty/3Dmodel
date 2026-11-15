@@ -69,7 +69,12 @@ header p { margin: 0 0 28px; color: var(--dim); max-width: 68ch; line-height: 1.
 
 /* the ink cards: Do everything and the Boot card */
 .auto, .hero { background: var(--night); color: var(--on-night); box-shadow: var(--shadow-night); border-color: transparent; backdrop-filter: none; }
+.hero-pick { background: none; height: auto; padding: 0; border-radius: 22px; flex: none; box-shadow: none; }
+.hero-pick:hover .hero-art { filter: drop-shadow(0 10px 24px rgba(244,213,65,.18)); }
 .hero-art { width: 150px; height: 236px; flex: none; margin: -6px 6px -10px 0; animation: float-in 1s var(--spring) both .1s; }
+img.hero-art { object-fit: contain; transform: none; animation: rise .6s var(--spring) both; margin: -6px 0 -10px 0; }
+.hero-clear { color: var(--on-night-dim); margin-top: 6px; }
+.hero-clear:hover { color: var(--on-night); }
 @keyframes float-in { from { opacity: .001; transform: translateY(22px) rotate(-2deg); } to { opacity: 1; transform: rotate(-7deg); } }
 .task { background: rgba(251,249,245,.78) !important; backdrop-filter: blur(24px) saturate(1.3); border: 1px solid rgba(255,255,255,.75); }
 .auto .muted, .hero .muted { color: var(--on-night-dim); }

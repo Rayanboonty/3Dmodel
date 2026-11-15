@@ -83,6 +83,9 @@ class AppActions(
     val saveLog: (LogInfo) -> Unit = {},
     /** Saves the log in the viewer to Downloads/GalIOS. */
     val saveOpenLog: () -> Unit = {},
+    /** Chooses the owner's own picture for the Boot card; [clearPicture] goes back to the drawing. */
+    val pickPicture: () -> Unit = {},
+    val clearPicture: () -> Unit = {},
 )
 
 @Composable
@@ -115,7 +118,7 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                     ) { t ->
                         Column {
                             when (t) {
-                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh)
+                                Tab.BOOT -> BootScreen(s, onBoot = { confirm = true }, onSetup = { tab = Tab.SETUP }, onReturn = a.returnToOneUi, onLogs = { tab = Tab.LOGS; a.loadLogs() }, onRefresh = a.setup.refresh, onPickPicture = a.pickPicture, onClearPicture = a.clearPicture)
                                 Tab.SETUP -> SetupScreen(s, a.setup)
                                 Tab.LOGS -> LogsScreen(s.logs, a.loadLogs, a.openLog, a.saveLog)
                             }
