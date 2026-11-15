@@ -1,0 +1,19 @@
+diff --git a/runtime/xnuhost/src/config.c b/runtime/xnuhost/src/config.c
+index e8f0b54..50e17bf 100644
+--- a/runtime/xnuhost/src/config.c
++++ b/runtime/xnuhost/src/config.c
+@@ -398,6 +398,14 @@ int xh_config_finish(xh_config *c)
+       strcpy(d->path, path);
+     }
+   }
++  // GalIOS 0020: the render server on its own GPU ring, as Droid-VM runs drm2kgsl on the Adreno 750
++  // (docs/references.md, "environment switches worth keeping": DRM2KGSL_PRIORITIES=3). With one ring, as a session
++  // log of 2026-11-15 showed ("1 priorities"), the UI's frames wait behind every app's GPU work. galios-gpu-one-ring
++  // in the stage keeps one ring; a value already in the environment wins.
++  if (access("/data/galios-gpu-one-ring", F_OK) != 0) {
++    if (setenv("DRM2KGSL_PRIORITIES", "3", 0) == 0)
++      fprintf(stderr, "xnuhost: GalIOS GPU: DRM2KGSL_PRIORITIES=%s (the render server on its own ring)\n", getenv("DRM2KGSL_PRIORITIES"));
++  }
+   // GalIOS: Maximum performance, the owner's choice in GalIOS (Setup, "Maximum performance"): the file galios-max in
+   // the stage, /data in the session: drm2kgsl's animation boost takes every vCPU (GALIOS_BOOST_ALL), the prime cores'
+   // too. The guest's RAM stays ram=auto (what fits beside Android without swapping): a fixed 10 GiB on a phone with
