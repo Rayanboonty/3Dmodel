@@ -199,7 +199,9 @@ func (a *App) autoAll(ctx context.Context, j *JobCtx, script []byte) (string, er
 		a.markImported(local)
 		j.Log("%s", msg)
 	}
+	head("iPhone screen features")
 	pushIdentity(ctx, j, s, serial)
+	identityOnAfterPush(ctx, j, s, serial)
 	head("Boot check")
 	st = stageStatus(ctx, s, serial)
 	if !st.Ready {

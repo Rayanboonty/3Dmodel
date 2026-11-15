@@ -14,8 +14,8 @@ android {
         // Build.SOC_MODEL is API 31; the Galaxy S25 Ultra ships with Android 15.
         minSdk = 31
         targetSdk = 35
-        versionCode = 25
-        versionName = "1.25"
+        versionCode = 26
+        versionName = "1.26"
         // The Galaxy S25 Ultra and S24 Ultra are arm64: leave out zstd's libraries for other CPUs.
         ndk { abiFilters += "arm64-v8a" }
     }
@@ -98,6 +98,8 @@ dependencies {
     // .tar.zst: zstd (the @aar carries the Android native libraries) and tar.
     implementation("com.github.luben:zstd-jni:1.5.7-4@aar")
     implementation("org.apache.commons:commons-compress:1.27.1")
+    // Real backdrop blur for the frosted tab bar (Chris Banes's Haze, Apache 2.0).
+    implementation("dev.chrisbanes.haze:haze:1.1.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")

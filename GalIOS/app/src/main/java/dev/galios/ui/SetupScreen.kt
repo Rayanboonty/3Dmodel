@@ -70,6 +70,7 @@ class SetupActions(
     val resetIosData: () -> Unit = {},
     val setMaxPerformance: (Boolean) -> Unit = {},
     val setIphoneIdentity: (Boolean) -> Unit = {},
+    val pickIpswForIdentity: () -> Unit = {},
     val setTuning: (dev.galios.core.Tuning.Option, Boolean) -> Unit = { _, _ -> },
 )
 
@@ -209,15 +210,26 @@ fun SetupScreen(s: UiState, a: SetupActions) {
             )
         }
 
-        Step(7, "iPhone screen features", "Tells iOS it has the iPhone's OLED panel, its Dynamic Island and its rounded corners, using the iPhone's own description read from your IPSW when the image was built. That is what iOS needs before it offers the always-on display and draws the Dynamic Island. It changes many things iOS knows about the screen at once, so it is a switch: turn it off if iOS gets worse. Needs runtime galios.16 or newer; takes effect at the next boot.", done = s.iphoneIdentity) {
+        Step(7, "iPhone screen features", "Tells iOS it has the iPhone's OLED panel, its Dynamic Island and its rounded corners, using the iPhone's own description read from your IPSW: choose the IPSW here (no PC needed), or let GalaxyIOS Studio's Do everything copy it. That is what iOS needs before it offers the always-on display and draws the Dynamic Island. It changes many things iOS knows about the screen at once, so it is a switch: turn it off if iOS gets worse. Needs runtime galios.16 or newer; takes effect at the next boot.", done = s.iphoneIdentity) {
             Check("Now", if (s.iphoneIdentity) "On: the iPhone's panel" else "Off: the plain panel", true)
-            Check("The iPhone's description", if (s.identityFile != null) "found on this phone" else "not on this phone yet: run Do everything in GalaxyIOS Studio", s.identityFile != null || s.iphoneIdentity)
+            Check("The iPhone's description", if (s.identityFile != null) "found on this phone" else "not on this phone yet: choose your IPSW below (no PC needed)", s.identityFile != null || s.iphoneIdentity)
             VSpace(10.dp)
+            val canChange = s.rootOk && s.busy == null && s.status?.sessionOpen != true
+            if (s.iphoneIdentity || s.identityFile != null) {
+                GlassButton(
+                    if (s.iphoneIdentity) "Turn off" else "Turn on",
+                    { a.setIphoneIdentity(!s.iphoneIdentity) },
+                    enabled = canChange,
+                    icon = Icons.Rounded.PhoneIphone,
+                )
+                VSpace(8.dp)
+            }
+            // No PC: read the iPhone's device tree straight out of the IPSW on this phone (iPhone18,2_27.0.1_24A446).
             GlassButton(
-                if (s.iphoneIdentity) "Turn off" else "Turn on",
-                { a.setIphoneIdentity(!s.iphoneIdentity) },
-                enabled = s.rootOk && s.busy == null && s.status?.sessionOpen != true && (s.iphoneIdentity || s.identityFile != null),
-                icon = Icons.Rounded.PhoneIphone,
+                if (s.identityFile == null) "Choose your IPSW" else "Read again from an IPSW",
+                { a.pickIpswForIdentity() },
+                enabled = canChange,
+                icon = Icons.Rounded.FolderOpen,
             )
         }
 
@@ -393,11 +405,11 @@ private fun Step(n: Int, title: String, text: String, done: Boolean, content: @C
     Glass(padding = 20.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(32.dp).clip(CircleShape).background(if (done) Gal.Mint else Gal.Night),
+                Modifier.size(32.dp).clip(CircleShape).background(if (done) Gal.Mint else Color.White),
                 contentAlignment = Alignment.Center,
             ) {
                 if (done) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                else Text("$n", style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White))
+                else Text("$n", style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Black))
             }
             Spacer(Modifier.width(12.dp))
             Text(title, style = Type.Title.copy(fontSize = 20.sp, lineHeight = 25.sp))
@@ -423,7 +435,7 @@ private fun TuningRow(o: dev.galios.core.Tuning.Option, on: Boolean, enabled: Bo
             checked = on, onCheckedChange = onChange, enabled = enabled,
             colors = androidx.compose.material3.SwitchDefaults.colors(
                 checkedTrackColor = Gal.Mint, checkedThumbColor = Color.White, checkedBorderColor = Color.Transparent,
-                uncheckedTrackColor = Color(0xFFD9D3CA), uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
+                uncheckedTrackColor = Gal.GlassStrong, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
                 disabledCheckedTrackColor = Gal.Mint.copy(alpha = 0.4f), disabledUncheckedTrackColor = Gal.Line,
                 disabledCheckedThumbColor = Color.White.copy(alpha = 0.6f), disabledUncheckedThumbColor = Color.White.copy(alpha = 0.4f),
             ),

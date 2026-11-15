@@ -26,11 +26,13 @@ class MainActivity : ComponentActivity() {
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     // The owner's own picture for the Boot card, chosen on this phone (it stays on this phone).
     private val pickPicture = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { controller.setHeroPicture(it) } }
+    // iPhone screen features without a PC: the owner's IPSW, read on this phone for the iPhone's device tree.
+    private val pickIpsw = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { controller.identityFromIpsw(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The bone canvas is light: dark status and navigation icons on transparent bars, whatever the system's theme.
-        val bars = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        // The canvas is black: light status and navigation icons on transparent bars, whatever the system's theme.
+        val bars = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         val actions = AppActions(
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
                 resetIosData = { controller.resetIosData() },
                 setMaxPerformance = { controller.setMaxPerformance(it) },
                 setIphoneIdentity = { controller.setIphoneIdentity(it) },
+                pickIpswForIdentity = { pickIpsw.launch(arrayOf("*/*")) },
                 setTuning = { o, on -> controller.setTuning(o, on) },
             ),
             boot = { controller.boot() },

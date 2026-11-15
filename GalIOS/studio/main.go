@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.16"
+const version = "1.17"
 
 type App struct {
 	hub           *Hub
@@ -472,6 +472,29 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			}
 			pushIdentity(ctx, j, s, serial)
 			return "The image is in the phone's Download folder: GalaxyIOS lists it under Found on this phone.", nil
+		})
+	case "phone.identity-on", "phone.identity-off":
+		on := req.Name == "phone.identity-on"
+		title := "Turn iPhone screen features off"
+		if on {
+			title = "Turn iPhone screen features on"
+		}
+		phone(title, func(ctx context.Context, j *JobCtx, serial string) (string, error) {
+			if on {
+				if !fileExists(joinOut(s.OutDir, identityName)) {
+					return "", fmt.Errorf("no %s beside the image: run Do everything (the image build makes it from your IPSW), or choose your IPSW in GalaxyIOS, Setup, step 7", identityName)
+				}
+				j.Step("Copying the iPhone's description to the phone")
+				pushIdentity(ctx, j, s, serial)
+			}
+			j.Step(title)
+			if err := setIdentity(ctx, s, serial, on); err != nil {
+				return "", err
+			}
+			if on {
+				return "iPhone screen features are on from the next boot: the iPhone's OLED panel, the always-on display and the Dynamic Island.", nil
+			}
+			return "iPhone screen features are off from the next boot: iOS gets the plain panel description again.", nil
 		})
 	case "phone.engine":
 		phone("Install the boot engine", func(ctx context.Context, j *JobCtx, serial string) (string, error) {

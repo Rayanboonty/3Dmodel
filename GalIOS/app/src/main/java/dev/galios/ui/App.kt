@@ -2,6 +2,11 @@ package dev.galios.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.togetherWith
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -97,9 +102,10 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
         Backdrop {
             // The page fills the screen and scrolls under the tab bar, which floats on top over a soft bone fade:
             // no hard edge where the content meets the bar. The bottom padding lets the last card clear the bar.
+            val haze = remember { HazeState() }
             Box(Modifier.fillMaxSize()) {
                 Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
+                    Modifier.fillMaxSize().haze(haze).verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
                         .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 118.dp),
                 ) {
                     Header(tab, s) { about = true }
@@ -125,11 +131,8 @@ fun GalIosApp(s: UiState, a: AppActions, startTab: Tab = Tab.BOOT, showConfirm: 
                         }
                     }
                 }
-                Box(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                        .background(Brush.verticalGradient(listOf(Gal.Bone.copy(alpha = 0f), Gal.Bone.copy(alpha = 0.92f), Gal.Bone))),
-                ) {
-                    Box(Modifier.padding(top = 26.dp)) { NavBar(tab) { t -> tab = t; if (t == Tab.LOGS) a.loadLogs() } }
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+                    NavBar(tab, haze) { t -> tab = t; if (t == Tab.LOGS) a.loadLogs() }
                 }
             }
             AnimatedVisibility(s.switching, enter = fadeIn(), exit = fadeOut()) { Switching() }
@@ -157,7 +160,7 @@ private fun Header(tab: Tab, s: UiState, onAbout: () -> Unit) {
         }
         Text(
             when (tab) {
-                Tab.BOOT -> s.device.label
+                Tab.BOOT -> "Swipe the cards to choose an iOS"
                 Tab.SETUP -> "Everything iOS needs on this phone"
                 Tab.LOGS -> "What each session wrote"
             },
@@ -167,31 +170,38 @@ private fun Header(tab: Tab, s: UiState, onAbout: () -> Unit) {
     }
 }
 
-/** The tab bar: a floating ink capsule; a bone pill springs to the selected tab and carries its icon and name. */
+/**
+ * The tab bar: a floating frosted capsule. What scrolls under it is really blurred (Haze), tinted dark so the icons read;
+ * a white pill springs to the selected tab and carries its icon and name in black.
+ */
 @Composable
-private fun NavBar(tab: Tab, onTab: (Tab) -> Unit) {
+private fun NavBar(tab: Tab, haze: HazeState, onTab: (Tab) -> Unit) {
     val count = Tab.entries.size
-    val bar = 66.dp
-    val shape = RoundedCornerShape(33.dp)
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 12.dp)) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(bar).softShadow(shape, 20.dp).clip(shape).background(Gal.Night)) {
+    val bar = 64.dp
+    val shape = RoundedCornerShape(32.dp)
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 26.dp, vertical = 12.dp)) {
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().height(bar).clip(shape)
+                .hazeChild(state = haze, style = HazeStyle(backgroundColor = Gal.Black, tints = listOf(HazeTint(Color(0x8C1A1A1C))), blurRadius = 26.dp, noiseFactor = 0.06f))
+                .border(1.dp, Brush.verticalGradient(listOf(Color(0x40FFFFFF), Color(0x14FFFFFF))), shape),
+        ) {
             val slot = maxWidth / count
             val index = Tab.entries.indexOf(tab)
             val offset by animateDpAsState(slot * index, androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 420f), label = "ind")
-            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(7.dp).clip(RoundedCornerShape(26.dp)).background(Gal.Bone))
+            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(7.dp).clip(RoundedCornerShape(25.dp)).background(Color.White))
             Row(Modifier.fillMaxWidth().height(bar)) {
                 for (t in Tab.entries) {
                     val on = t == tab
                     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     Row(
-                        Modifier.width(slot).height(bar).pressable(interaction).clip(RoundedCornerShape(26.dp))
+                        Modifier.width(slot).height(bar).pressable(interaction).clip(RoundedCornerShape(25.dp))
                             .clickable(interaction, null) { onTab(t) },
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(t.icon, t.title, tint = if (on) Gal.Night else Gal.OnNightDim, modifier = Modifier.size(21.dp))
+                        Icon(t.icon, t.title, tint = if (on) Color.Black else Gal.Dim, modifier = Modifier.size(21.dp))
                         if (on) {
                             Spacer(Modifier.width(7.dp))
-                            Text(t.title, style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Gal.Night))
+                            Text(t.title, style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.Black))
                         }
                     }
                 }
@@ -205,8 +215,8 @@ private fun UpdateCard(version: String, onUpdate: () -> Unit, onDismiss: () -> U
     Appear {
         Glass(padding = 16.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(40.dp).clip(CircleShape).background(Gal.Night), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.SystemUpdate, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.SystemUpdate, null, tint = Color.Black, modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {

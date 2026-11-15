@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The bone canvas (ui/Theme.kt Gal.Bone), behind the app while it starts. -->
-    <color name="galios_bone">#FFEEEBE5</color>
+    <!-- The canvas (ui/Theme.kt Gal.Black), behind the app while it starts: true black. -->
+    <color name="galios_bone">#FF000000</color>
 </resources>

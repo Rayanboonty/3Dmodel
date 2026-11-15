@@ -39,7 +39,56 @@ func pushIdentity(ctx context.Context, j *JobCtx, s Settings, serial string) {
 		j.Log("could not copy %s to the phone: %v", identityName, err)
 		return
 	}
-	j.Log("%s is in the phone's Download folder: turn on iPhone screen features in GalaxyIOS (Setup)", identityName)
+	j.Log("%s is in the phone's Download folder", identityName)
+}
+
+// identityInStage is where the runtime (GalIOS's 0013) reads the iPhone identity from.
+const identityInStage = stageDir + "/galios-identity.adt"
+
+// identityScript turns iPhone screen features on (copies the pushed identity into the stage after a size check: a
+// device tree is tens to hundreds of KiB) or off (removes it). The same rules as the app's StageClient.setIphoneIdentity.
+func identityScript(on bool) string {
+	if !on {
+		return "rm -f " + shq(identityInStage) + " && echo '@@OK off'"
+	}
+	src := shq("/sdcard/Download/" + identityName)
+	dst := shq(identityInStage)
+	return fmt.Sprintf(`[ -d %[1]s ] || { echo '@@FAILED OneiOS is not set up on this phone'; exit 4; }
+[ -s %[2]s ] || { echo '@@FAILED %[4]s is not on the phone'; exit 4; }
+n=$(wc -c < %[2]s | tr -d ' ')
+[ "$n" -ge 16384 ] && [ "$n" -le 16777216 ] || { echo "@@FAILED that file is not an iPhone device tree ($n bytes)"; exit 4; }
+cp %[2]s %[3]s.tmp && chmod 0600 %[3]s.tmp && mv -f %[3]s.tmp %[3]s && echo '@@OK on'`, shq(stageDir), src, dst, identityName)
+}
+
+// setIdentity runs identityScript as root and says what happened.
+func setIdentity(ctx context.Context, s Settings, serial string, on bool) error {
+	lines, code, err := rootRun(ctx, s, serial, identityScript(on))
+	if err != nil {
+		return err
+	}
+	for i := len(lines) - 1; i >= 0; i-- {
+		l := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(l, "@@OK") {
+			return nil
+		}
+		if strings.HasPrefix(l, "@@FAILED ") {
+			return fmt.Errorf("%s", strings.TrimPrefix(l, "@@FAILED "))
+		}
+	}
+	return fmt.Errorf("no answer from root (exit %d)", code)
+}
+
+// identityOnAfterPush is Do everything's last image step: iPhone screen features turned on with the identity just
+// pushed (always-on display, Dynamic Island). Quietly skipped when the build made no identity.
+func identityOnAfterPush(ctx context.Context, j *JobCtx, s Settings, serial string) {
+	if !fileExists(joinOut(s.OutDir, identityName)) {
+		return
+	}
+	if err := setIdentity(ctx, s, serial, true); err != nil {
+		j.Log("iPhone screen features could not be turned on: %v (turn them on in GalaxyIOS, Setup, step 7)", err)
+		return
+	}
+	j.Log("iPhone screen features are on from the next boot (the iPhone's OLED panel, always-on display, Dynamic Island). Turn them off in Studio or in GalaxyIOS, Setup, step 7, if iOS behaves worse.")
 }
 
 func wslExe() string {

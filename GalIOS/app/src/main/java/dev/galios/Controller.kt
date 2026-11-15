@@ -171,7 +171,7 @@ class Controller(
         if (build?.state == PhoneBuild.Status.State.RUNNING) watchPhoneBuild()
         if (checks.root) autoSaveSessionLog(status)
         if (checks.root) runCatching { stage.maxPerformance() }.onSuccess { on -> _state.update { it.copy(maxPerformance = on) } }
-        if (checks.root) runCatching { stage.iphoneIdentity() to stage.findIdentityFile() }
+        if (checks.root) runCatching { stage.iphoneIdentity() to stage.findIdentityFile(identityFolders()) }
             .onSuccess { (on, file) -> _state.update { it.copy(iphoneIdentity = on, identityFile = file) } }
         if (checks.root) runCatching { stage.tuning() }.onSuccess { t -> _state.update { it.copy(tuning = t) } }
         // A new runtime is published often: look again on every refresh (opening the app, coming back to it), at most
@@ -606,10 +606,32 @@ class Controller(
         "${option.title} is ${if (on) "on" else "off"} from the next boot. Needs runtime galios.19 or newer."
     }
 
+    /** Where the identity read on this phone (from an IPSW, [identityFromIpsw]) is kept: the app's own storage. */
+    private fun ownIdentity() = File(context.filesDir, StageClient.IDENTITY_FILE)
+
+    private fun identityFolders() = StageClient.IDENTITY_FOLDERS + context.filesDir.path
+
+    /**
+     * iPhone screen features without a PC: reads the iPhone18,2 device tree out of the owner's IPSW, chosen on this
+     * phone, keeps it in the app's storage and turns the switch on. The IPSW is only read; nothing of it leaves the phone.
+     */
+    fun identityFromIpsw(uri: android.net.Uri) = run("Reading the iPhone's description from your IPSW") {
+        val adt = context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+            dev.galios.core.IdentityFromIpsw.extract("/proc/self/fd/${pfd.fd}")
+        } ?: throw IllegalStateException("That file could not be opened.")
+        if (adt.size < StageClient.IDENTITY_MIN_BYTES) throw IllegalStateException("The device tree in that IPSW is only ${adt.size} bytes: it is not the iPhone's.")
+        dev.galios.core.IdentityFromIpsw.save(adt, ownIdentity())
+        val r = stage.setIphoneIdentity(true, ownIdentity().path)
+        if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not turn iPhone screen features on" })
+        _state.update { it.copy(iphoneIdentity = true, identityFile = ownIdentity().path) }
+        "Read the iPhone's description (${adt.size / 1024} KB) from your IPSW. iPhone screen features are on from the next boot. " +
+            "Needs runtime galios.16 or newer. If iOS behaves worse, turn this off in Setup."
+    }
+
     /** iPhone screen features: the iPhone's identity (from the owner's IPSW, via the image build) into the stage, or out. */
     fun setIphoneIdentity(on: Boolean) = run(if (on) "Turning iPhone screen features on" else "Turning iPhone screen features off") {
-        val source = if (on) stage.findIdentityFile()
-            ?: throw IllegalStateException("${StageClient.IDENTITY_FILE} is not on this phone yet. Run Do everything in GalaxyIOS Studio 1.10 or newer (it builds and copies it), or copy it from your PC's Downloads to the phone's Download folder.")
+        val source = if (on) stage.findIdentityFile(identityFolders())
+            ?: throw IllegalStateException("The iPhone's description is not on this phone yet. Choose your IPSW (Setup, step 7), or run Do everything in GalaxyIOS Studio.")
         else null
         val r = stage.setIphoneIdentity(on, source)
         if (!r.ok) throw IllegalStateException(r.message.ifBlank { "could not change the setting" })
