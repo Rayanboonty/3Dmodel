@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -144,17 +145,41 @@ fun Backdrop(modifier: Modifier = Modifier, @Suppress("UNUSED_PARAMETER") drift:
     Box(modifier.fillMaxSize().background(Gal.Black), content = content)
 }
 
-/** A frosted glass panel over the black: a faint white fill, a hairline brighter at the top, deep rounding. */
+/**
+ * Liquid glass: a clear body that is lighter where light enters (top left) and fades through, a sheen across its upper
+ * part, a dark inner shade at the bottom where the glass is thickest, and a specular rim: bright at the top-left edge,
+ * almost gone along the sides, a softer catch-light at the bottom right. [strength] scales it (1 for panels, more for
+ * small controls, which sit closer to the light).
+ */
+fun Modifier.liquidGlass(shape: Shape, strength: Float = 1f): Modifier = this
+    .clip(shape)
+    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.13f * strength), Color.White.copy(alpha = 0.05f * strength), Color.White.copy(alpha = 0.08f * strength))))
+    .drawBehind {
+        // the sheen: a soft band of light over the upper part
+        drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f * strength), Color.Transparent), startY = 0f, endY = size.height * 0.45f))
+        // the thick bottom of the glass: a little darker
+        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.18f)), startY = size.height * 0.6f, endY = size.height))
+    }
+    .border(
+        1.dp,
+        Brush.linearGradient(
+            0f to Color.White.copy(alpha = (0.55f * strength).coerceAtMost(0.8f)),
+            0.35f to Color.White.copy(alpha = 0.06f),
+            0.7f to Color.White.copy(alpha = 0.04f),
+            1f to Color.White.copy(alpha = (0.30f * strength).coerceAtMost(0.6f)),
+        ),
+        shape,
+    )
+
+/** A liquid glass panel over the black, deeply rounded. */
 @Composable
 fun Glass(modifier: Modifier = Modifier, radius: Dp = 26.dp, padding: Dp = 18.dp, tint: Color? = null, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(radius)
     Column(
         modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(Gal.Glass)
+            .liquidGlass(shape)
             .then(if (tint != null) Modifier.background(tint.copy(alpha = 0.10f)) else Modifier)
-            .border(1.dp, Brush.verticalGradient(listOf(Color(0x33FFFFFF), Color(0x0FFFFFFF))), shape)
             .padding(padding),
         content = content,
     )
@@ -221,7 +246,7 @@ fun GlassButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
     val fg = if (enabled) Gal.Text else Gal.Faint
     Row(
         modifier
-            .height(42.dp).pressable(interaction, enabled).clip(RoundedCornerShape(21.dp)).background(Gal.GlassStrong)
+            .height(42.dp).pressable(interaction, enabled).liquidGlass(RoundedCornerShape(21.dp), 1.4f)
             .clickable(interaction, null, enabled = enabled, onClick = onClick).padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -236,7 +261,7 @@ fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit, enabled: 
     val interaction = remember { MutableInteractionSource() }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
-            Modifier.size(size).pressable(interaction, enabled).clip(CircleShape).background(Gal.GlassStrong)
+            Modifier.size(size).pressable(interaction, enabled).liquidGlass(CircleShape, 1.4f)
                 .clickable(interaction, null, enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) { Icon(icon, label, tint = if (enabled) Gal.Text else Gal.Faint, modifier = Modifier.size(size * 0.42f)) }

@@ -152,7 +152,8 @@ class Controller(
     @Volatile private var cancelImport = false
 
     fun refresh() = scope.launch {
-        _state.update { it.copy(refreshing = true) }
+        // The Boot-card picture can also arrive from GalaxyIOS Studio (sent over USB): pick it up on every refresh.
+        _state.update { it.copy(refreshing = true, heroPicture = heroState()) }
         val engine = findEngine()
         val checks = PhoneChecks.run(shell)
         val status = if (checks.root) stage.status().takeIf { it.error == null } else null

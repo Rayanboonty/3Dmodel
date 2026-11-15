@@ -4,7 +4,9 @@ package main
 // place of the drawing. It stays on this PC: nothing of it is in Studio, its repository or its releases.
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"io"
 	"net/http"
 	"os"
@@ -72,6 +74,50 @@ func saveHero(src, dest string) error {
 		return err
 	}
 	return os.Rename(tmp, dest)
+}
+
+// The GalaxyIOS app keeps its Boot-card picture in its own storage under this name (Controller.heroFile).
+const (
+	phoneAppDir   = "/data/data/dev.galios"
+	phoneHeroTemp = "/data/local/tmp/galios-hero.tmp"
+)
+
+// heroToPhoneScript (run as root) puts the picture pushed to phoneHeroTemp in the GalaxyIOS app's storage, owned by
+// the app and with its storage's SELinux label, so the app shows it on its Boot card the next time it refreshes.
+func heroToPhoneScript() string {
+	return fmt.Sprintf(`app=%[1]s; src=%[2]s; dst=$app/files/hero-picture
+[ -d "$app" ] || { rm -f "$src"; echo '@@FAILED GalaxyIOS is not installed on the phone'; exit 4; }
+[ -s "$src" ] || { echo '@@FAILED the picture did not reach the phone'; exit 4; }
+u=$(stat -c %%u "$app"); label=$(ls -Zd "$app" | awk '{print $1}')
+mkdir -p "$app/files" && chown "$u:$u" "$app/files" && chmod 0771 "$app/files"
+cp "$src" "$dst.tmp" && chown "$u:$u" "$dst.tmp" && chmod 0600 "$dst.tmp" || { rm -f "$src" "$dst.tmp"; echo '@@FAILED could not copy the picture'; exit 4; }
+[ -n "$label" ] && { chcon "$label" "$app/files" 2>/dev/null; chcon "$label" "$dst.tmp" 2>/dev/null; }
+mv -f "$dst.tmp" "$dst"; rm -f "$src"
+echo '@@OK picture'`, phoneAppDir, phoneHeroTemp)
+}
+
+// pushHeroToPhone sends the Boot-card picture chosen in Studio to the GalaxyIOS app on the phone (needs root).
+func pushHeroToPhone(ctx context.Context, j *JobCtx, s Settings, serial string) error {
+	if heroStamp() == 0 {
+		return fmt.Errorf("no picture chosen in Studio yet: click the phone on Studio's Boot card first")
+	}
+	if err := pushFile(ctx, j, s, serial, heroPath(), phoneHeroTemp); err != nil {
+		return err
+	}
+	lines, code, err := rootRun(ctx, s, serial, heroToPhoneScript())
+	if err != nil {
+		return err
+	}
+	for i := len(lines) - 1; i >= 0; i-- {
+		l := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(l, "@@OK") {
+			return nil
+		}
+		if strings.HasPrefix(l, "@@FAILED ") {
+			return fmt.Errorf("%s", strings.TrimPrefix(l, "@@FAILED "))
+		}
+	}
+	return fmt.Errorf("no answer from root (exit %d)", code)
 }
 
 func handleHero(w http.ResponseWriter, r *http.Request) {

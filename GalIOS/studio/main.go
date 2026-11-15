@@ -29,7 +29,7 @@ var uiFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
-const version = "1.17"
+const version = "1.18"
 
 type App struct {
 	hub           *Hub
@@ -472,6 +472,14 @@ func (a *App) handleAction(w http.ResponseWriter, r *http.Request) {
 			}
 			pushIdentity(ctx, j, s, serial)
 			return "The image is in the phone's Download folder: GalaxyIOS lists it under Found on this phone.", nil
+		})
+	case "phone.push-hero":
+		phone("Send your picture to the phone", func(ctx context.Context, j *JobCtx, serial string) (string, error) {
+			j.Step("Copying your picture to GalaxyIOS on the phone")
+			if err := pushHeroToPhone(ctx, j, s, serial); err != nil {
+				return "", err
+			}
+			return "Your picture is on GalaxyIOS's Boot card: open GalaxyIOS on the phone (or pull down to refresh) to see it.", nil
 		})
 	case "phone.identity-on", "phone.identity-off":
 		on := req.Name == "phone.identity-on"

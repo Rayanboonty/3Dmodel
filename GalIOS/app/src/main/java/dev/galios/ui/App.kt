@@ -182,13 +182,15 @@ private fun NavBar(tab: Tab, haze: HazeState, onTab: (Tab) -> Unit) {
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 26.dp, vertical = 12.dp)) {
         BoxWithConstraints(
             Modifier.fillMaxWidth().height(bar).clip(shape)
-                .hazeChild(state = haze, style = HazeStyle(backgroundColor = Gal.Black, tints = listOf(HazeTint(Color(0x8C1A1A1C))), blurRadius = 26.dp, noiseFactor = 0.06f))
-                .border(1.dp, Brush.verticalGradient(listOf(Color(0x40FFFFFF), Color(0x14FFFFFF))), shape),
+                // Liquid glass: the page blurred through a light tint, then the glass's sheen and specular rim on top.
+                .hazeChild(state = haze, style = HazeStyle(backgroundColor = Gal.Black, tints = listOf(HazeTint(Color(0x4D2C2C2E))), blurRadius = 22.dp, noiseFactor = 0.03f))
+                .liquidGlass(shape, 1.2f),
         ) {
             val slot = maxWidth / count
             val index = Tab.entries.indexOf(tab)
             val offset by animateDpAsState(slot * index, androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 420f), label = "ind")
-            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(7.dp).clip(RoundedCornerShape(25.dp)).background(Color.White))
+            // the selected tab: a brighter glass lens that slides between tabs
+            Box(Modifier.offset(x = offset).width(slot).height(bar).padding(6.dp).liquidGlass(RoundedCornerShape(26.dp), 2.2f))
             Row(Modifier.fillMaxWidth().height(bar)) {
                 for (t in Tab.entries) {
                     val on = t == tab
@@ -198,10 +200,10 @@ private fun NavBar(tab: Tab, haze: HazeState, onTab: (Tab) -> Unit) {
                             .clickable(interaction, null) { onTab(t) },
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(t.icon, t.title, tint = if (on) Color.Black else Gal.Dim, modifier = Modifier.size(21.dp))
+                        Icon(t.icon, t.title, tint = if (on) Color.White else Gal.Dim, modifier = Modifier.size(21.dp))
                         if (on) {
                             Spacer(Modifier.width(7.dp))
-                            Text(t.title, style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.Black))
+                            Text(t.title, style = Type.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White))
                         }
                     }
                 }

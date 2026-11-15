@@ -56,19 +56,16 @@ import dev.galios.UiState
 import kotlin.math.absoluteValue
 
 /**
- * An iOS version as a card. Only the one OneiOS boots (27.0.1) can be booted here; the others are shown for what they
- * are: not available on this phone, with the reason. Each card's colours and art are GalaxyIOS's own.
+ * An iOS version as a card. Only the one OneiOS boots (27.0.1) can be booted here; the others say "Coming soon" and
+ * "Not available on this phone", nothing more. Each card's colours and art are GalaxyIOS's own.
  */
-private data class IosVersion(val number: String, val bootable: Boolean, val top: Color, val bottom: Color, val bandA: Color, val bandB: Color, val why: String)
+private data class IosVersion(val number: String, val bootable: Boolean, val top: Color, val bottom: Color, val bandA: Color, val bandB: Color)
 
 private val versions = listOf(
-    IosVersion("16", false, Color(0xFF06123A), Color(0xFF030616), Color(0xFF3B5BFF), Color(0xFF6FE3FF),
-        "OneiOS boots iOS 27.0.1 only. iOS 16 is a different kernel and a different chip generation: no port exists for this phone."),
-    IosVersion("18", false, Color(0xFF2A0716), Color(0xFF0D0208), Color(0xFFFF5A3C), Color(0xFFFF2E93),
-        "OneiOS boots iOS 27.0.1 only. iOS 18 would need its own kernel, patches and drivers for this phone: none exists."),
-    IosVersion("26", false, Color(0xFF032A2A), Color(0xFF010C0E), Color(0xFF19C9B6), Color(0xFFB8F5E8),
-        "OneiOS boots iOS 27.0.1 only. iOS 26 would need its own kernel, patches and drivers for this phone: none exists."),
-    IosVersion("27", true, Color(0xFF1B0A3D), Color(0xFF070312), Color(0xFFFF7A45), Color(0xFF9B5CFF), ""),
+    IosVersion("16", false, Color(0xFF06123A), Color(0xFF030616), Color(0xFF3B5BFF), Color(0xFF6FE3FF)),
+    IosVersion("18", false, Color(0xFF2A0716), Color(0xFF0D0208), Color(0xFFFF5A3C), Color(0xFFFF2E93)),
+    IosVersion("26", false, Color(0xFF032A2A), Color(0xFF010C0E), Color(0xFF19C9B6), Color(0xFFB8F5E8)),
+    IosVersion("27", true, Color(0xFF1B0A3D), Color(0xFF070312), Color(0xFFFF7A45), Color(0xFF9B5CFF)),
 )
 
 @Composable
@@ -195,7 +192,7 @@ private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn:
         Column(Modifier.fillMaxSize().padding(20.dp)) {
             Pill(
                 when {
-                    !v.bootable -> "Not available on this phone"
+                    !v.bootable -> "Coming soon"
                     open -> "Running now"
                     s.readyToBoot -> "Optimized for S25 Ultra"
                     else -> "Not set up yet"
@@ -213,15 +210,15 @@ private fun VersionCard(v: IosVersion, s: UiState, onBoot: () -> Unit, onReturn:
             Text("iOS ${v.number}", style = Type.Title.copy(fontSize = 24.sp))
             Text(
                 if (v.bootable) s.status?.imageVersion?.let { "Version $it (${s.status.imageBuild})" } ?: "Build or import its image in Setup"
-                else v.why,
-                style = Type.Caption.copy(color = Color(0xCCFFFFFF)), maxLines = 3,
+                else "Not available on this phone",
+                style = Type.Caption.copy(color = Color(0xCCFFFFFF)), maxLines = 2,
             )
             Spacer(Modifier.weight(0.5f))
             when {
                 v.bootable && open -> GradientButton("Return to One UI", onReturn, icon = Icons.Rounded.Undo)
                 v.bootable && s.readyToBoot -> GradientButton("Boot iOS ${v.number}", onBoot, enabled = s.busy == null, icon = Icons.Rounded.PowerSettingsNew)
                 v.bootable -> GradientButton("Set up", onSetup, icon = Icons.Rounded.Tune)
-                else -> GradientButton("Not available", {}, enabled = false)
+                else -> Spacer(Modifier.height(52.dp))
             }
         }
     }

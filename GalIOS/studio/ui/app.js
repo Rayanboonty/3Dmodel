@@ -119,6 +119,7 @@ function render() {
   $('#heroImg').classList.toggle('hidden', !hp);
   $('#heroArt').classList.toggle('hidden', !!hp);
   $('#heroClear').classList.toggle('hidden', !hp);
+  $('#heroSend').classList.toggle('hidden', !hp);
   $('#bootLine').textContent = ph.connected ? `${ph.label} · ${st.image ? 'iOS ' + st.image : 'no image yet'}` : 'Connect the phone';
 
   // Do everything: the checklist

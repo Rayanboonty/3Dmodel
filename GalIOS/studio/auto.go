@@ -155,6 +155,14 @@ func (a *App) autoAll(ctx context.Context, j *JobCtx, script []byte) (string, er
 	if _, err := waitRoot(ctx, j, s, serial); err != nil {
 		return "", err
 	}
+	// Your Boot-card picture, chosen in Studio, on the GalaxyIOS app's Boot card too.
+	if heroStamp() != 0 {
+		if err := pushHeroToPhone(ctx, j, s, serial); err != nil {
+			j.Log("your picture could not be sent to GalaxyIOS on the phone: %v", err)
+		} else {
+			j.Log("your picture is on GalaxyIOS's Boot card on the phone")
+		}
+	}
 	for packageVersion(ctx, s, serial, oneosPackage) == "" {
 		j.Step("Waiting for OneOS (iOS 27 edition) on the phone: install it, and Studio carries on by itself")
 		if !sleepCtx(ctx, 10*time.Second) {
