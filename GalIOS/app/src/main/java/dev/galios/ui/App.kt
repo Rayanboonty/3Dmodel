@@ -284,7 +284,7 @@ private fun NavBar(tab: Tab, page: LayerBackdrop, onTab: (Tab) -> Unit) {
                                 lens((8f + 6f * p).dp.toPx(), (10f + 10f * p).dp.toPx(), chromaticAberration = true)
                             }
                         },
-                        highlight = { Highlight.Default.copy(alpha = 0.6f + 0.4f * press.value) },
+                        highlight = if (glassShaders) ({ Highlight.Default.copy(alpha = 0.6f + 0.4f * press.value) }) else null,
                         shadow = { Shadow(alpha = press.value) },
                         innerShadow = { press.value.takeIf { it > 0.01f }?.let { InnerShadow(radius = 8.dp * it, alpha = it) } },
                         onDrawSurface = { drawRect(Color.White.copy(alpha = 0.16f * (1f - press.value) + 0.04f)) },

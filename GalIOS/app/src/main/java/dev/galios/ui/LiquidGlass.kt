@@ -39,7 +39,8 @@ import kotlinx.coroutines.launch
  * what is behind it (a lens at its rounded edges, chromatic aberration on the lenses that move), blurs and saturates it,
  * and catches light on its rim. Refraction is a RuntimeShader (Android 13+, the S25 Ultra has 15).
  *
- * The JVM screenshot tests (Robolectric) have no RuntimeShader: there the glass draws without the lens.
+ * The JVM screenshot tests (Robolectric) cannot compile Backdrop's AGSL shaders: there the glass draws without the lens
+ * and the rim highlight.
  */
 val glassShaders: Boolean = Build.FINGERPRINT != "robolectric" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
@@ -116,7 +117,7 @@ fun Modifier.liquidBackdrop(
                 lens((lensDp + 8f * p).dp.toPx(), (lensDp * 1.4f + 10f * p).dp.toPx(), chromaticAberration = aberration)
             }
         },
-        highlight = { Highlight.Default.copy(alpha = (0.75f + 0.25f * (press?.progress ?: 0f)).coerceAtMost(1f)) },
+        highlight = if (glassShaders) ({ Highlight.Default.copy(alpha = (0.75f + 0.25f * (press?.progress ?: 0f)).coerceAtMost(1f)) }) else null,
         shadow = { Shadow(alpha = 0.6f) },
         innerShadow = { press?.progress?.takeIf { it > 0.01f }?.let { InnerShadow(radius = 8.dp * it, alpha = it) } },
         onDrawSurface = { drawRect(tint) },
