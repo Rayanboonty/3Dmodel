@@ -1,18 +1,16 @@
-GalaxyIOS 1.31 and GalaxyIOS Studio 1.22
+GalaxyIOS 1.32 and GalaxyIOS Studio 1.23
 
-**Your wallpapers and your phone, built in.** The iOS 16, 18, 26 and 27 cards now show their own wallpapers, and the device card shows the Galaxy S25 Ultra's photo. They are always there; there is no setting.
+**The performance pack (newest runtime, Setup, step 3).** GalaxyIOS now builds on OneiOS's newest code, which was made for exactly what your logs showed:
+- Less work per touch and per frame on the Android side, and the speed boost now reaches iOS's own code.
+- iOS's memory is held in place on large pages instead of being swapped.
+- The GPU gives each process its level by its frame deadline, and widgets are no longer starved.
+- Lower audio delay; Wi-Fi and Bluetooth wake the phone far less often.
+- iOS is only told the phone is hot when it truly is, so it does not slow itself or lock for nothing.
 
-**Depth.** Each card's wallpaper sits deeper than the card. It moves less than the card when you swipe, and the other way when you tilt the phone, like iOS's perspective wallpapers. The big number floats above it with a soft shadow.
+A new GPU pack is being built from the same code; Studio's Do everything picks it up when it is published.
 
-**The top of the app** shows the GalaxyIOS logo and name. **The phone's card** is the big one again: photo, name, state, and Setup, Logs and Refresh with their names.
+**Cards.** No more cut-out on a card's wallpaper: the wallpaper has more room to move, and a card's place keeps its wallpaper while the card is open.
 
-**Opening Setup.** Only the card's "Set up" button grows into the Setup page. The round Setup button and the tabs just switch, with a short fade. The tab bar's glass now keeps working while Setup opens.
-
-**Smoother iOS (newest runtime, Setup, step 3):**
-- Triple buffering is on. Animations render one frame ahead, as the fastest iOS-on-Android project does; their window movement went from about 60 to about 118 frames a second. Setup, Tuning, "Triple buffering off" turns it off.
-- The diagnostic tracing that ran on the keyboard and five other processes in every session is off.
-- "Lighter iOS" (Setup, Tuning) now also stops photo and media analysis and analytics, which kept cores busy and the phone hot. Turning it off now really turns them back on.
-
-**Studio** shows the S25 Ultra's photo and the iOS 27 wallpaper by default.
+**iOS 18.** The first kernel run is done: all 92 patches of the iPadOS 18 board layer fit Apple's iOS 18 kernel source, and 9 of the 61 patches that let iOS run beside Android fit as they are. The run now also applies every part that fits and collects the parts to rewrite.
 
 Both the app and Studio update themselves (the app with root, Studio when no task runs).

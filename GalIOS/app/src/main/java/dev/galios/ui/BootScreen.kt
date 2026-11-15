@@ -219,6 +219,8 @@ private fun VersionCards(s: UiState, onBoot: () -> Unit, onReturn: () -> Unit, o
             }) {
                 // while its details are open the card is the details: it leaves here and grows into them
                 Box(Modifier.fillMaxWidth().height(400.dp)) {
+                    // the slot keeps the card's wallpaper while the card itself is away in its details: no empty cut-out
+                    CardBackground(v, Modifier.fillMaxSize().clip(RoundedCornerShape(34.dp)))
                     androidx.compose.animation.AnimatedVisibility(
                         openVersion != v.number,
                         enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)),
@@ -388,10 +390,11 @@ private fun CardBackground(v: IosVersion, modifier: Modifier, pageOffset: () -> 
         androidx.compose.foundation.Image(
             androidx.compose.ui.res.painterResource(v.wallpaper), null, contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize().graphicsLayer {
-                scaleX = 1.16f; scaleY = 1.16f
+                // 1.4x: a fifth of the card spare on every side, more than the parallax ever moves it (an edge never shows)
+                scaleX = 1.4f; scaleY = 1.4f
                 val t = tilt()
-                translationX = pageOffset() * size.width * 0.22f + t.x * 12.dp.toPx()
-                translationY = t.y * 12.dp.toPx()
+                translationX = (pageOffset().coerceIn(-1f, 1f) * size.width * 0.10f + t.x * 10.dp.toPx()).coerceIn(-size.width * 0.18f, size.width * 0.18f)
+                translationY = (t.y * 10.dp.toPx()).coerceIn(-size.height * 0.18f, size.height * 0.18f)
             },
         )
         Box(Modifier.fillMaxSize().background(Color(0x40000000)))

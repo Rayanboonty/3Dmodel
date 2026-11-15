@@ -1,0 +1,97 @@
+diff --git a/runtime/bridges/devices/bridge_dev.c b/runtime/bridges/devices/bridge_dev.c
+index 096d2a5..35c1071 100644
+--- a/runtime/bridges/devices/bridge_dev.c
++++ b/runtime/bridges/devices/bridge_dev.c
+@@ -113,7 +113,7 @@ static void battery_send(void *ctx, const br_battery_sample *b)
+ static void thermal_send(void *ctx, const br_thermal_state *t)
+ {
+   const br_thermal_raw *r = &t->raw;
+-  struct ob_thermal_state state = { t->level, t->reason, t->cap, r->skin, r->soc, r->cpu, r->gpu, r->ddr, r->xo, r->ap, r->battery };
++  struct ob_thermal_state state = { br_thermal_level_for_guest(t), t->reason, t->cap, r->skin, r->soc, r->cpu, r->gpu, r->ddr, r->xo, r->ap, r->battery };
+   to_guest(ctx, OB_CH_THERMAL, OB_THERMAL_STATE, &state, sizeof state);
+ }
+ 
+diff --git a/runtime/bridges/thermal/test_thermal.c b/runtime/bridges/thermal/test_thermal.c
+index 0c955b2..f848e57 100644
+--- a/runtime/bridges/thermal/test_thermal.c
++++ b/runtime/bridges/thermal/test_thermal.c
+@@ -397,6 +397,32 @@ static void test_hal(void)
+   CHECK(raw.soc == BR_THERMAL_UNKNOWN && raw.skin == BR_THERMAL_UNKNOWN && raw.battery == BR_THERMAL_UNKNOWN);
+ }
+ 
++// GalIOS: what iOS is told: the case tops at HEAVY, the SoC speaks from 107 C, the battery as it is
++static void test_galios_told(void)
++{
++  br_thermal_limits l;
++  br_thermal_limits_default(&l);
++  br_thermal_state s;
++  br_thermal_raw r = raw_with(505, 500, 300);              // the case at 50.5 C: the rules say SLEEPING, iOS hears HEAVY
++  br_thermal_decide(&l, &r, NULL, &s);
++  CHECK(s.level == BR_THERMAL_SLEEPING && br_thermal_level_for_guest(&s) == BR_THERMAL_HEAVY);
++  r = raw_with(350, 1045, 300);                            // a core's burst to 104.5 C: nothing told
++  br_thermal_decide(&l, &r, NULL, &s);
++  CHECK(br_thermal_level_for_guest(&s) == BR_THERMAL_NOMINAL);
++  r = raw_with(350, 1075, 300);
++  br_thermal_decide(&l, &r, NULL, &s);
++  CHECK(br_thermal_level_for_guest(&s) == BR_THERMAL_HEAVY);
++  r = raw_with(350, 1105, 300);
++  br_thermal_decide(&l, &r, NULL, &s);
++  CHECK(br_thermal_level_for_guest(&s) == BR_THERMAL_TRAPPING);
++  r = raw_with(350, 500, 505);                             // the cell at 50.5 C: a real limit, told
++  br_thermal_decide(&l, &r, NULL, &s);
++  CHECK(br_thermal_level_for_guest(&s) == BR_THERMAL_TRAPPING);
++  r = raw_with(400, 500, 300);                             // light stays light
++  br_thermal_decide(&l, &r, NULL, &s);
++  CHECK(br_thermal_level_for_guest(&s) == BR_THERMAL_LIGHT);
++}
++
+ int main(void)
+ {
+   br_log_sink = quiet;
+@@ -409,6 +435,7 @@ int main(void)
+   test_worker();
+   test_load();
+   test_hal();
++  test_galios_told();
+   char cmd[300];
+   snprintf(cmd, sizeof cmd, "rm -rf %s", base);
+   if (system(cmd)) fprintf(stderr, "could not remove %s\n", base);
+diff --git a/runtime/bridges/thermal/thermal.c b/runtime/bridges/thermal/thermal.c
+index ac1f21d..438110e 100644
+--- a/runtime/bridges/thermal/thermal.c
++++ b/runtime/bridges/thermal/thermal.c
+@@ -108,6 +108,15 @@ unsigned br_thermal_cap_for(const br_thermal_state *s)
+   return s->skin_level >= BR_THERMAL_SLEEPING || s->battery_level >= BR_THERMAL_TRAPPING ? BR_THERMAL_CAP_CRITICAL : 0;
+ }
+ 
++unsigned br_thermal_level_for_guest(const br_thermal_state *s)
++{
++  unsigned level = s->skin_level > BR_THERMAL_HEAVY ? BR_THERMAL_HEAVY : s->skin_level;
++  unsigned soc = s->raw.soc == BR_THERMAL_UNKNOWN ? BR_THERMAL_NOMINAL : s->raw.soc >= 1100 ? BR_THERMAL_TRAPPING : s->raw.soc >= 1070 ? BR_THERMAL_HEAVY : BR_THERMAL_NOMINAL;
++  if (soc > level) level = soc;
++  if (s->battery_level > level) level = s->battery_level;
++  return level;
++}
++
+ const char *br_thermal_level_name(unsigned level)
+ {
+   switch (level) {
+diff --git a/runtime/bridges/thermal/thermal.h b/runtime/bridges/thermal/thermal.h
+index 2a7ac5a..01c5a01 100644
+--- a/runtime/bridges/thermal/thermal.h
++++ b/runtime/bridges/thermal/thermal.h
+@@ -69,6 +69,14 @@ void br_thermal_decide(const br_thermal_limits *l, const br_thermal_raw *raw, co
+ #define BR_THERMAL_CAP_CRITICAL 2u
+ unsigned br_thermal_cap_for(const br_thermal_state *s);
+ const char *br_thermal_level_name(unsigned level);
++// GalIOS: the level iOS is told. Not the rules' own where they would make iOS lock itself for no real limit:
++// - the case alone tops at HEAVY: its TRAPPING (46 C) and SLEEPING (50 C) are guesses on Samsung's charger scale, and
++//   TRAPPING is Apple's "critical" (iOS shows "iPhone needs to cool down"; the owner's video, 2026-11-14; a later
++//   session ran the whole time at a case of 44-51 C);
++// - the SoC says HEAVY only from 107 C and TRAPPING from 110 C: the S25 Ultra's cores burst to 100-105 C within seconds
++//   of any load and the host's kernel throttles those bursts itself (33 of 39 HEAVY in one session came from them).
++// The battery's rule is told as it is: 50 C at the cell is a real limit. xnuhost's own step (cap) is not changed.
++unsigned br_thermal_level_for_guest(const br_thermal_state *s);
+ // Whether a new state is worth a message: a new level or cap at once, otherwise after BR_THERMAL_REPORT_MS.
+ bool br_thermal_changed(const br_thermal_state *sent, const br_thermal_state *now, uint32_t ms_since_sent);
+ 

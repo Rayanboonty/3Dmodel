@@ -104,3 +104,10 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "GalIOS GPU pack ${{ steps.pack.outputs.tag }}" \
             --notes "OneiOS's Metal plug-in, guest helpers and capture plug-in for iPhone18,2 24A446, built on macOS with Xcode by OneiOS's own scripts. GalIOS Studio downloads it by itself."
+          # The runtime lives in the newest GPU pack release (galios-runtime.yml attaches it there, and the app and Studio
+          # look there first): carry the newest one over, so the new release is never without a runtime.
+          prev=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 40 --json tagName --jq '.[].tagName' | grep '^galios-gpu-' | grep -v "^${{ steps.pack.outputs.tag }}$" | head -n 1 || true)
+          if [ -n "$prev" ]; then
+            mkdir -p carry && gh release download "$prev" --repo "$GITHUB_REPOSITORY" --pattern 'oneios-runtime-*' --dir carry || true
+            ls carry 2>/dev/null | grep -q . && gh release upload "${{ steps.pack.outputs.tag }}" carry/* --repo "$GITHUB_REPOSITORY" --clobber && echo "carried the runtime over from $prev"
+          fi

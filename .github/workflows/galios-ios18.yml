@@ -35,10 +35,15 @@ jobs:
           git clone -q --depth 1 https://github.com/kmu1757/UniXNU-y2q.git y2q || echo "::warning::UniXNU-y2q not reachable: the board layer is left out of this run"
       - name: Porting matrix
         run: |
-          bash GalIOS/ios18/porting-matrix.sh xnu18 OneiOS y2q > ios18-porting-matrix.md
+          mkdir -p out/rejects
+          REJECTS="$PWD/out/rejects" bash GalIOS/ios18/porting-matrix.sh xnu18 OneiOS y2q > ios18-porting-matrix.md
+          cp ios18-porting-matrix.md out/
+          # the tree as far as it got: every patch's fitting hunks on xnu-11417, as one diff against Apple's source
+          git -C xnu18 diff "$(git -C xnu18 rev-list --max-parents=0 HEAD)" HEAD > out/xnu-11417-galaxyios-stage1.diff
+          ls out/rejects | wc -l
           cat ios18-porting-matrix.md >> "$GITHUB_STEP_SUMMARY"
           tail -n 8 ios18-porting-matrix.md
       - uses: actions/upload-artifact@v4
         with:
           name: ios18-porting-matrix
-          path: ios18-porting-matrix.md
+          path: out

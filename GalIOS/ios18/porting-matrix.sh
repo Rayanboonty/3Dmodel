@@ -23,7 +23,7 @@ git config user.email ci@galaxyios.invalid
 git config user.name "GalaxyIOS CI"
 git config core.autocrlf false
 
-applied=0 merged=0 port=0
+applied=0 merged=0 port=0 hunks_total=0 hunks_left=0
 try() {   # $1: the patch file. Prints one table row; returns 0 when it went in.
   local p=$1 name files
   name=$(basename "$p")
@@ -37,9 +37,23 @@ try() {   # $1: the patch file. Prints one table row; returns 0 when it went in.
     echo "| \`$name\` | applies with a 3-way merge | $files |"; merged=$((merged + 1)); return 0
   fi
   git reset -q --hard; git clean -qfd
-  local why
-  why=$(git apply --check --whitespace=nowarn "$p" 2>&1 | sed -n 's/^error: //p' | sed 's/|/\\|/g' | head -n 3 | tr '\n' ';')
-  echo "| \`$name\` | **to port**: ${why:-does not apply} | $files |"; port=$((port + 1)); return 1
+  # Stage 1's worklist: every hunk that fits goes in (the files a patch creates always do, so later patches find them),
+  # and only the hunks that do not are kept, under $REJECTS/<patch>/ as .rej files: what has to be rewritten by hand.
+  local hunks rej
+  hunks=$(grep -c '^@@' "$p" 2>/dev/null || echo 0)
+  git apply --reject --whitespace=nowarn "$p" >/dev/null 2>&1
+  rej=0
+  if [ -n "${REJECTS:-}" ]; then
+    for r in $(git ls-files --others --exclude-standard | grep '\.rej$'); do
+      rej=$((rej + $(grep -c '^@@' "$r" 2>/dev/null || echo 0)))
+      mkdir -p "$REJECTS/$name/$(dirname "$r")" && mv "$r" "$REJECTS/$name/$r"
+    done
+  else
+    git ls-files --others --exclude-standard | grep '\.rej$' | xargs -r rm -f
+  fi
+  git add -A && git commit -qm "$name (partly: $rej of $hunks hunks left to port)" --allow-empty
+  hunks_total=$((hunks_total + hunks)); hunks_left=$((hunks_left + rej))
+  echo "| \`$name\` | **to port**: $rej of $hunks hunks do not fit; the rest is in | $files |"; port=$((port + 1)); return 1
 }
 series() { grep -v '^[[:space:]]*#' "$1" | sed '/^[[:space:]]*$/d'; }
 
@@ -90,4 +104,4 @@ echo "| iPadOS 18 board (y2q) | $y_applied | $y_merged | $y_port |"
 echo "| OneiOS own | $d_applied | $d_merged | $d_port |"
 echo "| Hosted machine layer | $applied | $merged | $port |"
 echo
-echo "A patch \"to port\" is not lost work: it says which xnu-12377 change has to be rewritten against xnu-11417's code."
+echo "Hunks of the patches to port: $hunks_left of $hunks_total do not fit xnu-11417 and are the hand work of stage 1 (the artifact's rejects/ folder holds each one); the others are already in the tree this run built."

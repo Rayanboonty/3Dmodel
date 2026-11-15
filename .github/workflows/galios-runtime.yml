@@ -84,8 +84,7 @@ jobs:
           strings "$d/bin/xnuhost" | grep -q 'oneios-hid-buttons-builtin=1'
           strings "$d/bin/xnuhost" | grep -q 'oneios-hid-queue-kib=256'
           test -f OneiOS/runtime/xnuhost/drm2kgsl/patches/0008-galios-xnuhost-vcpu-names.patch
-          grep -q 'XH_RAM_SESSION_RESERVE (2ull << 30)' OneiOS/runtime/xnuhost/src/xnuhost.h
-          grep -q 'l->soc\[0\] = 1070' OneiOS/runtime/bridges/thermal/thermal.c
+          grep -q 'br_thermal_level_for_guest' OneiOS/runtime/bridges/devices/bridge_dev.c
           grep -q 'identity_screen_only' OneiOS/runtime/loader/src/machine.c
           grep -q 'galios_widen_cpuset' OneiOS/runtime/xnuhost/src/main.c
           grep -q 'DRM2KGSL_PRIORITIES' OneiOS/runtime/xnuhost/src/config.c
@@ -101,13 +100,9 @@ jobs:
           strings "$d/bin/xnuhost" | grep -q 'ca-triple-buffer=1'
           # 0017: the volume keys set the speaker's level
           strings "$d/bin/xnuhost" | grep -q 'GalIOS volume %u of %u'
-          # 0016: the audio helper's target up to 200 ms (fewer crackles)
-          strings "$d/bin/oneios-audio" | grep -q 'ONEIOS_AUDIO_TARGET_MAX_MS'
           # 0015: the owner's tuning switches from the stage (galios-bootargs, a short list of keys)
           strings "$d/bin/xnuhost" | grep -q '/data/galios-bootargs'
           strings "$d/bin/xnuhost" | grep -q 'GalIOS tuning: %s'
-          # 0014: the case reading never locks iOS behind "needs to cool down"
-          grep -q 'if (s.skin_level > BR_THERMAL_HEAVY) s.skin_level = BR_THERMAL_HEAVY;' OneiOS/runtime/bridges/thermal/thermal.c
           # 0013: the iPhone identity switch (always-on display, Dynamic Island)
           strings "$d/bin/xnuhost" | grep -q '/data/galios-identity.adt'
           strings "$d/bin/xnuhost" | grep -q 'GalIOS identity: %u /product properties'

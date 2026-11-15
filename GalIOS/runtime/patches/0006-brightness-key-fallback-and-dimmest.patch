@@ -1,8 +1,8 @@
 diff --git a/runtime/bridges/brightness/brightness.c b/runtime/bridges/brightness/brightness.c
-index 7469261..0cfb556 100644
+index ebe3e05..98e1373 100644
 --- a/runtime/bridges/brightness/brightness.c
 +++ b/runtime/bridges/brightness/brightness.c
-@@ -31,6 +31,8 @@
+@@ -32,6 +32,8 @@
  
  #define STEP_MS 16u
  #define TOUCH_MAX 4u
@@ -11,7 +11,7 @@ index 7469261..0cfb556 100644
  enum { TOUCH_NONE = 0, TOUCH_SLEEP = 1, TOUCH_WAKE = 2 };
  #define ALS_STALE_MS 3000u                 // no report for this long: the sensor was turned off under us
  
-@@ -130,6 +132,11 @@ struct br_bright {
+@@ -131,6 +133,11 @@ struct br_bright {
    bool display_on;                        // iOS's display power, as its framebuffer asked (under lock)
    uint32_t lit_level;                     // the level before the display went off: where it comes back on
    bool lit_linear;
@@ -23,7 +23,7 @@ index 7469261..0cfb556 100644
    // light sensor
    int als_fd;
    char als_enable[260];
-@@ -394,6 +401,8 @@ br_bright *br_bright_open(const br_bright_options *options)
+@@ -408,6 +415,8 @@ br_bright *br_bright_open(const br_bright_options *options)
    if (!b) return NULL;
    b->fd = b->als_fd = -1;
    b->display_on = true;                   // iOS draws from its start; its framebuffer says when it turns off
@@ -32,7 +32,7 @@ index 7469261..0cfb556 100644
    b->als_scale = o.als_millilux_per_count ? o.als_millilux_per_count : 1000;
    b->info.max_nits = o.max_nits ? o.max_nits : 500;
    pthread_mutex_init(&b->lock, NULL);
-@@ -441,12 +450,37 @@ br_bright *br_bright_open(const br_bright_options *options)
+@@ -473,12 +482,37 @@ br_bright *br_bright_open(const br_bright_options *options)
  
  void br_bright_info_get(const br_bright *b, br_bright_info *out) { *out = b->info; }
  
@@ -71,7 +71,7 @@ index 7469261..0cfb556 100644
    b->from = b->level;
    b->target = level;
    b->linear = linear;
-@@ -461,6 +495,7 @@ void br_bright_display(br_bright *b, bool on, const char *why)
+@@ -493,6 +527,7 @@ void br_bright_display(br_bright *b, bool on, const char *why)
  {
    if (!b) return;
    pthread_mutex_lock(&b->lock);
@@ -79,7 +79,7 @@ index 7469261..0cfb556 100644
    bool was = b->display_on;
    b->display_on = on;
    if (!on && was) {
-@@ -484,8 +519,41 @@ void br_bright_display(br_bright *b, bool on, const char *why)
+@@ -516,8 +551,41 @@ void br_bright_display(br_bright *b, bool on, const char *why)
           on ? ": the touch IC woken" : b->touch_sleep ? ": the touch IC asleep, the panel at its floor" : ": the panel at its floor (touch-sleep=0)");
  }
  
@@ -122,10 +122,10 @@ index 7469261..0cfb556 100644
    pthread_mutex_lock(&b->lock);
    b->touch_request = TOUCH_WAKE;            // iOS turns the display on or off next; an off sleeps it again
 diff --git a/runtime/bridges/brightness/test_brightness.c b/runtime/bridges/brightness/test_brightness.c
-index dd650c6..49b49b9 100644
+index fb27564..aab140a 100644
 --- a/runtime/bridges/brightness/test_brightness.c
 +++ b/runtime/bridges/brightness/test_brightness.c
-@@ -339,12 +339,80 @@ static void test_session(void)
+@@ -430,6 +430,73 @@ static void test_treble(void)
    CHECK(system(command) == 0);
  }
  
@@ -199,9 +199,10 @@ index dd650c6..49b49b9 100644
  int main(void)
  {
    test_curve();
-   test_als();
+@@ -437,6 +504,7 @@ int main(void)
    test_session();
    test_touch();
+   test_treble();
 +  test_galios();
    printf("brightness: %d checks, %d failures\n", checks, failures);
    return failures ? 1 : 0;
