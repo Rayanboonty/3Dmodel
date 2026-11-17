@@ -830,7 +830,7 @@ public final class Essentials implements Listener, TabExecutor {
         } else if (!this.smp(w) && !this.hub(w)) {
             err(p, "There is no spawn here.");
         } else {
-            World main = mainWorld(w);
+            World main = this.modes.parentOf(w);
             Location target = this.modes.spawn(main);
             this.warmup(p, "spawn", () -> this.arrive(p, target, "Spawn"));
         }

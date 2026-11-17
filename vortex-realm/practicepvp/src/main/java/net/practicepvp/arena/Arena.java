@@ -88,7 +88,7 @@ public final class Arena {
             return "BOT";
         } else if (theme.duel != null) {
             return theme.duel.build ? "DUEL_BUILD" : "DUEL";
-        } else if (theme.open != null || theme.show != null) {
+        } else if (theme.open != null || theme.show != null || theme.court != null) {
             return "DESIGNED";
         } else {
             return "VANILLA";

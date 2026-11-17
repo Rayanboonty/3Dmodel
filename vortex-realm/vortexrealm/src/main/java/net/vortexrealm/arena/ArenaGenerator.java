@@ -188,6 +188,38 @@ public final class ArenaGenerator {
         return new ArenaGenerator.Plan(theme, size, seed, ox, oz, null, d.bottomY(), bounds, s1, s2, center, ffaSpawns, false, false, null, null, d);
     }
 
+    /** A court arena (3.10.0): built column by column like a show arena; its floor is always closed with barriers. */
+    private static ArenaGenerator.Plan courtPlan(ArenaTheme theme, int size, long seed, int ox, int oz, boolean ffa) {
+        int depth = depthFor(theme, ffa, false);
+        int floorY = 64;
+        if (floorY - depth < minFloorY()) {
+            floorY = minFloorY() + depth;
+        }
+
+        int half = Math.max(64, (size - 1) / 2);
+        int cx = ox + half;
+        int cz = oz + half;
+        net.vortexrealm.build.CourtArenaDesign d = new net.vortexrealm.build.CourtArenaDesign(theme.court, size, seed, cx, floorY, cz, depth, ffa, true);
+        int[] a1 = d.spawn(0);
+        int[] a2 = d.spawn(1);
+        Pos s1 = new Pos(cx + a1[0] + 0.5, floorY + a1[1], cz + a1[2] + 0.5, -90.0F, 0.0F);
+        Pos s2 = new Pos(cx + a2[0] + 0.5, floorY + a2[1], cz + a2[2] + 0.5, 90.0F, 0.0F);
+        Pos center = new Pos(cx + 0.5, floorY + 3, cz + 0.5, 0.0F, 20.0F);
+        List<Pos> ffaSpawns = new ArrayList<>();
+        if (ffa) {
+            int n = 12;
+
+            for (int i = 0; i < n; i++) {
+                int[] o = d.ffaSpot(i, n);
+                double yaw = Math.toDegrees(Math.atan2(o[0], -o[2]));
+                ffaSpawns.add(new Pos(cx + o[0] + 0.5, floorY + o[1], cz + o[2] + 0.5, (float)yaw, 0.0F));
+            }
+        }
+
+        Cuboid bounds = new Cuboid(d.minX(), d.bottomY(), d.minZ(), d.maxX(), d.topY(), d.maxZ());
+        return new ArenaGenerator.Plan(theme, size, seed, ox, oz, null, d.bottomY(), bounds, s1, s2, center, ffaSpawns, false, false, null, null, d);
+    }
+
     /** A compact duel arena (sword maps and the UHC maps): built like a show arena. */
     private static ArenaGenerator.Plan duelPlan(ArenaTheme theme, int size, long seed, int ox, int oz, boolean ffa) {
         net.vortexrealm.build.DuelArenaDesign.Style st = theme.duel;
@@ -314,6 +346,8 @@ public final class ArenaGenerator {
             return openPlan(theme, size, seed, ox, oz, ffa);
         } else if (theme.duel != null) {
             return duelPlan(theme, size, seed, ox, oz, ffa);
+        } else if (theme.court != null) {
+            return courtPlan(theme, size, seed, ox, oz, ffa);
         } else if (theme.show != null) {
             return showPlan(theme, size, seed, ox, oz, ffa);
         } else {

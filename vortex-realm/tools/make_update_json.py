@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Fixes the out-of-memory crash: arena walls are low (20 blocks above the arena), built one arena at a time, vanilla maps skipped; arenas rebuilt once one by one',
-    'PracticePvP': 'Fixes the out-of-memory crash: arena walls are low (20 blocks above the arena), built one arena at a time, vanilla maps skipped; arenas rebuilt once one by one',
+    'VortexRealm': '8 new detailed arenas (castle, palace, colosseum, plazas, gothic town) replace the old colosseums; invisible walls on every arena incl. FFA and vanilla maps and after every rebuild; /pvpadmin regenerate; SMP nether and end are backed up',
+    'PracticePvP': '8 new detailed arenas (castle, palace, colosseum, plazas, gothic town) replace the old colosseums; invisible walls on every arena incl. FFA and vanilla maps and after every rebuild; /pvpadmin regenerate; SMP nether and end are backed up',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

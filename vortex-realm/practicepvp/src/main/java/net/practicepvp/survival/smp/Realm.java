@@ -72,6 +72,11 @@ public final class Realm {
         p.performCommand("hub");
     }
 
+    /** The SMP overworld a nether / end belongs to (by name or linked in the main plugin), or the world itself. */
+    public World parentOf(World w) {
+        return this.host().modes() == null ? w : this.host().modes().parentOf(w);
+    }
+
     public boolean smp(World w) {
         return w != null && !this.managed(w) && this.mode(w).smp();
     }

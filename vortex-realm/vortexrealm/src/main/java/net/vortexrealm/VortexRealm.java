@@ -1188,7 +1188,7 @@ public final class VortexRealm extends JavaPlugin {
                 // one map of every family first, so every kit can play as soon as possible
                 maps.add(new VortexRealm.PackMap("plains", ArenaTheme.PLAINS, vanillaSize, vCopies, false));
                 maps.add(new VortexRealm.PackMap("c_plains", ArenaTheme.PLAINS, vanillaSize, vCopies, true));
-                maps.add(new VortexRealm.PackMap("colosseum", ArenaTheme.COLOSSEUM_DESERT, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("royalcourt", ArenaTheme.ROYAL_COURTYARD, duelSize, dCopies, false));
                 // 2.1.0: the compact detailed duel maps of the sword kits, and the UHC maps with hills and cover
                 for (ArenaTheme t : ArenaTheme.values()) {
                     if (t == ArenaTheme.TRAINING_GROUNDS) {
@@ -1211,16 +1211,15 @@ public final class VortexRealm extends JavaPlugin {
                 maps.add(new VortexRealm.PackMap("c_redbadlands", ArenaTheme.BADLANDS_DESERT, vanillaSize, vCopies, true));
                 maps.add(new VortexRealm.PackMap("crystalflats", ArenaTheme.FLATLANDS, duelSize, vCopies, false));
                 // designed arenas for the sword kits
-                maps.add(new VortexRealm.PackMap("temple", ArenaTheme.COLOSSEUM_TEMPLE, duelSize, dCopies, false));
-                maps.add(new VortexRealm.PackMap("spires", ArenaTheme.COLOSSEUM_SPIRES, duelSize, dCopies, false));
-                maps.add(new VortexRealm.PackMap("inferno", ArenaTheme.COLOSSEUM_NETHER, duelSize, dCopies, false));
-                maps.add(new VortexRealm.PackMap("frozen", ArenaTheme.COLOSSEUM_FROST, duelSize, dCopies, false));
-                maps.add(new VortexRealm.PackMap("blossom", ArenaTheme.COLOSSEUM_CHERRY, duelSize, dCopies, false));
-                maps.add(new VortexRealm.PackMap("gladiator", ArenaTheme.COLOSSEUM_GLADIATOR, duelSize, dCopies, false));
+                // 3.10.0: the court arenas (they replace the old colosseums and show arenas)
+                maps.add(new VortexRealm.PackMap("sultanpalace", ArenaTheme.SULTAN_PALACE, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("titancolosseum", ArenaTheme.TITAN_COLOSSEUM, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("highlandplaza", ArenaTheme.HIGHLAND_PLAZA, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("gothicharbor", ArenaTheme.GOTHIC_HARBOR, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("sakuraterrace", ArenaTheme.SAKURA_TERRACE, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("embersands", ArenaTheme.EMBER_SANDS, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("frosthold", ArenaTheme.FROSTHOLD, duelSize, dCopies, false));
                 // 1.4.0: the show arenas and every biome that was only made on request before
-                maps.add(new VortexRealm.PackMap("palace", ArenaTheme.DESERT_PALACE, duelSize, dCopies, false));
-                maps.add(new VortexRealm.PackMap("olympus", ArenaTheme.OLYMPUS, duelSize, dCopies, false));
-                maps.add(new VortexRealm.PackMap("timberfort", ArenaTheme.TIMBER_FORT, duelSize, dCopies, false));
                 maps.add(new VortexRealm.PackMap("champions", ArenaTheme.CHAMPIONS_COLOSSEUM, duelSize, dCopies, false));
                 maps.add(new VortexRealm.PackMap("cherry", ArenaTheme.CHERRY, vanillaSize, vCopies, false));
                 maps.add(new VortexRealm.PackMap("palegarden", ArenaTheme.PALE, vanillaSize, vCopies, false));
@@ -1284,18 +1283,18 @@ public final class VortexRealm extends JavaPlugin {
                     // every FFA kit of the list that has no FFA arena yet (also when a first start was interrupted)
                     String[][] ffaDefs = new String[][]{
                         {"crystal", "PLAINS"},
-                        {"sword", "COLOSSEUM_CHERRY"},
+                        {"sword", "ROYAL_COURTYARD"},
                         {"mace", "GRAND_COLOSSEUM"},
                         {"spearmace", "BADLANDS"},
                         {"spear_mace", "BADLANDS"},
-                        {"uhc", "TIMBER_FORT"},
-                        {"nethpot", "COLOSSEUM_NETHER"},
-                        {"pot", "OLYMPUS"},
-                        {"combo", "DESERT_PALACE"},
-                        {"axe", "COLOSSEUM_GLADIATOR"},
-                        {"trident", "COLOSSEUM_FROST"},
-                        {"gapple", "COLOSSEUM_SPIRES"},
-                        {"nodebuff", "COLOSSEUM_TEMPLE"},
+                        {"uhc", "HIGHLAND_PLAZA"},
+                        {"nethpot", "EMBER_SANDS"},
+                        {"pot", "SAKURA_TERRACE"},
+                        {"combo", "SULTAN_PALACE"},
+                        {"axe", "GOTHIC_HARBOR"},
+                        {"trident", "TITAN_COLOSSEUM"},
+                        {"gapple", "FROSTHOLD"},
+                        {"nodebuff", "TITAN_COLOSSEUM"},
                         {"builduhc", "PLAINS"},
                         {"mole", "MOLE_MINES"}
                     };
@@ -1305,7 +1304,7 @@ public final class VortexRealm extends JavaPlugin {
                     }
 
                     // any other FFA kit (added by the admin) gets a decorated map too
-                    String[] spare = new String[]{"DESERT_PALACE", "OLYMPUS", "TIMBER_FORT", "COLOSSEUM_DESERT", "COLOSSEUM_TEMPLE", "COLOSSEUM_SPIRES"};
+                    String[] spare = new String[]{"ROYAL_COURTYARD", "SULTAN_PALACE", "TITAN_COLOSSEUM", "HIGHLAND_PLAZA", "GOTHIC_HARBOR", "SAKURA_TERRACE", "EMBER_SANDS", "FROSTHOLD"};
                     List<String[]> extra = new ArrayList<>();
                     int si = 0;
 

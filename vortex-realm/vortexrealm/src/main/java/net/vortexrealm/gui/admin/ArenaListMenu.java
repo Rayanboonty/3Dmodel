@@ -187,7 +187,7 @@ public final class ArenaListMenu extends Menu {
         int n = 0;
 
         for (ArenaTheme t : ArenaTheme.values()) {
-            if (t != ArenaTheme.CUSTOM && !have.contains(t)) {
+            if (t != ArenaTheme.CUSTOM && !t.retired() && !have.contains(t)) {
                 String id = uniqueId(plugin, t.name().toLowerCase(Locale.ROOT), false);
                 long started = System.currentTimeMillis();
                 plugin.arenas()
@@ -237,7 +237,7 @@ public final class ArenaListMenu extends Menu {
         List<Dialogs.Choice> themes = new ArrayList<>();
 
         for (ArenaTheme t : ArenaTheme.values()) {
-            if (t != ArenaTheme.CUSTOM) {
+            if (t != ArenaTheme.CUSTOM && !t.retired()) {
                 themes.add(new Dialogs.Choice(t.name(), "<white>" + t.display));
             }
         }

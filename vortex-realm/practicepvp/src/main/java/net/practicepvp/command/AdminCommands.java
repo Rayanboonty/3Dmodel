@@ -255,6 +255,22 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         this.plugin.vaultSnapshot("manual", (name, err) -> note(sender, err != null ? "<red>Backup failed: " + Text.esc(String.valueOf(err.getMessage())) : "<green>Backed up: <white>" + name + "</white> in plugins/VortexRealm-Vault"));
                         break;
                 }
+                case "regenerate": {
+                        // /pvpadmin regenerate [confirm]: every designed duel + FFA arena from zero, then its walls
+                        net.practicepvp.arena.ArenaSeal seal = this.plugin.arenaSeal();
+                        if (seal == null) {
+                            sender.sendMessage(Text.mm("<red>The arenas are still loading - try again in a minute."));
+                        } else if (args.length < 2 || !args[1].equalsIgnoreCase("confirm")) {
+                            sender.sendMessage(Text.mm("<gold>Regenerate every designed arena?</gold> <gray>Every generated duel and FFA arena that is not a vanilla map is deleted and built again from zero with a new layout, one at a time, with its invisible walls. Vanilla maps stay as they are. Arenas being played are skipped."));
+                            sender.sendMessage(Text.mm("<yellow>Type <white>/pvpadmin regenerate confirm</white> to start."));
+                        } else {
+                            sender.sendMessage(Text.mm("<yellow>Regenerating the designed arenas one by one (background)..."));
+                            seal.regenerateDesigned(line -> sender.sendMessage(Text.mm("<gray>" + Text.esc(line))))
+                                .thenAccept(n -> net.practicepvp.util.Tasks.ensureSync(() -> sender.sendMessage(Text.mm("<green>Regenerated <white>" + n + "</white> arena(s). Their invisible walls are being built now."))));
+                        }
+
+                        break;
+                }
                 case "walls": {
                         // /pvpadmin walls [rebuild|off]
                         net.practicepvp.arena.ArenaSeal seal = this.plugin.arenaSeal();
@@ -274,7 +290,10 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         break;
                 }
                 case "smp": {
-                        if (p != null && args.length == 1) {
+                        String sub = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+                        if (sub.equals("link") || sub.equals("unlink") || sub.equals("links")) {
+                            this.smpLinks(sender, args);
+                        } else if (p != null && args.length == 1) {
                             this.plugin.dialogs().smp().open(p);
                         } else if (this.plugin.survival() == null) {
                             sender.sendMessage(Text.mm(this.plugin.survivalPending()
@@ -1219,6 +1238,41 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
         }
     }
 
+    /** /pvpadmin smp link|unlink|links: worlds (nether / end) that play as part of an SMP world. */
+    private void smpLinks(CommandSender sender, String[] args) {
+        net.practicepvp.smp.ModeManager mm = this.plugin.modes();
+        String sub = args[1].toLowerCase(Locale.ROOT);
+        if (sub.equals("links")) {
+            if (mm.links().isEmpty()) {
+                sender.sendMessage(Text.mm("<gray>No linked worlds. A nether / end named after its SMP world (smp_nether, smp_the_end) belongs to it by itself."));
+            } else {
+                sender.sendMessage(Text.mm("<gold><b>Linked worlds</b> <gray>(they play as part of the SMP: inventories, backups, /rtp)"));
+                for (java.util.Map.Entry<String, String> e : mm.links().entrySet()) {
+                    sender.sendMessage(Text.mm("<gray>- <white>" + Text.esc(e.getKey()) + "</white> -> <green>" + Text.esc(e.getValue())));
+                }
+            }
+        } else if (sub.equals("unlink")) {
+            if (args.length < 3) {
+                sender.sendMessage(Text.mm("<red>Usage: /pvpadmin smp unlink <world>"));
+            } else {
+                sender.sendMessage(Text.mm(mm.unlink(args[2]) ? "<green>" + Text.esc(args[2]) + " is no longer part of the SMP." : "<red>" + Text.esc(args[2]) + " is not linked."));
+            }
+        } else if (args.length < 3) {
+            sender.sendMessage(Text.mm("<red>Usage: /pvpadmin smp link <world> [smp world]</red> <gray>- e.g. /pvpadmin smp link world_nether"));
+        } else {
+            String smp = args.length > 3 ? args[3] : null;
+            if (smp == null) {
+                org.bukkit.World first = mm.smpWorld();
+                smp = first == null ? null : first.getName();
+            }
+
+            String err = mm.link(args[2], smp);
+            sender.sendMessage(Text.mm(err == null
+                ? "<green>" + Text.esc(args[2]) + " is now part of the SMP world <white>" + Text.esc(smp) + "</white>: same inventory, backups every few minutes."
+                : "<red>" + Text.esc(err)));
+        }
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
         List<String> out = new ArrayList<>();
@@ -1241,6 +1295,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         "invbackup",
                         "backupall",
                         "walls",
+                        "regenerate",
                         "smp",
                         "rebuild",
                         "reload",

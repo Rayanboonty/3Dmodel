@@ -81,6 +81,15 @@ public enum ArenaTheme {
     UHC_TAIGA(net.practicepvp.build.DuelArenaDesign.Style.UHC_TAIGA, Material.SPRUCE_SAPLING, Biome.TAIGA),
     UHC_RUINS(net.practicepvp.build.DuelArenaDesign.Style.UHC_RUINS, Material.CRACKED_STONE_BRICKS, Biome.PLAINS),
     TRAINING_GROUNDS(net.practicepvp.build.DuelArenaDesign.Style.TRAINING, Material.TARGET, Biome.PLAINS),
+    // 3.10.0: the court arenas (detailed builds round a flat floor) replace the old colosseums and show arenas
+    ROYAL_COURTYARD(net.practicepvp.build.CourtArenaDesign.Style.ROYAL_COURTYARD, Material.CHISELED_STONE_BRICKS, Biome.PLAINS),
+    FROSTHOLD(net.practicepvp.build.CourtArenaDesign.Style.FROSTHOLD, Material.BLUE_ICE, Biome.SNOWY_PLAINS),
+    SULTAN_PALACE(net.practicepvp.build.CourtArenaDesign.Style.SULTAN_PALACE, Material.GOLD_BLOCK, Biome.DESERT),
+    TITAN_COLOSSEUM(net.practicepvp.build.CourtArenaDesign.Style.TITAN_COLOSSEUM, Material.SMOOTH_SANDSTONE, Biome.PLAINS),
+    HIGHLAND_PLAZA(net.practicepvp.build.CourtArenaDesign.Style.HIGHLAND_PLAZA, Material.SPRUCE_SAPLING, Biome.TAIGA),
+    SAKURA_TERRACE(net.practicepvp.build.CourtArenaDesign.Style.SAKURA_TERRACE, Material.PINK_PETALS, Biome.CHERRY_GROVE),
+    EMBER_SANDS(net.practicepvp.build.CourtArenaDesign.Style.EMBER_SANDS, Material.RED_NETHER_BRICKS, Biome.DESERT),
+    GOTHIC_HARBOR(net.practicepvp.build.CourtArenaDesign.Style.GOTHIC_HARBOR, Material.PURPLE_STAINED_GLASS, Biome.PLAINS),
     CUSTOM("Custom", Material.STONE, null, 0.0, 0);
 
     public final double sizeScale;
@@ -91,6 +100,8 @@ public enum ArenaTheme {
     public final net.practicepvp.build.ShowArenaDesign.Style show;
     /** Non-null = a compact detailed duel arena (sword maps, or the UHC maps when its style is a building one). */
     public final net.practicepvp.build.DuelArenaDesign.Style duel;
+    /** Non-null = a court arena (3.10.0): a flat floor inside a detailed build (castle, palace, colosseum, plaza, town). */
+    public final net.practicepvp.build.CourtArenaDesign.Style court;
     public final String display;
     public final Material icon;
     public final Biome biome;
@@ -103,7 +114,23 @@ public enum ArenaTheme {
         this(display, icon, biome, amplitude, mountains, 1.0);
     }
 
+    private ArenaTheme(net.practicepvp.build.CourtArenaDesign.Style court, Material icon, Biome biome) {
+        this.court = court;
+        this.colosseum = null;
+        this.open = null;
+        this.show = null;
+        this.duel = null;
+        this.sizeScale = 1.0;
+        this.display = court.display;
+        this.icon = icon;
+        this.biome = biome;
+        this.amplitude = 0.0;
+        this.mountains = 0;
+        this.vanilla = null;
+    }
+
     private ArenaTheme(net.practicepvp.build.DuelArenaDesign.Style duel, Material icon, Biome biome) {
+        this.court = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -118,6 +145,7 @@ public enum ArenaTheme {
     }
 
     private ArenaTheme(net.practicepvp.build.ShowArenaDesign.Style show, Material icon, Biome biome) {
+        this.court = null;
         this.colosseum = null;
         this.open = null;
         this.show = show;
@@ -132,6 +160,7 @@ public enum ArenaTheme {
     }
 
     private ArenaTheme(OpenArenaDesign.Style open, Material icon) {
+        this.court = null;
         this.colosseum = null;
         this.open = open;
         this.show = null;
@@ -146,6 +175,7 @@ public enum ArenaTheme {
     }
 
     private ArenaTheme(String display, Material icon, Biome biome, double amplitude, int mountains, VanillaTerrain.Spec vanilla) {
+        this.court = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -160,6 +190,7 @@ public enum ArenaTheme {
     }
 
     private ArenaTheme(ColosseumDesign.Style style, Material icon, Biome biome) {
+        this.court = null;
         this.sizeScale = 1.0;
         this.colosseum = style;
         this.open = null;
@@ -174,6 +205,7 @@ public enum ArenaTheme {
     }
 
     private ArenaTheme(String display, Material icon, Biome biome, double amplitude, int mountains, double sizeScale) {
+        this.court = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -192,7 +224,12 @@ public enum ArenaTheme {
      * like MCPVP / PvPHQ): the open arenas and the small themed duel maps. Their old maps are removed on start.
      */
     public boolean retired() {
-        return this.open != null || this.duel != null && this != TRAINING_GROUNDS;
+        return this.open != null
+            || this.duel != null && this != TRAINING_GROUNDS
+            // 3.10.0: the old colosseums and show arenas, replaced by the court arenas (the mace colosseum, the
+            // tournament colosseum and Mole PvP's mines stay)
+            || this.colosseum != null && this != GRAND_COLOSSEUM && this != CHAMPIONS_COLOSSEUM
+            || this.show != null && this != MOLE_MINES;
     }
 
     /** True when arenas of this theme are vanilla terrain right now (the theme supports it and the option is on). */

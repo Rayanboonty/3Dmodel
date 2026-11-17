@@ -1062,3 +1062,38 @@ There's a new lobby style, **Club Spawn**: the MCPVP.CLUB spawn map (by Xter/SFF
 ## 3.9.2 / 2.9.2 — out-of-memory fix
 
 The arena walls go 20 blocks above each arena instead of to the top of the world, and they are built one arena at a time with a pause in between. Vanilla maps are skipped. On the first start, every generated arena (not the vanilla ones) is rebuilt from zero, one by one, then gets its walls.
+
+
+## 3.10.0 / 2.10.0 — new arenas, walls everywhere, SMP nether & end backups
+
+**8 new arenas**, built block by block in the style of the big PvP servers. Each one is a flat fighting floor inside a detailed build that is all backdrop. An invisible wall over the floor edge keeps fights on the floor.
+
+| Arena | What it looks like |
+|---|---|
+| Royal Courtyard | grass court, grey castle wings with recessed gothic windows, vines and banners, a gatehouse, a great hall, round towers with red roofs, a pond |
+| Frosthold Keep | the castle in snow: blue roofs, ice-blue windows, frozen pools, snowy pines |
+| Sultan's Palace | sand court, two-storey red and gold arcades, domed kiosks and palms on the roofs, a three-tier palace with golden niches, blue columns and a great onion dome, minarets |
+| Titan Colosseum | sand floor with pools, stands with blue aisles, a ring of tall columns and arches with red banners, a giant stone guardian with spear and shield, a royal box |
+| Highland Plaza | swirl-paved floor, teal panels between lantern pillars, stepped rock cliffs with pines, a timber lodge and a watchtower |
+| Sakura Terrace | pink and white swirl floor, cherry trees on the cliffs, a four-tier pagoda, a torii gate |
+| Ember Sands | sand floor with a dark geometric inlay, terracotta panels, pale cliffs, dead trees, a red dragon with spread wings, an aqueduct |
+| Gothic Harbor | gothic town houses with purple windows and copper roofs, a cathedral with a rose window and spires, a sea gate, pools |
+
+- They replace the old colosseums and show arenas. The Grand Colosseum (mace), the Champions Colosseum (tournaments) and Mole Mines stay.
+- The new maps are made by themselves on the next start, one at a time. The FFA kits that had an old look get a new FFA map.
+- Pictures: `previews/court-*.png`.
+
+**Invisible walls on every arena.** FFA arenas and vanilla maps had none: walls were skipped for vanilla maps, and the default FFA map is a vanilla Plains map. Rebuilding an arena also wiped its walls, and they never came back.
+
+- Now every duel, FFA and bot arena is closed, vanilla maps included.
+- Every rebuild or new copy gets its walls again right away.
+- Every 5 minutes, the arenas players are in are checked and any gap is closed.
+- On the first start all walls are checked once.
+
+**Regenerate designed arenas:** `/pvpadmin regenerate confirm`, or the *Regenerate Designed Arenas* button in `/pvpadmin`. Every generated duel and FFA arena that is not a vanilla map is deleted and built again from zero, one at a time, with its walls. Vanilla maps stay as they are. The *Invisible Arena Walls* button rebuilds the walls of every arena.
+
+**SMP nether & end in backups.** If the SMP world isn't the server's main world, its portals lead to the default `world_nether` / `world_the_end`. Those worlds didn't count as SMP, so nothing there was backed up.
+
+- They are now linked to the SMP by themselves: same inventory, backups every few minutes.
+- `/pvpadmin smp link <world> [smp world]`, `/pvpadmin smp unlink <world>`, `/pvpadmin smp links`.
+- *Nether & End* button on the SMP page.

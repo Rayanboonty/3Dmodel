@@ -504,6 +504,44 @@ public final class AdminDialogs {
         );
         tiles.add(
             tile(
+                Material.TNT,
+                "<red><b>Regenerate Designed Arenas",
+                "<gray>Delete + rebuild, not the vanilla maps",
+                () -> {
+                    p.closeDialog();
+                    this.plugin
+                        .dialogs()
+                        .confirm(
+                            p,
+                            Text.mm("<gold><b>Regenerate every designed arena?"),
+                            List.of(
+                                Text.mm("<gray>Every generated duel and FFA arena that is not a vanilla map is"),
+                                Text.mm("<gray>deleted and built again from zero with a new layout, one at a time,"),
+                                Text.mm("<gray>then closed with invisible walls. Vanilla maps stay as they are."),
+                                Text.mm("<gray>Arenas being played are skipped. Runs in the background.")
+                            ),
+                            () -> p.performCommand("pvpadmin regenerate confirm")
+                        );
+                },
+                "Duel maps and FFA arenas,",
+                "with their invisible walls."
+            )
+        );
+        tiles.add(
+            tile(
+                Material.BARRIER,
+                "<aqua><b>Invisible Arena Walls",
+                "<gray>Build them again around every arena",
+                () -> {
+                    p.closeDialog();
+                    p.performCommand("pvpadmin walls");
+                },
+                "Duel, FFA and bot arenas,",
+                "vanilla maps included."
+            )
+        );
+        tiles.add(
+            tile(
                 Material.PAINTING,
                 "<gold><b>Scoreboard Designs",
                 "<gray>Now: <white>" + (this.plugin.smpBoard() == null ? "?" : this.plugin.smpBoard().design()),

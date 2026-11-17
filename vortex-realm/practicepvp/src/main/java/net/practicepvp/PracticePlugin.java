@@ -1177,7 +1177,7 @@ public final class PracticePlugin extends JavaPlugin {
                 // one map of every family first, so every kit can play as soon as possible
                 maps.add(new PracticePlugin.PackMap("plains", ArenaTheme.PLAINS, vanillaSize, vCopies, false));
                 maps.add(new PracticePlugin.PackMap("c_plains", ArenaTheme.PLAINS, vanillaSize, vCopies, true));
-                maps.add(new PracticePlugin.PackMap("colosseum", ArenaTheme.COLOSSEUM_DESERT, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("royalcourt", ArenaTheme.ROYAL_COURTYARD, duelSize, dCopies, false));
                 // 2.1.0: the compact detailed duel maps of the sword kits, and the UHC maps with hills and cover
                 for (ArenaTheme t : ArenaTheme.values()) {
                     if (t == ArenaTheme.TRAINING_GROUNDS) {
@@ -1200,16 +1200,15 @@ public final class PracticePlugin extends JavaPlugin {
                 maps.add(new PracticePlugin.PackMap("c_redbadlands", ArenaTheme.BADLANDS_DESERT, vanillaSize, vCopies, true));
                 maps.add(new PracticePlugin.PackMap("crystalflats", ArenaTheme.FLATLANDS, duelSize, vCopies, false));
                 // designed arenas for the sword kits
-                maps.add(new PracticePlugin.PackMap("temple", ArenaTheme.COLOSSEUM_TEMPLE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("spires", ArenaTheme.COLOSSEUM_SPIRES, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("inferno", ArenaTheme.COLOSSEUM_NETHER, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("frozen", ArenaTheme.COLOSSEUM_FROST, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("blossom", ArenaTheme.COLOSSEUM_CHERRY, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("gladiator", ArenaTheme.COLOSSEUM_GLADIATOR, duelSize, dCopies, false));
+                // 3.10.0: the court arenas (they replace the old colosseums and show arenas)
+                maps.add(new PracticePlugin.PackMap("sultanpalace", ArenaTheme.SULTAN_PALACE, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("titancolosseum", ArenaTheme.TITAN_COLOSSEUM, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("highlandplaza", ArenaTheme.HIGHLAND_PLAZA, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("gothicharbor", ArenaTheme.GOTHIC_HARBOR, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("sakuraterrace", ArenaTheme.SAKURA_TERRACE, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("embersands", ArenaTheme.EMBER_SANDS, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("frosthold", ArenaTheme.FROSTHOLD, duelSize, dCopies, false));
                 // 1.4.0: the show arenas and every biome that was only made on request before
-                maps.add(new PracticePlugin.PackMap("palace", ArenaTheme.DESERT_PALACE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("olympus", ArenaTheme.OLYMPUS, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("timberfort", ArenaTheme.TIMBER_FORT, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("champions", ArenaTheme.CHAMPIONS_COLOSSEUM, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("cherry", ArenaTheme.CHERRY, vanillaSize, vCopies, false));
                 maps.add(new PracticePlugin.PackMap("palegarden", ArenaTheme.PALE, vanillaSize, vCopies, false));
@@ -1273,18 +1272,18 @@ public final class PracticePlugin extends JavaPlugin {
                     // every FFA kit of the list that has no FFA arena yet (also when a first start was interrupted)
                     String[][] ffaDefs = new String[][]{
                         {"crystal", "PLAINS"},
-                        {"sword", "COLOSSEUM_CHERRY"},
+                        {"sword", "ROYAL_COURTYARD"},
                         {"mace", "GRAND_COLOSSEUM"},
                         {"spearmace", "BADLANDS"},
                         {"spear_mace", "BADLANDS"},
-                        {"uhc", "TIMBER_FORT"},
-                        {"nethpot", "COLOSSEUM_NETHER"},
-                        {"pot", "OLYMPUS"},
-                        {"combo", "DESERT_PALACE"},
-                        {"axe", "COLOSSEUM_GLADIATOR"},
-                        {"trident", "COLOSSEUM_FROST"},
-                        {"gapple", "COLOSSEUM_SPIRES"},
-                        {"nodebuff", "COLOSSEUM_TEMPLE"},
+                        {"uhc", "HIGHLAND_PLAZA"},
+                        {"nethpot", "EMBER_SANDS"},
+                        {"pot", "SAKURA_TERRACE"},
+                        {"combo", "SULTAN_PALACE"},
+                        {"axe", "GOTHIC_HARBOR"},
+                        {"trident", "TITAN_COLOSSEUM"},
+                        {"gapple", "FROSTHOLD"},
+                        {"nodebuff", "TITAN_COLOSSEUM"},
                         {"builduhc", "PLAINS"},
                         {"mole", "MOLE_MINES"}
                     };
@@ -1294,7 +1293,7 @@ public final class PracticePlugin extends JavaPlugin {
                     }
 
                     // any other FFA kit (added by the admin) gets a decorated map too
-                    String[] spare = new String[]{"DESERT_PALACE", "OLYMPUS", "TIMBER_FORT", "COLOSSEUM_DESERT", "COLOSSEUM_TEMPLE", "COLOSSEUM_SPIRES"};
+                    String[] spare = new String[]{"ROYAL_COURTYARD", "SULTAN_PALACE", "TITAN_COLOSSEUM", "HIGHLAND_PLAZA", "GOTHIC_HARBOR", "SAKURA_TERRACE", "EMBER_SANDS", "FROSTHOLD"};
                     List<String[]> extra = new ArrayList<>();
                     int si = 0;
 

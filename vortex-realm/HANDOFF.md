@@ -30,6 +30,9 @@ vortex-realm/
   tools/
     make_vortex.py          practicepvp/ -> vortexrealm/   (2.x.y -> 3.x.y)
     vortexrealm-extra/      files laid on top of vortexrealm/ (VortexMigration.java)
+    build_paper_api.sh      builds the Paper API from GitHub source into ~/.m2 when repo.papermc.io is blocked
+    papi-stub/              compile-only PlaceholderAPI classes used by build_paper_api.sh
+    preview/ArenaPreview.java  renders any arena design to PNGs (floor / back / north / air views) without a server
     make_update_json.py     writes dist/update.json
     make_vortexpvp.py       practicepvp/ -> vortexpvp/ (test build)
   pom.xml           parent pom (modules practicepvp, vortexrealm, vortexsmp)
@@ -50,13 +53,16 @@ Then attach it with `add_repo` (owner `Rayanboonty`, repo `3Dmodel`, access `pus
 
 ### Network (important)
 
-Building needs **`repo.papermc.io`** (Paper API) and **`repo.extendedclip.com`** (PlaceholderAPI). The default cloud
-environment blocks both, so Maven fails with "Could not transfer artifact … paper-api". The user has to allow these
-two hosts (a cloud environment with them in its allowed hosts), otherwise no jar can be built.
+Building needs the Paper API and PlaceholderAPI. Their Maven repos (`repo.papermc.io`, `repo.extendedclip.com`) are
+blocked in the default cloud environment, and the user declined allowing them. **Workaround (works, tested):**
+`bash tools/build_paper_api.sh` builds paper-api 1.21.11 from PaperMC's public GitHub source (tag 1.21.11) plus
+Brigadier from GitHub, with every other dependency from Maven Central, adds a PlaceholderAPI compile stub, and installs
+all of it into `~/.m2` (with a `~/.m2/settings.xml` that mirrors the blocked repos to Central). Takes about 2 minutes.
+A jar built this way was byte-identical to the released 3.9.2.
 
 ## 3. Build
 
-From `vortex-realm/`:
+From `vortex-realm/` (on a fresh cloud machine run `bash tools/build_paper_api.sh` once first):
 
 ```bash
 mvn -q -o package -DskipTests -pl practicepvp     # drop -o on a fresh machine (empty ~/.m2)
@@ -119,6 +125,9 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 | `command/AdminCommands.java` | `/pvpadmin <sub>` |
 | `bot/`, `ffa/`, `duel/`, `queue/`, `match/`, `kit/`, `rank/`, `social/`, `staff/`, `lobby/`, `npc/`, `deco/`, `web/`, `ai/` | practice bots, FFA, duels, queues, matches, kits, tiers, friends/tab, staff tools, lobby, NPCs, decorations, web panel, `/ai` assistant |
 | `tools/vortexrealm-extra/main/java/net/vortexrealm/VortexMigration.java` | VortexRealm only: moves a PracticePvP install over (files, `pp_*`→`vr_*`, perms), `/vortex migrate` |
+| `build/CourtArenaDesign.java` + `build/CourtParts.java` | 3.10.0 court arenas: 8 styles on 5 layouts (CASTLE, PALACE, COLOSSEUM, PLAZA, GOTHIC). CourtParts = building kit (Face with u/w coords, window, arch, cornice, cloth, roofs, onion dome, trees). Theme entries in `ArenaTheme` (field `court`), plan in `ArenaGenerator.courtPlan`, list in `PracticePlugin` pack maps + FFA defs |
+| `arena/ArenaSeal.java` | invisible walls round every arena (vanilla and FFA too since 3.10.0); `reseal()` after every rebuild (hooked in ArenaManager / FfaManager); gap check of loaded arenas every 5 min; `regenerateDesigned()` for `/pvpadmin regenerate` |
+| `smp/ModeManager.java` links | 3.10.0: worlds linked to an SMP world (`links:` in worlds.yml), `autoLink()` for the default world_nether / world_the_end, `/pvpadmin smp link/unlink/links` |
 
 ## 6. Admin commands cheat sheet
 
@@ -128,7 +137,9 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - `/pvpadmin backupall` / `fullbackup` / `fullrestore` / `vault` / `backups` / `restore` — Data Vault
 - `/pvpadmin invbackup` / `invbackups` / `setinv` — inventory backups
 - `/pvpadmin kitbackup` / `kitrestore` · `settingsbackup` / `settingsrestore`
-- `/pvpadmin smp` — SMP page · `/pvpadmin arenas enableall` · `arena …` · `walls` · `rebuild` · `vanilla`
+- `/pvpadmin smp` — SMP page · `/pvpadmin smp link <world> [smp]` / `unlink <world>` / `links`
+- `/pvpadmin regenerate confirm` — delete + rebuild every designed (non-vanilla) duel and FFA arena, then walls
+- `/pvpadmin arenas enableall` · `arena …` · `walls` (rebuild all walls) · `walls off` · `rebuild` · `vanilla`
 - `/pvpadmin setlobby` · `forcelobby` · `hub` · `winter` · `bothall [remove]` · `tabdesign <name>` · `maintenance`
 - `/pvpadmin elo|tier|skill|ranked|unranked <player> …` · `player <name>` · `staff`
 - `/vortex [migrate]` (VortexRealm only) · `/ai` · `/ecospawn` · `/smpadmin`, `/setspawn`, `/setwarp`, `/delwarp`
@@ -144,10 +155,17 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.8.3 / 2.8.3** — invisible barrier walls around every arena.
 - **3.9.0 / 2.9.0** — Club Spawn lobby (MCPVP.CLUB spawn converted from Bedrock).
 - **3.9.1 / 2.9.1** — automatic backups off, Backup Everything button.
-- **3.9.2 / 2.9.2** — out-of-memory fix: low arena walls built one at a time, vanilla maps skipped, one-time rebuild. **← current release** (`dist/VortexRealm-3.9.2.jar`, sha256 `0a5e1a97…5bcf0`)
+- **3.9.2 / 2.9.2** — out-of-memory fix: low arena walls built one at a time, vanilla maps skipped, one-time rebuild.
+- **3.10.0 / 2.10.0** (second agent) — 8 new court arenas replace the old colosseums / show arenas; walls on every arena incl. FFA + vanilla, re-sealed after rebuilds, gap self-check; `/pvpadmin regenerate`; SMP nether/end linking so they're backed up. **← current release** (`dist/VortexRealm-3.10.0.jar`, sha256 `cabf1903…2be465`)
 
 ## 8. Open problems / unverified
 
+- **3.10.0 was not run on a server** (no Paper server could be downloaded here). Compiles; every block state of the 8
+  arenas was checked against Paper's block list; the designs were rendered and checked with tools/preview. Watch the
+  first start: old designed maps are deleted and 8 new maps (+ new FFA maps for sword, uhc, nethpot, pot, combo, axe,
+  trident, gapple, nodebuff) are generated one by one - memory on the low-RAM host.
+- **Push access to Rayanboonty/3Dmodel was missing** in the second session (logged in as mroudani-cyber); the 3.10.0
+  commit was handed to the user as a patch file (`git am` it on the branch).
 - **3.9.2 memory test not finished** — the out-of-memory fix was not confirmed on a low-memory test server.
 - **`/rtp` from the lobby** not confirmed working in game.
 - **Club Spawn** has no sign text, player heads or banners (the converter didn't carry them over).

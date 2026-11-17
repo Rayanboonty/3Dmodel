@@ -58,6 +58,12 @@ public final class ModeManager {
     private final File groupDir;
     private final Map<String, WorldMode> modes = new HashMap<>();
     private final Map<String, String> displays = new HashMap<>();
+    /**
+     * 3.10.0: extra worlds linked to an SMP world ("world_nether" -> "smp"): they play as part of that SMP (same mode,
+     * inventory group and backups). For a nether or end whose name doesn't follow the SMP world's own name - e.g. the
+     * server's default world_nether / world_the_end that portals in a custom SMP world lead to.
+     */
+    private final Map<String, String> links = new java.util.LinkedHashMap<>();
     private final Map<String, String> spawns = new HashMap<>();
     private final Map<String, String> generators = new LinkedHashMap<>();
     private final NamespacedKey groupKey;
@@ -142,7 +148,122 @@ public final class ModeManager {
             this.plugin.worlds().setExcluded(ex.getKey(), ex.getValue() != WorldMode.PVP);
         }
 
+        this.links.clear();
+        ConfigurationSection ls = y.getConfigurationSection("links");
+        if (ls != null) {
+            for (String k : ls.getKeys(false)) {
+                String v = ls.getString(k);
+                if (v != null && !v.isBlank()) {
+                    this.links.put(k, v);
+                }
+            }
+        }
+
+        this.autoLink();
         this.save();
+    }
+
+    // ------------------------------------------------------------------ linked worlds (nether / end of the SMP)
+
+    /** The SMP world a world is linked to, or null. */
+    public String linkOf(String world) {
+        return this.links.get(world);
+    }
+
+    public Map<String, String> links() {
+        return java.util.Collections.unmodifiableMap(this.links);
+    }
+
+    /** Links a world (a nether or end) to an SMP world. Returns an error text or null. */
+    public String link(String world, String smp) {
+        if (world == null || smp == null) {
+            return "Name a world and an SMP world.";
+        } else if (world.equals(smp)) {
+            return "A world can't be linked to itself.";
+        }
+
+        WorldMode m = this.modes.get(smp);
+        if (m == null || !m.smp()) {
+            return smp + " is not an SMP world (give it an SMP mode in the World Manager first).";
+        } else if (this.modes.containsKey(world) && this.modes.get(world) != WorldMode.NONE) {
+            return world + " has its own mode (" + this.modes.get(world).display + ") - set it to Nothing first.";
+        } else if (world.equals("practice_world") || Bukkit.getWorld(world) != null && this.plugin.worlds().managed(Bukkit.getWorld(world))) {
+            return world + " is an arena world.";
+        }
+
+        this.links.put(world, smp);
+        this.save();
+        World w = Bukkit.getWorld(world);
+        if (w != null) {
+            for (Player p : w.getPlayers()) {
+                this.plugin.syncWorldState(p);
+            }
+        }
+
+        return null;
+    }
+
+    public boolean unlink(String world) {
+        boolean had = this.links.remove(world) != null;
+        if (had) {
+            this.save();
+        }
+
+        return had;
+    }
+
+    /**
+     * When there is one SMP overworld and it has no nether / end of its own (smp_nether, smp_the_end), the server's
+     * default nether and end (where portals in a custom world lead) are linked to it, so playing and backups there
+     * count as SMP. Nothing changes for worlds that already have a mode or a link.
+     */
+    public List<String> autoLink() {
+        List<String> made = new ArrayList<>();
+        if (!sameServer()) {
+            return made;
+        }
+
+        List<String> smps = new ArrayList<>();
+        for (Entry<String, WorldMode> e : this.modes.entrySet()) {
+            if (e.getValue().smp() && !e.getKey().endsWith("_nether") && !e.getKey().endsWith("_the_end")) {
+                smps.add(e.getKey());
+            }
+        }
+
+        if (smps.size() != 1 || Bukkit.getWorlds().isEmpty()) {
+            return made;
+        }
+
+        String smp = smps.get(0);
+        World main = Bukkit.getWorlds().get(0);
+        if (main.getName().equals(smp)) {
+            return made; // its own world_nether / world_the_end already belong to it by name
+        }
+
+        for (String suffix : List.of("_nether", "_the_end")) {
+            if (Bukkit.getWorld(smp + suffix) != null) {
+                continue;
+            }
+
+            World cand = Bukkit.getWorld(main.getName() + suffix);
+            if (cand == null || this.links.containsKey(cand.getName()) || this.modes.containsKey(cand.getName()) || this.plugin.worlds().managed(cand)) {
+                continue;
+            }
+
+            WorldMode mainMode = this.modes.get(main.getName());
+            if (mainMode != null && mainMode.smp()) {
+                continue;
+            }
+
+            this.links.put(cand.getName(), smp);
+            made.add(cand.getName());
+        }
+
+        if (!made.isEmpty()) {
+            this.plugin.getLogger().info("Linked " + made + " to the SMP world " + smp + ": its nether / end now count as SMP (inventories and backups). /pvpadmin smp unlink <world> undoes it.");
+        }
+
+        return made;
     }
 
     public void save() {
@@ -167,6 +288,10 @@ public final class ModeManager {
             y.set(b + "display", this.displays.get(e.getKey()));
             y.set(b + "spawn", this.spawns.get(e.getKey()));
             y.set(b + "generator", this.generators.get(e.getKey()));
+        }
+
+        for (Entry<String, String> e : this.links.entrySet()) {
+            y.set("links." + e.getKey(), e.getValue());
         }
 
         try {
@@ -211,6 +336,14 @@ public final class ModeManager {
                 return m.smp() && !sameServer() ? WorldMode.NONE : m;
             } else {
                 String n = w.getName();
+
+                String link = this.links.get(n);
+                if (link != null) {
+                    WorldMode parent = this.modes.get(link);
+                    if (parent != null && parent.smp() && sameServer()) {
+                        return parent;
+                    }
+                }
 
                 for (String suffix : List.of("_nether", "_the_end")) {
                     if (n.endsWith(suffix)) {
@@ -304,6 +437,10 @@ public final class ModeManager {
     public World parentOf(World w) {
         if (w != null) {
             String n = w.getName();
+            String link = this.links.get(n);
+            if (link != null && Bukkit.getWorld(link) != null) {
+                return Bukkit.getWorld(link);
+            }
 
             for (String suffix : List.of("_nether", "_the_end")) {
                 if (n.endsWith(suffix)) {

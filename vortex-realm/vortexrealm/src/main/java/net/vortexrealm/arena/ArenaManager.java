@@ -733,6 +733,7 @@ public final class ArenaManager {
                         a.enabled = true;
                         a.generating = false;
                         this.save();
+                        this.resealLater(a);
                         result.complete(a);
                     }
                 }));
@@ -784,6 +785,7 @@ public final class ArenaManager {
                     a.enabled = true;
                     a.generating = false;
                     this.save();
+                    this.resealLater(a);
                     result.complete(a);
                 }
             }));
@@ -951,10 +953,18 @@ public final class ArenaManager {
                 this.plugin.getLogger().log(Level.SEVERE, "Rebuilding arena " + a.id + " failed", err);
                 result.completeExceptionally(err);
             } else {
+                this.resealLater(a);
                 result.complete(null);
             }
         }));
         return result;
+    }
+
+    /** Walls of a rebuilt / new arena (the rebuild wiped the old ones). */
+    private void resealLater(Arena a) {
+        if (this.plugin.arenaSeal() != null) {
+            this.plugin.arenaSeal().reseal(a);
+        }
     }
 
     public CompletableFuture<Integer> rebuildAll() {
@@ -1404,7 +1414,10 @@ public final class ArenaManager {
 
                     this.save();
                     this.busyEnter(a.id);
-                    return CompletableFuture.allOf(all.toArray(new CompletableFuture[0])).whenComplete((x, err) -> Tasks.ensureSync(() -> this.busyExit(a.id)));
+                    return CompletableFuture.allOf(all.toArray(new CompletableFuture[0])).whenComplete((x, err) -> Tasks.ensureSync(() -> {
+                        this.busyExit(a.id);
+                        this.resealLater(a);
+                    }));
                 },
                 Tasks.MAIN
             );

@@ -707,6 +707,7 @@ public final class FfaManager {
                 a.enabled = true;
                 a.generating = false;
                 this.save();
+                this.resealLater(a);
                 result.complete(a);
             }
         }));
@@ -831,12 +832,20 @@ public final class FfaManager {
                         this.plugin.getLogger().log(Level.SEVERE, "Rebuilding FFA arena " + a.id + " failed", err);
                         result.completeExceptionally(err);
                     } else {
+                        this.resealLater(a);
                         result.complete(null);
                     }
                 }));
             return result;
         } else {
             return CompletableFuture.failedFuture(new IllegalStateException(a.id + " is busy"));
+        }
+    }
+
+    /** Walls of a rebuilt / new FFA arena (the rebuild wiped the old ones). */
+    private void resealLater(FfaArena a) {
+        if (this.plugin.arenaSeal() != null) {
+            this.plugin.arenaSeal().reseal(a);
         }
     }
 
@@ -877,6 +886,7 @@ public final class FfaManager {
                 this.plugin.getLogger().log(Level.SEVERE, "Rebuilding FFA arena " + a.id + " failed", err);
                 result.completeExceptionally(err);
             } else {
+                this.resealLater(a);
                 result.complete(null);
             }
         }));

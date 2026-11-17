@@ -81,6 +81,23 @@ public final class SmpDialogs {
             "Homes per player, /rtp distance and cooldown,", "teleport warmup, combat tag, market, trade,", "drills, backups..."));
         tiles.add(tile(Material.GRASS_BLOCK, "<gold><b>SMP Worlds", "<gray>" + (world == null ? "<red>none set" : world.getName() + " • " + inSmp + " playing"),
             () -> this.plugin.dialogs().admin().worlds(p), "Set a world to SURVIVAL (or ECO) in the", "World Manager: it becomes an SMP world."));
+        if (modes != null) {
+            java.util.List<String> linked = new java.util.ArrayList<>(modes.links().keySet());
+            tiles.add(tile(Material.CRYING_OBSIDIAN, "<gold><b>Nether & End", "<gray>" + (linked.isEmpty() ? "Link them to the SMP" : String.join(", ", linked)), () -> {
+                java.util.List<String> made = modes.autoLink();
+                for (World w : Bukkit.getWorlds()) {
+                    if (world != null && w.getEnvironment() != World.Environment.NORMAL && modes.linkOf(w.getName()) == null && !modes.smpWorld(w)
+                        && !this.plugin.worlds().managed(w) && modes.link(w.getName(), world.getName()) == null) {
+                        made.add(w.getName());
+                    }
+                }
+
+                p.sendMessage(Text.mm(made.isEmpty() ? "<gray>Every nether and end already plays as part of the SMP." : "<green>Now part of the SMP (inventory and backups): <white>" + Text.esc(String.join(", ", made))));
+                this.open(p);
+            }, "Links every nether and end of the server", "(world_nether, world_the_end...) to the SMP:", "same inventory, backed up every few minutes.",
+                "Undo one: /pvpadmin smp unlink <world>"));
+        }
+
         tiles.add(tile(Material.CHEST_MINECART, "<gold><b>Backup Everything", "<gray>One click: SMP + Practice", () -> this.plugin.dialogs().admin().backupNow(p),
             "Saves every player's SMP and Practice", "inventory, ender chest, XP, homes and", "all settings right now."));
         tiles.add(tile(Material.ENDER_CHEST, "<gold><b>Bring Back SMP Data", "<gray>From a backup or the old plugin files", () -> this.sources(p),

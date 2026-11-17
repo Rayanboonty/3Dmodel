@@ -69,6 +69,10 @@ public final class ModeManager {
 
     /** The overworld a nether or end belongs to. */
     public World parentOf(World w) {
+        if (w != null && this.plugin.realm().on()) {
+            return this.plugin.realm().parentOf(w);
+        }
+
         if (w != null) {
             String n = w.getName();
 
