@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.11.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.11.0.jar",
-    "sha256": "a38464bcfcf00d7b9dd29fbfa20e63ac1b3f7b8315347b6c26b9032b8ec94728",
-    "notes": "Pets that follow you (they roll!), shoulder pets and animated wings unlocked by playtime; 5 new arenas (beach, jungle temple, volcano, pirate cove, pharaoh tomb); walls to the sky; no water in arenas; everyone equal in SMP; name colours; SMP seasons; new match start"
+    "version": "2.11.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.11.1.jar",
+    "sha256": "617c7ce7e1b98ca58eba9e11dd9c166c39da2d1b22258ceb7a7999f2e49401d9",
+    "notes": "Auto-update fixed: every update address is checked and the newest version wins (built-in addresses always included). Plus everything in 3.11.0: pets, shoulder pets, wings, 5 new arenas, walls to the sky, no water, everyone equal in SMP, name colours, seasons"
   },
   "VortexRealm": {
-    "version": "3.11.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.11.0.jar",
-    "sha256": "31ec7f1a31eddf9ac3afe81d88e9983dbc2c385d323c82edafe65cb2a9d824e9",
-    "notes": "Pets that follow you (they roll!), shoulder pets and animated wings unlocked by playtime; 5 new arenas (beach, jungle temple, volcano, pirate cove, pharaoh tomb); walls to the sky; no water in arenas; everyone equal in SMP; name colours; SMP seasons; new match start"
+    "version": "3.11.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.11.1.jar",
+    "sha256": "54dbcc16b5c365f8cdc7ce68f6559f675e75337e90ad945934e49754450d51a1",
+    "notes": "Auto-update fixed: every update address is checked and the newest version wins (built-in addresses always included). Plus everything in 3.11.0: pets, shoulder pets, wings, 5 new arenas, walls to the sky, no water, everyone equal in SMP, name colours, seasons"
   },
   "VortexSMP": {
     "version": "1.6.0",

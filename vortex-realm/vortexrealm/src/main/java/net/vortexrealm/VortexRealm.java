@@ -655,7 +655,16 @@ public final class VortexRealm extends JavaPlugin {
 
                 @Override
                 public List<String> sources() {
-                    return java.util.Arrays.asList(Cfg.s(Opt.UPDATE_SOURCES).split("\\s*,\\s*"));
+                    // 3.11.1: the built-in update addresses are always asked too (the newest version of all wins), so
+                    // an old or edited setting can never cut a server off from updates
+                    List<String> out = new ArrayList<>(java.util.Arrays.asList(Cfg.s(Opt.UPDATE_SOURCES).split("\\s*,\\s*")));
+                    for (String built : Opt.UPDATE_SOURCES_BUILT_IN) {
+                        if (!out.contains(built)) {
+                            out.add(built);
+                        }
+                    }
+
+                    return out;
                 }
 
                 @Override

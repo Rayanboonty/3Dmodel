@@ -1160,3 +1160,11 @@ Technical notes:
 **5 more leaderboard designs:** Medals, Gradient, Minimal, Trophy Wall, Esports.
 
 **Server plan:** `docs/SERVER-PLAN.md` — the Discord layout, staff ranks and applications, boards, season ideas and the upgrade roadmap.
+
+
+## 3.11.1 / 2.11.1 — auto-update fixed
+
+The updater now asks **every** update address and installs the newest version any of them offers. Before, it stopped at the first address that answered, so an address that was behind (the GitHub one) hid newer versions.
+
+- The built-in addresses are always asked, whatever *Update Sources* says, so a server can't be cut off from updates any more.
+- Check now: `/pvpadmin update check`. Install right away: `/pvpadmin update now` (otherwise it restarts when the server is empty, or at night).

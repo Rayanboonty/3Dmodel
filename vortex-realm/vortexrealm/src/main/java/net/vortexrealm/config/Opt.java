@@ -1989,12 +1989,17 @@ public final class Opt<T> {
         "Download new versions of this plugin by itself and install them on a restart. A full backup is taken first; ranks, stats, kits and everything else are kept.",
         Material.EXPERIENCE_BOTTLE
     );
+    /** Always asked for updates, whatever updates.sources says (3.11.1). */
+    public static final List<String> UPDATE_SOURCES_BUILT_IN = List.of(
+        "https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/vortex-handoff/update.json",
+        "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json"
+    );
     public static final Opt<String> UPDATE_SOURCES = str(
         "updates.sources",
-        "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json",
+        "https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/vortex-handoff/update.json,https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json",
         Opt.Section.NETWORK,
         "Update Sources",
-        "Update manifest links (update.json), comma separated, tried in order. The first is the GitHub one; add your own website or file host after it.",
+        "Extra update manifest links (update.json), comma separated. Every link is asked (the built-in ones too) and the newest version any of them offers is installed.",
         Material.FILLED_MAP
     );
     // 3.11.0: everyone equal in the SMP

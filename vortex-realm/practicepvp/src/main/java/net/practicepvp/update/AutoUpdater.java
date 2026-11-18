@@ -142,20 +142,38 @@ public final class AutoUpdater {
 
         this.checking = true;
         try {
+            // 3.11.1: every source is asked and the newest version any of them offers wins (one source being
+            // behind - or down - never hides an update the others have)
             String found = null;
             List<String> errors = new ArrayList<>();
+            JsonObject best = null;
+            int answered = 0;
             for (String src : this.host.sources()) {
                 if (src.isBlank()) {
                     continue;
                 }
 
                 try {
-                    found = this.tryFrom(src.trim());
-                    errors.clear();
-                    break;
+                    JsonObject e = this.entryFrom(src.trim());
+                    answered++;
+                    if (e != null && (best == null || compare(e.get("version").getAsString(), best.get("version").getAsString()) > 0)) {
+                        best = e;
+                    }
                 } catch (Exception e) {
                     errors.add(e.getMessage());
                 }
+            }
+
+            if (best != null) {
+                try {
+                    found = this.install(best);
+                } catch (Exception e) {
+                    errors.add(e.getMessage());
+                }
+            }
+
+            if (answered > 0 && found == null && best == null) {
+                errors.clear();
             }
 
             this.lastCheck = LocalTime.now().withNano(0).toString();
@@ -183,8 +201,8 @@ public final class AutoUpdater {
         }
     }
 
-    /** Returns the version downloaded from this source, or null when nothing newer is there. */
-    private String tryFrom(String src) throws Exception {
+    /** The entry for this plugin in a source's manifest when it is newer than what runs (and what is staged), else null. */
+    private JsonObject entryFrom(String src) throws Exception {
         if (!src.startsWith("https://") && !src.startsWith("http://127.0.0.1") && !src.startsWith("http://localhost")) {
             throw new IllegalArgumentException("only https sources are used: " + src);
         }
@@ -203,10 +221,18 @@ public final class AutoUpdater {
         JsonObject e = entry.getAsJsonObject();
         String v = e.has("version") ? e.get("version").getAsString() : null;
         String url = e.has("url") ? e.get("url").getAsString() : null;
-        String sha = e.has("sha256") ? e.get("sha256").getAsString().trim().toLowerCase(Locale.ROOT) : "";
         if (v == null || url == null || compare(v, this.version()) <= 0 || this.staged != null && compare(v, this.staged) <= 0) {
             return null;
         }
+
+        return e;
+    }
+
+    /** Downloads the version an entry names, checks its SHA-256 and stages it for the next start. */
+    private String install(JsonObject e) throws Exception {
+        String v = e.get("version").getAsString();
+        String url = e.get("url").getAsString();
+        String sha = e.has("sha256") ? e.get("sha256").getAsString().trim().toLowerCase(Locale.ROOT) : "";
 
         if (sha.length() != 64) {
             throw new IllegalStateException("the manifest has no SHA-256 for " + v + ", so it isn't installed");
