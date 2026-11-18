@@ -178,16 +178,50 @@ public final class Fx {
         float pitch = 0.6F + (5 - Math.min(5, secondsLeft)) * 0.15F;
         sound(p, "block.note_block.hat", 1.0F, pitch);
         sound(p, "block.note_block.pling", 0.6F, pitch);
+        sound(p, "block.amethyst_block.chime", 0.7F, pitch);
+        // 3.11.0: a ring of light closes in round you on every count
+        ring(p, secondsLeft >= 4 ? 0x55FF55 : (secondsLeft == 3 ? 0xFFEE55 : (secondsLeft == 2 ? 0xFFAA00 : 0xFF5555)), false);
         if (!titles(p)) {
             p.sendActionBar(Text.mm("<gray>Starting in " + color + "<b>" + secondsLeft + "</b>"));
         } else {
             Fx.Palette pal = secondsLeft >= 4 ? GREEN : (secondsLeft == 3 ? YELLOW : (secondsLeft == 2 ? GOLD : RED));
             int token = nextToken(p);
             String n = String.valueOf(secondsLeft);
-            rawTitle(p, shineFrame(n, pal, 0.0), sub, 0, 22, 0);
+            Component star = star(p);
+            rawTitle(p, star.append(Component.space()).append(shineFrame(n, pal, 0.0)).append(Component.space()).append(star), sub, 0, 22, 0);
             Tasks.later(4L, () -> {
                 if (current(p, token)) {
-                    rawTitle(p, shineFrame(n, pal, 9.0), sub, 0, 18, 0);
+                    rawTitle(p, star.append(Component.space()).append(shineFrame(n, pal, 9.0)).append(Component.space()).append(star), sub, 0, 18, 0);
+                }
+            });
+        }
+    }
+
+    /** The star badge beside the countdown (the pack's seal when the player has the pack, else a star). */
+    private static Component star(Player p) {
+        VortexPvP pl = VortexPvP.get();
+        return pl != null && pl.hasPack(p) ? net.vortexpvp.pack.Glyphs.seal() : Text.mm("<gold>✪</gold>");
+    }
+
+    /**
+     * A ring of coloured light round a player: closing in (countdown) or bursting out (fight), in 4 steps over
+     * 8 ticks. Only the player and people near them see it.
+     */
+    public static void ring(Player p, int rgb, boolean out) {
+        org.bukkit.Particle.DustOptions dust = new org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(rgb), 1.1F);
+        for (int step = 0; step < 4; step++) {
+            int k = step;
+            Tasks.later(k * 2L, () -> {
+                if (!p.isOnline()) {
+                    return;
+                }
+
+                org.bukkit.Location c = p.getLocation().add(0, 0.15, 0);
+                double r = out ? 0.6 + k * 0.9 : 2.8 - k * 0.6;
+                int n = 18;
+                for (int i = 0; i < n; i++) {
+                    double a = Math.PI * 2 * i / n + k * 0.2;
+                    c.getWorld().spawnParticle(org.bukkit.Particle.DUST, c.clone().add(Math.cos(a) * r, k * 0.12, Math.sin(a) * r), 1, 0, 0, 0, 0, dust);
                 }
             });
         }
@@ -196,10 +230,15 @@ public final class Fx {
     public static void fight(Player p) {
         sound(p, "block.note_block.pling", 1.0F, 2.0F);
         sound(p, "item.goat_horn.sound.0", 0.5F, 1.2F);
+        sound(p, "entity.firework_rocket.blast", 0.6F, 1.1F);
+        ring(p, 0x55FF55, true);
+        p.getWorld().spawnParticle(org.bukkit.Particle.SWEEP_ATTACK, p.getLocation().add(0, 1.0, 0), 3, 0.6, 0.2, 0.6, 0);
+        p.getWorld().spawnParticle(org.bukkit.Particle.FIREWORK, p.getLocation().add(0, 1.0, 0), 14, 0.3, 0.3, 0.3, 0.12);
         if (!titles(p)) {
             p.sendActionBar(Text.mm("<green><b>FIGHT!</b>"));
         } else {
-            shine(p, "FIGHT!", GREEN, Text.mm("<gold>Good luck!"), 14);
+            Component star = star(p);
+            shine(p, star.append(Component.space()), "FIGHT!", Component.space().append(star), GREEN, Text.mm("<gold>Good luck!"), 14);
         }
     }
 

@@ -29,7 +29,7 @@ public final class ShrineModels {
         shrine("mode_events", "Tournament Shrine", "Gamemode Shrines", Material.GOLDEN_HELMET, Material.YELLOW_CONCRETE, "<gold><b>TOURNAMENTS");
 
         for (WorldMode m : WorldMode.values()) {
-            if (m != WorldMode.NONE) {
+            if (m != WorldMode.NONE && !m.smp()) {
                 shrine(
                     "mode_" + m.name().toLowerCase(Locale.ROOT),
                     m.display + " Shrine",

@@ -87,6 +87,7 @@ public final class Npc {
             case COMMAND -> "/" + this.value;
             case CONSOLE -> "Console: " + this.value;
             case MESSAGE -> "Message";
+            case SERVER -> "Server " + this.value;
         };
     }
 
@@ -158,7 +159,8 @@ public final class Npc {
         MENU("Open a menu"),
         COMMAND("Player runs a command"),
         CONSOLE("Console runs a command"),
-        MESSAGE("Send a message");
+        MESSAGE("Send a message"),
+        SERVER("Send to another server");
 
         public final String label;
 

@@ -12,6 +12,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
+import net.vortexpvp.util.TextWidth;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -77,6 +78,8 @@ public final class PreMatch {
     private static final float CUBE_ORBIT = 0.12F;
     /** Height of one line of a map label (scale 0.42). */
     private static final double LABEL_LINE = 0.11;
+    /** Wrap width of a map label in pixels: the longest wrapped half of a name fits, nothing wraps a second time. */
+    private static final int LABEL_WIDTH = 120;
     private static final float LABEL_SCALE = 0.42F;
     // 3D map previews: footprint sizes in blocks
     private static final float MODEL = 0.52F;
@@ -180,7 +183,7 @@ public final class PreMatch {
 
         this.turns = Cfg.bool(Opt.MAP_BAN_TURNS) && this.players.size() == 2;
         this.turnIndex = ThreadLocalRandom.current().nextInt(Math.max(1, this.players.size()));
-        this.turnSeconds = Cfg.i(Opt.MAP_BAN_TURN_SECONDS) + 5;
+        this.turnSeconds = Cfg.i(Opt.MAP_BAN_TURN_SECONDS) + 2;
 
         for (Player p : this.players) {
             this.boards.put(p.getUniqueId(), new PreMatch.Board(p, this.players.indexOf(p)));
@@ -369,7 +372,7 @@ public final class PreMatch {
                     this.tickRoll();
                     break;
                 case LOCK:
-                    if (this.ticks - this.phaseStart >= 36) {
+                    if (this.ticks - this.phaseStart >= 20) {
                         this.startVotes();
                     }
                     break;
@@ -377,12 +380,12 @@ public final class PreMatch {
                     this.tickVote();
                     break;
                 case RESULT:
-                    if (this.ticks - this.phaseStart >= 36) {
+                    if (this.ticks - this.phaseStart >= 20) {
                         this.nextVote();
                     }
                     break;
                 case LOCKED_IN:
-                    if (this.ticks - this.phaseStart >= (this.pending.isEmpty() ? 24 : 50)) {
+                    if (this.ticks - this.phaseStart >= (this.pending.isEmpty() ? 14 : 30)) {
                         this.exit();
                     }
                     break;
@@ -756,7 +759,7 @@ public final class PreMatch {
 
     private void exit() {
         this.phase = PreMatch.Phase.EXIT;
-        this.exitAt = this.ticks + 16;
+        this.exitAt = this.ticks + 10;
 
         for (PreMatch.Board b : this.boards.values()) {
             b.onExit();
@@ -921,7 +924,25 @@ public final class PreMatch {
             limit(out, used, core, Material.EXPERIENCE_BOTTLE, 64, "XP Bottles");
         }
 
-        return (List<KitVote>)(out.size() > 3 ? new ArrayList<>(out.subList(0, 3)) : out);
+        // one more round: the kit's own rounds vote, else the automatic one for short duels
+        boolean hasRounds = false;
+
+        for (KitVote v : out) {
+            hasRounds |= v.action() == KitVote.Action.ROUNDS;
+        }
+
+        int max = Math.max(1, Cfg.i(Opt.VOTE_MAX));
+        if (!hasRounds && kit.roundsVote && Cfg.bool(Opt.VOTE_ROUNDS) && kit.rounds() < 3) {
+            int n = kit.rounds() + 1;
+            KitVote r = new KitVote("auto_rounds", "Play First To " + n + " Rounds", KitVote.Action.ROUNDS, Material.CLOCK, n);
+            if (out.size() >= max) {
+                out.set(max - 1, r);
+            } else {
+                out.add(r);
+            }
+        }
+
+        return (List<KitVote>)(out.size() > max ? new ArrayList<>(out.subList(0, max)) : out);
     }
 
     private static void limit(List<KitVote> out, Set<Material> used, Set<Material> core, Material m, int amount, String label) {
@@ -1006,7 +1027,7 @@ public final class PreMatch {
      */
     static String labelName(Arena a) {
         String name = mapName(a);
-        if (name.length() > 11 && name.indexOf(' ') > 0) {
+        if (TextWidth.width(Component.text(name)) > 66 && name.indexOf(' ') > 0) {
             int mid = name.length() / 2;
             int best = -1;
 
@@ -1035,7 +1056,7 @@ public final class PreMatch {
 
         for (PreMatch.Icon i : icons) {
             if (i.arena != null) {
-                widest = Math.max(widest, HoloFx.measure(List.of("<white>" + labelName(i.arena)), 200)[0] * LABEL_SCALE);
+                widest = Math.max(widest, labelWidth(i.arena));
             }
         }
 
@@ -1043,9 +1064,14 @@ public final class PreMatch {
         return Math.max(21.0, Math.min(26.0, need));
     }
 
+    /** Width in blocks of a map's label card at its shown scale, from the real font widths. */
+    private static double labelWidth(Arena a) {
+        return (TextWidth.width(Text.mm("<white>" + labelName(a))) + 4) * 0.025 * LABEL_SCALE;
+    }
+
     /** Self test: {label width, room between neighbours} in blocks for a map's label at the spacing its board would use. */
     public static double[] labelFit(Arena a) {
-        double w = HoloFx.measure(List.of("<white>" + labelName(a)), 200)[0] * LABEL_SCALE;
+        double w = labelWidth(a);
         double need = Math.toDegrees(2.0 * Math.asin(Math.min(0.99, (w + 0.18) / (2.0 * BOARD))));
         double step = Math.max(21.0, Math.min(26.0, need));
         return new double[]{w, 2.0 * BOARD * Math.sin(Math.toRadians(step) / 2.0)};
@@ -1126,6 +1152,7 @@ public final class PreMatch {
                 t.setBillboard(Billboard.CENTER);
                 t.setBackgroundColor(Color.fromARGB(BG_TITLE));
                 t.setLineWidth(400);
+                t.setAlignment(TextDisplay.TextAlignment.CENTER);
                 t.text(this.titleText(2.0));
             });
             this.title.scaleTo(0.62F, now + 2, 8, Anim::easeOutBack);
@@ -1133,6 +1160,7 @@ public final class PreMatch {
                 t.setBillboard(Billboard.CENTER);
                 t.setBackgroundColor(Color.fromARGB(BG_TURN));
                 t.setLineWidth(400);
+                t.setAlignment(TextDisplay.TextAlignment.CENTER);
             });
             this.header.scaleTo(0.5F, now + 4, 8, Anim::easeOutBack);
             this.elems.add(this.title);
@@ -1174,6 +1202,8 @@ public final class PreMatch {
                 v.label = Elem.spawn(PreMatch.this.plugin, w, this.labelAt(v, pos, v.model != null ? MODEL : CUBE), TextDisplay.class, this.viewer, 0.001F, now, t -> {
                     t.setBillboard(Billboard.CENTER);
                     t.setBackgroundColor(Color.fromARGB(BG_IDLE));
+                    t.setLineWidth(LABEL_WIDTH);
+                    t.setAlignment(TextDisplay.TextAlignment.CENTER);
                     t.text(Text.mm("<white>" + labelName(icon.arena)));
                 });
                 v.label.scaleTo(0.42F, now + delay + 2, 6);
@@ -1758,8 +1788,8 @@ public final class PreMatch {
                         int left = pm.secondsLeft(pm.turnStart, pm.turnSeconds);
                         int theirTotal = pm.bansTotal.getOrDefault(cur.getUniqueId(), 0);
                         int theirN = theirTotal - pm.bansLeft(cur) + 1;
-                        line1 = "MAP VOTE - WAITING ON " + Text.esc(cur.getName().toUpperCase()) + "   " + left + "s";
-                        line2 = "They must ban " + theirN + "/" + theirTotal;
+                        line1 = "MAP VOTE - WAITING ON " + Text.esc(cur.getName().toUpperCase());
+                        line2 = "They must ban " + theirN + "/" + theirTotal + "  <gray>" + left + "s";
                         bg = BG_WAIT;
                     } else if (pm.bansLeft(this.viewer) <= 0) {
                         line1 = "MAP VOTE - WAITING";
@@ -1768,8 +1798,8 @@ public final class PreMatch {
                     } else {
                         int left = pm.turns ? pm.secondsLeft(pm.turnStart, pm.turnSeconds) : pm.secondsLeft(pm.phaseStart, Cfg.i(Opt.MAP_BAN_SECONDS));
                         boolean low = left <= 3;
-                        line1 = "MAP VOTE - YOUR TURN: BAN " + Math.min(total, done + 1) + "/" + total + "   " + (low ? "<red>" + left + "s</red>" : left + "s");
-                        line2 = "Look at a map and click to ban it";
+                        line1 = "MAP VOTE - YOUR TURN: BAN " + Math.min(total, done + 1) + "/" + total;
+                        line2 = "Look at a map and click to ban it  " + (low ? "<red>" : "<gray>") + left + "s";
                         bg = low ? BG_LOW : BG_TURN;
                     }
                     break;
@@ -1778,12 +1808,12 @@ public final class PreMatch {
                     int left = pm.secondsLeft(pm.phaseStart, Cfg.i(Opt.MAP_BAN_TURN_SECONDS));
                     if (this.viewer.equals(pm.picker)) {
                         boolean low = left <= 3;
-                        line1 = "MAP VOTE - YOUR TURN: PICK THE MAP   " + (low ? "<red>" + left + "s</red>" : left + "s");
-                        line2 = "Look at a map and click to pick it";
+                        line1 = "MAP VOTE - YOUR TURN: PICK THE MAP";
+                        line2 = "Look at a map and click to pick it  " + (low ? "<red>" : "<gray>") + left + "s";
                         bg = low ? BG_LOW : BG_TURN;
                     } else {
-                        line1 = "MAP VOTE - WAITING ON " + Text.esc(pm.picker.getName().toUpperCase()) + "   " + left + "s";
-                        line2 = "They must click the final map";
+                        line1 = "MAP VOTE - WAITING ON " + Text.esc(pm.picker.getName().toUpperCase());
+                        line2 = "They must click the final map  <gray>" + left + "s";
                         bg = BG_WAIT;
                     }
                     break;
@@ -1802,8 +1832,8 @@ public final class PreMatch {
                     KitVote v = pm.pending.get(pm.voteIndex);
                     int left = pm.secondsLeft(pm.phaseStart, Cfg.i(Opt.VOTE_SECONDS));
                     boolean low = left <= 5;
-                    line1 = "PREFERENCE VOTE - " + Text.esc(v.question()) + "   " + (low ? "<red>" + left + "s</red>" : left + "s");
-                    line2 = "Look at an option and click";
+                    line1 = "PREFERENCE VOTE - " + Text.esc(v.question());
+                    line2 = "Look at an option and click  " + (low ? "<red>" : "<gray>") + left + "s";
                     bg = low ? BG_LOW : BG_WAIT;
                     break;
                 }
@@ -1917,6 +1947,9 @@ public final class PreMatch {
                 if (!text.equals(this.labelText)) {
                     t.text(text);
                     this.labelText = text;
+                    // the label grows upward as lines are added ("CLICK TO BAN", "THEIR HOVER"), so it moves down by the
+                    // same amount and never covers its map
+                    this.lines = Math.max(1, Text.plain(text).split("\n", -1).length);
                 }
 
                 if (bg != this.labelBg) {

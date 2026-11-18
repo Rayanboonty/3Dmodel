@@ -31,7 +31,7 @@ public final class CommandGuardListener implements Listener {
         "pvpadmin", "pa", "practiceadmin", "staff", "kick", "ban", "mute", "tempban", "stop", "restart", "lp", "luckperms"
     );
     private static final Set<String> LEAVE = Set.of(
-        "lobby", "hub", "leave", "spawn", "leavepvp", "smp", "l", "practice", "lifesteal", "strength", "eco", "rankedsmp", "worlds", "selector", "servers"
+        "lobby", "hub", "leave", "spawn", "leavepvp", "smp", "survival", "l", "practice", "worlds", "selector", "servers"
     );
     private static final int FFA_SECONDS = 3;
     private final VortexPvP plugin;

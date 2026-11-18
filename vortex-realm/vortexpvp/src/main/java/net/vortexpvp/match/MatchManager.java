@@ -54,7 +54,7 @@ public final class MatchManager {
         this.foundEffect(a, kit);
         this.foundEffect(b, kit);
         this.foundCooldown(m);
-        Tasks.later(26L, () -> {
+        Tasks.later(12L, () -> {
             if (m.state() == Match.State.WAITING) {
                 Component sub = kit.iconComponent()
                     .append(Text.mm(" " + kit.color + Text.esc(kit.displayName) + " <dark_gray>• "))
@@ -114,7 +114,7 @@ public final class MatchManager {
         }
 
         if (fx == Opt.FoundEffect.SWORD || fx == Opt.FoundEffect.BOTH) {
-            Tasks.later(fx == Opt.FoundEffect.BOTH ? 22L : 0L, () -> {
+            Tasks.later(fx == Opt.FoundEffect.BOTH ? 12L : 0L, () -> {
                 if (p.isOnline()) {
                     SwordPop.play(this.plugin, p, popItem(kit));
                 }

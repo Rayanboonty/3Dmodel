@@ -161,61 +161,11 @@ public final class Extras implements CommandExecutor, TabCompleter, Listener {
         }
     }
 
-    private boolean smp(Player p) {
-        if (!Cfg.bool(Opt.SMP_UTILS)) {
-            p.sendMessage(Text.mm("<red>That command is disabled."));
-            return false;
-        } else if (this.plugin.sessions().state(p) == PlayerState.OUTSIDE && !this.plugin.worlds().managed(p.getWorld())) {
-            return true;
-        } else {
-            p.sendMessage(Text.mm("<red>That command only works in the SMP."));
-            Snd.error(p);
-            return false;
-        }
-    }
-
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player p) {
             String var6 = command.getName().toLowerCase(Locale.ROOT);
             switch (var6) {
-                case "craft":
-                    if (this.smp(p)) {
-                        openWorkbench(p);
-                    }
-                    break;
-                case "enderchest":
-                    if (this.smp(p)) {
-                        p.openInventory(p.getEnderChest());
-                        Snd.play(p, "block.ender_chest.open", 0.6F, 1.0F);
-                    }
-                    break;
-                case "trash":
-                    if (this.smp(p)) {
-                        p.openInventory(Bukkit.createInventory(null, 36, Text.mm("<red><b>Trash</b> <gray>(deleted on close)")));
-                    }
-                    break;
-                case "hat":
-                    if (this.smp(p)) {
-                        hat(p);
-                    }
-                    break;
-                case "nightvision":
-                    if (this.smp(p)) {
-                        if (p.hasPotionEffect(PotionEffectType.NIGHT_VISION)) {
-                            p.removePotionEffect(PotionEffectType.NIGHT_VISION);
-                            p.sendMessage(Text.mm("<gray>Night vision <red>off"));
-                        } else {
-                            p.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, -1, 0, true, false, true));
-                            p.sendMessage(Text.mm("<gray>Night vision <green>on"));
-                        }
-                    }
-                    break;
-                case "near":
-                    if (this.smp(p)) {
-                        this.near(p);
-                    }
-                    break;
                 case "playtime":
                     Player t = args.length > 0 ? Bukkit.getPlayerExact(args[0]) : p;
                     if (t == null) {

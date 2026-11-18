@@ -172,13 +172,9 @@ public final class Social implements Listener {
         y.set("codes." + d.creatorCode + ".earned", y.getLong("codes." + d.creatorCode + ".earned") + share);
         this.plus.store().dirty("creators");
         UUID cu = UUID.fromString(u);
-        if (this.plugin.economy() != null) {
-            this.plugin.economy().giveShards(cu, share);
-        } else {
-            PlayerData cd = this.plus.store().get(cu);
-            cd.coins += share;
-            cd.dirty = true;
-        }
+        PlayerData cd = this.plus.store().get(cu);
+        cd.coins += share;
+        cd.dirty = true;
     }
 
     // ------------------------------------------------------------------ live and streamer mode

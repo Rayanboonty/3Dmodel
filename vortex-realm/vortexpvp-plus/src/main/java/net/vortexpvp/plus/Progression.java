@@ -100,13 +100,10 @@ public final class Progression implements Listener {
             return;
         }
 
-        if (this.plugin.economy() != null) {
-            this.plugin.economy().giveShards(u, n);
-        } else {
-            PlayerData d = this.plus.store().get(u);
-            d.coins += n;
-            d.dirty = true;
-        }
+        // the Eco SMP is gone: rewards are coins (shown in /pass, /missions and the shop)
+        PlayerData d = this.plus.store().get(u);
+        d.coins += n;
+        d.dirty = true;
     }
 
     public void title(UUID u, String title) {

@@ -21,6 +21,8 @@ import net.vortexpvp.dialog.Dialogs;
 import net.vortexpvp.dialog.LobbyDialogs;
 import net.vortexpvp.session.PlayerState;
 import net.vortexpvp.session.Tp;
+import net.vortexpvp.smp.ServerLink;
+import net.vortexpvp.smp.ServerSelector;
 import net.vortexpvp.smp.WorldMode;
 import net.vortexpvp.util.Locs;
 import net.vortexpvp.util.Look;
@@ -134,7 +136,7 @@ public final class NpcManager implements Listener, CommandExecutor, TabCompleter
                 List.of(
                     "Lobby NPCs. Edit them in game with /npc (dialog menus).",
                     "actions: NONE, WORLD, LOBBY, HUB, SELECTOR, MENU, COMMAND, CONSOLE, MESSAGE.",
-                    "Lines are MiniMessage; {players} = players in the target world, {online} = everyone online,",
+                    "Lines are MiniMessage; {players} = players in the target world, {online} = everyone online, {server} = status of a SERVER NPC,",
                     "{bar} = the players bar (also added under the lines when player-bar is true)."
                 )
             );
@@ -433,7 +435,8 @@ public final class NpcManager implements Listener, CommandExecutor, TabCompleter
                     first = false;
 
                     sb.append(
-                        line.replace("{players}", players)
+                        line.replace("{server}", n.action == Npc.Action.SERVER && this.plugin.serverSelector() != null ? this.plugin.serverSelector().live(n.value) : "")
+                            .replace("{players}", players)
                             .replace("{online}", online)
                             .replace("{phase}", phase)
                             .replace("{blink}", blink)
@@ -484,6 +487,11 @@ public final class NpcManager implements Listener, CommandExecutor, TabCompleter
             case HUB: {
                     World h = this.plugin.modes().hubWorld();
                     return h == null ? 0 : h.getPlayers().size();
+            }
+            case SERVER: {
+                    ServerSelector.Entry se = this.plugin.serverSelector() == null ? null : this.plugin.serverSelector().get(n.value);
+                    ServerLink.Ping ping = se == null || this.plugin.serverLink() == null ? null : this.plugin.serverLink().ping(se);
+                    return ping == null ? 0 : ping.players();
             }
             case LOBBY:
             case MENU: {
@@ -669,6 +677,7 @@ public final class NpcManager implements Listener, CommandExecutor, TabCompleter
                             case LOBBY -> "play <white>Practice PvP";
                             case MENU -> "open <white>" + Text.esc(n.value);
                             case SELECTOR -> "pick a <white>server";
+                            case SERVER -> "join <white>" + Text.esc(n.value.toUpperCase(Locale.ROOT));
                             default -> "interact";
                         };
                         p.sendActionBar(n.greetText.isBlank() ? Text.mm("<#FFB547>➜ <gray>Click to " + what) : Text.mm(n.greetText.replace("{player}", Text.esc(p.getName()))));
@@ -781,9 +790,17 @@ public final class NpcManager implements Listener, CommandExecutor, TabCompleter
                 Snd.play(p, n.clickSound, 0.8F, 1.2F);
             }
             switch (n.action) {
+                case SERVER:
+                    if (this.plugin.serverSelector() == null || !this.plugin.serverSelector().join(p, n.value)) {
+                        p.sendMessage(Text.mm("<red>No server entry \"" + Text.esc(n.value) + "\" - add it in /pvpadmin → Server Selector."));
+                    }
+                    break;
                 case WORLD:
                     World w = Bukkit.getWorld(n.value);
-                    if (w == null) {
+                    if (w == null && this.plugin.modes().retired().contains(n.value) && this.plugin.serverSelector() != null && this.plugin.serverSelector().get("smp") != null) {
+                        // an NPC of an old SMP world: the SMP is its own server now
+                        this.plugin.serverSelector().join(p, "smp");
+                    } else if (w == null) {
                         p.sendMessage(Text.mm("<red>That world isn't loaded."));
                     } else {
                         this.plugin.modes().travel(p, w);
@@ -1329,19 +1346,39 @@ public final class NpcManager implements Listener, CommandExecutor, TabCompleter
 
                             for (World w : Bukkit.getWorlds()) {
                                 WorldMode m = this.plugin.modes().mode(w);
-                                if (m.smp() || m == WorldMode.HUB) {
+                                if (m == WorldMode.HUB) {
                                     worlds.add(new Dialogs.Choice(w.getName(), m.color + w.getName() + " <gray>(" + m.display + ")"));
                                 }
                             }
 
                             if (worlds.isEmpty()) {
-                                p.sendMessage(Text.mm("<red>No SMP / hub worlds yet - set modes in the World Manager."));
+                                p.sendMessage(Text.mm("<red>No hub world yet - set one in the World Manager. <gray>(Other servers: pick \"Send to another server\".)"));
                                 this.edit(p, n);
                                 return;
                             }
 
                             this.plugin.dialogs().choice(p, Text.mm("<gold><b>Target world"), "World", worlds, n.value, wx -> {
                                 n.value = wx;
+                                this.update(n);
+                                this.edit(p, n);
+                            });
+                            break;
+                        case SERVER:
+                            List<Dialogs.Choice> servers = new ArrayList<>();
+                            if (this.plugin.serverSelector() != null) {
+                                for (ServerSelector.Entry se : this.plugin.serverSelector().servers()) {
+                                    servers.add(new Dialogs.Choice(se.id, se.name + " <gray>(" + se.id + ")"));
+                                }
+                            }
+
+                            if (servers.isEmpty()) {
+                                p.sendMessage(Text.mm("<red>No servers yet - add one in /pvpadmin → Server Selector."));
+                                this.edit(p, n);
+                                return;
+                            }
+
+                            this.plugin.dialogs().choice(p, Text.mm("<gold><b>Target server"), "Server", servers, n.value, sx -> {
+                                n.value = sx;
                                 this.update(n);
                                 this.edit(p, n);
                             });

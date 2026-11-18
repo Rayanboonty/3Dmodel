@@ -31,7 +31,7 @@ public final class AiAgent {
     private static final Gson GSON = new Gson();
     private static final int MAX_STEPS = 14;
     private static final Set<String> NEVER = Set.of("ai", "assistant", "webadmin");
-    private static final String SYSTEM = "You are the assistant of a Minecraft server (Paper 1.21.11) built into its VortexPvP plugin, talking with the server's admins. You run the plugin for them with your tools: settings (by their path), kits (on/off, ranked, unranked, FFA), server ranks (look, permissions, perks, price, who has them), players (kick, send to lobby, verify, heal), broadcasts, reports, scoreboard designs, worlds and their modes, backups and restores, and every command of the plugin (list_commands shows them with their usage; NPCs, decorations, arenas, events, the hacker pool, screenshares and more are done through them).\n\nLook things up before you change them: find the right setting with get_settings, check the kit or rank exists. Then make the change the admin asked for. If a request is unclear, or would change many things the admin didn't name, say what you would do and ask first. A full backup is taken automatically before your first change in a conversation, so changes can be undone with a restore.\n\nAnswer briefly, in the admin's language. When you changed something, list each change as \"setting/kit/rank: old -> new\". Don't claim a change you didn't make with a tool. You can't see the game, players' screens or anything outside these tools.";
+    private static final String SYSTEM = "You are the assistant of a Minecraft server (Paper 1.21.11) built into its VortexPvP plugin, talking with the server's admins. You run the plugin for them with your tools: settings (by their path), kits (on/off, ranked, unranked, FFA), server ranks (look, permissions, perks, price, who has them), players (kick, send to lobby, verify, heal), broadcasts, reports, scoreboard designs, worlds and their modes, backups and restores, and every command of the plugin (list_commands shows them with their usage; NPCs, decorations, arenas, events, the hacker pool, screenshares and more are done through them).\n\nLook things up before you change them: find the right setting with get_settings, check the kit or rank exists. Then make the change the admin asked for. If a request is unclear, or would change many things the admin didn't name, say what you would do and ask first. A full backup is taken automatically before your first change in a conversation, so changes can be undone with a restore.\n\nAnswer briefly, in the admin's language. When you changed something, list each change as \"setting/kit/rank: old -> new\". Don't claim a change you didn't make with a tool. You can't see the game, players' screens or anything outside these tools.\n\nOperators also have full access: console runs ANY server command (vanilla and every plugin), kit_info / edit_kit / create_kit / kit_item / kit_vote edit every part of a kit (items, enchantments, armor, knockback, hit delay, cooldowns, maps, votes, effects), list_arenas / edit_arena manage arenas, read_log reads the server log, read_file and edit_yaml read and change any plugin's files. Use them to do what the admin asks end to end, but ask before anything destructive or hard to undo (bans, wipes, deleting kits or worlds).";
     private final VortexPvP plugin;
     private final File keyFile;
     private final Map<String, List<LlmClient.Msg>> conversations = new ConcurrentHashMap<>();
@@ -39,6 +39,7 @@ public final class AiAgent {
     private final Set<String> backedUp = ConcurrentHashMap.newKeySet();
     private final File keysFile;
     private final LlmClient llm = new LlmClient();
+    private final AiTools extra;
     /** The provider that answered last (shown in /ai). */
     private volatile String lastProvider;
 
@@ -46,6 +47,7 @@ public final class AiAgent {
         this.plugin = plugin;
         this.keyFile = new File(plugin.getDataFolder(), "ai-key.txt");
         this.keysFile = new File(plugin.getDataFolder(), "ai-keys.yml");
+        this.extra = new AiTools(plugin);
     }
 
     /** The saved key of a provider: ai-keys.yml, then its environment variable, then the old ai-key.txt. */
@@ -80,7 +82,15 @@ public final class AiAgent {
     /** The providers to try, in order: the chosen one, or (auto) every one with a key, then local models. */
     public List<LlmClient.Provider> candidates() {
         String want = Cfg.s(Opt.AI_PROVIDER).trim().toLowerCase(Locale.ROOT);
+        String mode = Cfg.s(Opt.AI_MODE).trim().toLowerCase(Locale.ROOT);
         List<LlmClient.Provider> out = new ArrayList<>();
+        if (mode.equals("local") && (want.isEmpty() || want.equals("auto") || LlmClient.provider(want) == null || !LlmClient.provider(want).local())) {
+            // local only: a model on this machine (or at ai.base-url), never an online provider
+            out.add(LlmClient.provider("ollama"));
+            out.add(LlmClient.provider("lmstudio"));
+            return out;
+        }
+
         if (!want.isEmpty() && !want.equals("auto")) {
             LlmClient.Provider p = LlmClient.provider(want);
             if (p != null) {
@@ -97,7 +107,7 @@ public final class AiAgent {
         }
 
         // no key at all: a model running on this machine (Ollama, then LM Studio), if there is one
-        if (out.isEmpty() || Cfg.bool(Opt.AI_LOCAL_FALLBACK)) {
+        if (!mode.equals("online") && (out.isEmpty() || Cfg.bool(Opt.AI_LOCAL_FALLBACK))) {
             out.add(LlmClient.provider("ollama"));
             out.add(LlmClient.provider("lmstudio"));
         }
@@ -108,7 +118,7 @@ public final class AiAgent {
     public boolean hasKey() {
         String want = Cfg.s(Opt.AI_PROVIDER).trim().toLowerCase(Locale.ROOT);
         LlmClient.Provider chosen = LlmClient.provider(want);
-        if (chosen != null && chosen.local()) {
+        if (chosen != null && chosen.local() || "local".equalsIgnoreCase(Cfg.s(Opt.AI_MODE).trim())) {
             return true;
         }
 
@@ -165,7 +175,7 @@ public final class AiAgent {
         this.backedUp.remove(session);
     }
 
-    private static LlmClient.Tool tool(String name, String description, Map<String, Object> props, List<String> required) {
+    static LlmClient.Tool tool(String name, String description, Map<String, Object> props, List<String> required) {
         JsonObject schema = new JsonObject();
         schema.addProperty("type", "object");
         schema.add("properties", props.isEmpty() ? new JsonObject() : GSON.toJsonTree(props));
@@ -173,7 +183,7 @@ public final class AiAgent {
         return new LlmClient.Tool(name, description, schema);
     }
 
-    private static Map<String, Object> str(String desc) {
+    static Map<String, Object> str(String desc) {
         return Map.of("type", "string", "description", desc);
     }
 
@@ -267,7 +277,7 @@ public final class AiAgent {
                     "world",
                     str("World name"),
                     "mode",
-                    Map.of("type", "string", "enum", List.<String>of("PVP", "HUB", "SURVIVAL", "LIFESTEAL", "STRENGTH", "RANKED", "ECO", "NONE"))
+                    Map.of("type", "string", "enum", List.<String>of("PVP", "HUB", "NONE"))
                 ),
                 List.of("world", "mode")
             )
@@ -293,6 +303,7 @@ public final class AiAgent {
             );
         }
 
+        AiTools.add(t, op);
         return t;
     }
 
@@ -304,7 +315,7 @@ public final class AiAgent {
             boolean changing = Set.of(
                     "set_setting", "set_kit", "edit_rank", "give_rank", "run_command", "player_action", "set_scoreboard", "set_world_mode", "restore_backup"
                 )
-                .contains(name);
+                .contains(name) || AiTools.CHANGING.contains(name);
             if (changing && this.backedUp.add(session)) {
                 JsonObject b = new JsonObject();
                 b.addProperty("kind", "full");
@@ -423,7 +434,8 @@ public final class AiAgent {
                         return "Not allowed: only commands of the VortexPvP plugin (see list_commands).";
                     }
                 default:
-                    return "Unknown tool.";
+                    String r = this.extra.run(who, op, name, in, changes);
+                    return r == null ? "Unknown tool." : r;
             }
         }
     }

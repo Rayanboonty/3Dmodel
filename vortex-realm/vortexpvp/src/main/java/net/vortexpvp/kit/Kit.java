@@ -43,15 +43,19 @@ public final class Kit {
     public int pearlCooldown = -1;
     public int windCooldown = -1;
     public int hitDelay = -1;
+    /** Knockback in percent (100 = vanilla). */
+    public int knockback = 100;
+    /** Offer the "play one more round" vote before 1v1 duels. */
+    public boolean roundsVote = true;
     public String arenaType = "AUTO";
     public String throwMode = "AUTO";
     public final Set<String> arenas = new LinkedHashSet<>();
     private String kindCache;
     private int kindVersion = -1;
-    /** Sword-style kits (sword, pots, UHC): designed arenas only, shown as detailed 3D previews in the map vote. */
+    /** Sword-style kits (sword, pots, UHC): the compact duel arenas only, shown as detailed 3D previews in the map vote. */
     private static final Set<String> DESIGNED_KITS = Set.of("sword", "pot", "nethpot", "nodebuff", "combo", "shield", "gapple", "uhc", "builduhc");
     /** Kits that play on the vanilla-terrain biome maps (MCPVP's biome selection). */
-    private static final Set<String> VANILLA_KITS = Set.of("spear", "creeper", "cart", "spear_mace", "spearmace", "mace");
+    private static final Set<String> VANILLA_KITS = Set.of("spear", "creeper", "cart", "spear_mace", "spearmace");
     public ItemStack[] contents = new ItemStack[41];
     public final List<PotionEffect> effects = new ArrayList<>();
     public final List<KitVote> votes = new ArrayList<>();
@@ -115,10 +119,11 @@ public final class Kit {
             } else if (VANILLA_KITS.contains(this.id)) {
                 k = "VANILLA";
             } else if (DESIGNED_KITS.contains(this.id)) {
+                // the show arenas and colosseums, like the big practice servers
                 k = "DESIGNED";
             } else if (this.countOf(Material.MACE) > 0) {
-                // other mace kits: the biome maps and the big grand colosseum
-                k = "VANILLA,MACE";
+                // mace kits fly high: the big maps only (grand colosseum, big vanilla maps)
+                k = "MACE";
             } else {
                 k = "VANILLA,DESIGNED";
             }

@@ -658,7 +658,9 @@ public final class ArenaManager {
         } else if (theme == ArenaTheme.CHAMPIONS_COLOSSEUM) {
             return 224;
         } else if (theme == ArenaTheme.MOLE_MINES) {
-            return net.vortexpvp.build.MoleMinesDesign.RADIUS * 2 + 1;
+            return net.vortexpvp.build.MoleMinesDesign.radius(ffa) * 2 + 1;
+        } else if (theme.duel != null) {
+            return net.vortexpvp.build.DuelArenaDesign.playable(theme.duel, Cfg.i(Opt.DUEL_COMPACT_SIZE), Cfg.i(Opt.DUEL_BUILD_SIZE));
         } else {
             return Math.min(448, (int)Math.round((ffa ? Cfg.i(Opt.FFA_ARENA_SIZE) : Cfg.i(Opt.DUEL_ARENA_SIZE)) * theme.sizeScale));
         }
@@ -731,6 +733,7 @@ public final class ArenaManager {
                         a.enabled = true;
                         a.generating = false;
                         this.save();
+                        this.resealLater(a);
                         result.complete(a);
                     }
                 }));
@@ -782,6 +785,7 @@ public final class ArenaManager {
                     a.enabled = true;
                     a.generating = false;
                     this.save();
+                    this.resealLater(a);
                     result.complete(a);
                 }
             }));
@@ -851,7 +855,7 @@ public final class ArenaManager {
 
         Cuboid old = a.bounds;
         int target = targetSize(a.theme, false);
-        if (a.size > 0 && a.size < target) {
+        if (a.size > 0 && a.size < target || (a.theme.duel != null || a.theme == ArenaTheme.MOLE_MINES) && target > 0) {
             a.size = target;
         }
 
@@ -949,10 +953,18 @@ public final class ArenaManager {
                 this.plugin.getLogger().log(Level.SEVERE, "Rebuilding arena " + a.id + " failed", err);
                 result.completeExceptionally(err);
             } else {
+                this.resealLater(a);
                 result.complete(null);
             }
         }));
         return result;
+    }
+
+    /** Walls of a rebuilt / new arena (the rebuild wiped the old ones). */
+    private void resealLater(Arena a) {
+        if (this.plugin.arenaSeal() != null) {
+            this.plugin.arenaSeal().reseal(a);
+        }
     }
 
     public CompletableFuture<Integer> rebuildAll() {
@@ -1063,7 +1075,7 @@ public final class ArenaManager {
 
     /** The size a map of this theme is generated at (what the arena pack uses). */
     public static int packSize(ArenaTheme t) {
-        if (t == ArenaTheme.MOLE_MINES) {
+        if (t == ArenaTheme.MOLE_MINES || t.duel != null) {
             return targetSize(t, false);
         } else if (t == ArenaTheme.GRAND_COLOSSEUM) {
             return Cfg.i(Opt.MACE_ARENA_SIZE);
@@ -1266,7 +1278,10 @@ public final class ArenaManager {
             return false;
         } else {
             String want = a.theme.isVanilla() ? VanillaTerrain.signature(this.depthOf(a), a.deep) : ArenaGenerator.signature(a.theme, false);
-            return !want.equals(a.genSignature) || a.size > 0 && a.size < targetSize(a.theme, false);
+            int target = targetSize(a.theme, false);
+            // the designed-to-size maps (compact duel maps, Mole) follow their size both ways; the others only grow
+            boolean fixed = a.theme.duel != null || a.theme == ArenaTheme.MOLE_MINES;
+            return !want.equals(a.genSignature) || a.size > 0 && (fixed ? a.size != target : a.size < target);
         }
     }
 
@@ -1399,7 +1414,10 @@ public final class ArenaManager {
 
                     this.save();
                     this.busyEnter(a.id);
-                    return CompletableFuture.allOf(all.toArray(new CompletableFuture[0])).whenComplete((x, err) -> Tasks.ensureSync(() -> this.busyExit(a.id)));
+                    return CompletableFuture.allOf(all.toArray(new CompletableFuture[0])).whenComplete((x, err) -> Tasks.ensureSync(() -> {
+                        this.busyExit(a.id);
+                        this.resealLater(a);
+                    }));
                 },
                 Tasks.MAIN
             );

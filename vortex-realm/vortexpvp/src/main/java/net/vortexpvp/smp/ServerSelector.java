@@ -56,6 +56,7 @@ public final class ServerSelector {
 
     public void load() {
         this.entries.clear();
+        int dropped = 0;
         if (!this.file.exists()) {
             this.defaults();
             this.save();
@@ -81,10 +82,101 @@ public final class ServerSelector {
 
                     Object t = m.get("target");
                     e.target = t == null ? "" : String.valueOf(t);
+                    Object px = m.get("proxy");
+                    e.proxyName = px == null ? "" : String.valueOf(px);
+                    Object sn = m.get("sleep-note");
+                    e.sleepNote = sn == null ? "" : String.valueOf(sn);
+                    e.wakeOnJoin = Boolean.TRUE.equals(m.get("wake-on-join"));
+                    if (e.action == ServerSelector.Action.MODE) {
+                        // the SMP modes moved to their own server (VortexSMP): their old world entries are dropped
+                        dropped++;
+                        continue;
+                    }
+
                     this.entries.add(e);
                 }
             }
+
+            if (dropped > 0) {
+                this.plugin.getLogger().info("Server selector: removed " + dropped + " old SMP world entries; the SMP is now a SERVER entry (set its host in /pvpadmin -> Server Selector).");
+            }
+
+            boolean changed = dropped > 0;
+            changed |= this.addSmpWorlds();
+            if (this.get("smp") == null && this.entries.stream().noneMatch(x -> x.action == ServerSelector.Action.SERVER)) {
+                this.smpDefault();
+                changed = true;
+            }
+
+            if (changed) {
+                this.save();
+            }
         }
+    }
+
+    /** While the SMP is on this server: an entry for every other SMP world (ECO...) that has none yet. */
+    private boolean addSmpWorlds() {
+        boolean changed = false;
+        World main = this.modes.smpWorld();
+        for (World w : this.modes.smpWorlds()) {
+            if (w.equals(main) || this.entries.stream().anyMatch(x -> x.action == ServerSelector.Action.WORLD && x.target.equalsIgnoreCase(w.getName()))) {
+                continue;
+            }
+
+            WorldMode m = this.modes.mode(w);
+            String id = w.getName().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "");
+            if (this.get(id) != null) {
+                id = id + "-world";
+            }
+
+            this.add(
+                id,
+                m.color + "<b>" + Text.esc(this.modes.display(w).toUpperCase(Locale.ROOT)) + "</b>",
+                m == WorldMode.ECO ? Material.EMERALD : Material.GRASS_BLOCK,
+                ServerSelector.Action.WORLD,
+                w.getName(),
+                "Its own inventory and ender chest,",
+                "saved and backed up."
+            );
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    public ServerSelector.Entry get(String id) {
+        for (ServerSelector.Entry e : this.entries) {
+            if (e.id.equalsIgnoreCase(id)) {
+                return e;
+            }
+        }
+
+        return null;
+    }
+
+    /** The SERVER entries (other servers of the network). */
+    public List<ServerSelector.Entry> servers() {
+        List<ServerSelector.Entry> out = new ArrayList<>();
+
+        for (ServerSelector.Entry e : this.entries) {
+            if (e.action == ServerSelector.Action.SERVER) {
+                out.add(e);
+            }
+        }
+
+        return out;
+    }
+
+    private void smpDefault() {
+        this.add(
+            "smp",
+            "<b><gradient:#7CFF6B:#2E9B3A>SURVIVAL SMP</gradient></b>",
+            Material.GRASS_BLOCK,
+            ServerSelector.Action.SERVER,
+            "",
+            "Survival with friends on its",
+            "own server: homes, claims, tpa."
+        );
     }
 
     public void save() {
@@ -93,8 +185,9 @@ public final class ServerSelector {
             .setHeader(
                 List.of(
                     "Server selector entries (edit in game: /pvpadmin -> Server Selector).",
-                    "action: PRACTICE, MODE (target = a world mode, finds its world), WORLD (target = world name),",
-                    "HUB, COMMAND (target = command). status: OPEN, SOON, MAINTENANCE, HIDDEN."
+                    "action: PRACTICE, SERVER (target = host:port of another server, proxy = its name on Velocity/BungeeCord),",
+                    "WORLD (target = world name), HUB, COMMAND (target = command). status: OPEN, SOON, MAINTENANCE, HIDDEN.",
+                    "SERVER without a proxy uses the built-in transfer: set accepts-transfers=true in that server's server.properties."
                 )
             );
         List<Map<String, Object>> list = new ArrayList<>();
@@ -107,7 +200,19 @@ public final class ServerSelector {
             m.put("lore", e.lore);
             m.put("action", e.action.name());
             m.put("target", e.target);
+            if (!e.proxyName.isBlank()) {
+                m.put("proxy", e.proxyName);
+            }
+
             m.put("status", e.status.name());
+            if (!e.sleepNote.isBlank()) {
+                m.put("sleep-note", e.sleepNote);
+            }
+
+            if (e.wakeOnJoin) {
+                m.put("wake-on-join", true);
+            }
+
             list.add(m);
         }
 
@@ -130,51 +235,7 @@ public final class ServerSelector {
             "Duels, Ranked LT5 → HT1, FFA,",
             "parties and 20+ kits."
         );
-        this.add(
-            "survival",
-            "<b><gradient:#7CFF6B:#2E9B3A>SURVIVAL</gradient></b>",
-            Material.GRASS_BLOCK,
-            ServerSelector.Action.MODE,
-            "SURVIVAL",
-            "Classic survival with friends.",
-            "Your own inventory and homes."
-        );
-        this.add(
-            "ranked",
-            "<b><gradient:#FFF3A0:#FFB800>RANKED SMP</gradient></b>",
-            Material.GOLDEN_SWORD,
-            ServerSelector.Action.MODE,
-            "RANKED",
-            "Every kill earns rank points.",
-            "Climb the tiers, show off your tag."
-        );
-        this.add(
-            "lifesteal",
-            "<b><gradient:#FF6B6B:#B3001B>LIFESTEAL</gradient></b>",
-            Material.TOTEM_OF_UNDYING,
-            ServerSelector.Action.MODE,
-            "LIFESTEAL",
-            "Kill to steal a heart.",
-            "Lose them all and you're out."
-        );
-        this.add(
-            "strength",
-            "<b><gradient:#E2B5FF:#9B3DFF>STRENGTH SMP</gradient></b>",
-            Material.BLAZE_POWDER,
-            ServerSelector.Action.MODE,
-            "STRENGTH",
-            "Kills make you stronger,",
-            "deaths make you weaker."
-        );
-        this.add(
-            "eco",
-            "<b><gradient:#7DFFB0:#1FAF5A>ECO SMP</gradient></b>",
-            Material.EMERALD,
-            ServerSelector.Action.MODE,
-            "ECO",
-            "Earn, trade and spend money.",
-            "/shop, /sell, /pay, /baltop."
-        );
+        this.smpDefault();
     }
 
     private ServerSelector.Entry add(String id, String name, Material icon, ServerSelector.Action action, String target, String... lore) {
@@ -189,24 +250,17 @@ public final class ServerSelector {
         return e;
     }
 
+    /** The SMP entry opens the SMP world while the SMP is on this server (smp.same-server). */
+    private World sameServerWorld(ServerSelector.Entry e) {
+        return ModeManager.sameServer() && e.action == ServerSelector.Action.SERVER && (e.id.equalsIgnoreCase("smp") || e.id.equalsIgnoreCase("survival"))
+            ? this.modes.smpWorld()
+            : null;
+    }
+
     private World world(ServerSelector.Entry e) {
         return switch (e.action) {
+            case SERVER -> this.sameServerWorld(e);
             case PRACTICE -> this.plugin.lobby().lobby().getWorld();
-            case MODE -> {
-                WorldMode m = WorldMode.parse(e.target, null);
-                if (m == null) {
-                    yield null;
-                } else {
-                    for (World w : Bukkit.getWorlds()) {
-                        String n = w.getName();
-                        if (this.modes.mode(w) == m && !n.endsWith("_nether") && !n.endsWith("_the_end")) {
-                            yield w;
-                        }
-                    }
-
-                    yield null;
-                }
-            }
             case WORLD -> Bukkit.getWorld(e.target);
             case HUB -> this.modes.hubWorld();
             default -> null;
@@ -224,6 +278,9 @@ public final class ServerSelector {
             }
 
             return n;
+        } else if (e.action == ServerSelector.Action.SERVER && this.sameServerWorld(e) == null) {
+            ServerLink.Ping ping = this.plugin.serverLink() == null ? null : this.plugin.serverLink().ping(e);
+            return ping == null ? 0 : ping.players();
         } else {
             World w = this.world(e);
             if (w == null) {
@@ -244,9 +301,55 @@ public final class ServerSelector {
     }
 
     private ServerSelector.Status effective(ServerSelector.Entry e) {
-        return e.status == ServerSelector.Status.OPEN && e.action != ServerSelector.Action.COMMAND && this.world(e) == null
-            ? ServerSelector.Status.SOON
-            : e.status;
+        if (e.status != ServerSelector.Status.OPEN || e.action == ServerSelector.Action.COMMAND) {
+            return e.status;
+        } else if (e.action == ServerSelector.Action.SERVER && this.sameServerWorld(e) == null) {
+            boolean proxy = Opt.NetworkMode.PROXY.name().equals(Cfg.s(Opt.NETWORK_MODE));
+            return (proxy ? e.proxyName.isBlank() : e.host().isBlank()) ? ServerSelector.Status.SOON : e.status;
+        } else {
+            return this.world(e) == null ? ServerSelector.Status.SOON : e.status;
+        }
+    }
+
+    /** "Online • 12 playing", "Offline" or "" for an entry, from the last ping. */
+    public String live(ServerSelector.Entry e) {
+        if (e.action != ServerSelector.Action.SERVER || this.plugin.serverLink() == null) {
+            return "";
+        }
+
+        if (this.sameServerWorld(e) != null) {
+            return "<green>● Open <dark_gray>• <white>" + this.players(e) + " <gray>playing";
+        }
+
+        ServerLink.Ping ping = this.plugin.serverLink().ping(e);
+        if (ping == null) {
+            return "<gray>Checking…";
+        }
+
+        if (ping.online()) {
+            return "<green>● Online <dark_gray>• <white>" + ping.players() + "<gray>/" + ping.max();
+        }
+
+        return e.sleepNote.isBlank() && !e.wakeOnJoin ? "<red>● Offline" : "<yellow>● Asleep" + (e.wakeOnJoin ? " <gray>- click to wake it" : "");
+    }
+
+    /** The sleep note as a chat line: a clickable link when it is one. */
+    public static String sleepNote(ServerSelector.Entry e) {
+        String n = e.sleepNote.trim();
+        if (n.isEmpty()) {
+            return "";
+        }
+
+        if (n.startsWith("http://") || n.startsWith("https://")) {
+            return "<click:open_url:'" + n.replace("'", "") + "'><hover:show_text:'<gray>Open " + Text.esc(n) + "'><aqua><u>" + Text.esc(n) + "</u></hover></click>";
+        }
+
+        return "<white>" + Text.esc(n);
+    }
+
+    public String live(String id) {
+        ServerSelector.Entry e = this.get(id);
+        return e == null ? "" : this.live(e);
     }
 
     public void open(Player p) {
@@ -286,12 +389,12 @@ public final class ServerSelector {
                 }
 
                 hover.add(Component.empty());
-                hover.add(Text.mm("<gray>Playing: <white>" + n));
+                hover.add(Text.mm(e.action == ServerSelector.Action.SERVER ? this.live(e) : "<gray>Playing: <white>" + n));
                 hover.add(Text.mm(st == ServerSelector.Status.OPEN ? "<green>▶ Click to join" : st.badge));
                 Component text = Component.text()
                     .append(Text.mm(e.name))
                     .append(Component.newline())
-                    .append(Text.mm(st == ServerSelector.Status.OPEN ? "<gray>" + n + " playing" : st.badge))
+                    .append(Text.mm(st != ServerSelector.Status.OPEN ? st.badge : (e.action == ServerSelector.Action.SERVER ? this.live(e) : "<gray>" + n + " playing")))
                     .hoverEvent(HoverEvent.showText(Component.join(JoinConfiguration.newlines(), hover)))
                     .clickEvent(ClickEvent.callback(a -> Tasks.ensureSync(() -> {
                         if (!this.plugin.sessions().get(p).dialogCooldown(400L)) {
@@ -336,6 +439,11 @@ public final class ServerSelector {
                 p.closeDialog();
                 this.modes.travel(p, hub);
             })));
+        } else if (!this.plugin.worlds().managed(p.getWorld()) && this.plugin.lobby().lobby() != null) {
+            buttons.add(Dialogs.button(Text.mm("<gold>⚔ Practice"), Text.mm("<gray>The PvP lobby"), 150, this.plugin.dialogs().action(p, () -> {
+                p.closeDialog();
+                this.plugin.lobby().sendToLobby(p);
+            })));
         }
 
         buttons.add(
@@ -360,6 +468,17 @@ public final class ServerSelector {
         Dialogs.show(p, base, DialogType.multiAction(buttons).columns(3).exitAction(this.plugin.dialogs().lobby().close(p)).build());
     }
 
+    /** Sends the player to an entry by id (used by /smp, NPCs and portals). False when there is no such entry. */
+    public boolean join(Player p, String id) {
+        ServerSelector.Entry e = this.get(id);
+        if (e == null) {
+            return false;
+        } else {
+            this.join(p, e);
+            return true;
+        }
+    }
+
     private void join(Player p, ServerSelector.Entry e) {
         if (p.isOnline()) {
             ServerSelector.Status st = this.effective(e);
@@ -367,6 +486,12 @@ public final class ServerSelector {
                 p.closeDialog();
                 if (e.action == ServerSelector.Action.COMMAND) {
                     p.performCommand(e.target.startsWith("/") ? e.target.substring(1) : e.target);
+                } else if (e.action == ServerSelector.Action.SERVER && this.sameServerWorld(e) != null) {
+                    this.modes.travel(p, this.sameServerWorld(e));
+                } else if (e.action == ServerSelector.Action.SERVER) {
+                    this.plugin.serverLink().send(p, e);
+                } else if (e.action == ServerSelector.Action.PRACTICE) {
+                    this.plugin.lobby().sendToLobby(p);
                 } else {
                     World w = this.world(e);
                     if (w != null) {
@@ -392,6 +517,7 @@ public final class ServerSelector {
 
             String target = switch (e.action) {
                 case PRACTICE -> "Practice lobby";
+                case SERVER -> "server " + (e.host().isBlank() ? "<red>no host yet" : Text.esc(e.target)) + (e.proxyName.isBlank() ? "" : " <dark_gray>(proxy " + Text.esc(e.proxyName) + ")");
                 default -> (w == null ? "<red>no world yet" : w.getName()) + " <dark_gray>(" + e.action.name().toLowerCase(Locale.ROOT) + " " + e.target + ")";
                 case HUB -> "Hub";
                 case COMMAND -> "/" + e.target;
@@ -427,9 +553,9 @@ public final class ServerSelector {
                                     "entry" + System.currentTimeMillis() % 100000L,
                                     name,
                                     Material.GRASS_BLOCK,
-                                    ServerSelector.Action.MODE,
-                                    "SURVIVAL",
-                                    "Describe this mode."
+                                    ServerSelector.Action.SERVER,
+                                    "",
+                                    "Describe this server."
                                 );
                                 this.save();
                                 this.edit(p, ex);
@@ -491,15 +617,47 @@ public final class ServerSelector {
 
             this.edit(p, e);
         }));
-        b.add(this.ui().btn(p, "<yellow>Opens…", "<gray>Practice, a world mode, a world, hub or a command", () -> {
-            List<Dialogs.Choice> c = new ArrayList<>();
-            c.add(new Dialogs.Choice("PRACTICE", "<gold>Practice lobby"));
-
-            for (WorldMode m : WorldMode.values()) {
-                if (m.smp()) {
-                    c.add(new Dialogs.Choice("MODE:" + m.name(), m.mm() + " <gray>(first world with this mode)"));
+        if (e.action == ServerSelector.Action.SERVER) {
+            b.add(this.ui().btn(p, "<gold>Host & Port", "<gray>Address of the other server, e.g. smp.example.net:25565", () -> this.plugin.dialogs().text(p, Text.mm("<gold><b>Host & Port"), "host:port", e.target, 128, s -> {
+                e.target = s.trim();
+                this.save();
+                this.edit(p, e);
+            })));
+            b.add(this.ui().btn(p, "<gold>Proxy Server Name", "<gray>Only with Velocity/BungeeCord (network.mode: PROXY)", () -> this.plugin.dialogs().text(p, Text.mm("<gold><b>Proxy name"), "Name in velocity.toml", e.proxyName, 64, s -> {
+                e.proxyName = s.trim();
+                this.save();
+                this.edit(p, e);
+            })));
+            b.add(this.ui().btn(p, "<yellow>Sleep Note", "<gray>Shown while the server is asleep (free hosts):<newline><gray>how to start it, e.g. a Discord channel or link", () -> this.plugin.dialogs().text(p, Text.mm("<gold><b>Sleep Note"), "e.g. Ask in #smp-start on Discord", e.sleepNote, 200, s -> {
+                e.sleepNote = s.trim();
+                this.save();
+                this.edit(p, e);
+            })));
+            b.add(this.ui().btn(p, (e.wakeOnJoin ? "<green>✔" : "<red>✘") + " <yellow>Wake On Join", "<gray>Send players even while it shows offline,<newline><gray>for hosts that wake a sleeping server when someone connects", () -> {
+                e.wakeOnJoin = !e.wakeOnJoin;
+                this.save();
+                this.edit(p, e);
+            }));
+            b.add(this.ui().btn(p, "<aqua>Test Connection", "<gray>Ping the server now", () -> {
+                if (e.host().isBlank()) {
+                    p.sendMessage(Text.mm("<red>Set the host first."));
+                    return;
                 }
-            }
+
+                p.sendMessage(Text.mm("<gray>Pinging <white>" + Text.esc(e.target) + "<gray>..."));
+                Tasks.async(() -> {
+                    ServerLink.Ping r = ServerLink.ping(e.host(), e.port(), 3000);
+                    Tasks.sync(() -> p.sendMessage(Text.mm(r.online()
+                        ? "<green>✔ Online <gray>(" + r.players() + "/" + r.max() + " players, " + r.latency() + " ms). <gray>Remember accepts-transfers=true there."
+                        : "<red>✖ No answer from " + Text.esc(e.target) + ". <gray>Check the host, port and firewall.")));
+                });
+            }));
+        }
+
+        b.add(this.ui().btn(p, "<yellow>Opens…", "<gray>Another server, Practice, a world, hub or a command", () -> {
+            List<Dialogs.Choice> c = new ArrayList<>();
+            c.add(new Dialogs.Choice("SERVER", "<green>Another server <gray>(SMP on its own host…)"));
+            c.add(new Dialogs.Choice("PRACTICE", "<gold>Practice lobby"));
 
             for (World w : Bukkit.getWorlds()) {
                 if (!VanillaTerrain.isSourceWorld(w.getName())) {
@@ -517,6 +675,14 @@ public final class ServerSelector {
                         this.save();
                         this.edit(p, e);
                     });
+                } else if (v.equals("SERVER")) {
+                    if (e.action != ServerSelector.Action.SERVER) {
+                        e.action = ServerSelector.Action.SERVER;
+                        e.target = "";
+                    }
+
+                    this.save();
+                    this.edit(p, e);
                 } else {
                     int colon = v.indexOf(58);
                     e.action = ServerSelector.Action.valueOf(colon < 0 ? v : v.substring(0, colon));
@@ -601,6 +767,9 @@ public final class ServerSelector {
 
     public static enum Action {
         PRACTICE,
+        /** Another server of the network: target = host:port, proxyName = its name behind Velocity/BungeeCord. */
+        SERVER,
+        /** Old SMP world modes; dropped when selector.yml loads. */
         MODE,
         WORLD,
         HUB,
@@ -608,13 +777,55 @@ public final class ServerSelector {
     }
 
     public static final class Entry {
-        String id;
-        String name;
-        Material icon;
+        public String id;
+        public String name;
+        public Material icon;
         List<String> lore = new ArrayList<>();
-        ServerSelector.Action action = ServerSelector.Action.MODE;
+        ServerSelector.Action action = ServerSelector.Action.SERVER;
         String target = "";
+        String proxyName = "";
         ServerSelector.Status status = ServerSelector.Status.OPEN;
+        /** Shown while this server is offline/asleep (free hosts): how to get it started. A link is clickable. */
+        public String sleepNote = "";
+        /** Send players even while it shows offline: for hosts that wake a sleeping server when someone joins. */
+        public boolean wakeOnJoin;
+
+        public String host() {
+            if (this.action != ServerSelector.Action.SERVER || this.target.isBlank()) {
+                return "";
+            }
+
+            String t = this.target.trim();
+            int c = t.lastIndexOf(58);
+            return c > 0 && t.indexOf(']') < c ? t.substring(0, c) : t;
+        }
+
+        public int port() {
+            String t = this.target.trim();
+            int c = t.lastIndexOf(58);
+            if (c > 0 && t.indexOf(']') < c) {
+                try {
+                    return Integer.parseInt(t.substring(c + 1));
+                } catch (NumberFormatException var4) {
+                }
+            }
+
+            return 25565;
+        }
+
+        public String proxy() {
+            return this.proxyName;
+        }
+
+        public void setServer(String target, String proxy) {
+            this.action = ServerSelector.Action.SERVER;
+            this.target = target == null ? "" : target.trim();
+            this.proxyName = proxy == null ? "" : proxy.trim();
+        }
+
+        public ServerSelector.Action action() {
+            return this.action;
+        }
     }
 
     private final class SelectorMenu extends Menu {
@@ -645,7 +856,7 @@ public final class ServerSelector {
                 ServerSelector.Status st = ServerSelector.this.effective(e);
                 int n = ServerSelector.this.players(e);
                 List<String> lore = new ArrayList<>();
-                lore.add(st.badge + " <dark_gray>• <white>" + n + " <gray>playing");
+                lore.add(e.action == ServerSelector.Action.SERVER && st == ServerSelector.Status.OPEN ? ServerSelector.this.live(e) : st.badge + " <dark_gray>• <white>" + n + " <gray>playing");
                 lore.add("");
 
                 for (String line : e.lore) {

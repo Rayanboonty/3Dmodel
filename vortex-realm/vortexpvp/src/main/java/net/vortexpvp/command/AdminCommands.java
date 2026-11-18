@@ -222,6 +222,227 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         }
                         break;
                 }
+                case "update": {
+                        net.vortexpvp.update.AutoUpdater u = this.plugin.updater();
+                        String what = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status";
+                        if (u == null) {
+                            sender.sendMessage(Text.mm("<red>The updater didn't start - see the console."));
+                        } else if (what.equals("check")) {
+                            sender.sendMessage(Text.mm("<gray>Checking for a new version..."));
+                            u.check(sender);
+                        } else if (what.equals("now")) {
+                            u.restartNow(sender);
+                        } else if (what.equals("off") || what.equals("on")) {
+                            Cfg.set(Opt.UPDATES, what.equals("on"));
+                            if (what.equals("on")) {
+                                u.start();
+                            } else {
+                                u.stop();
+                            }
+
+                            sender.sendMessage(Text.mm("<gray>Auto-update is now " + (what.equals("on") ? "<green>on" : "<red>off") + "<gray>."));
+                        } else {
+                            for (String line : u.status()) {
+                                sender.sendMessage(Text.mm(line));
+                            }
+
+                            sender.sendMessage(Text.mm("<gray>/pvpadmin update check <dark_gray>| <gray>now <dark_gray>| <gray>on <dark_gray>| <gray>off"));
+                        }
+                        break;
+                }
+                case "backupall": {
+                        note(sender, "<gray>Backing up everything (SMP + Practice)...");
+                        this.plugin.vaultSnapshot("manual", (name, err) -> note(sender, err != null ? "<red>Backup failed: " + Text.esc(String.valueOf(err.getMessage())) : "<green>Backed up: <white>" + name + "</white> in plugins/VortexPvP-Test-Vault"));
+                        break;
+                }
+                case "showcase": {
+                        // /pvpadmin showcase add <cosmetic> | remove | list : pets and wings on display in the lobby
+                        net.vortexpvp.cosmetics.Showcases sc = this.plugin.showcases();
+                        String sub = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+                        if (sc == null) {
+                            sender.sendMessage(Text.mm("<red>Cosmetics didn't start - see the console."));
+                        } else if (sub.equals("list")) {
+                            List<String> l = sc.list();
+                            sender.sendMessage(Text.mm("<gold><b>Showcases</b> <gray>(" + l.size() + ")"));
+                            for (String line : l) {
+                                sender.sendMessage(Text.mm("<gray>- <white>" + Text.esc(line)));
+                            }
+                        } else if (p == null) {
+                            sender.sendMessage(Text.mm("<red>Stand where it should be (players only)."));
+                        } else if (sub.equals("remove")) {
+                            sender.sendMessage(Text.mm(sc.removeNear(p.getLocation()) ? "<green>Showcase removed." : "<red>No showcase within 5 blocks."));
+                        } else if (sub.equals("add") && args.length > 2) {
+                            String err = sc.add(p.getLocation(), args[2].toLowerCase(Locale.ROOT));
+                            sender.sendMessage(Text.mm(err == null ? "<green>Showcase of <white>" + Text.esc(args[2]) + "</white> placed here (facing you)." : "<red>" + Text.esc(err)));
+                        } else {
+                            sender.sendMessage(Text.mm("<gray>Usage: /pvpadmin showcase add <cosmetic> | remove | list"));
+                            sender.sendMessage(Text.mm("<gray>Cosmetics: <white>" + String.join(", ", net.vortexpvp.cosmetics.CosmeticModels.all().keySet())));
+                        }
+
+                        break;
+                }
+                case "regenerate": {
+                        // /pvpadmin regenerate [confirm]: every designed duel + FFA arena from zero, then its walls
+                        net.vortexpvp.arena.ArenaSeal seal = this.plugin.arenaSeal();
+                        if (seal == null) {
+                            sender.sendMessage(Text.mm("<red>The arenas are still loading - try again in a minute."));
+                        } else if (args.length < 2 || !args[1].equalsIgnoreCase("confirm")) {
+                            sender.sendMessage(Text.mm("<gold>Regenerate every designed arena?</gold> <gray>Every generated duel and FFA arena that is not a vanilla map is deleted and built again from zero with a new layout, one at a time, with its invisible walls. Vanilla maps stay as they are. Arenas being played are skipped."));
+                            sender.sendMessage(Text.mm("<yellow>Type <white>/pvpadmin regenerate confirm</white> to start."));
+                        } else {
+                            sender.sendMessage(Text.mm("<yellow>Regenerating the designed arenas one by one (background)..."));
+                            seal.regenerateDesigned(line -> sender.sendMessage(Text.mm("<gray>" + Text.esc(line))))
+                                .thenAccept(n -> net.vortexpvp.util.Tasks.ensureSync(() -> sender.sendMessage(Text.mm("<green>Regenerated <white>" + n + "</white> arena(s). Their invisible walls are being built now."))));
+                        }
+
+                        break;
+                }
+                case "walls": {
+                        // /pvpadmin walls [rebuild|off]
+                        net.vortexpvp.arena.ArenaSeal seal = this.plugin.arenaSeal();
+                        String w = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "rebuild";
+                        if (seal == null) {
+                            sender.sendMessage(Text.mm("<red>The arenas are still loading - try again in a minute."));
+                        } else if (w.equals("off")) {
+                            Cfg.set(Opt.ARENA_BARRIER_WALLS, false);
+                            sender.sendMessage(Text.mm("<gray>Removing the invisible arena walls..."));
+                            seal.removeAll().thenAccept(n -> net.vortexpvp.util.Tasks.ensureSync(() -> sender.sendMessage(Text.mm("<green>Walls removed from " + n + " arenas."))));
+                        } else {
+                            Cfg.set(Opt.ARENA_BARRIER_WALLS, true);
+                            sender.sendMessage(Text.mm("<gray>Closing every arena with invisible walls (background)..."));
+                            seal.sealAll(true).thenAccept(n -> net.vortexpvp.util.Tasks.ensureSync(() -> sender.sendMessage(Text.mm("<green>" + n + " arenas closed with invisible walls."))));
+                        }
+
+                        break;
+                }
+                case "smp": {
+                        String sub = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+                        if (sub.equals("link") || sub.equals("unlink") || sub.equals("links")) {
+                            this.smpLinks(sender, args);
+                        } else if (p != null && args.length == 1) {
+                            this.plugin.dialogs().smp().open(p);
+                        } else if (this.plugin.survival() == null) {
+                            sender.sendMessage(Text.mm(this.plugin.survivalPending()
+                                ? "<yellow>The SMP starts after the next restart (the old VortexSMP plugin is still running until then)."
+                                : "<red>The SMP didn't start - see the console."));
+                        } else {
+                            this.plugin.survival().onCommand(sender, null, "smp", java.util.Arrays.copyOfRange(args, 1, args.length));
+                        }
+
+                        break;
+                }
+                case "invbackup":
+                case "invbackups": {
+                        // /pvpadmin invbackup <player> [list|restore <n>]
+                        if (args.length < 2) {
+                            sender.sendMessage(Text.mm("<gray>/pvpadmin invbackup <white><player></white> [list | restore <n>] <dark_gray>- backups of SMP inventories and ender chests"));
+                            break;
+                        }
+
+                        org.bukkit.OfflinePlayer op = Bukkit.getPlayerExact(args[1]);
+                        if (op == null) {
+                            op = Bukkit.getOfflinePlayerIfCached(args[1]);
+                        }
+
+                        if (op == null) {
+                            op = Bukkit.getOfflinePlayer(args[1]);
+                        }
+
+                        java.util.List<java.io.File> list = this.plugin.modes().backups(op.getUniqueId());
+                        if (args.length > 3 && args[2].equalsIgnoreCase("restore")) {
+                            // by name (what the [restore] link uses - numbers move as new backups come in) or by number
+                            java.io.File pick = null;
+                            for (java.io.File f : list) {
+                                if (f.getName().equalsIgnoreCase(args[3]) || f.getName().equalsIgnoreCase(args[3] + ".yml")) {
+                                    pick = f;
+                                }
+                            }
+
+                            if (pick == null && args[3].matches("\\d{1,4}")) {
+                                int n = Integer.parseInt(args[3]);
+                                pick = n >= 1 && n <= list.size() ? list.get(n - 1) : null;
+                            }
+
+                            if (pick == null) {
+                                sender.sendMessage(Text.mm("<red>No backup " + Text.esc(args[3]) + ". <gray>See /pvpadmin invbackup " + Text.esc(args[1])));
+                            } else {
+                                String res = this.plugin.modes().restoreBackup(op.getUniqueId(), pick);
+                                sender.sendMessage(Text.mm(res.equals("now") ? "<green>" + Text.esc(args[1]) + " has it now (what they had is in a backup)." : res.equals("pending") ? "<green>Saved - " + Text.esc(args[1]) + " gets it the next time they are in that world." : "<red>" + Text.esc(res)));
+                            }
+
+                            break;
+                        }
+
+                        if (list.isEmpty()) {
+                            sender.sendMessage(Text.mm("<gray>No inventory backups for " + Text.esc(args[1]) + " yet <dark_gray>(" + op.getUniqueId() + ")"));
+                            break;
+                        }
+
+                        sender.sendMessage(Text.mm("<gold>Inventory backups of <white>" + Text.esc(args[1]) + "</white> <gray>(newest first):"));
+                        java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("dd MMM HH:mm");
+                        for (int i = 0; i < Math.min(20, list.size()); i++) {
+                            java.io.File f = list.get(i);
+                            org.bukkit.configuration.file.YamlConfiguration y = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(f);
+                            int items = 0;
+                            int ender = 0;
+                            try {
+                                for (org.bukkit.inventory.ItemStack it : org.bukkit.inventory.ItemStack.deserializeItemsFromBytes(java.util.Base64.getDecoder().decode(y.getString("contents", "")))) {
+                                    items += it != null && !it.isEmpty() ? 1 : 0;
+                                }
+
+                                for (org.bukkit.inventory.ItemStack it : org.bukkit.inventory.ItemStack.deserializeItemsFromBytes(java.util.Base64.getDecoder().decode(y.getString("enderchest", "")))) {
+                                    ender += it != null && !it.isEmpty() ? 1 : 0;
+                                }
+                            } catch (RuntimeException ignored) {
+                            }
+
+                            String cmd = "/pvpadmin invbackup " + args[1] + " restore " + f.getName().replace(".yml", "");
+                            sender.sendMessage(Text.mm(" <yellow>#" + (i + 1) + " <white>" + Text.esc(y.getString("group", "?")) + " <gray>" + df.format(new java.util.Date(f.lastModified()))
+                                + " <dark_gray>• <white>" + items + "<gray> stacks, <white>" + ender + "<gray> in ender chest, level " + y.getInt("level")
+                                + " <click:suggest_command:'" + cmd + "'><hover:show_text:'" + cmd + "'><green>[restore]</green></hover></click>"));
+                        }
+
+                        break;
+                }
+                case "winter": {
+                        net.vortexpvp.lobby.Season se = this.plugin.season();
+                        String what = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status";
+                        if (se == null) {
+                            sender.sendMessage(Text.mm("<red>The winter lobby didn't start - see the console."));
+                        } else if (what.equals("on") || what.equals("off") || what.equals("auto")) {
+                            Cfg.set(Opt.LOBBY_SEASON, what.equals("on") ? "WINTER" : what.toUpperCase(Locale.ROOT));
+                            if (se.wanted() && !se.applied()) {
+                                se.apply(sender);
+                            } else if (!se.wanted() && se.applied()) {
+                                se.revert(sender);
+                            } else {
+                                sender.sendMessage(Text.mm("<gray>Winter lobby: " + Text.esc(se.status())));
+                            }
+                        } else {
+                            sender.sendMessage(Text.mm("<aqua>❄ <gray>Winter lobby: <white>" + Text.esc(se.status())));
+                            sender.sendMessage(Text.mm("<gray>/pvpadmin winter on <dark_gray>| <gray>off <dark_gray>| <gray>auto <dark_gray>(1 Dec - 15 Jan)"));
+                        }
+                        break;
+                }
+                case "hub": {
+                        if (p == null) {
+                            Msg.send(sender, "general.players-only");
+                        } else if (args.length > 1 && args[1].equalsIgnoreCase("upgrade")) {
+                            this.plugin.modes().upgradeHub(p);
+                        } else if (args.length > 2 && args[1].equalsIgnoreCase("build")) {
+                            try {
+                                net.vortexpvp.build.SpawnBuilder.Style st = net.vortexpvp.build.SpawnBuilder.Style.valueOf(args[2].toUpperCase(Locale.ROOT));
+                                int rad = args.length > 3 ? Integer.parseInt(args[3]) : st.radius;
+                                this.plugin.modes().buildSpawn(p, st, rad);
+                            } catch (IllegalArgumentException e) {
+                                sender.sendMessage(Text.mm("<red>Unknown style or size. <gray>Styles: " + java.util.Arrays.toString(net.vortexpvp.build.SpawnBuilder.Style.values())));
+                            }
+                        } else {
+                            sender.sendMessage(Text.mm("<gray>/pvpadmin hub upgrade <dark_gray>- <gray>rebuild the lobby in place with the newest design"));
+                            sender.sendMessage(Text.mm("<gray>/pvpadmin hub build <style> [radius] <dark_gray>- <gray>build a lobby where you stand"));
+                        }
+                        break;
+                }
                 case "build": {
                         if (p != null) {
                             Session s = this.plugin.sessions().get(p);
@@ -907,7 +1128,21 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                 Msg.plain(sender, "usage.kits");
             } else {
                 String id = args[1].toLowerCase(Locale.ROOT);
-                if (sub.equals("create")) {
+                if (sub.equals("copy")) {
+                    Kit src = this.plugin.kits().get(id);
+                    String nid = args.length > 2 ? args[2].toLowerCase(Locale.ROOT) : null;
+                    if (src == null) {
+                        Msg.error(sender, "general.unknown-kit", "kit", id);
+                    } else if (nid == null || !KitManager.ID.matcher(nid).matches()) {
+                        sender.sendMessage(Text.mm("<red>Usage: /kits copy <from> <new-id> [name]"));
+                    } else if (this.plugin.kits().get(nid) != null) {
+                        Msg.error(sender, "admin.kit-exists", "kit", nid);
+                    } else {
+                        String display = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : Fmt.capitalize(nid);
+                        Kit k = this.plugin.kits().copy(src, nid, display);
+                        Msg.send(sender, "admin.kit-created", "kit", k.label());
+                    }
+                } else if (sub.equals("create")) {
                     if (p == null) {
                         Msg.send(sender, "general.players-only");
                     } else if (!KitManager.ID.matcher(id).matches()) {
@@ -1029,6 +1264,41 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
         }
     }
 
+    /** /pvpadmin smp link|unlink|links: worlds (nether / end) that play as part of an SMP world. */
+    private void smpLinks(CommandSender sender, String[] args) {
+        net.vortexpvp.smp.ModeManager mm = this.plugin.modes();
+        String sub = args[1].toLowerCase(Locale.ROOT);
+        if (sub.equals("links")) {
+            if (mm.links().isEmpty()) {
+                sender.sendMessage(Text.mm("<gray>No linked worlds. A nether / end named after its SMP world (smp_nether, smp_the_end) belongs to it by itself."));
+            } else {
+                sender.sendMessage(Text.mm("<gold><b>Linked worlds</b> <gray>(they play as part of the SMP: inventories, backups, /rtp)"));
+                for (java.util.Map.Entry<String, String> e : mm.links().entrySet()) {
+                    sender.sendMessage(Text.mm("<gray>- <white>" + Text.esc(e.getKey()) + "</white> -> <green>" + Text.esc(e.getValue())));
+                }
+            }
+        } else if (sub.equals("unlink")) {
+            if (args.length < 3) {
+                sender.sendMessage(Text.mm("<red>Usage: /pvpadmin smp unlink <world>"));
+            } else {
+                sender.sendMessage(Text.mm(mm.unlink(args[2]) ? "<green>" + Text.esc(args[2]) + " is no longer part of the SMP." : "<red>" + Text.esc(args[2]) + " is not linked."));
+            }
+        } else if (args.length < 3) {
+            sender.sendMessage(Text.mm("<red>Usage: /pvpadmin smp link <world> [smp world]</red> <gray>- e.g. /pvpadmin smp link world_nether"));
+        } else {
+            String smp = args.length > 3 ? args[3] : null;
+            if (smp == null) {
+                org.bukkit.World first = mm.smpWorld();
+                smp = first == null ? null : first.getName();
+            }
+
+            String err = mm.link(args[2], smp);
+            sender.sendMessage(Text.mm(err == null
+                ? "<green>" + Text.esc(args[2]) + " is now part of the SMP world <white>" + Text.esc(smp) + "</white>: same inventory, backups every few minutes."
+                : "<red>" + Text.esc(err)));
+        }
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
         List<String> out = new ArrayList<>();
@@ -1038,7 +1308,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
             String last = args.length == 0 ? "" : args[args.length - 1].toLowerCase(Locale.ROOT);
             if (cmd.getName().equalsIgnoreCase("kits")) {
                 if (args.length == 1) {
-                    out.addAll(List.of("create", "add", "remove", "edit", "delete", "list", "setinv", "load", "seticon"));
+                    out.addAll(List.of("create", "copy", "add", "remove", "edit", "delete", "list", "setinv", "load", "seticon"));
                 } else if (args.length == 2 && !args[0].equalsIgnoreCase("create")) {
                     out.addAll(this.plugin.kits().ids());
                 } else if (args.length == 3 && (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove"))) {
@@ -1048,6 +1318,12 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                 out.addAll(
                     List.of(
                         "staff",
+                        "invbackup",
+                        "backupall",
+                        "walls",
+                        "regenerate",
+                        "showcase",
+                        "smp",
                         "rebuild",
                         "reload",
                         "save",

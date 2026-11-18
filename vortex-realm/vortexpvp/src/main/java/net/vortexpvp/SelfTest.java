@@ -205,7 +205,11 @@ public final class SelfTest {
         }
 
         List<KitVote> maceVotes = PreMatch.votesFor(mace);
-        this.check("Votes: Sword has nothing to vote on", sword != null && PreMatch.votesFor(sword).isEmpty(), "sword votes");
+        this.check(
+            "Votes: Sword only votes on one more round",
+            sword != null && PreMatch.votesFor(sword).stream().allMatch(v -> v.action() == KitVote.Action.ROUNDS),
+            sword == null ? "no sword" : PreMatch.votesFor(sword).toString()
+        );
         this.check(
             "Votes: Mace gets 3 votes and never the mace itself",
             maceVotes.size() == 3 && maceVotes.stream().noneMatch(v -> v.material() == Material.MACE),
@@ -340,7 +344,7 @@ public final class SelfTest {
 
     /** Map vote: designed-arena kits get 3D previews within the part budget, biome kits play the biome maps. */
     private void previews() {
-        for (String[] want : new String[][]{{"sword", "DESIGNED"}, {"uhc", "DESIGNED"}, {"mace", "VANILLA"}, {"cart", "VANILLA"}, {"creeper", "VANILLA"}}) {
+        for (String[] want : new String[][]{{"sword", "DESIGNED"}, {"uhc", "DESIGNED"}, {"builduhc", "DESIGNED"}, {"pot", "DESIGNED"}, {"mace", "MACE"}, {"cart", "VANILLA"}, {"creeper", "VANILLA"}}) {
             Kit k = this.plugin.kits().get(want[0]);
             if (k != null && (k.arenaType == null || k.arenaType.equals("AUTO"))) {
                 this.check("Kit " + k.id + ": map vote uses " + want[1].toLowerCase() + " maps", k.arenaKind().equals(want[1]), k.arenaKind());
@@ -453,7 +457,8 @@ public final class SelfTest {
 
         List<String> missing = new ArrayList<>();
         for (net.vortexpvp.arena.ArenaTheme t : net.vortexpvp.arena.ArenaTheme.values()) {
-            if (t != net.vortexpvp.arena.ArenaTheme.CUSTOM && !have.contains(t)) {
+            // retired themes (open and small duel maps, removed in 2.3.0) are not expected any more
+            if (t != net.vortexpvp.arena.ArenaTheme.CUSTOM && !t.retired() && !have.contains(t)) {
                 missing.add(t.name());
             }
         }
@@ -513,44 +518,94 @@ public final class SelfTest {
             net.vortexpvp.pack.Glyphs.space(13) instanceof net.kyori.adventure.text.TextComponent tc && tc.content().codePointCount(0, tc.content().length()) == 3,
             "wrong glyph count"
         );
-        if (this.plugin.economy() != null) {
-            net.vortexpvp.smp.Economy eco = this.plugin.economy();
-            this.check("Economy: provider " + eco.providerStatus(), true, "");
-            org.bukkit.inventory.ItemStack box = new org.bukkit.inventory.ItemStack(org.bukkit.Material.SHULKER_BOX);
-            box.editMeta(org.bukkit.inventory.meta.BlockStateMeta.class, m -> {
-                if (m.getBlockState() instanceof org.bukkit.block.ShulkerBox sb) {
-                    sb.getInventory().addItem(new org.bukkit.inventory.ItemStack(org.bukkit.Material.DIAMOND, 5));
-                    m.setBlockState(sb);
-                }
-            });
-            Double d = eco.sellPrice(org.bukkit.Material.DIAMOND);
-            Double db = eco.sellPrice(org.bukkit.Material.DIAMOND_BLOCK);
-            this.check("Sell: a filled shulker box is never sold (its items would be lost)", eco.value(box) == 0.0, String.valueOf(eco.value(box)));
-            this.check("Sell: diamond blocks can be sold", db != null && db > 0.0, "no price for DIAMOND_BLOCK");
-            this.check("Sell: renamed items are not sold", eco.value(Items.of(org.bukkit.Material.DIAMOND).name("x").build()) == 0.0 || d == null, "renamed item sold");
-            int loops = 0;
-            for (net.vortexpvp.smp.Economy.Category c : eco.categories().values()) {
-                for (net.vortexpvp.smp.Economy.ShopItem it : c.items) {
-                    Double sp = eco.sellPrice(it.material);
-                    if (it.potion == null && sp != null && it.amount > 0 && sp >= it.price / it.amount) {
-                        loops++;
+        this.check("Match found: the first version's pop by default (totem, then the kit's weapon)", "BOTH".equals(net.vortexpvp.config.Opt.FOUND_EFFECT.def), String.valueOf(net.vortexpvp.config.Opt.FOUND_EFFECT.def));
+        List<net.vortexpvp.build.Voxels> designs = new ArrayList<>();
+        designs.add(new net.vortexpvp.build.VortexIslesDesign(0, 100, 0, 90, 3L));
+        designs.add(new net.vortexpvp.build.MoleMinesDesign(0, 100, 0, 5L, false));
+        designs.add(new net.vortexpvp.build.MoleMinesDesign(0, 100, 0, 6L, true));
+        for (net.vortexpvp.build.DuelArenaDesign.Style st : net.vortexpvp.build.DuelArenaDesign.Style.values()) {
+            int size = net.vortexpvp.build.DuelArenaDesign.playable(st, net.vortexpvp.config.Cfg.i(net.vortexpvp.config.Opt.DUEL_COMPACT_SIZE), net.vortexpvp.config.Cfg.i(net.vortexpvp.config.Opt.DUEL_BUILD_SIZE));
+            net.vortexpvp.build.DuelArenaDesign d = new net.vortexpvp.build.DuelArenaDesign(st, size, 7L, 0, 100, 0, false);
+            designs.add(d);
+            int[] a1 = d.spawn(0);
+            int[] a2 = d.spawn(1);
+            int gap = Math.abs(a1[0] - a2[0]);
+            this.check("Duel map " + st.display + ": " + size + " blocks, spawns " + gap + " apart", st.build ? gap >= 26 && gap <= 52 : gap >= 22 && gap <= 34, "spawn gap " + gap);
+            boolean standOk = true;
+            for (int[] sp : new int[][]{a1, a2}) {
+                int[] col = new int[]{Integer.MIN_VALUE};
+                String[] at = new String[2];
+                d.column(sp[0], sp[2], (bx, by, bz, blk) -> {
+                    if (by == 100 + sp[1] - 1) {
+                        at[0] = blk;
+                    } else if (by == 100 + sp[1] || by == 100 + sp[1] + 1) {
+                        at[1] = at[1] == null ? blk : at[1] + "," + blk;
                     }
+                });
+                standOk &= at[0] != null && !at[0].endsWith(":air") && (at[1] == null || at[1].replace("minecraft:air", "").replace("minecraft:barrier", "").replace(",", "").isEmpty());
+            }
+
+            this.check("Duel map " + st.display + ": both spawns stand on a block with room above", standOk, "spawn blocked");
+        }
+
+        {
+            // the Town Square hub has the Training Grounds wing: six bot-map alcoves and three NPC stands
+            net.vortexpvp.build.ClubHubDesign hub = new net.vortexpvp.build.ClubHubDesign(0, 100, 0, 120, 7L);
+            long maps = hub.features().keySet().stream().filter(k -> k.startsWith("botmap:")).count();
+            long npcs = hub.features().keySet().stream().filter(k -> k.startsWith("botnpc:")).count();
+            this.check("Town Square: the Bot Practice hall with " + maps + " bot maps and " + npcs + " NPC stands", maps == 9 && npcs == 3, "maps " + maps + ", npcs " + npcs);
+            designs.add(hub);
+            double[] sp = hub.spawn();
+            this.check("Town Square: the spawn stays at the same spot (upgrades keep it)", sp[0] == 0.5 && sp[1] == 101.0 && sp[2] == 53.5, java.util.Arrays.toString(sp));
+            int blocked = 0;
+            for (int z = 40; z >= 14; z--) {
+                if (!hub.clearAt(0, 1, z) || !hub.clearAt(0, 2, z)) {
+                    blocked++;
                 }
             }
 
-            this.check("Shop: no item sells for as much as it costs (no money loop)", loops == 0, loops + " items");
-            net.vortexpvp.smp.Economy.ShopItem sp = net.vortexpvp.smp.Economy.ShopItem.parse("SPAWNER#ZOMBIE:1:200");
-            this.check("Shard shop: spawner items carry their mob", sp != null && sp.stack(1).getItemMeta().getPersistentDataContainer().getKeys().size() > 0, "no spawner type");
-            net.vortexpvp.smp.Economy.ShopItem bk = net.vortexpvp.smp.Economy.ShopItem.parse("ENCHANTED_BOOK#MENDING_1:1:80");
-            this.check("Shard shop: enchanted books carry their enchantment",
-                bk != null && bk.stack(1).getItemMeta() instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta em && em.hasStoredEnchants(), "no enchantment");
-            this.check("Match found: the first version's pop by default (totem, then the kit's weapon)", "BOTH".equals(net.vortexpvp.config.Opt.FOUND_EFFECT.def), String.valueOf(net.vortexpvp.config.Opt.FOUND_EFFECT.def));
+            this.check("Town Square: the walk from the spawn to the fountain is clear", blocked == 0, blocked + " blocked steps");
+            int dummies = net.vortexpvp.bot.DummyType.values().length;
+            this.check("Training: " + dummies + " training forms, every one in a menu tab", dummies >= 19
+                && java.util.Arrays.stream(net.vortexpvp.bot.DummyType.values()).allMatch(t -> List.of("SWORD", "AIR", "SPEAR", "CRYSTAL").contains(t.group())), "groups");
+            boolean training = this.plugin.arenas().all().stream().anyMatch(a -> a.theme == net.vortexpvp.arena.ArenaTheme.TRAINING_GROUNDS && a.ready());
+            this.check("Training: the flat Training Grounds map is ready (bots never use biome maps)", training || !net.vortexpvp.config.Cfg.bool(net.vortexpvp.config.Opt.BOTS_FLAT_MAPS), "not generated yet");
         }
 
-        for (net.vortexpvp.build.Voxels vd : List.of(
-            (net.vortexpvp.build.Voxels)new net.vortexpvp.build.EcoSpawnDesign(0, 100, 0, 3L),
-            new net.vortexpvp.build.VortexIslesDesign(0, 100, 0, 90, 3L)
-        )) {
+        {
+            // Mole: each base is sealed in rock, and solid blocks lie between the two bases
+            net.vortexpvp.build.MoleMinesDesign m = new net.vortexpvp.build.MoleMinesDesign(0, 100, 0, 9L, false);
+            int[] b1 = m.spawn(0);
+            int[] b2 = m.spawn(1);
+            int dist = (int)Math.round(Math.sqrt(Math.pow(b1[0] - b2[0], 2) + Math.pow(b1[1] - b2[1], 2) + Math.pow(b1[2] - b2[2], 2)));
+            java.util.Map<Long, String> top = new java.util.HashMap<>();
+            int solidBetween = 0;
+            for (int x = Math.min(b1[0], b2[0]) + 5; x <= Math.max(b1[0], b2[0]) - 5; x++) {
+                int fx = x;
+                String[] hit = new String[1];
+                int yy = 100 + (b1[1] + b2[1]) / 2;
+                int zz = (b1[2] + b2[2]) / 2;
+                m.column(fx, zz, (bx, by, bz, blk) -> {
+                    if (by == yy) {
+                        hit[0] = blk;
+                    }
+                });
+                if (hit[0] != null && !hit[0].endsWith(":air")) {
+                    solidBetween++;
+                }
+            }
+
+            String[] roof = new String[1];
+            m.column(b1[0], b1[2], (bx, by, bz, blk) -> {
+                if (by == 100) {
+                    roof[0] = blk;
+                }
+            });
+            this.check("Mole Hollow: bases " + dist + " blocks apart, rock between them, bedrock roof (no surface)",
+                dist >= 20 && dist <= 34 && solidBetween >= 8 && "minecraft:bedrock".equals(roof[0]), "dist " + dist + ", solid " + solidBetween + ", roof " + roof[0]);
+        }
+
+        for (net.vortexpvp.build.Voxels vd : designs) {
             java.util.Set<String> blocks = new java.util.HashSet<>();
             for (int x = vd.minX(); x <= vd.maxX(); x++) {
                 for (int z = vd.minZ(); z <= vd.maxZ(); z++) {
@@ -570,27 +625,28 @@ public final class SelfTest {
             this.check("Build " + vd.name() + ": all " + blocks.size() + " block types are valid", bad.isEmpty(), String.join(", ", bad));
         }
 
-        if (this.plugin.ecoSpawn() != null) {
-            net.vortexpvp.build.EcoSpawnDesign d = new net.vortexpvp.build.EcoSpawnDesign(0, 64, 0, 1L);
-            java.util.Map<String, double[]> feats = d.features();
-            boolean zones = feats.containsKey("zone:afk:min") && feats.containsKey("zone:warzone:min") && feats.containsKey("zone:spawn:min");
-            long npcs = feats.keySet().stream().filter(k -> k.startsWith("econpc:")).count();
-            this.check("Eco Spawn: design has AFK, warzone and spawn zones and 5 NPC stalls", zones && npcs == 5, "zones " + zones + ", npcs " + npcs);
-            if (this.plugin.ecoSpawn().built()) {
-                String why = this.plugin.ecoSpawn().check();
-                this.check("Eco Spawn: PvP only in the warzone, AFK zone in place", why == null, String.valueOf(why));
+        // the SMP lives on its own server now: nothing of it may be left in this plugin
+        List<String> leftover = new ArrayList<>();
+        for (String c : List.of("balance", "pay", "shop", "sell", "ah", "home", "sethome", "tpa", "rtp", "warp", "claim", "smpadmin", "ecoadmin", "smpstats", "lifesteal")) {
+            if (this.plugin.getCommand(c) != null) {
+                leftover.add(c);
             }
         }
 
-        if (this.plugin.modes() != null && net.vortexpvp.config.Cfg.bool(net.vortexpvp.config.Opt.SMP_DIMENSIONS)) {
+        this.check("Network: no SMP command is left in the Practice plugin", leftover.isEmpty(), String.join(", ", leftover));
+        if (this.plugin.serverSelector() != null) {
+            net.vortexpvp.smp.ServerSelector.Entry smp = this.plugin.serverSelector().get("smp");
+            this.check("Network: the selector has an SMP server entry", smp != null && smp.action() == net.vortexpvp.smp.ServerSelector.Action.SERVER, "no SERVER entry with id smp");
+            net.vortexpvp.smp.ServerSelector.Entry t = new net.vortexpvp.smp.ServerSelector.Entry();
+            t.id = "t";
+            this.check("Network: host:port is read right", "play.example.net".equals(hostOf(t, "play.example.net:25570")) && portOf(t, "play.example.net:25570") == 25570 && portOf(t, "play.example.net") == 25565, "wrong host/port");
+            net.vortexpvp.smp.ServerLink.Ping self = net.vortexpvp.smp.ServerLink.ping("127.0.0.1", org.bukkit.Bukkit.getPort(), 1500);
+            this.check("Network: server-list ping works (pinged this server: " + self.players() + " online)", self.online() && self.players() == org.bukkit.Bukkit.getOnlinePlayers().size(), "no answer");
+        }
+
+        if (this.plugin.modes() != null) {
             for (org.bukkit.World w : org.bukkit.Bukkit.getWorlds()) {
-                if (w.getEnvironment() == org.bukkit.World.Environment.NORMAL && this.plugin.modes().mode(w).smp() && !this.plugin.worlds().managed(w)) {
-                    boolean nether = org.bukkit.Bukkit.getWorld(w.getName() + "_nether") != null;
-                    boolean end = org.bukkit.Bukkit.getWorld(w.getName() + "_the_end") != null;
-                    this.check("SMP " + w.getName() + ": own nether and end loaded", nether && end, (nether ? "" : "no nether ") + (end ? "" : "no end"));
-                    org.bukkit.World n = org.bukkit.Bukkit.getWorld(w.getName() + "_nether");
-                    this.check("SMP " + w.getName() + ": its nether is not a PvP world", n == null || !this.plugin.worlds().managed(n), "nether counted as PvP");
-                }
+                this.check("Network: " + w.getName() + " has no SMP mode here", !this.plugin.modes().mode(w).smp(), "SMP mode still active");
             }
         }
 
@@ -640,5 +696,15 @@ public final class SelfTest {
         } catch (Throwable var2) {
             this.check("Dialog API builds the queue menu", false, var2.toString());
         }
+    }
+
+    private static String hostOf(net.vortexpvp.smp.ServerSelector.Entry e, String target) {
+        e.setServer(target, "");
+        return e.host();
+    }
+
+    private static int portOf(net.vortexpvp.smp.ServerSelector.Entry e, String target) {
+        e.setServer(target, "");
+        return e.port();
     }
 }

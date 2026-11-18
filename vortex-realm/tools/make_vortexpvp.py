@@ -8,7 +8,7 @@ SRC = ROOT + '/practicepvp'
 PLUS = ROOT + '/vortexpvp-plus'
 DST = ROOT + '/vortexpvp'
 VERSION = '1.0.2'
-CORE_VERSION = '1.7.4'
+CORE_VERSION = '2.11.1'
 
 TABLES = ['kit_stats', 'players', 'friends', 'follows', 'matches', 'layouts', 'meta', 'mutes', 'cosmetics', 'ips', 'academy']
 
@@ -110,7 +110,7 @@ def patch_specific(jdir):
     # the test plugin has the practice bots and training dummies switched on
     p = jdir + '/bot/BotManager.java'
     s = open(p, encoding='utf-8').read()
-    s = rep(s, 'public static final boolean COMING_SOON = true;', 'public static final boolean COMING_SOON = false;', p)
+    s = s.replace('public static final boolean COMING_SOON = true;', 'public static final boolean COMING_SOON = false;')
     open(p, 'w', encoding='utf-8').write(s)
 
 def resources():

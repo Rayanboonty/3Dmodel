@@ -347,6 +347,30 @@ public final class AdminDialogs {
         );
         tiles.add(
             tile(
+                Material.CHEST_MINECART,
+                "<gold><b>Backup Everything",
+                "<gray>One click: SMP + Practice",
+                () -> this.backupNow(p),
+                "Saves everything now: settings, kits, arenas,",
+                "ranks, stats, homes, every player's SMP and",
+                "Practice inventory, ender chest and XP.",
+                "Kept in plugins/VortexPvP-Test-Vault."
+            )
+        );
+        tiles.add(
+            tile(
+                Material.GRASS_BLOCK,
+                "<green><b>SMP",
+                "<gray>Settings, worlds, bring back old data",
+                () -> this.plugin.dialogs().smp().open(p),
+                "The survival SMP of this server: on/off,",
+                "all its settings, the SMP worlds, bringing",
+                "homes and inventories back from a backup or",
+                "the old plugin files, every player's backups."
+            )
+        );
+        tiles.add(
+            tile(
                 Material.ENDER_CHEST,
                 "<gold><b>Data Vault",
                 "<gray>" + this.plugin.vault().files().size() + " snapshots",
@@ -369,8 +393,8 @@ public final class AdminDialogs {
                 "<gold><b>World Manager",
                 "<gray>Modes, spawns, new worlds",
                 () -> this.worlds(p),
-                "Hub, PvP, Survival, Lifesteal,",
-                "Strength and Ranked SMP worlds."
+                "Hub and PvP worlds. The SMP runs",
+                "on its own server (VortexSMP)."
             )
         );
         tiles.add(tile(Material.ARMOR_STAND, "<gold><b>NPCs", "<gray>Skins, actions, auras", () -> this.plugin.npcs().list(p), "Travel NPCs and menu NPCs."));
@@ -391,9 +415,9 @@ public final class AdminDialogs {
             tile(
                 Material.COMPASS,
                 "<gold><b>Server Selector",
-                "<gray>Practice, SMP, Ranked, Lifesteal, Eco...",
+                "<gray>Practice, the SMP server, more servers...",
                 () -> this.plugin.serverSelector().editor(p),
-                "Names, icons, descriptions,",
+                "Names, icons, server addresses,",
                 "status badges and order."
             )
         );
@@ -476,6 +500,44 @@ public final class AdminDialogs {
                 },
                 "Regenerates every generated duel arena",
                 "with the improved generator."
+            )
+        );
+        tiles.add(
+            tile(
+                Material.TNT,
+                "<red><b>Regenerate Designed Arenas",
+                "<gray>Delete + rebuild, not the vanilla maps",
+                () -> {
+                    p.closeDialog();
+                    this.plugin
+                        .dialogs()
+                        .confirm(
+                            p,
+                            Text.mm("<gold><b>Regenerate every designed arena?"),
+                            List.of(
+                                Text.mm("<gray>Every generated duel and FFA arena that is not a vanilla map is"),
+                                Text.mm("<gray>deleted and built again from zero with a new layout, one at a time,"),
+                                Text.mm("<gray>then closed with invisible walls. Vanilla maps stay as they are."),
+                                Text.mm("<gray>Arenas being played are skipped. Runs in the background.")
+                            ),
+                            () -> p.performCommand("pvpadmin regenerate confirm")
+                        );
+                },
+                "Duel maps and FFA arenas,",
+                "with their invisible walls."
+            )
+        );
+        tiles.add(
+            tile(
+                Material.BARRIER,
+                "<aqua><b>Invisible Arena Walls",
+                "<gray>Build them again around every arena",
+                () -> {
+                    p.closeDialog();
+                    p.performCommand("pvpadmin walls");
+                },
+                "Duel, FFA and bot arenas,",
+                "vanilla maps included."
             )
         );
         tiles.add(
@@ -740,13 +802,6 @@ public final class AdminDialogs {
         );
         b.add(this.ui.btn(p, "<gold>Build Spawn Here", "<gray>A plaza with NPCs where you stand", () -> this.buildPrompt(p)));
         b.add(this.ui.btn(p, "<gold>Small Builds & Walls", "<gray>Fountains, statues, towers, stalls, walls...", () -> this.smallBuilds(p)));
-        b.add(
-            this.ui
-                .btn(p, "<white>Separate Inventories " + onOff(Cfg.bool(Opt.SEPARATE_INVENTORIES)), "<gray>Each SMP mode and PvP keep their own items", () -> {
-                    Cfg.set(Opt.SEPARATE_INVENTORIES, !Cfg.bool(Opt.SEPARATE_INVENTORIES));
-                    this.worlds(p);
-                })
-        );
         b.add(this.ui.btn(p, "<gray>« Admin Panel", null, () -> this.main(p)));
         this.ui.screen(p, LobbyDialogs.title("World Manager", "Click a world to set it up"), tiles, List.of(), null, b, 2, this.ui.close(p));
     }
@@ -775,7 +830,9 @@ public final class AdminDialogs {
         List<Dialogs.Choice> c = new ArrayList<>();
 
         for (WorldMode m : WorldMode.values()) {
-            c.add(new Dialogs.Choice(m.name(), m.mm()));
+            if (!m.smp()) {
+                c.add(new Dialogs.Choice(m.name(), m.mm()));
+            }
         }
 
         return c;
@@ -811,6 +868,10 @@ public final class AdminDialogs {
         List<ActionButton> b = new ArrayList<>();
 
         for (WorldMode m : WorldMode.values()) {
+            if (m.smp()) {
+                continue;
+            }
+
             boolean sel = m == current;
             b.add(this.ui.btn(p, sel ? "<white><b><i>" + m.display + "</i></b>" : m.mm(), "<gray>" + m.description, () -> {
                 if (locked && m != WorldMode.PVP) {
@@ -973,7 +1034,6 @@ public final class AdminDialogs {
         b.add(this.ui.btn(p, "<gold>🏰 Hubs & Spawns", "<gray>Castles, towns, islands and plazas", () -> this.buildPrompt(p)));
         b.add(this.ui.btn(p, "<gold>🧱 Small Builds & Walls", "<gray>Fountains, statues, towers, stalls, walls...", () -> this.smallBuilds(p)));
         b.add(this.ui.btn(p, "<gold>🤖 Bot Practice Hall", "<gray>Map alcoves with mobs on pedestals: click one to fight a bot there.<newline><gray>Built where you stand (preview first).", () -> this.botHallPrompt(p)));
-        b.add(this.ui.btn(p, "<gold>💰 Eco Spawn", "<gray>Shop, Sell, Shard Shop, Auction and Orders NPCs, a Warzone (PvP on)<newline><gray>and an AFK zone that pays shards. Build it in the Eco SMP world.", () -> this.ecoSpawnPrompt(p)));
         b.add(this.ui.btn(p, "<gray>« Admin Panel", null, () -> this.main(p)));
         this.ui
             .screen(
@@ -986,31 +1046,6 @@ public final class AdminDialogs {
                 1,
                 this.ui.close(p)
             );
-    }
-
-    private void ecoSpawnPrompt(Player p) {
-        List<ActionButton> b = new ArrayList<>();
-        b.add(this.ui.btn(p, "<aqua>👁 Preview (3D)", "<gray>A floating miniature in front of you, 30s", () -> {
-            p.closeDialog();
-            net.vortexpvp.build.BuildPreview.preview(this.plugin, p, "ecospawn", "Eco Spawn", out -> {
-                net.vortexpvp.build.EcoSpawnDesign d = new net.vortexpvp.build.EcoSpawnDesign(0, 100, 0, 7L);
-
-                for (int x = d.minX(); x <= d.maxX(); x++) {
-                    for (int z = d.minZ(); z <= d.maxZ(); z++) {
-                        d.column(x, z, out::block);
-                    }
-                }
-            }, true, m -> {});
-        }));
-        b.add(this.ui.btn(p, "<green>🔨 Build here", "<gray>The island is centred on where you stand (about 150 blocks wide)", () -> {
-            p.closeDialog();
-            if (this.plugin.ecoSpawn() != null) {
-                this.plugin.ecoSpawn().build(p.getLocation(), p);
-            }
-        }));
-        b.add(this.ui.btn(p, "<gray>« Back", null, () -> this.buildsHome(p)));
-        this.ui.screen(p, LobbyDialogs.title("Eco Spawn", "Preview or build"), List.of(),
-            List.of(Text.mm("<gray>The Eco SMP spawn: market stalls with NPCs, a fountain, a walled Warzone and an AFK shard garden.")), null, b, 1, this.ui.close(p));
     }
 
     private void botHallPrompt(Player p) {
@@ -1054,6 +1089,7 @@ public final class AdminDialogs {
                 case PRACTICE_TOWN -> "Practice Town - a hall for every mode, shops, market and parkour";
                 case COLOSSEUM_CITY -> "Colosseum City - 500 blocks, for practice";
                 case SKY_EMPIRE -> "Sky Empire - 500 blocks";
+                case CLUB_SPAWN -> "Club Spawn - the MCPVP.CLUB spawn map (by Xter/SFFredd): plaza, town, river and forest";
                 case VORTEX_ISLES -> "Vortex Isles - a floating island hub with the Vortex Spire, 8 gamemode shrines, hills, trees and a waterfall (pro-style)";
                 case JUNGLE -> "Jungle Temple";
                 case COLOSSEUM -> "Colosseum lobby - a round arena plaza";
@@ -1068,6 +1104,7 @@ public final class AdminDialogs {
             case CITADEL, GRAND_HUB -> Material.BEACON;
             case ARCHIPELAGO, SKY_EMPIRE -> Material.FEATHER;
             case VORTEX_ISLES -> Material.AMETHYST_CLUSTER;
+            case CLUB_SPAWN -> Material.EMERALD_BLOCK;
             case NEON -> Material.GLOW_INK_SAC;
             case KEEP, CASTLE_MARKET -> Material.STONE_BRICKS;
             case TOWN_SQUARE, PRACTICE_TOWN -> Material.BELL;
@@ -1165,6 +1202,21 @@ public final class AdminDialogs {
             );
         }));
         b.add(this.ui.btn(p, "<green>🔨 Build here", "<gray>Choose the size, then it is built where you stand", () -> this.buildSize(p, sx)));
+        if (sx == SpawnBuilder.Style.TOWN_SQUARE || sx.voxel() && new java.io.File(this.plugin.getDataFolder(), "hub-build.yml").isFile()) {
+            b.add(this.ui.btn(p, "<gold>⬆ Upgrade lobby", "<gray>Rebuild your lobby in the same place with<newline><gray>the newest version of its design.<newline><gray>NPCs, holograms and the spawn stay.", () -> {
+                p.closeDialog();
+                this.plugin.dialogs().confirm(
+                    p,
+                    Text.mm("<gold><b>Upgrade the lobby?"),
+                    List.of(
+                        Text.mm("<gray>It is rebuilt in the same place with the newest design."),
+                        Text.mm("<gray>A full backup is saved first. NPCs, holograms and the spawn stay."),
+                        Text.mm("<red>Anything you built by hand inside the lobby area is replaced.")
+                    ),
+                    () -> this.plugin.modes().upgradeHub(p)
+                );
+            }));
+        }
         b.add(this.ui.btn(p, "<gray>« Back", null, () -> this.buildPrompt(p)));
         List<Component> header = new ArrayList<>();
 
@@ -1995,6 +2047,15 @@ public final class AdminDialogs {
                 2,
                 this.ui.btn(p, "<gray>« Rank", null, () -> this.rank(p, r))
             );
+    }
+
+    /** The Backup Everything button: a full backup now (the plugin, the SMP and every player's items). */
+    public void backupNow(Player p) {
+        p.closeDialog();
+        p.sendMessage(Text.mm("<gray>Backing up everything (SMP + Practice)..."));
+        this.plugin.vaultSnapshot("manual", (name, err) -> p.sendMessage(Text.mm(err != null
+            ? "<red>Backup failed - see the console."
+            : "<green><b>Backed up.</b> <gray>Saved as <white>" + name + "</white> in plugins/VortexPvP-Test-Vault (restore it in Data Vault).")));
     }
 
     public void vault(Player p) {

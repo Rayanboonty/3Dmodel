@@ -61,10 +61,17 @@ public final class Dialogs {
         this.plugin = plugin;
         this.lobby = new LobbyDialogs(plugin, this);
         this.admin = new AdminDialogs(plugin, this.lobby);
+        this.smp = new SmpDialogs(plugin);
     }
+
+    private final SmpDialogs smp;
 
     public AdminDialogs admin() {
         return this.admin;
+    }
+
+    public SmpDialogs smp() {
+        return this.smp;
     }
 
     public LobbyDialogs lobby() {

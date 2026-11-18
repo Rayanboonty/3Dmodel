@@ -70,7 +70,45 @@ public final class KitListMenu extends Menu {
                 .build(),
             c -> createPrompt(this.plugin, this.viewer)
         );
+        this.set(
+            50,
+            Items.of(Material.WRITABLE_BOOK)
+                .name("<green><b>Copy A Kit")
+                .lore("<gray>Start your own kit from an existing", "<gray>one: items, rules, maps and votes.")
+                .build(),
+            c -> copyPrompt(this.plugin, this.viewer)
+        );
         this.set(49, Ui.back(), c -> AdminMenu.openBest(this.plugin, this.viewer));
+    }
+
+    public static void copyPrompt(VortexPvP plugin, Player p) {
+        List<Dialogs.Choice> kits = new ArrayList<>();
+
+        for (Kit k : plugin.kits().sorted()) {
+            kits.add(new Dialogs.Choice(k.id, k.color + Text.esc(k.displayName)));
+        }
+
+        if (kits.isEmpty()) {
+            return;
+        }
+
+        plugin.dialogs().choice(p, Text.mm("<gold><b>Copy A Kit"), "Copy from", kits, kits.get(0).id(), from -> {
+            Kit src = plugin.kits().get(from);
+            if (src != null) {
+                plugin.dialogs().text(p, Text.mm("<gold><b>New Kit Name"), "Kit name", src.displayName + " 2", 24, name -> {
+                    String id = ArenaListMenu.slug(name);
+                    if (name.isBlank() || !KitManager.ID.matcher(id).matches()) {
+                        Msg.error(p, "admin.bad-name");
+                    } else if (plugin.kits().get(id) != null) {
+                        Msg.error(p, "admin.kit-exists", "kit", id);
+                    } else {
+                        Kit k = plugin.kits().copy(src, id, name);
+                        Msg.send(p, "admin.kit-created", "kit", k.label());
+                        new KitListMenu.KitEditMenu(plugin, p, k).open();
+                    }
+                });
+            }
+        });
     }
 
     private static String yn(boolean b) {
@@ -392,7 +430,204 @@ public final class KitListMenu extends Menu {
                         }
                     )
             );
+            this.set(
+                37,
+                Items.of(Material.PISTON)
+                    .name("<gold><b>Knockback: <white>" + this.k.knockback + "%")
+                    .lore("<gray>100% = vanilla. Lower = combo style,", "<gray>higher = pushes further.", "", "<yellow>▶ Click to set")
+                    .build(),
+                c -> this.number("Knockback", "Percent (100 = vanilla)", 0.0F, 300.0F, 5.0F, this.k.knockback, v -> this.k.knockback = Math.round(v))
+            );
+            this.set(
+                38,
+                Items.of(Material.CLOCK)
+                    .name("<gold><b>Hit Delay: <white>" + (this.k.hitDelay >= 0 ? this.k.hitDelay + " ticks" : "default (" + this.k.hitDelayTicks() + ")"))
+                    .lore("<gray>Ticks between hits. 20 = vanilla,", "<gray>low values = combo kits.", "", "<yellow>▶ Click to set (-1 = default)")
+                    .build(),
+                c -> this.number("Hit Delay", "Ticks (-1 = default)", -1.0F, 20.0F, 1.0F, this.k.hitDelay, v -> this.k.hitDelay = Math.round(v))
+            );
+            this.set(
+                39,
+                Items.of(Material.ENDER_PEARL)
+                    .name("<gold><b>Pearl Cooldown: <white>" + (this.k.pearlCooldown >= 0 ? this.k.pearlCooldown + " ticks" : "default"))
+                    .lore("<gray>20 ticks = 1 second.", "", "<yellow>▶ Click to set (-1 = default)")
+                    .build(),
+                c -> this.number("Pearl Cooldown", "Ticks (-1 = default)", -1.0F, 400.0F, 5.0F, this.k.pearlCooldown, v -> this.k.pearlCooldown = Math.round(v))
+            );
+            this.set(
+                40,
+                Items.of(Material.WIND_CHARGE)
+                    .name("<gold><b>Wind Charge Cooldown: <white>" + (this.k.windCooldown >= 0 ? this.k.windCooldown + " ticks" : "default"))
+                    .lore("<gray>20 ticks = 1 second.", "", "<yellow>▶ Click to set (-1 = default)")
+                    .build(),
+                c -> this.number("Wind Charge Cooldown", "Ticks (-1 = default)", -1.0F, 400.0F, 5.0F, this.k.windCooldown, v -> this.k.windCooldown = Math.round(v))
+            );
+            this.set(
+                41,
+                Items.of(Material.FILLED_MAP)
+                    .name("<gold><b>Maps: <white>" + this.k.arenaType)
+                    .lore("<gray>Which maps this kit plays on.", "<gray>Now: <white>" + this.k.arenaKind(), "", "<yellow>▶ Click to choose")
+                    .build(),
+                c -> {
+                    List<Dialogs.Choice> opts = new ArrayList<>();
+
+                    for (String[] o : new String[][]{
+                        {"AUTO", "Auto (from the kit's items)"},
+                        {"VANILLA", "Vanilla biome maps"},
+                        {"DESIGNED", "Show arenas + colosseums"},
+                        {"VANILLA,DESIGNED", "Vanilla + designed"},
+                        {"CRYSTAL", "Deep crystal maps"},
+                        {"MACE", "Big mace maps"},
+                        {"MOLE", "Mole Hollow"},
+                        {"ANY", "Any map"}
+                    }) {
+                        opts.add(new Dialogs.Choice(o[0], o[1]));
+                    }
+
+                    this.plugin.dialogs().choice(this.viewer, Text.mm("<gold><b>Kit Maps"), "Maps", opts, this.k.arenaType, vx -> {
+                        this.k.arenaType = vx;
+                        
+                        this.plugin.kits().save();
+                        new KitListMenu.KitEditMenu(this.plugin, this.viewer, this.k).open();
+                    });
+                }
+            );
+            this.set(42, Ui.toggle(Material.CLOCK, "Rounds Vote", this.k.roundsVote, "Offer 'play one more round' before 1v1 duels."), c -> {
+                this.k.roundsVote = !this.k.roundsVote;
+                this.changed();
+            });
+            this.set(
+                43,
+                Items.of(Material.WRITABLE_BOOK)
+                    .name("<gold><b>Votes <white>(" + this.k.votes.size() + ")")
+                    .lore("<gray>Pre-match votes for this kit:", "<gray>item limits, no regen, knockback,", "<gray>rounds and more.", "", "<yellow>▶ Click to edit")
+                    .build(),
+                c -> new KitListMenu.KitVotesMenu(this.plugin, this.viewer, this.k).open()
+            );
             this.set(49, Ui.back(), c -> new KitListMenu(this.plugin, this.viewer).open());
+        }
+
+        private void number(String title, String label, float min, float max, float step, float now, java.util.function.Consumer<Float> set) {
+            this.plugin.dialogs().number(this.viewer, Text.mm("<gold><b>" + title), label, min, max, step, now, vx -> {
+                set.accept(vx);
+                this.plugin.kits().save();
+                new KitListMenu.KitEditMenu(this.plugin, this.viewer, this.k).open();
+            });
+        }
+    }
+
+    /** The pre-match votes of one kit: click a vote to remove it, add new ones from presets or the held item. */
+    public static final class KitVotesMenu extends Menu {
+        private final Kit k;
+
+        public KitVotesMenu(VortexPvP plugin, Player viewer, Kit k) {
+            super(plugin, viewer);
+            this.k = k;
+        }
+
+        @Override
+        protected Component title() {
+            return Text.mm("<gold><b>Votes</b></gold> <dark_gray>» ").append(this.k.name());
+        }
+
+        @Override
+        protected int rows() {
+            return 5;
+        }
+
+        private void saved() {
+            this.plugin.kits().save();
+            this.redraw();
+        }
+
+        @Override
+        protected void draw() {
+            this.border(Ui.FRAME);
+            int[] slots = {10, 11, 12, 13, 14, 15, 16};
+
+            for (int i = 0; i < Math.min(slots.length, this.k.votes.size()); i++) {
+                KitVote v = this.k.votes.get(i);
+                this.set(
+                    slots[i],
+                    Items.of(v.material().isItem() ? v.material() : Material.PAPER)
+                        .name("<white><b>" + Text.esc(v.question()))
+                        .lore("<gray>Type: <white>" + v.action().name().toLowerCase().replace('_', ' '), "", "<red>▶ Click to remove")
+                        .build(),
+                    c -> {
+                        this.k.votes.remove(v);
+                        this.saved();
+                    }
+                );
+            }
+
+            List<KitVote> auto = net.vortexpvp.match.PreMatch.votesFor(this.k);
+            List<String> shown = new ArrayList<>();
+
+            for (KitVote v : auto) {
+                shown.add("<gray>• <white>" + Text.esc(v.question()));
+            }
+
+            this.set(
+                4,
+                Items.of(Material.BOOK)
+                    .name("<gold><b>Shown Before A Match")
+                    .lore(shown.isEmpty() ? List.of("<gray>Nothing to vote on.") : shown)
+                    .build()
+            );
+            this.set(28, Items.of(Material.CLOCK).name("<green><b>+ Rounds Vote").lore("<gray>'Play first to N rounds'.").build(), c -> this.plugin.dialogs()
+                .number(this.viewer, Text.mm("<gold><b>Rounds Vote"), "First to", 2.0F, 10.0F, 1.0F, Math.max(2, this.k.rounds() + 1), vx -> {
+                    int n = Math.round(vx);
+                    this.k.votes.removeIf(x -> x.action() == KitVote.Action.ROUNDS);
+                    this.k.votes.add(new KitVote("rounds", "Play First To " + n + " Rounds", KitVote.Action.ROUNDS, Material.CLOCK, n));
+                    this.plugin.kits().save();
+                    new KitListMenu.KitVotesMenu(this.plugin, this.viewer, this.k).open();
+                }));
+            this.set(29, Items.of(Material.GOLDEN_APPLE).name("<green><b>+ No Regen Vote").lore("<gray>'No natural regen' (UHC style).").build(), c -> {
+                this.k.votes.removeIf(x -> x.action() == KitVote.Action.NO_REGEN);
+                this.k.votes.add(new KitVote("no_regen", "No Natural Regen", KitVote.Action.NO_REGEN, Material.GOLDEN_APPLE, 0));
+                this.saved();
+            });
+            this.set(30, Items.of(Material.PISTON).name("<green><b>+ Knockback Vote").lore("<gray>'Knockback N%' for the match.").build(), c -> this.plugin.dialogs()
+                .number(this.viewer, Text.mm("<gold><b>Knockback Vote"), "Percent", 0.0F, 300.0F, 5.0F, 150.0F, vx -> {
+                    int n = Math.round(vx);
+                    this.k.votes.removeIf(x -> x.action() == KitVote.Action.KNOCKBACK);
+                    this.k.votes.add(new KitVote("knockback", "Knockback " + n + "%", KitVote.Action.KNOCKBACK, Material.PISTON, n));
+                    this.plugin.kits().save();
+                    new KitListMenu.KitVotesMenu(this.plugin, this.viewer, this.k).open();
+                }));
+            ItemStack held = this.viewer.getInventory().getItemInMainHand();
+            String heldName = held.getType().isAir() ? "nothing" : held.getType().getKey().getKey().replace('_', ' ');
+            this.set(
+                32,
+                Items.of(Material.HOPPER).name("<green><b>+ Limit Held Item").lore("<gray>Holding: <white>" + heldName, "<gray>'Limit to N <item>'.").build(),
+                c -> {
+                    if (held.getType().isAir()) {
+                        Msg.error(this.viewer, "admin.hold-item");
+                        return;
+                    }
+
+                    Material m = held.getType();
+                    this.plugin.dialogs().number(this.viewer, Text.mm("<gold><b>Limit " + Text.esc(heldName)), "Keep at most", 0.0F, 64.0F, 1.0F, 8.0F, vx -> {
+                        int n = Math.round(vx);
+                        this.k.votes.removeIf(x -> x.itemVote() && x.material() == m);
+                        this.k.votes.add(new KitVote("limit_" + m.getKey().getKey(), "Limit to " + n + " " + Items.pretty(m), KitVote.Action.LIMIT, m, n));
+                        this.plugin.kits().save();
+                        new KitListMenu.KitVotesMenu(this.plugin, this.viewer, this.k).open();
+                    });
+                }
+            );
+            this.set(33, Items.of(Material.BARRIER).name("<green><b>+ Remove Held Item").lore("<gray>Holding: <white>" + heldName, "<gray>'No <item>'.").build(), c -> {
+                if (held.getType().isAir()) {
+                    Msg.error(this.viewer, "admin.hold-item");
+                    return;
+                }
+
+                Material m = held.getType();
+                this.k.votes.removeIf(x -> x.itemVote() && x.material() == m);
+                this.k.votes.add(new KitVote("no_" + m.getKey().getKey(), "No " + Items.pretty(m), KitVote.Action.REMOVE, m, 0));
+                this.saved();
+            });
+            this.set(40, Ui.back(), c -> new KitListMenu.KitEditMenu(this.plugin, this.viewer, this.k).open());
         }
     }
 }

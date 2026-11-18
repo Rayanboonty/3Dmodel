@@ -776,6 +776,15 @@ public final class VortexRealm extends JavaPlugin {
         this.upgrader = new Upgrader(this);
         pm.registerEvents(this.upgrader, this);
         this.upgrader.finish();
+        // 3.12.0: the add-on systems (ranked ladder and seasons, clans, 2v2, battle pass, missions, achievements,
+        // replays, drills, arcade, bounties, Discord...), formerly the VortexPvP test build
+        try {
+            this.plus = new net.vortexrealm.plus.PlusModule(this);
+            this.plus.enable();
+        } catch (Throwable plusError) {
+            this.getLogger().log(java.util.logging.Level.SEVERE, "The add-on systems failed to start - the rest keeps working", plusError);
+        }
+
         this.enabledOk = true;
         this.getLogger()
             .info(
@@ -814,8 +823,22 @@ public final class VortexRealm extends JavaPlugin {
         }
     }
 
+    private net.vortexrealm.plus.PlusModule plus;
+
+    public net.vortexrealm.plus.PlusModule plus() {
+        return this.plus;
+    }
+
     @Override
     public void onDisable() {
+        if (this.plus != null) {
+            try {
+                this.plus.disable();
+            } catch (Throwable plusError) {
+                this.getLogger().log(java.util.logging.Level.WARNING, "The add-on systems failed to stop", plusError);
+            }
+        }
+
         if (this.updater != null) {
             this.updater.stop();
         }

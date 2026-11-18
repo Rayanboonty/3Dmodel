@@ -28,7 +28,6 @@ import net.vortexpvp.data.PvPProfile;
 import net.vortexpvp.data.Setting;
 import net.vortexpvp.rank.Tier;
 import net.vortexpvp.session.PlayerState;
-import net.vortexpvp.smp.ModeManager;
 import net.vortexpvp.social.Countries;
 import net.vortexpvp.util.Fmt;
 import net.vortexpvp.util.Text;
@@ -64,9 +63,9 @@ public final class SmpBoard {
             y.options()
                 .setHeader(
                     List.of(
-                        "Sidebars of the hub and the SMP modes (PvP has its own).",
-                        "Placeholders: <player> <rank> <country> <online> <here> <ping> <balance> <kills> <deaths> <kdr>",
-                        "<hearts> <strength> <points> <tier> <playtime> <world> <ip> <discord>  -  <mood:TEXT> = the mode's",
+                        "Sidebar of the hub (PvP has its own).",
+                        "Placeholders: <player> <rank> <country> <online> <here> <ping> <smp> (players on the SMP server)",
+                        "<playtime> <world> <ip> <discord>  -  <mood:TEXT> = the mode's",
                         "gradient (tab.yml moods). A line '' is an empty line. Up to 15 lines."
                     )
                 );
@@ -102,101 +101,8 @@ public final class SmpBoard {
                     " <mood:Online> <white><online>",
                     " <gray>Ping: <white><ping>ms",
                     "",
+                    " <gray>SMP: <white><smp> <gray>playing",
                     " <gray>Compass <white>→ <gray>play",
-                    "",
-                    " <mood:<ip>>",
-                    sep + " "
-                )
-            );
-            def(
-                y,
-                "SURVIVAL",
-                "<b><mood:SURVIVAL></b>",
-                List.of(
-                    sep,
-                    " <gray>Player: <white><player>",
-                    " <gray>Rank: <rank>",
-                    "",
-                    " <mood:Kills> <white><kills>",
-                    " <mood:Deaths> <white><deaths>",
-                    " <gray>Playtime: <white><playtime>",
-                    "",
-                    " <gray>Online: <white><here>",
-                    "",
-                    " <mood:<ip>>",
-                    sep + " "
-                )
-            );
-            def(
-                y,
-                "LIFESTEAL",
-                "<b><mood:LIFESTEAL></b>",
-                List.of(
-                    sep,
-                    " <gray>Hearts: <red>❤ <white><hearts>",
-                    "",
-                    " <mood:Kills> <white><kills>",
-                    " <mood:Deaths> <white><deaths>",
-                    " <gray>K/D: <white><kdr>",
-                    "",
-                    " <gray>Online: <white><here>",
-                    "",
-                    " <mood:<ip>>",
-                    sep + " "
-                )
-            );
-            def(
-                y,
-                "STRENGTH",
-                "<b><mood:STRENGTH SMP></b>",
-                List.of(
-                    sep,
-                    " <gray>Strength: <light_purple>⚡ <white><strength>",
-                    "",
-                    " <mood:Kills> <white><kills>",
-                    " <mood:Deaths> <white><deaths>",
-                    " <gray>K/D: <white><kdr>",
-                    "",
-                    " <gray>Online: <white><here>",
-                    "",
-                    " <mood:<ip>>",
-                    sep + " "
-                )
-            );
-            def(
-                y,
-                "RANKED",
-                "<b><mood:RANKED SMP></b>",
-                List.of(
-                    sep,
-                    " <gray>Tier: <tier>",
-                    " <gray>Points: <white><points>",
-                    "",
-                    " <mood:Kills> <white><kills>",
-                    " <mood:Deaths> <white><deaths>",
-                    " <gray>K/D: <white><kdr>",
-                    "",
-                    " <gray>Online: <white><here>",
-                    "",
-                    " <mood:<ip>>",
-                    sep + " "
-                )
-            );
-            def(
-                y,
-                "ECO",
-                "<b><mood:ECO SMP></b>",
-                List.of(
-                    sep,
-                    " <gray>Balance:",
-                    " <green>$<white><balance>",
-                    "",
-                    " <mood:Kills> <white><kills>",
-                    " <mood:Deaths> <white><deaths>",
-                    " <gray>K/D: <white><kdr>",
-                    "",
-                    " <gray>/shop  /sell  /ah",
-                    " <gray>Online: <white><here>",
                     "",
                     " <mood:<ip>>",
                     sep + " "
@@ -293,12 +199,10 @@ public final class SmpBoard {
     }
 
     private TagResolver placeholders(Player p, String group, int here) {
-        ModeManager.Stats st = this.plugin.modes() == null ? new ModeManager.Stats() : this.plugin.modes().stats(p.getUniqueId());
         Component rank = this.plugin.serverRanks() == null
             ? Text.mm("<gray>Member")
             : (this.plugin.serverRanks().of(p).isDefault() ? Text.mm("<gray>Member") : this.plugin.serverRanks().of(p).prefix());
         Countries.Country c = this.plugin.countries() == null ? null : this.plugin.countries().of(p.getUniqueId());
-        Tier tier = st.points > 0 ? Tier.forElo(st.points) : null;
         long minutes = p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20 / 60;
         String discord = Cfg.s(Opt.LINK_DISCORD).replaceFirst("^https?://", "");
         return TagResolver.resolver(
@@ -308,19 +212,22 @@ public final class SmpBoard {
             Placeholder.unparsed("online", String.valueOf(Bukkit.getOnlinePlayers().size())),
             Placeholder.unparsed("here", String.valueOf(here)),
             Placeholder.unparsed("ping", String.valueOf(p.getPing())),
-            Placeholder.unparsed("balance", Fmt.num((long)Math.max(0.0, st.balance))),
-            Placeholder.unparsed("kills", String.valueOf(st.kills)),
-            Placeholder.unparsed("deaths", String.valueOf(st.deaths)),
-            Placeholder.unparsed("kdr", Fmt.kdr(st.kills, st.deaths)),
-            Placeholder.unparsed("hearts", String.valueOf(Math.max(0, st.hearts))),
-            Placeholder.unparsed("strength", (st.strength > 0 ? "+" : "") + st.strength),
-            Placeholder.unparsed("points", Fmt.num(st.points)),
-            Placeholder.component("tier", tier == null ? Text.mm("<gray>Unranked") : BoardManager.tierTag(tier)),
+            Placeholder.unparsed("smp", this.smpCount()),
             Placeholder.unparsed("playtime", Fmt.duration(minutes * 60L)),
             Placeholder.unparsed("world", p.getWorld().getName()),
             Placeholder.unparsed("ip", Cfg.s(Opt.SERVER_IP)),
             Placeholder.unparsed("discord", discord)
         );
+    }
+
+    private String smpCount() {
+        if (this.plugin.serverSelector() == null || this.plugin.serverLink() == null) {
+            return "-";
+        }
+
+        net.vortexpvp.smp.ServerSelector.Entry e = this.plugin.serverSelector().get("smp");
+        net.vortexpvp.smp.ServerLink.Ping ping = e == null ? null : this.plugin.serverLink().ping(e);
+        return ping == null || !ping.online() ? "-" : String.valueOf(ping.players());
     }
 
     public List<String> layout(String key) {
@@ -352,7 +259,7 @@ public final class SmpBoard {
             try {
                 this.update(px, count);
             } catch (RuntimeException var5) {
-                this.plugin.getLogger().log(Level.FINE, "SMP sidebar failed for " + px.getName(), (Throwable)var5);
+                this.plugin.getLogger().log(Level.FINE, "Hub sidebar failed for " + px.getName(), (Throwable)var5);
             }
         }
 
@@ -362,9 +269,11 @@ public final class SmpBoard {
 
     private void update(Player p, Map<String, Integer> count) {
         boolean outside = this.plugin.sessions().state(p) == PlayerState.OUTSIDE;
-        String group = this.plugin.tab() == null ? "SURVIVAL" : this.plugin.tab().group(p);
+        String group = this.plugin.tab() == null ? "HUB" : this.plugin.tab().group(p);
         PvPProfile prof = this.plugin.profiles().getIfLoaded(p.getUniqueId());
-        boolean want = outside && Cfg.bool(Opt.SMP_SIDEBAR) && this.layouts.containsKey(group) && (prof == null || prof.on(Setting.SCOREBOARD));
+        // in the SMP worlds VortexSMP shows its own sidebar
+        boolean smpOwn = this.plugin.modes() != null && this.plugin.modes().smpWorld(p.getWorld()) && (this.plugin.survival() != null || Bukkit.getPluginManager().isPluginEnabled("VortexSMP"));
+        boolean want = outside && !smpOwn && Cfg.bool(Opt.SMP_SIDEBAR) && this.layouts.containsKey(group) && (prof == null || prof.on(Setting.SCOREBOARD));
         Scoreboard sb = this.boards.get(p.getUniqueId());
         if (!want) {
             if (sb != null && p.getScoreboard() == sb) {

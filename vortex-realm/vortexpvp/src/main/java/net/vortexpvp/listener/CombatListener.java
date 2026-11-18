@@ -491,9 +491,31 @@ public final class CombatListener implements Listener {
     )
     public void onRegen(EntityRegainHealthEvent e) {
         if (e.getEntity() instanceof Player p) {
-            Kit k = this.kitOf(this.plugin.sessions().get(p));
-            if (k != null && !k.regen && (e.getRegainReason() == RegainReason.SATIATED || e.getRegainReason() == RegainReason.REGEN)) {
+            Session s = this.plugin.sessions().get(p);
+            Kit k = this.kitOf(s);
+            boolean off = k != null && (s.state == PlayerState.MATCH && s.match != null ? s.match.noRegen() : !k.regen);
+            if (off && (e.getRegainReason() == RegainReason.SATIATED || e.getRegainReason() == RegainReason.REGEN)) {
                 e.setCancelled(true);
+            }
+        }
+    }
+
+    /** Per-kit knockback (Kit Editor → Knockback, or a passed "Knockback" vote): scales the horizontal push. */
+    @EventHandler(
+        priority = EventPriority.HIGH,
+        ignoreCancelled = true
+    )
+    public void onKnockback(io.papermc.paper.event.entity.EntityKnockbackEvent e) {
+        if (e.getEntity() instanceof Player p && (e.getCause() == io.papermc.paper.event.entity.EntityKnockbackEvent.Cause.ENTITY_ATTACK || e.getCause() == io.papermc.paper.event.entity.EntityKnockbackEvent.Cause.SWEEP_ATTACK)) {
+            Session s = this.plugin.sessions().get(p);
+            Kit k = this.kitOf(s);
+            if (k != null) {
+                double m = s.state == PlayerState.MATCH && s.match != null ? s.match.knockback() : k.knockback / 100.0;
+                if (Math.abs(m - 1.0) > 0.001) {
+                    org.bukkit.util.Vector v = e.getKnockback();
+                    // the lift grows half as fast, so high knockback pushes back rather than launching
+                    e.setKnockback(new org.bukkit.util.Vector(v.getX() * m, v.getY() * (m < 1.0 ? m : 1.0 + (m - 1.0) * 0.5), v.getZ() * m));
+                }
             }
         }
     }

@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Auto-update fixed: every update address is checked and the newest version wins (built-in addresses always included). Plus everything in 3.11.0: pets, shoulder pets, wings, 5 new arenas, walls to the sky, no water, everyone equal in SMP, name colours, seasons',
-    'PracticePvP': 'Auto-update fixed: every update address is checked and the newest version wins (built-in addresses always included). Plus everything in 3.11.0: pets, shoulder pets, wings, 5 new arenas, walls to the sky, no water, everyone equal in SMP, name colours, seasons',
+    'VortexRealm': '40+ new systems: rank ladder with divisions, ranked seasons + hall of fame, clans + clan wars, ranked 2v2, weekly cup, battle pass, missions, ~300 achievements, titles, daily rewards, replays, post-match analysis, training drills, coach mode, arcade, bounties, win effects, gadgets, parkour, creator codes, streamer mode and more',
+    'PracticePvP': '40+ new systems: rank ladder with divisions, ranked seasons + hall of fame, clans + clan wars, ranked 2v2, weekly cup, battle pass, missions, ~300 achievements, titles, daily rewards, replays, post-match analysis, training drills, coach mode, arcade, bounties, win effects, gadgets, parkour, creator codes, streamer mode and more',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

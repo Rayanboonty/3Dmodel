@@ -162,7 +162,6 @@ public final class RankAccess {
         put(out, "vortexpvp.admin", "Everything admin: /pvpadmin, kits, arenas, settings, web admin, building", "VortexPvP", op);
         put(out, "vortexpvp.staff", "Staff: staff chat, spectate any match, reports, hacker pool, /ss, see all tabs", "VortexPvP", op);
         put(out, "vortexpvp.staff.mod", "Moderator tools: end matches, send players to the lobby", "VortexPvP", op);
-        put(out, "vortexpvp.smpadmin", "The /smpadmin control panel", "VortexPvP", op);
         put(out, "vortexpvp.chat.bypass", "No chat cooldown, anti-spam or chat mute", "VortexPvP", op);
         put(out, "vortexpvp.teleport.bypass", "No teleport warmup or cooldowns", "VortexPvP", op);
         put(out, "vortexpvp.lobbyfly", "Fly in the PvP lobby", "VortexPvP", op);

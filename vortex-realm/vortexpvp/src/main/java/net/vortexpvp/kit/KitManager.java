@@ -177,7 +177,7 @@ public final class KitManager {
         }
 
         y.set("e", effects);
-        y.set("r", k.build + "/" + k.regen + "/" + k.hunger + "/" + k.roundsToWin + "/" + k.buildHeight + "/" + k.pearlCooldown + "/" + k.windCooldown + "/" + k.hitDelay);
+        y.set("r", k.build + "/" + k.regen + "/" + k.hunger + "/" + k.roundsToWin + "/" + k.buildHeight + "/" + k.pearlCooldown + "/" + k.windCooldown + "/" + k.hitDelay + (k.knockback != 100 ? "/kb" + k.knockback : "") + (k.roundsVote ? "" : "/norv"));
 
         try {
             byte[] d = java.security.MessageDigest.getInstance("SHA-1").digest(y.saveToString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -303,6 +303,8 @@ public final class KitManager {
         k.pearlCooldown = s.getInt("pearl-cooldown", -1);
         k.windCooldown = s.getInt("wind-charge-cooldown", -1);
         k.hitDelay = s.getInt("hit-delay", -1);
+        k.knockback = Math.max(0, Math.min(400, s.getInt("knockback", 100)));
+        k.roundsVote = s.getBoolean("rounds-vote", true);
         k.arenaType = s.getString("arena-type", "AUTO").toUpperCase(Locale.ROOT);
         k.throwMode = s.getString("round-throw", "AUTO").toUpperCase(Locale.ROOT);
         k.arenas.clear();
@@ -340,7 +342,7 @@ public final class KitManager {
         return k;
     }
 
-    private static PotionEffect parseEffect(String s) {
+    public static PotionEffect parseEffect(String s) {
         String[] p = s.split(":");
         if (p.length < 1) {
             return null;
@@ -407,6 +409,8 @@ public final class KitManager {
             y.set(base + "pearl-cooldown", k.pearlCooldown);
             y.set(base + "wind-charge-cooldown", k.windCooldown);
             y.set(base + "hit-delay", k.hitDelay);
+            y.set(base + "knockback", k.knockback);
+            y.set(base + "rounds-vote", k.roundsVote);
             y.set(base + "arena-type", k.arenaType);
             y.set(base + "round-throw", k.throwMode);
             y.set(base + "arenas", new ArrayList<>(k.arenas));
@@ -501,6 +505,21 @@ public final class KitManager {
             }
         }
 
+        this.kits.put(id, k);
+        this.save();
+        return k;
+    }
+
+    /** A new kit with every setting, item, vote and effect of {@code from}: the quickest way to make your own kit. */
+    public Kit copy(Kit from, String id, String name) {
+        YamlConfiguration y = new YamlConfiguration();
+        this.write(y, "k.", from);
+        Kit k = this.read(id, y.getConfigurationSection("k"));
+        k.displayName = name;
+        k.order = this.kits.size();
+        k.version = 1;
+        // a copy starts outside FFA: switching FFA on in the kit editor builds its FFA arena
+        k.ffa = false;
         this.kits.put(id, k);
         this.save();
         return k;
@@ -607,6 +626,10 @@ public final class KitManager {
     public static void applyVotes(ItemStack[] contents, List<KitVote> votes) {
         if (votes != null) {
             for (KitVote v : votes) {
+                if (!v.itemVote()) {
+                    continue;
+                }
+
                 if (v.action() == KitVote.Action.REMOVE) {
                     for (int i = 0; i < contents.length; i++) {
                         if (!Items.isEmpty(contents[i]) && contents[i].getType() == v.material()) {

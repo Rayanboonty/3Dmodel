@@ -200,8 +200,12 @@ public final class PlayerCommands implements CommandExecutor, TabCompleter {
 
     private void leavePvp(Player p, Session s) {
         if (!s.state.fighting() && s.state != PlayerState.PREMATCH) {
-            Location target = this.plugin.worlds().storedOutsideLocation(p);
-            if (target == null || this.plugin.worlds().managed(target.getWorld())) {
+            Location target = this.plugin.modes() != null && this.plugin.modes().hubWorld() != null ? this.plugin.modes().hub() : null;
+            if (target == null) {
+                target = this.plugin.worlds().storedOutsideLocation(p);
+            }
+
+            if (target == null || target.getWorld() == null || this.plugin.worlds().managed(target.getWorld())) {
                 target = this.plugin.worlds().firstExcludedSpawn();
             }
 

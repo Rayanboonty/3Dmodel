@@ -88,21 +88,6 @@ public final class WorldsMenu extends Menu {
             );
         }
 
-        this.set(
-            48,
-            Ui.toggle(
-                Material.ENDER_CHEST,
-                "Separate Inventories",
-                Cfg.bool(Opt.SEPARATE_INVENTORIES),
-                "Save SMP inventories before entering",
-                "PvP and give them back on leaving.",
-                "Strongly recommended."
-            ),
-            c -> {
-                Cfg.set(Opt.SEPARATE_INVENTORIES, !Cfg.bool(Opt.SEPARATE_INVENTORIES));
-                this.redraw();
-            }
-        );
         this.set(49, Ui.back(), c -> AdminMenu.openBest(this.plugin, this.viewer));
     }
 }

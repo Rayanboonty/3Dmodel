@@ -87,7 +87,10 @@ public final class Match {
     private final VortexPvP plugin;
     private final Arena forcedArena;
     private final boolean fromQueue;
-    private final int roundsToWin;
+    private int roundsToWin;
+    /** Rules both players voted for: no natural regen, knockback percent. */
+    private boolean votedNoRegen;
+    private int votedKnockback = -1;
     private final Set<UUID> spectators = new LinkedHashSet<>();
     private final Map<UUID, MatchStats> stats = new HashMap<>();
     private final Map<UUID, InventorySnapshot> snapshots = new HashMap<>();
@@ -163,6 +166,16 @@ public final class Match {
 
     public int roundsToWin() {
         return this.roundsToWin;
+    }
+
+    /** True when natural regeneration is off in this match (kit setting or a passed vote). */
+    public boolean noRegen() {
+        return !this.kit.regen || this.votedNoRegen;
+    }
+
+    /** Knockback multiplier for this match (kit setting, or a passed vote). */
+    public double knockback() {
+        return (this.votedKnockback >= 0 ? this.votedKnockback : this.kit.knockback) / 100.0;
     }
 
     public boolean isOneVsOne() {
@@ -351,6 +364,20 @@ public final class Match {
             this.preMatch = null;
             this.votes.clear();
             this.votes.addAll(passedVotes);
+
+            for (KitVote v : passedVotes) {
+                switch (v.action()) {
+                    case ROUNDS -> {
+                        if (this.type == Match.Type.DUEL && this.teams.size() == 2) {
+                            this.roundsToWin = Math.max(this.roundsToWin, Math.min(10, v.amount()));
+                        }
+                    }
+                    case NO_REGEN -> this.votedNoRegen = true;
+                    case KNOCKBACK -> this.votedKnockback = Math.max(0, Math.min(400, v.amount()));
+                    default -> {
+                    }
+                }
+            }
             this.instance = arena != null ? this.plugin.arenas().acquire(arena, this) : null;
             if (this.instance == null) {
                 this.instance = this.plugin.arenas().acquireAny(this.kit, this);

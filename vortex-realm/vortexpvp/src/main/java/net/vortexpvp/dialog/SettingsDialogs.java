@@ -113,7 +113,6 @@ public final class SettingsDialogs {
     public void privacy(Player p) {
         List<ActionButton> buttons = new ArrayList<>();
         buttons.add(this.btn(p, "<#C9C9C9>⚔ <white>Requests", "<gray>Who can send you duels, invites, messages and friend requests", () -> this.requests(p, null)));
-        buttons.add(this.btn(p, "<#3DDC84>● <white>Teleports", "<gray>Who can send you /tpa requests", () -> this.list(p, "Teleports", List.of(Setting.TELEPORTS), () -> this.privacy(p))));
         buttons.add(this.btn(p, "<#55AAFF>⚑ <white>Location", "<gray>Your flag and region", () -> this.location(p)));
         buttons.add(this.btn(p, "<#AAAAAA>◐ <white>Visibility", "<gray>Who sees you online, spectators and lobby players", () -> this.list(
             p, "Visibility", List.of(Setting.VISIBILITY, Setting.ALLOW_SPECTATORS, Setting.LOBBY_PLAYERS), () -> this.privacy(p)

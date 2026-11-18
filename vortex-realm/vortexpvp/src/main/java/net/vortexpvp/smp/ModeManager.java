@@ -55,38 +55,35 @@ import org.bukkit.persistence.PersistentDataType;
 public final class ModeManager {
     private final VortexPvP plugin;
     private final File worldsFile;
-    private final File statsFile;
-    private final File locFile;
     private final File groupDir;
     private final Map<String, WorldMode> modes = new HashMap<>();
     private final Map<String, String> displays = new HashMap<>();
+    /**
+     * 3.10.0: extra worlds linked to an SMP world ("world_nether" -> "smp"): they play as part of that SMP (same mode,
+     * inventory group and backups). For a nether or end whose name doesn't follow the SMP world's own name - e.g. the
+     * server's default world_nether / world_the_end that portals in a custom SMP world lead to.
+     */
+    private final Map<String, String> links = new java.util.LinkedHashMap<>();
     private final Map<String, String> spawns = new HashMap<>();
     private final Map<String, String> generators = new LinkedHashMap<>();
-    // concurrent: other plugins read balances through Vault from their own threads
-    private final Map<UUID, ModeManager.Stats> stats = new ConcurrentHashMap<>();
-    private final Map<UUID, Map<String, String>> lastLoc = new HashMap<>();
     private final NamespacedKey groupKey;
-    private final InvRestore restore;
     private final NamespacedKey hubItemKey;
-    private boolean statsDirty;
+    /** Worlds worlds.yml gives an SMP mode: the SMP now runs on its own server with VortexSMP, so they are left alone. */
+    private final List<String> retired = new ArrayList<>();
+    private ConfigurationSection old;
+    /** Last spot of each player in each SMP world (the selector brings them back there). */
+    private final File locFile;
+    private final Map<UUID, Map<String, String>> lastLoc = new ConcurrentHashMap<>();
     private boolean locDirty;
-    public int startHearts = 10;
-    public int maxHearts = 20;
-    public int eliminationHours = 12;
-    public int reviveHearts = 5;
-    public int maxStrength = 5;
-    public int killPoints = 20;
-    public int deathPoints = 15;
-    public double startBalance = 100.0;
+    private final File backupDir;
 
     public ModeManager(VortexPvP plugin) {
         this.plugin = plugin;
         this.worldsFile = new File(plugin.getDataFolder(), "worlds.yml");
-        this.statsFile = new File(plugin.getDataFolder(), "smp-stats.yml");
-        this.locFile = new File(plugin.getDataFolder(), "last-locations.yml");
         this.groupDir = new File(plugin.getDataFolder(), "inventories/groups");
+        this.locFile = new File(plugin.getDataFolder(), "last-locations.yml");
+        this.backupDir = new File(plugin.getDataFolder(), "inventories/backups");
         this.groupKey = new NamespacedKey(plugin, "inv_group");
-        this.restore = new InvRestore(plugin, this);
         this.hubItemKey = new NamespacedKey(plugin, "hub_item");
     }
 
@@ -97,24 +94,24 @@ public final class ModeManager {
                 .setHeader(
                     List.of(
                         "World modes (edit in /pvpadmin -> World Manager).",
-                        "modes: PVP, HUB, SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO.",
+                        "modes: PVP, HUB, NONE. The SMP runs on its own server now (VortexSMP); worlds with an old",
+                        "SMP mode (SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO) are kept in this file but not loaded.",
                         "generator: normal, flat or void - worlds listed here are loaded on startup."
                     )
                 );
         }
 
-        this.startHearts = y.getInt("settings.lifesteal.start-hearts", 10);
-        this.maxHearts = y.getInt("settings.lifesteal.max-hearts", 20);
-        this.eliminationHours = y.getInt("settings.lifesteal.elimination-hours", 12);
-        this.reviveHearts = y.getInt("settings.lifesteal.revive-hearts", 5);
-        this.maxStrength = y.getInt("settings.strength.max-level", 5);
-        this.killPoints = y.getInt("settings.ranked.kill-points", 20);
-        this.deathPoints = y.getInt("settings.ranked.death-points", 15);
-        this.startBalance = y.getDouble("settings.eco.start-balance", 100.0);
+        this.old = y.getConfigurationSection("settings");
+        this.retired.clear();
+        this.loadLocations();
         ConfigurationSection sec = y.getConfigurationSection("worlds");
         if (sec != null) {
             for (String name : sec.getKeys(false)) {
-                this.modes.put(name, WorldMode.parse(sec.getString(name + ".mode"), WorldMode.SURVIVAL));
+                WorldMode wm = WorldMode.parse(sec.getString(name + ".mode"), WorldMode.NONE);
+                this.modes.put(name, wm);
+                if (wm.smp() && !sameServer()) {
+                    this.retired.add(name);
+                }
                 String d = sec.getString(name + ".display");
                 if (d != null) {
                     this.displays.put(name, d);
@@ -132,8 +129,13 @@ public final class ModeManager {
             }
         }
 
+        if (!this.retired.isEmpty()) {
+            this.plugin.getLogger().info("Worlds with an old SMP mode " + this.retired + " are left alone now (extra ones are not loaded): the SMP runs on "
+                + "its own server (VortexSMP). Their files and every saved inventory are kept; see the README to move them.");
+        }
+
         for (Entry<String, String> e : this.generators.entrySet()) {
-            if (Bukkit.getWorld(e.getKey()) == null) {
+            if (Bukkit.getWorld(e.getKey()) == null && !this.retired.contains(e.getKey())) {
                 try {
                     this.create(e.getKey(), e.getValue());
                 } catch (RuntimeException var8) {
@@ -146,13 +148,122 @@ public final class ModeManager {
             this.plugin.worlds().setExcluded(ex.getKey(), ex.getValue() != WorldMode.PVP);
         }
 
-        for (World w : new ArrayList<>(Bukkit.getWorlds())) {
-            this.ensureDimensions(w);
+        this.links.clear();
+        ConfigurationSection ls = y.getConfigurationSection("links");
+        if (ls != null) {
+            for (String k : ls.getKeys(false)) {
+                String v = ls.getString(k);
+                if (v != null && !v.isBlank()) {
+                    this.links.put(k, v);
+                }
+            }
         }
 
-        this.loadStats();
-        this.loadLocations();
+        this.autoLink();
         this.save();
+    }
+
+    // ------------------------------------------------------------------ linked worlds (nether / end of the SMP)
+
+    /** The SMP world a world is linked to, or null. */
+    public String linkOf(String world) {
+        return this.links.get(world);
+    }
+
+    public Map<String, String> links() {
+        return java.util.Collections.unmodifiableMap(this.links);
+    }
+
+    /** Links a world (a nether or end) to an SMP world. Returns an error text or null. */
+    public String link(String world, String smp) {
+        if (world == null || smp == null) {
+            return "Name a world and an SMP world.";
+        } else if (world.equals(smp)) {
+            return "A world can't be linked to itself.";
+        }
+
+        WorldMode m = this.modes.get(smp);
+        if (m == null || !m.smp()) {
+            return smp + " is not an SMP world (give it an SMP mode in the World Manager first).";
+        } else if (this.modes.containsKey(world) && this.modes.get(world) != WorldMode.NONE) {
+            return world + " has its own mode (" + this.modes.get(world).display + ") - set it to Nothing first.";
+        } else if (world.equals("practice_world") || Bukkit.getWorld(world) != null && this.plugin.worlds().managed(Bukkit.getWorld(world))) {
+            return world + " is an arena world.";
+        }
+
+        this.links.put(world, smp);
+        this.save();
+        World w = Bukkit.getWorld(world);
+        if (w != null) {
+            for (Player p : w.getPlayers()) {
+                this.plugin.syncWorldState(p);
+            }
+        }
+
+        return null;
+    }
+
+    public boolean unlink(String world) {
+        boolean had = this.links.remove(world) != null;
+        if (had) {
+            this.save();
+        }
+
+        return had;
+    }
+
+    /**
+     * When there is one SMP overworld and it has no nether / end of its own (smp_nether, smp_the_end), the server's
+     * default nether and end (where portals in a custom world lead) are linked to it, so playing and backups there
+     * count as SMP. Nothing changes for worlds that already have a mode or a link.
+     */
+    public List<String> autoLink() {
+        List<String> made = new ArrayList<>();
+        if (!sameServer()) {
+            return made;
+        }
+
+        List<String> smps = new ArrayList<>();
+        for (Entry<String, WorldMode> e : this.modes.entrySet()) {
+            if (e.getValue().smp() && !e.getKey().endsWith("_nether") && !e.getKey().endsWith("_the_end")) {
+                smps.add(e.getKey());
+            }
+        }
+
+        if (smps.size() != 1 || Bukkit.getWorlds().isEmpty()) {
+            return made;
+        }
+
+        String smp = smps.get(0);
+        World main = Bukkit.getWorlds().get(0);
+        if (main.getName().equals(smp)) {
+            return made; // its own world_nether / world_the_end already belong to it by name
+        }
+
+        for (String suffix : List.of("_nether", "_the_end")) {
+            if (Bukkit.getWorld(smp + suffix) != null) {
+                continue;
+            }
+
+            World cand = Bukkit.getWorld(main.getName() + suffix);
+            if (cand == null || this.links.containsKey(cand.getName()) || this.modes.containsKey(cand.getName()) || this.plugin.worlds().managed(cand)) {
+                continue;
+            }
+
+            WorldMode mainMode = this.modes.get(main.getName());
+            if (mainMode != null && mainMode.smp()) {
+                continue;
+            }
+
+            this.links.put(cand.getName(), smp);
+            made.add(cand.getName());
+        }
+
+        if (!made.isEmpty()) {
+            this.plugin.getLogger().info("Linked " + made + " to the SMP world " + smp + ": its nether / end now count as SMP (inventories and backups). /pvpadmin smp unlink <world> undoes it.");
+        }
+
+        return made;
     }
 
     public void save() {
@@ -161,18 +272,15 @@ public final class ModeManager {
             .setHeader(
                 List.of(
                     "World modes (edit in /pvpadmin -> World Manager).",
-                    "modes: PVP, HUB, SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO.",
+                    "modes: PVP, HUB, NONE. The SMP runs on its own server now (VortexSMP); worlds with an old",
+                    "SMP mode (SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO) are kept in this file but not loaded.",
                     "generator: normal, flat or void - worlds listed here are loaded on startup."
                 )
             );
-        y.set("settings.lifesteal.start-hearts", this.startHearts);
-        y.set("settings.lifesteal.max-hearts", this.maxHearts);
-        y.set("settings.lifesteal.elimination-hours", this.eliminationHours);
-        y.set("settings.lifesteal.revive-hearts", this.reviveHearts);
-        y.set("settings.strength.max-level", this.maxStrength);
-        y.set("settings.ranked.kill-points", this.killPoints);
-        y.set("settings.ranked.death-points", this.deathPoints);
-        y.set("settings.eco.start-balance", this.startBalance);
+        if (this.old != null) {
+            // the old SMP settings are kept so nothing is lost (VortexSMP can import them)
+            y.set("settings", this.old);
+        }
 
         for (Entry<String, WorldMode> e : this.modes.entrySet()) {
             String b = "worlds." + e.getKey() + ".";
@@ -180,6 +288,10 @@ public final class ModeManager {
             y.set(b + "display", this.displays.get(e.getKey()));
             y.set(b + "spawn", this.spawns.get(e.getKey()));
             y.set(b + "generator", this.generators.get(e.getKey()));
+        }
+
+        for (Entry<String, String> e : this.links.entrySet()) {
+            y.set("links." + e.getKey(), e.getValue());
         }
 
         try {
@@ -217,24 +329,35 @@ public final class ModeManager {
 
     public WorldMode mode(World w) {
         if (w == null) {
-            return WorldMode.SURVIVAL;
+            return WorldMode.NONE;
         } else {
             WorldMode m = this.modes.get(w.getName());
             if (m != null) {
-                return m;
+                return m.smp() && !sameServer() ? WorldMode.NONE : m;
             } else {
                 String n = w.getName();
+
+                String link = this.links.get(n);
+                if (link != null) {
+                    WorldMode parent = this.modes.get(link);
+                    if (parent != null && parent.smp() && sameServer()) {
+                        return parent;
+                    }
+                }
 
                 for (String suffix : List.of("_nether", "_the_end")) {
                     if (n.endsWith(suffix)) {
                         WorldMode parent = this.modes.get(n.substring(0, n.length() - suffix.length()));
-                        if (parent != null && parent != WorldMode.PVP && parent != WorldMode.HUB) {
+                        if (parent == WorldMode.HUB) {
+                            return WorldMode.NONE;
+                        } else if (parent != null && parent.smp() && sameServer()) {
+                            // smp_nether and smp_the_end belong to the smp
                             return parent;
                         }
                     }
                 }
 
-                return this.plugin.worlds().managed(w) ? WorldMode.PVP : WorldMode.SURVIVAL;
+                return this.plugin.worlds().managed(w) ? WorldMode.PVP : WorldMode.NONE;
             }
         }
     }
@@ -270,10 +393,6 @@ public final class ModeManager {
                     this.spawns.remove(name);
                     this.generators.remove(name);
 
-                    for (Map<String, String> m : this.lastLoc.values()) {
-                        m.remove(name);
-                    }
-
                     this.plugin.worlds().setExcluded(name, false);
                     this.save();
                     Tasks.async(() -> {
@@ -297,45 +416,31 @@ public final class ModeManager {
     }
 
     public void setMode(World w, WorldMode mode) {
+        if (mode.smp() && !sameServer()) {
+            mode = WorldMode.NONE;
+        }
+
+        this.retired.remove(w.getName());
         this.modes.put(w.getName(), mode);
         this.plugin.worlds().setExcluded(w.getName(), mode != WorldMode.PVP);
         WorldRules.applyDefaults(w, mode);
         this.save();
-        this.ensureDimensions(w);
 
         for (Player p : w.getPlayers()) {
             this.plugin.syncWorldState(p);
-            this.syncGroup(p);
+            this.stashLegacy(p);
             this.plugin.modeRules().apply(p);
         }
     }
 
-    /** Loads (or creates once) {@code <name>_nether} and {@code <name>_the_end} for an SMP overworld. */
-    public void ensureDimensions(World w) {
-        if (w != null && Cfg.bool(Opt.SMP_DIMENSIONS) && w.getEnvironment() == World.Environment.NORMAL && this.mode(w).smp()) {
-            for (World.Environment env : List.of(World.Environment.NETHER, World.Environment.THE_END)) {
-                String name = w.getName() + (env == World.Environment.NETHER ? "_nether" : "_the_end");
-                if (Bukkit.getWorld(name) == null) {
-                    try {
-                        WorldCreator wc = new WorldCreator(name).environment(env).seed(w.getSeed());
-                        wc.keepSpawnLoaded(TriState.FALSE);
-                        World d = wc.createWorld();
-                        if (d != null) {
-                            WorldRules.applyDefaults(d, this.mode(w));
-                            this.plugin.getLogger().info("Loaded " + name + " for SMP world " + w.getName() + ".");
-                        }
-                    } catch (RuntimeException var6) {
-                        this.plugin.getLogger().log(Level.WARNING, "Could not load " + name, (Throwable)var6);
-                    }
-                }
-            }
-        }
-    }
-
-    /** The overworld an SMP nether or end belongs to ("smp_nether" -> "smp"), or the world itself. */
+    /** The overworld a nether or end belongs to ("smp_nether" -> "smp"), or the world itself. */
     public World parentOf(World w) {
         if (w != null) {
             String n = w.getName();
+            String link = this.links.get(n);
+            if (link != null && Bukkit.getWorld(link) != null) {
+                return Bukkit.getWorld(link);
+            }
 
             for (String suffix : List.of("_nether", "_the_end")) {
                 if (n.endsWith(suffix)) {
@@ -386,54 +491,121 @@ public final class ModeManager {
         return h != null ? this.spawn(h) : this.plugin.lobby().lobby();
     }
 
-    private String groupOf(World w) {
-        WorldMode m = this.mode(w);
-        return m != WorldMode.PVP && m != WorldMode.NONE ? m.name() : null;
+    /** The worlds whose old SMP mode is kept in worlds.yml but which are no longer loaded. */
+    public List<String> retired() {
+        return this.retired;
     }
 
-    public void syncGroup(Player p) {
-        try {
-            this.syncGroupNow(p);
-        } finally {
-            // items an admin restored with /smpadmin restore are handed over once the player carries that group
-            this.restore.applyPending(p);
+    /**
+     * The SMP moved to its own server, so this plugin no longer swaps inventories. A player who still carries the
+     * items of an old SMP inventory group (they logged off in an SMP world on 2.x) gets them saved to
+     * {@code inventories/groups/<uuid>/<group>.yml} before the hub gives them its items, so VortexSMP can import
+     * them. Nothing is ever cleared without a saved copy.
+     */
+    public void stashLegacy(Player p) {
+        if (sameServer()) {
+            // the SMP is on this server: switch inventory groups instead
+            this.syncGroup(p);
+            return;
         }
+
+        String carried = p.getPersistentDataContainer().get(this.groupKey, PersistentDataType.STRING);
+        if (carried == null) {
+            carried = net.vortexpvp.util.LegacyKeys.takeString(p, this.groupKey);
+        }
+
+        if (carried == null || this.plugin.worlds().managed(p.getWorld()) || this.plugin.worlds().isMarked(p)) {
+            return;
+        }
+
+        if (!WorldMode.parse(carried, WorldMode.NONE).smp()) {
+            p.getPersistentDataContainer().remove(this.groupKey);
+            return;
+        }
+
+        if (hasItems(p)) {
+            File f = this.groupFile(p.getUniqueId(), carried);
+            if (f.exists()) {
+                f = new File(f.getParentFile(), carried.toLowerCase(Locale.ROOT) + "-unsorted-" + System.currentTimeMillis() + ".yml");
+            }
+
+            if (!this.saveGroupTo(p, f, carried, false)) {
+                return;
+            }
+
+            this.plugin.getLogger().info("Saved the old " + carried + " inventory of " + p.getName() + " to " + f.getPath() + " (VortexSMP imports it).");
+            p.getInventory().clear();
+            p.getEnderChest().clear();
+            p.setLevel(0);
+            p.setExp(0.0F);
+        }
+
+        p.getPersistentDataContainer().remove(this.groupKey);
     }
 
-    private void syncGroupNow(Player p) {
-        if (Cfg.bool(Opt.SEPARATE_INVENTORIES) && !this.plugin.worlds().managed(p.getWorld())) {
-            if (!this.plugin.worlds().isMarked(p)) {
-                String target = this.groupOf(p.getWorld());
-                String carried = this.carried(p);
-                if (target != null && !target.equals(carried)) {
-                    if (carried == null) {
-                        if (target.equals(WorldMode.HUB.name()) && hasItems(p)) {
-                            String smp = this.defaultSmpGroup();
-                            File existing = this.groupFile(p.getUniqueId(), smp);
-                            if (existing.exists()) {
-                                // we don't know where these items come from: never write them over a saved inventory
-                                File unsorted = new File(existing.getParentFile(), smp.toLowerCase(Locale.ROOT) + "-unsorted-" + System.currentTimeMillis() + ".yml");
-                                if (!this.saveGroupTo(p, unsorted, smp, false)) {
-                                    return;
-                                }
+    /**
+     * Safety net before the hub replaces the inventory with its items: anything that is not one of this plugin's
+     * own items (hub/lobby items carry its tags) is saved to {@code inventories/groups/<uuid>/hub-unsorted-<time>.yml}
+     * first. False when saving failed - the inventory must then be left alone.
+     */
+    public boolean stashForeign(Player p) {
+        boolean foreign = false;
+        String ns = this.plugin.getName().toLowerCase(Locale.ROOT);
 
-                                this.plugin.getLogger().warning(p.getName() + " had items of an unknown inventory group; they were kept in " + unsorted.getName()
-                                    + " (restore with /smpadmin restore " + p.getName() + ") and " + existing.getName() + " was left untouched.");
-                            } else if (!this.saveGroup(p, smp)) {
-                                return;
-                            }
+        for (ItemStack it : p.getInventory().getContents()) {
+            if (it == null || it.isEmpty()) {
+                continue;
+            }
 
-                            this.loadGroup(p, target);
-                        }
+            boolean ours = false;
+            if (it.hasItemMeta()) {
+                for (NamespacedKey k : it.getItemMeta().getPersistentDataContainer().getKeys()) {
+                    ours |= k.getNamespace().equals(ns);
+                }
+            }
 
-                        p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
-                    } else if (this.saveGroup(p, carried)) {
-                        this.loadGroup(p, target);
-                        p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
+            if (!ours) {
+                foreign = true;
+                break;
+            }
+        }
+
+        if (!foreign) {
+            return true;
+        }
+
+        File f = new File(this.groupDir, p.getUniqueId() + "/hub-unsorted-" + System.currentTimeMillis() + ".yml");
+        if (!this.saveGroupTo(p, f, "HUB", false)) {
+            return false;
+        }
+
+        this.plugin.getLogger().info("Saved the items " + p.getName() + " carried into the hub to " + f.getPath() + " before giving the hub items.");
+        return true;
+    }
+
+    /** Items that aren't this plugin's own hub/lobby/kit items (those carry its tags). */
+    private boolean hasForeign(Player p) {
+        String ns = this.plugin.getName().toLowerCase(Locale.ROOT);
+        for (ItemStack[] all : List.of(p.getInventory().getContents(), p.getEnderChest().getContents())) {
+            for (ItemStack it : all) {
+                if (it == null || it.isEmpty()) {
+                    continue;
+                }
+
+                boolean ours = false;
+                if (it.hasItemMeta()) {
+                    for (NamespacedKey k : it.getItemMeta().getPersistentDataContainer().getKeys()) {
+                        ours |= k.getNamespace().equals(ns);
                     }
+                }
+
+                if (!ours) {
+                    return true;
                 }
             }
         }
+
+        return false;
     }
 
     private static boolean hasItems(Player p) {
@@ -452,21 +624,568 @@ public final class ModeManager {
         return false;
     }
 
-    private String defaultSmpGroup() {
-        WorldMode first = null;
+    // ------------------------------------------------------------------ the SMP on this server
 
-        for (World w : Bukkit.getWorlds()) {
-            WorldMode m = this.mode(w);
-            if (m == WorldMode.SURVIVAL) {
-                return m.name();
-            }
+    public static boolean sameServer() {
+        return Cfg.bool(Opt.SMP_SAME_SERVER);
+    }
 
-            if (first == null && m.smp()) {
-                first = m;
+    /** True for a world the SMP plays in (any SMP mode, with its nether and end). */
+    public boolean smpWorld(World w) {
+        return sameServer() && w != null && this.mode(w).smp();
+    }
+
+    /** The first SMP world (the survival one when there is one), for the selector's SMP entry. */
+    public World smpWorld() {
+        World first = null;
+        for (Map.Entry<String, WorldMode> e : this.modes.entrySet()) {
+            World w = Bukkit.getWorld(e.getKey());
+            if (w != null && e.getValue().smp()) {
+                if (e.getValue() == WorldMode.SURVIVAL) {
+                    return w;
+                }
+
+                first = first == null ? w : first;
             }
         }
 
-        return (first == null ? WorldMode.SURVIVAL : first).name();
+        return first;
+    }
+
+    /** The SMP overworlds (no nethers or ends), loaded ones only. */
+    public List<World> smpWorlds() {
+        List<World> out = new ArrayList<>();
+        for (Map.Entry<String, WorldMode> e : this.modes.entrySet()) {
+            World w = Bukkit.getWorld(e.getKey());
+            if (w != null && e.getValue().smp() && sameServer()) {
+                out.add(w);
+            }
+        }
+
+        return out;
+    }
+
+    /** The inventory group of a world: HUB, an SMP mode, or null for the PvP worlds (their own inventory system). */
+    public String groupOf(World w) {
+        if (w == null || this.plugin.worlds().managed(w)) {
+            return null;
+        }
+
+        WorldMode m = this.mode(w);
+        return m == WorldMode.HUB ? "HUB" : (m.smp() ? m.name() : null);
+    }
+
+    /** The group the player's live inventory belongs to (their marker). */
+    public String carried(Player p) {
+        String c = p.getPersistentDataContainer().get(this.groupKey, PersistentDataType.STRING);
+        return c != null ? c : net.vortexpvp.util.LegacyKeys.takeString(p, this.groupKey);
+    }
+
+    /**
+     * Keeps each world group's inventory, ender chest, XP and health apart (hub, survival SMP, eco SMP...). When the
+     * player's live inventory belongs to another group than the world they are in, it is saved to that group's file
+     * (the previous file kept as .prev.yml, a timestamped backup made) and the world's group is loaded exactly.
+     * Items of an unknown group are never written over a saved inventory: they go to an "-unsorted-" file.
+     */
+    public void syncGroup(Player p) {
+        if (!sameServer() || this.plugin.worlds().isMarked(p)) {
+            return;
+        }
+
+        String target = this.groupOf(p.getWorld());
+        if (target == null) {
+            return;
+        }
+
+        String carried = this.carried(p);
+        if (target.equals(carried)) {
+            if (this.isPending(p.getUniqueId(), target)) {
+                // an admin brought an old inventory back while they carried this one: it replaces it now
+                this.backup(p, target, false);
+                this.loadGroup(p, target);
+                this.plugin.getLogger().info("Inventory: " + p.getName() + " got the " + target + " inventory an admin brought back (" + countStacks(p) + " stacks).");
+                p.sendMessage(net.vortexpvp.util.Text.mm("<green>Your " + target.toLowerCase(Locale.ROOT) + " inventory and ender chest were brought back."));
+            }
+
+            return;
+        }
+
+        if (carried == null && target.equals("HUB")) {
+            // the hub gives its own items: anything else they carry is kept in a file first
+            if (this.stashForeign(p)) {
+                p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
+            }
+
+            return;
+        }
+
+        if (carried == null) {
+            if (hasItems(p)) {
+                // items of an unknown group (no marker): keep them safe, never over a saved inventory
+                File existing = this.groupFile(p.getUniqueId(), target);
+                // kept in their backups, where /pvpadmin invbackup and the SMP page show it
+                File f = existing.exists()
+                    ? new File(this.backupFolder(p.getUniqueId()), target.toLowerCase(Locale.ROOT) + "-unsorted-" + System.currentTimeMillis() + ".yml")
+                    : existing;
+                if (!this.saveGroupTo(p, f, target, false)) {
+                    return;
+                }
+
+                if (existing.exists() && !f.equals(existing)) {
+                    this.plugin.getLogger().warning(p.getName() + " had items without an inventory group; they were kept in " + f.getName()
+                        + " (/pvpadmin invbackup " + p.getName() + ") and " + existing.getName() + " was loaded.");
+                } else {
+                    // nothing saved yet for this world: what they carry becomes its inventory
+                    p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
+                    return;
+                }
+            }
+        } else if (this.isPending(p.getUniqueId(), carried)) {
+            // an admin brought an old inventory back for that world: it stays; what they carry goes to their backups
+            File keep = new File(this.backupFolder(p.getUniqueId()), carried.toLowerCase(Locale.ROOT) + "-carried-before-restore-" + System.currentTimeMillis() + ".yml");
+            if (!this.saveGroupTo(p, keep, carried, false)) {
+                return;
+            }
+        } else {
+            if (!this.saveGroup(p, carried)) {
+                return;
+            }
+        }
+
+        int before = countStacks(p);
+        this.loadGroup(p, target);
+        p.getPersistentDataContainer().set(this.groupKey, PersistentDataType.STRING, target);
+        this.plugin.getLogger().info("Inventory: " + p.getName() + " " + (carried == null ? "?" : carried) + " (" + before + " stacks, saved) -> " + target + " ("
+            + countStacks(p) + " stacks)");
+    }
+
+    private static int countStacks(Player p) {
+        int n = 0;
+        for (ItemStack it : p.getInventory().getContents()) {
+            n += it != null && !it.isEmpty() ? 1 : 0;
+        }
+
+        for (ItemStack it : p.getEnderChest().getContents()) {
+            n += it != null && !it.isEmpty() ? 1 : 0;
+        }
+
+        return n;
+    }
+
+    private boolean saveGroup(Player p, String group) {
+        boolean ok = this.saveGroupTo(p, this.groupFile(p.getUniqueId(), group), group, true);
+        if (ok) {
+            this.backup(p, group, false);
+        }
+
+        return ok;
+    }
+
+    /** Logout and shutdown: the group the player carries is written to its file too (and backed up if it changed). */
+    public void saveCurrent(Player p) {
+        if (!sameServer() || this.plugin.worlds().isMarked(p)) {
+            return;
+        }
+
+        String g = this.carried(p);
+        if (g != null && !g.equals("HUB") && g.equals(this.groupOf(p.getWorld()))) {
+            if (this.saveGroupTo(p, this.groupFile(p.getUniqueId(), g), g, true)) {
+                this.backup(p, g, true);
+            }
+        }
+    }
+
+    /**
+     * The first time a player enters an SMP group with this version, the newest of its saved copies is used: 3.x put
+     * the items of players who had logged off inside the SMP into "&lt;group&gt;-unsorted-&lt;time&gt;.yml", which is
+     * newer than &lt;group&gt;.yml. Every other copy stays on disk (and in /pvpadmin invbackup).
+     */
+    private void pickNewest(UUID u, String group) {
+        File main = this.groupFile(u, group);
+        File stateFile = new File(main.getParentFile(), "state.yml");
+        YamlConfiguration st = YamlConfiguration.loadConfiguration(stateFile);
+        if (st.getBoolean("checked." + group)) {
+            return;
+        }
+
+        String base = group.toLowerCase(Locale.ROOT);
+        File[] copies = main.getParentFile().listFiles((d, n) -> n.startsWith(base + "-unsorted-") && n.endsWith(".yml"));
+        File best = main.exists() ? main : null;
+        long bestTime = best == null ? Long.MIN_VALUE : savedAt(best);
+        for (File f : copies == null ? new File[0] : copies) {
+            long t = savedAt(f);
+            if (t > bestTime) {
+                best = f;
+                bestTime = t;
+            }
+        }
+
+        try {
+            if (best != null && !best.equals(main)) {
+                File keep = new File(this.backupFolder(u), base + "-before-newest-" + System.currentTimeMillis() + ".yml");
+                if (main.exists()) {
+                    keep.getParentFile().mkdirs();
+                    Files.copy(main.toPath(), keep.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                Files.copy(best.toPath(), main.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                this.plugin.getLogger().info("Using the newer saved " + group + " inventory " + best.getName() + " for " + u + " (the older one is a backup).");
+            }
+
+            st.set("checked." + group, true);
+            main.getParentFile().mkdirs();
+            st.save(stateFile);
+        } catch (IOException e) {
+            this.plugin.getLogger().log(Level.WARNING, "Could not check the saved " + group + " inventories of " + u, e);
+        }
+    }
+
+    private static long savedAt(File f) {
+        long t = YamlConfiguration.loadConfiguration(f).getLong("saved", 0L);
+        return t > 0L ? t : f.lastModified();
+    }
+
+    /** Loads a group's saved inventory exactly (empty when the group has nothing saved yet). */
+    // ------------------------------------------------------------------ restores waiting for a player
+
+    private File pendingFile() {
+        return new File(this.groupDir.getParentFile(), "pending-restore.yml");
+    }
+
+    private boolean isPending(UUID u, String group) {
+        return YamlConfiguration.loadConfiguration(this.pendingFile()).getStringList(u.toString()).contains(group);
+    }
+
+    private void setPending(UUID u, String group, boolean on) {
+        File f = this.pendingFile();
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
+        List<String> l = new ArrayList<>(y.getStringList(u.toString()));
+        if (on == l.contains(group)) {
+            return;
+        }
+
+        if (on) {
+            l.add(group);
+        } else {
+            l.remove(group);
+        }
+
+        y.set(u.toString(), l.isEmpty() ? null : l);
+        try {
+            y.save(f);
+        } catch (IOException e) {
+            this.plugin.getLogger().log(Level.WARNING, "Could not save pending-restore.yml", e);
+        }
+    }
+
+    private void loadGroup(Player p, String group) {
+        this.setPending(p.getUniqueId(), group, false);
+        // (no automatic "newest copy" swap any more: every other copy is offered in /pvpadmin -> SMP -> Player Inventories)
+
+        File f = this.groupFile(p.getUniqueId(), group);
+        p.getInventory().clear();
+        p.getEnderChest().clear();
+        p.setLevel(0);
+        p.setExp(0.0F);
+        if (!f.exists()) {
+            p.setGameMode(group.equals("HUB") ? GameMode.ADVENTURE : GameMode.SURVIVAL);
+            p.setFoodLevel(20);
+            p.updateInventory();
+            return;
+        }
+
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
+        try {
+            ItemStack[] c = ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(y.getString("contents", "")));
+            ItemStack[] fixed = new ItemStack[p.getInventory().getContents().length];
+            for (int i = 0; i < fixed.length && i < c.length; i++) {
+                fixed[i] = c[i] != null && !c[i].isEmpty() ? c[i] : null;
+            }
+
+            p.getInventory().setContents(fixed);
+            ItemStack[] e = ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(y.getString("enderchest", "")));
+            ItemStack[] e2 = new ItemStack[p.getEnderChest().getSize()];
+            for (int i = 0; i < e2.length && i < e.length; i++) {
+                e2[i] = e[i] != null && !e[i].isEmpty() ? e[i] : null;
+            }
+
+            p.getEnderChest().setContents(e2);
+            p.setLevel(y.getInt("level"));
+            p.setExp((float)Math.max(0.0, Math.min(1.0, y.getDouble("exp"))));
+            p.setFoodLevel(y.getInt("food", 20));
+            try {
+                GameMode gm = GameMode.valueOf(y.getString("gamemode", "SURVIVAL"));
+                p.setGameMode(group.equals("HUB") || gm != GameMode.ADVENTURE ? gm : GameMode.SURVIVAL);
+            } catch (IllegalArgumentException ignored) {
+                p.setGameMode(GameMode.SURVIVAL);
+            }
+
+            double max = p.getAttribute(Attribute.MAX_HEALTH) == null ? 20.0 : p.getAttribute(Attribute.MAX_HEALTH).getValue();
+            p.setHealth(Math.max(1.0, Math.min(max, y.getDouble("health", 20.0))));
+            // what they got when entering is a backup too
+            this.backup(p, group, true);
+        } catch (RuntimeException ex) {
+            this.plugin.getLogger().log(Level.SEVERE, "Could not load the " + group + " inventory of " + p.getName() + "; the file was kept.", ex);
+        }
+
+        p.updateInventory();
+    }
+
+    // ------------------------------------------------------------------ inventory backups
+
+    private File backupFolder(UUID u) {
+        return new File(this.backupDir, u.toString());
+    }
+
+    /**
+     * A timestamped copy of the player's live inventory, ender chest, XP and health for a group, kept in
+     * inventories/backups/&lt;uuid&gt;/&lt;group&gt;-&lt;time&gt;.yml (the oldest beyond smp.backup-keep are removed).
+     * {@code onlyIfChanged}: skipped when nothing changed since the last backup.
+     */
+    public void backup(Player p, String group, boolean onlyIfChanged) {
+        if (group == null || group.equals("HUB")) {
+            // the hub gives its own items every time: nothing to keep
+            return;
+        }
+
+        File dir = this.backupFolder(p.getUniqueId());
+        File[] mine = dir.listFiles((d, n) -> n.startsWith(group.toLowerCase(Locale.ROOT) + "-") && n.endsWith(".yml"));
+        if (onlyIfChanged && mine != null && mine.length > 0) {
+            File newest = java.util.Arrays.stream(mine).max(Comparator.comparingLong(File::lastModified)).get();
+            YamlConfiguration last = YamlConfiguration.loadConfiguration(newest);
+            if (sameItems(p.getInventory().getContents(), last.getString("contents")) && sameItems(p.getEnderChest().getContents(), last.getString("enderchest"))
+                && last.getInt("level") == p.getLevel()) {
+                return;
+            }
+        }
+
+        File f = new File(dir, group.toLowerCase(Locale.ROOT) + "-" + new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date()) + ".yml");
+        if (this.saveGroupTo(p, f, group, false) && mine != null) {
+            int keep = Cfg.i(Opt.SMP_BACKUP_KEEP);
+            List<File> all = new ArrayList<>(List.of(mine));
+            all.add(f);
+            all.sort(Comparator.comparingLong(File::lastModified).reversed());
+            for (int i = keep; i < all.size(); i++) {
+                all.get(i).delete();
+            }
+        }
+    }
+
+    /** Same items in the same slots (the saved bytes can differ for equal items). */
+    private static boolean sameItems(ItemStack[] live, String saved) {
+        try {
+            ItemStack[] old = ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(saved == null ? "" : saved));
+            for (int i = 0; i < Math.max(live.length, old.length); i++) {
+                ItemStack a = i < live.length && live[i] != null && !live[i].isEmpty() ? live[i] : null;
+                ItemStack b = i < old.length && old[i] != null && !old[i].isEmpty() ? old[i] : null;
+                if (a == null ? b != null : !a.equals(b)) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Every few minutes: a backup of each player in an SMP world (only when something changed). */
+    public void backupAll() {
+        if (!sameServer()) {
+            return;
+        }
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            String g = this.carried(p);
+            if (g != null && g.equals(this.groupOf(p.getWorld()))) {
+                this.backup(p, g, true);
+            }
+        }
+    }
+
+    /** The backups of a player, newest first. */
+    public List<File> backups(UUID u) {
+        File[] fs = this.backupFolder(u).listFiles((d, n) -> n.endsWith(".yml") && !n.equals("seen.yml"));
+        List<File> out = new ArrayList<>(fs == null ? List.of() : List.of(fs));
+        // older copies kept next to the saved inventories (the previous one, items of unknown origin)
+        File[] kept = new File(this.groupDir, u.toString()).listFiles((d, n) -> n.endsWith(".prev.yml") || n.contains("-unsorted-"));
+        if (kept != null) {
+            out.addAll(List.of(kept));
+        }
+
+        out.sort(Comparator.comparingLong(File::lastModified).reversed());
+        return out;
+    }
+
+    /**
+     * Puts a backup back. When the player is online in that backup's world group it is loaded right away (what they
+     * carry now is backed up first); otherwise the group's saved file is replaced (the current one backed up) and
+     * they get it the next time they enter that world.
+     */
+    public String restoreBackup(java.util.UUID u, File backup) {
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(backup);
+        String group = y.getString("group", "SURVIVAL").toUpperCase(Locale.ROOT);
+        File target = this.groupFile(u, group);
+        Player p = Bukkit.getPlayer(u);
+        try {
+            if (p != null && group.equals(this.carried(p)) && group.equals(this.groupOf(p.getWorld())) && !this.plugin.worlds().isMarked(p)) {
+                this.backup(p, group, false);
+                if (!backup.getCanonicalFile().equals(target.getCanonicalFile())) {
+                    target.getParentFile().mkdirs();
+                    Files.copy(backup.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                this.loadGroup(p, group);
+                this.plugin.getLogger().info("Inventory: " + p.getName() + " got " + backup.getName() + " (" + group + ", " + countStacks(p) + " stacks) right away.");
+                return "now";
+            }
+
+            if (target.exists()) {
+                File keep = new File(this.backupFolder(u), group.toLowerCase(Locale.ROOT) + "-before-restore-" + System.currentTimeMillis() + ".yml");
+                keep.getParentFile().mkdirs();
+                Files.copy(target.toPath(), keep.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            target.getParentFile().mkdirs();
+            if (!backup.getCanonicalFile().equals(target.getCanonicalFile())) {
+                Files.copy(backup.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            if (p == null || group.equals(this.carried(p))) {
+                // offline (maybe logged out inside that world) or carrying it elsewhere: loaded the next time they are there
+                this.setPending(u, group, true);
+            }
+
+            return "pending";
+        } catch (IOException e) {
+            return "Restoring failed: " + e.getMessage();
+        }
+    }
+
+    // ------------------------------------------------------------------ last spots in the SMP worlds
+
+    /** True when the player has nothing in that group: live when they carry it now, else the saved file. */
+    public boolean groupEmpty(UUID u, String group) {
+        Player p = Bukkit.getPlayer(u);
+        if (p != null && group.equals(this.carried(p)) && !this.plugin.worlds().isMarked(p)) {
+            return !hasItems(p);
+        }
+
+        File f = this.groupFile(u, group);
+        if (!f.isFile()) {
+            return true;
+        }
+
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
+        for (String key : List.of("contents", "enderchest")) {
+            try {
+                for (ItemStack it : ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(y.getString(key, "")))) {
+                    if (it != null && !it.isEmpty()) {
+                        return false;
+                    }
+                }
+            } catch (RuntimeException ignored) {
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The first time this version sees a player: a full copy of what they carry (inventory, ender chest, XP) in their
+     * backups, before anything can switch it - so an update can never lose it.
+     */
+    public void firstSeen(Player p) {
+        String ver = this.plugin.getPluginMeta().getVersion();
+        File stateFile = new File(this.backupFolder(p.getUniqueId()), "seen.yml");
+        YamlConfiguration st = YamlConfiguration.loadConfiguration(stateFile);
+        if (st.getBoolean(ver.replace('.', '_')) || this.plugin.worlds().isMarked(p) || !this.hasForeign(p)) {
+            return;
+        }
+
+        String carried = this.carried(p);
+        String g = carried != null ? carried : this.groupOf(p.getWorld());
+        File f = new File(this.backupFolder(p.getUniqueId()), (g == null ? "carried" : g.toLowerCase(Locale.ROOT)) + "-on-join-" + ver + "-"
+            + new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date()) + ".yml");
+        if (this.saveGroupTo(p, f, g == null || g.equals("HUB") ? "SURVIVAL" : g, false)) {
+            st.set(ver.replace('.', '_'), true);
+            try {
+                st.save(stateFile);
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    public File backupDir() {
+        return this.backupDir;
+    }
+
+    /** An old last spot, kept only when the player has none in that world yet. */
+    public boolean importSpot(UUID u, String world, String loc) {
+        if (loc == null || Bukkit.getWorld(world) == null) {
+            return false;
+        }
+
+        Map<String, String> m = this.lastLoc.computeIfAbsent(u, k -> new ConcurrentHashMap<>());
+        if (m.containsKey(world)) {
+            return false;
+        }
+
+        m.put(world, loc);
+        this.locDirty = true;
+        return true;
+    }
+
+    public void remember(Player p, Location l) {
+        if (l != null && l.getWorld() != null && this.smpWorld(l.getWorld())) {
+            this.lastLoc.computeIfAbsent(p.getUniqueId(), u -> new ConcurrentHashMap<>()).put(l.getWorld().getName(), Locs.serialize(l));
+            this.locDirty = true;
+        }
+    }
+
+    public Location last(Player p, World w) {
+        Map<String, String> m = this.lastLoc.get(p.getUniqueId());
+        Location l = m == null ? null : Locs.parse(m.get(w.getName()));
+        return l != null && l.getWorld() != null ? l : null;
+    }
+
+    private void loadLocations() {
+        this.lastLoc.clear();
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(this.locFile);
+        for (String k : y.getKeys(false)) {
+            ConfigurationSection s = y.getConfigurationSection(k);
+            if (s != null) {
+                try {
+                    Map<String, String> m = new ConcurrentHashMap<>();
+                    for (String w : s.getKeys(false)) {
+                        m.put(w, s.getString(w));
+                    }
+
+                    this.lastLoc.put(UUID.fromString(k), m);
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
+    }
+
+    public void saveLocations() {
+        if (!this.locDirty) {
+            return;
+        }
+
+        this.locDirty = false;
+        YamlConfiguration y = new YamlConfiguration();
+        for (Entry<UUID, Map<String, String>> e : this.lastLoc.entrySet()) {
+            for (Entry<String, String> w : e.getValue().entrySet()) {
+                y.set(e.getKey() + "." + w.getKey(), w.getValue());
+            }
+        }
+
+        try {
+            y.save(this.locFile);
+        } catch (IOException ex) {
+            this.plugin.getLogger().log(Level.WARNING, "Could not save last-locations.yml", ex);
+        }
     }
 
     public File groupFile(UUID u, String group) {
@@ -477,37 +1196,7 @@ public final class ModeManager {
         return this.groupDir;
     }
 
-    public InvRestore restore() {
-        return this.restore;
-    }
-
-    /**
-     * The inventory group the player carries right now (marker on the player). A marker left by VortexPvP,
-     * VortexRealm or VortexPvP is taken over, so switching plugins never mixes up saved inventories.
-     */
-    public String carried(Player p) {
-        String c = p.getPersistentDataContainer().get(this.groupKey, PersistentDataType.STRING);
-        return c != null ? c : net.vortexpvp.util.LegacyKeys.takeString(p, this.groupKey);
-    }
-
-    /** The group whose items the player is holding live (null in the PvP worlds, "*" without separate inventories). */
-    public String liveGroup(Player p) {
-        if (this.plugin.worlds().managed(p.getWorld()) || this.plugin.worlds().isMarked(p)) {
-            return null;
-        } else if (!Cfg.bool(Opt.SEPARATE_INVENTORIES)) {
-            return "*";
-        } else {
-            String c = this.carried(p);
-            String target = this.groupOf(p.getWorld());
-            return c != null && c.equals(target) ? c : null;
-        }
-    }
-
-    private boolean saveGroup(Player p, String group) {
-        return this.saveGroupTo(p, this.groupFile(p.getUniqueId(), group), group, true);
-    }
-
-    /** Writes the live inventory, ender chest and XP to a file; keepPrevious keeps the old file as name.prev.yml. */
+    /** Writes the live inventory, ender chest and XP to a file. */
     boolean saveGroupTo(Player p, File f, String group, boolean keepPrevious) {
         YamlConfiguration y = new YamlConfiguration();
         y.set("contents", Base64.getEncoder().encodeToString(ItemStack.serializeItemsAsBytes(p.getInventory().getContents())));
@@ -541,174 +1230,6 @@ public final class ModeManager {
         }
     }
 
-    private void loadGroup(Player p, String group) {
-        File f = this.groupFile(p.getUniqueId(), group);
-        p.getInventory().clear();
-        p.getEnderChest().clear();
-        p.setLevel(0);
-        p.setExp(0.0F);
-        if (!f.exists()) {
-            p.setGameMode(group.equals(WorldMode.HUB.name()) ? GameMode.ADVENTURE : GameMode.SURVIVAL);
-            p.setFoodLevel(20);
-        } else {
-            YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
-
-            try {
-                ItemStack[] c = ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(y.getString("contents", "")));
-                ItemStack[] fixed = new ItemStack[p.getInventory().getContents().length];
-
-                for (int i = 0; i < fixed.length && i < c.length; i++) {
-                    fixed[i] = c[i] != null && !c[i].isEmpty() ? c[i] : null;
-                }
-
-                p.getInventory().setContents(fixed);
-                ItemStack[] e = ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(y.getString("enderchest", "")));
-                ItemStack[] e2 = new ItemStack[p.getEnderChest().getSize()];
-
-                for (int i = 0; i < e2.length && i < e.length; i++) {
-                    e2[i] = e[i] != null && !e[i].isEmpty() ? e[i] : null;
-                }
-
-                p.getEnderChest().setContents(e2);
-                p.setLevel(y.getInt("level"));
-                p.setExp((float)Math.max(0.0, Math.min(1.0, y.getDouble("exp"))));
-                p.setFoodLevel(y.getInt("food", 20));
-                p.setGameMode(GameMode.valueOf(y.getString("gamemode", "SURVIVAL")));
-                double max = p.getAttribute(Attribute.MAX_HEALTH) == null ? 20.0 : p.getAttribute(Attribute.MAX_HEALTH).getValue();
-                p.setHealth(Math.max(1.0, Math.min(max, y.getDouble("health", 20.0))));
-            } catch (RuntimeException var11) {
-                this.plugin
-                    .getLogger()
-                    .log(Level.SEVERE, "Could not load " + group + " inventory of " + p.getName() + "; the file was kept.", (Throwable)var11);
-            }
-
-            p.updateInventory();
-        }
-    }
-
-    public void remember(Player p, Location l) {
-        if (l != null && l.getWorld() != null && this.mode(l.getWorld()).smp()) {
-            this.lastLoc.computeIfAbsent(p.getUniqueId(), u -> new HashMap<>()).put(l.getWorld().getName(), Locs.serialize(l));
-            this.locDirty = true;
-        }
-    }
-
-    public Location last(Player p, World w) {
-        Map<String, String> m = this.lastLoc.get(p.getUniqueId());
-        Location l = m == null ? null : Locs.parse(m.get(w.getName()));
-        return l != null && l.getWorld() != null ? l : null;
-    }
-
-    private void loadLocations() {
-        this.lastLoc.clear();
-        YamlConfiguration y = YamlConfiguration.loadConfiguration(this.locFile);
-
-        for (String k : y.getKeys(false)) {
-            ConfigurationSection s = y.getConfigurationSection(k);
-            if (s != null) {
-                try {
-                    Map<String, String> m = new HashMap<>();
-
-                    for (String w : s.getKeys(false)) {
-                        m.put(w, s.getString(w));
-                    }
-
-                    this.lastLoc.put(UUID.fromString(k), m);
-                } catch (IllegalArgumentException var8) {
-                }
-            }
-        }
-    }
-
-    public ModeManager.Stats stats(UUID u) {
-        ModeManager.Stats s = this.stats.computeIfAbsent(u, k -> new ModeManager.Stats());
-        if (s.hearts < 0) {
-            s.hearts = this.startHearts;
-        }
-
-        if (s.balance < 0.0) {
-            s.balance = this.startBalance;
-        }
-
-        return s;
-    }
-
-    public void dirty() {
-        this.statsDirty = true;
-    }
-
-    public Map<UUID, ModeManager.Stats> allStats() {
-        return this.stats;
-    }
-
-    private void loadStats() {
-        this.stats.clear();
-        YamlConfiguration y = YamlConfiguration.loadConfiguration(this.statsFile);
-
-        for (String k : y.getKeys(false)) {
-            try {
-                ModeManager.Stats s = new ModeManager.Stats();
-                s.hearts = y.getInt(k + ".hearts", this.startHearts);
-                s.strength = y.getInt(k + ".strength");
-                s.points = y.getInt(k + ".points");
-                s.kills = y.getInt(k + ".kills");
-                s.deaths = y.getInt(k + ".deaths");
-                s.eliminatedUntil = y.getLong(k + ".eliminated-until");
-                s.balance = y.getDouble(k + ".balance", -1.0);
-                s.shards = y.getLong(k + ".shards");
-                s.shardMinutes = y.getInt(k + ".shard-minutes");
-                this.stats.put(UUID.fromString(k), s);
-            } catch (IllegalArgumentException var5) {
-            }
-        }
-    }
-
-    public void saveData() {
-        if (this.statsDirty) {
-            this.statsDirty = false;
-            YamlConfiguration y = new YamlConfiguration();
-
-            for (Entry<UUID, ModeManager.Stats> e : this.stats.entrySet()) {
-                String k = e.getKey().toString();
-                ModeManager.Stats s = e.getValue();
-                y.set(k + ".hearts", s.hearts);
-                y.set(k + ".strength", s.strength);
-                y.set(k + ".points", s.points);
-                y.set(k + ".kills", s.kills);
-                y.set(k + ".deaths", s.deaths);
-                y.set(k + ".eliminated-until", s.eliminatedUntil);
-                y.set(k + ".balance", Math.round(s.balance * 100.0) / 100.0);
-                if (s.shards != 0L || s.shardMinutes != 0) {
-                    y.set(k + ".shards", s.shards);
-                    y.set(k + ".shard-minutes", s.shardMinutes);
-                }
-            }
-
-            try {
-                y.save(this.statsFile);
-            } catch (IOException var7) {
-                this.plugin.getLogger().log(Level.WARNING, "Could not save smp-stats.yml", (Throwable)var7);
-            }
-        }
-
-        if (this.locDirty) {
-            this.locDirty = false;
-            YamlConfiguration y = new YamlConfiguration();
-
-            for (Entry<UUID, Map<String, String>> e : this.lastLoc.entrySet()) {
-                for (Entry<String, String> w : e.getValue().entrySet()) {
-                    y.set(e.getKey() + "." + w.getKey(), w.getValue());
-                }
-            }
-
-            try {
-                y.save(this.locFile);
-            } catch (IOException var6) {
-                this.plugin.getLogger().log(Level.WARNING, "Could not save last-locations.yml", (Throwable)var6);
-            }
-        }
-    }
-
     public Location arrival(Player p, World w) {
         if (this.mode(w) == WorldMode.PVP) {
             return this.plugin.lobby().lobby();
@@ -716,27 +1237,40 @@ public final class ModeManager {
             return this.spawn(w);
         } else {
             Location last = this.last(p, w);
+            last = last == null ? null : safeSpot(last);
             return last != null ? last : this.spawn(w);
         }
+    }
+
+    /** The spot itself when it stands on solid ground with room to stand, else the top block there (null: none). */
+    private static Location safeSpot(Location l) {
+        World w = l.getWorld();
+        org.bukkit.block.Block feet = l.getBlock();
+        if (!feet.getType().isSolid() && !feet.getRelative(0, 1, 0).getType().isSolid()) {
+            for (int i = 1; i <= 3; i++) {
+                org.bukkit.block.Block under = feet.getRelative(0, -i, 0);
+                if (under.getType().isSolid()) {
+                    return i == 1 ? l : new Location(w, l.getX(), under.getY() + 1.0, l.getZ(), l.getYaw(), l.getPitch());
+                }
+
+                if (under.isLiquid()) {
+                    break;
+                }
+            }
+        }
+
+        int y = w.getHighestBlockYAt(l.getBlockX(), l.getBlockZ());
+        if (y <= w.getMinHeight() || !w.getBlockAt(l.getBlockX(), y, l.getBlockZ()).getType().isSolid()) {
+            return null;
+        }
+
+        return new Location(w, l.getBlockX() + 0.5, y + 1.0, l.getBlockZ() + 0.5, l.getYaw(), l.getPitch());
     }
 
     public void travel(Player p, World w) {
         PlayerState st = this.plugin.sessions().state(p);
         if (!st.fighting() && st != PlayerState.PREMATCH && st != PlayerState.EDITING) {
-            if (this.plugin.combatTag() != null && this.plugin.combatTag().tagged(p)) {
-                p.sendMessage(Text.mm("<red>You can't leave in combat. <gray>(" + this.plugin.combatTag().secondsLeft(p) + "s)"));
-                Snd.error(p);
-            } else {
-                if (this.mode(w) == WorldMode.LIFESTEAL) {
-                    ModeManager.Stats s = this.stats(p.getUniqueId());
-                    if (s.eliminatedUntil > System.currentTimeMillis() && !p.hasPermission("vortexpvp.admin")) {
-                        long min = (s.eliminatedUntil - System.currentTimeMillis()) / 60000L + 1L;
-                        p.sendMessage(Text.mm("<red>You were eliminated from Lifesteal. Back in <gold>" + min / 60L + "h " + min % 60L + "m</gold>."));
-                        Snd.error(p);
-                        return;
-                    }
-                }
-
+            {
                 String name = this.display(w);
                 Location target = this.arrival(p, w);
                 Fx.shine(p, "TRAVELLING", Fx.GOLD, Text.mm("<gray>to " + this.mode(w).color + "<b>" + Text.esc(name)), 20);
@@ -776,6 +1310,7 @@ public final class ModeManager {
                         PlayerState now = this.plugin.sessions().state(p);
                         if (!now.fighting() && now != PlayerState.PREMATCH) {
                             Tp.to(p, target);
+                            p.setFallDistance(0.0F);
                             Snd.play(p, "entity.enderman.teleport", 0.7F, 1.2F);
                             p.getWorld().spawnParticle(Particle.REVERSE_PORTAL, p.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.8, 0.5, 0.05);
                             Fx.title(p, Text.mm(this.mode(w).color + "<b>" + Text.esc(name)), Text.mm("<gray>Welcome!"), 5, 30, 10);
@@ -795,7 +1330,7 @@ public final class ModeManager {
         if (style.big()) {
             role = this.plugin.worlds().managed(at.getWorld())
                 ? SpawnBuilder.Style.PVP
-                : (this.mode(at.getWorld()) == WorldMode.HUB ? SpawnBuilder.Style.HUB : SpawnBuilder.Style.SURVIVAL);
+                : SpawnBuilder.Style.HUB;
         }
 
         SpawnBuilder.Style use = role;
@@ -814,47 +1349,161 @@ public final class ModeManager {
                     at.getBlockY() + 16,
                     at.getBlockZ() + rad + 2
                 );
-            admin.sendMessage(Text.mm("<yellow>Building the " + style.name().toLowerCase(Locale.ROOT) + " spawn (radius " + rad + ")..."));
+            admin.sendMessage(Text.mm("<yellow>Building the " + style.name().toLowerCase(Locale.ROOT).replace('_', ' ') + " spawn (radius " + (style.voxel() ? radius : rad) + ")..."));
             ArenaManager.preload(at.getWorld(), area)
                 .thenComposeAsync(v -> this.plugin.jobs().submit(r.job()), Tasks.MAIN)
-                .whenComplete(
-                    (v, err) -> Tasks.ensureSync(
-                        () -> {
-                            if (err != null) {
-                                this.plugin.getLogger().log(Level.SEVERE, "Building a spawn failed", err);
-                                admin.sendMessage(Text.mm("<red>Building failed - see the console."));
-                            } else {
-                                Location spawn = r.spawn();
-                                switch (use) {
-                                    case PVP:
-                                        this.plugin.lobby().setLobby(spawn);
-                                        break;
-                                    default:
-                                        this.setSpawn(spawn);
-                                }
-
-                                this.placeNpcs(admin, use, r.npcSpots());
-                                this.placeFeatureNpcs(admin, r.features());
-                                this.placeFeatures(r.features());
-                                if (style == SpawnBuilder.Style.CASTLE_MARKET && this.plugin.decos() != null && DecoModels.get("crown") != null) {
-                                    // a slowly spinning crown floats over the fountain, like the big items of the MCPVP lobby
-                                    this.plugin.decos().placeAt(new Location(at.getWorld(), at.getBlockX() + 0.5, at.getBlockY() + 10.0, at.getBlockZ() + 0.5), "crown", 0.0F);
-                                }
-                                admin.sendMessage(
-                                    Text.mm(
-                                        "<green>Spawn built and set! <gray>NPCs placed: <white>"
-                                            + r.npcSpots().size()
-                                            + "</white>. Edit them with <yellow>/npc</yellow>."
-                                    )
-                                );
-                                if (admin.isOnline()) {
-                                    Tp.to(admin, spawn);
-                                }
-                            }
-                        }
-                    )
-                );
+                .whenComplete((v, err) -> Tasks.ensureSync(() -> this.finishBuild(admin, style, use, r, at, radius, err)));
         }
+    }
+
+    /** After a spawn build: sets the spawn, places NPCs and features, and remembers the build for a later upgrade. */
+    private void finishBuild(Player admin, SpawnBuilder.Style style, SpawnBuilder.Style use, SpawnBuilder.Result r, Location at, int radius, Throwable err) {
+        if (err != null) {
+            this.plugin.getLogger().log(Level.SEVERE, "Building a spawn failed", err);
+            admin.sendMessage(Text.mm("<red>Building failed - see the console."));
+            return;
+        }
+
+        Location spawn = r.spawn();
+        switch (use) {
+            case PVP:
+                this.plugin.lobby().setLobby(spawn);
+                break;
+            default:
+                this.setSpawn(spawn);
+        }
+
+        this.placeNpcs(admin, use, r.npcSpots());
+        this.placeFeatureNpcs(admin, r.features());
+        this.placeFeatures(r.features());
+        if (style == SpawnBuilder.Style.CASTLE_MARKET && this.plugin.decos() != null && DecoModels.get("crown") != null) {
+            // a slowly spinning crown floats over the fountain, like the big items of the MCPVP lobby
+            this.plugin.decos().placeAt(new Location(at.getWorld(), at.getBlockX() + 0.5, at.getBlockY() + 10.0, at.getBlockZ() + 0.5), "crown", 0.0F);
+        }
+
+        if (style.voxel()) {
+            YamlConfiguration y = new YamlConfiguration();
+            y.set("style", style.name());
+            y.set("role", use.name());
+            y.set("world", at.getWorld().getName());
+            y.set("x", at.getBlockX());
+            y.set("y", at.getBlockY());
+            y.set("z", at.getBlockZ());
+            y.set("radius", radius);
+            try {
+                y.save(new File(this.plugin.getDataFolder(), "hub-build.yml"));
+            } catch (IOException e) {
+                this.plugin.getLogger().warning("Could not save hub-build.yml: " + e.getMessage());
+            }
+        }
+
+        admin.sendMessage(Text.mm("<green>Spawn built and set! <gray>NPCs placed: <white>" + r.npcSpots().size() + "</white>. Edit them with <yellow>/npc</yellow>."));
+        if (admin.isOnline()) {
+            Tp.to(admin, spawn);
+        }
+    }
+
+    /**
+     * Rebuilds the lobby in the same place with the newest version of its design (for the Town Square: the castle
+     * town). A full backup is taken, players inside are kept safe in spectator mode, the old build is cleared, the new
+     * one is built, and NPCs, the bots yard and the spawn are put back without duplicates. Lobbies built before this
+     * version are found from the spawn they set (the Town Square spawn is the origin + (0.5, 0, 53.5)).
+     */
+    public void upgradeHub(Player admin) {
+        File f = new File(this.plugin.getDataFolder(), "hub-build.yml");
+        SpawnBuilder.Style style;
+        SpawnBuilder.Style role;
+        Location at;
+        int radius;
+        if (f.isFile()) {
+            YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
+            World w = Bukkit.getWorld(y.getString("world", ""));
+            try {
+                style = SpawnBuilder.Style.valueOf(y.getString("style", "TOWN_SQUARE"));
+                role = SpawnBuilder.Style.valueOf(y.getString("role", "HUB"));
+            } catch (IllegalArgumentException e) {
+                admin.sendMessage(Text.mm("<red>hub-build.yml names an unknown style."));
+                return;
+            }
+
+            if (w == null) {
+                admin.sendMessage(Text.mm("<red>The lobby's world isn't loaded."));
+                return;
+            }
+
+            at = new Location(w, y.getInt("x"), y.getInt("y"), y.getInt("z"));
+            radius = y.getInt("radius", style.radius);
+        } else {
+            // an older build: work the origin out from the spawn of this world (hub) or the PvP lobby
+            World w = admin.getWorld();
+            boolean pvp = this.plugin.worlds().managed(w);
+            Location s = pvp ? this.plugin.lobby().lobby() : this.spawn(w);
+            if (s == null || s.getWorld() == null) {
+                admin.sendMessage(Text.mm("<red>No lobby spawn in this world. Stand in the lobby's world and try again."));
+                return;
+            }
+
+            at = new Location(s.getWorld(), Math.floor(s.getX() - 0.5), Math.floor(s.getY()), Math.floor(s.getZ() - 53.5));
+            Material lamp = s.getWorld().getBlockAt(at.getBlockX(), at.getBlockY() - 4, at.getBlockZ() + 44).getType();
+            if (lamp != Material.SEA_LANTERN) {
+                admin.sendMessage(Text.mm("<red>Couldn't find a Town Square at this lobby's spawn. <gray>Stand on the lobby spawn pad and set it as spawn, or rebuild it from the build menu."));
+                return;
+            }
+
+            style = SpawnBuilder.Style.TOWN_SQUARE;
+            role = pvp ? SpawnBuilder.Style.PVP : SpawnBuilder.Style.HUB;
+            radius = style.radius;
+        }
+
+        try {
+            this.plugin.configBackup().backup(net.vortexpvp.data.ConfigBackup.Kind.FULL);
+        } catch (IOException | RuntimeException e) {
+            admin.sendMessage(Text.mm("<red>The backup failed, so nothing was changed: " + Text.esc(String.valueOf(e.getMessage()))));
+            return;
+        }
+
+        SpawnBuilder.Result r = SpawnBuilder.plan(at, style, radius);
+        Cuboid area = r.area();
+        World w = at.getWorld();
+        Map<UUID, GameMode> held = new java.util.HashMap<>();
+        for (Player p : w.getPlayers()) {
+            Location l = p.getLocation();
+            if (area.contains(l.getBlockX(), l.getBlockY(), l.getBlockZ())) {
+                held.put(p.getUniqueId(), p.getGameMode());
+                p.setGameMode(GameMode.SPECTATOR);
+                p.sendMessage(Text.mm("<gold>The lobby is being upgraded <gray>- you're in spectator mode for a moment."));
+            }
+        }
+
+        admin.sendMessage(Text.mm("<yellow>Upgrading the " + style.name().toLowerCase(Locale.ROOT).replace('_', ' ') + " (radius " + radius + "). <gray>A full backup was saved first."));
+        ArenaManager.preload(w, area)
+            .thenRun(() -> Tasks.ensureSync(() -> {
+                if (this.plugin.botHall() != null) {
+                    this.plugin.botHall().removeIn(area, w);
+                }
+
+                if (this.plugin.season() != null) {
+                    // the lobby is rebuilt from scratch: the winter record no longer matches it
+                    this.plugin.season().forget();
+                }
+            }))
+            .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaManager.clearJob(w, area)), Tasks.MAIN)
+            .thenComposeAsync(v -> this.plugin.jobs().submit(r.job()), Tasks.MAIN)
+            .whenComplete((v, err) -> Tasks.ensureSync(() -> {
+                this.finishBuild(admin, style, role, r, at, radius, err);
+                if (err == null && this.plugin.season() != null) {
+                    this.plugin.season().refresh();
+                }
+
+                Location spawn = r.spawn();
+                for (Map.Entry<UUID, GameMode> e : held.entrySet()) {
+                    Player p = Bukkit.getPlayer(e.getKey());
+                    if (p != null) {
+                        p.setGameMode(e.getValue());
+                        Tp.to(p, spawn);
+                    }
+                }
+            }));
     }
 
     /**
@@ -862,6 +1511,18 @@ public final class ModeManager {
      * "holo:&lt;preset&gt;:&lt;design&gt;" a text hologram from a preset, "deco:&lt;model&gt;" a 3D decoration.
      */
     private void placeFeatures(Map<String, Location> features) {
+        // the Training Grounds wing of a hub: its bot-map mobs and NPCs (bots.hall-in-hub)
+        Map<String, Location> bot = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, Location> f : features.entrySet()) {
+            if (f.getKey().startsWith("botmap:") || f.getKey().startsWith("botnpc:")) {
+                bot.put(f.getKey(), f.getValue());
+            }
+        }
+
+        if (!bot.isEmpty() && this.plugin.botHall() != null && Cfg.bool(Opt.BOTS_HALL_IN_HUB)) {
+            this.plugin.botHall().placeFeatures(bot);
+        }
+
         for (Map.Entry<String, Location> f : features.entrySet()) {
             String[] k = f.getKey().split(":");
             Location at = f.getValue();
@@ -935,20 +1596,15 @@ public final class ModeManager {
                     )
                 );
 
-                for (World world : Bukkit.getWorlds()) {
-                    WorldMode m = this.mode(world);
-                    if (m.smp() && !world.getName().endsWith("_nether") && !world.getName().endsWith("_the_end")) {
+                if (this.plugin.serverSelector() != null) {
+                    for (ServerSelector.Entry se : this.plugin.serverSelector().servers()) {
                         plans.add(
                             new Plan(
-                                w + "_" + world.getName(),
-                                List.of(
-                                    m.color + "<b>" + Text.esc(this.display(world)).toUpperCase(Locale.ROOT),
-                                    "<gray>{players} playing",
-                                    "{blink}▶ Click to play"
-                                ),
-                                Npc.Action.WORLD,
-                                world.getName(),
-                                m.icon
+                                w + "_" + se.id,
+                                List.of(se.name.isEmpty() ? "<b>" + se.id.toUpperCase(Locale.ROOT) : se.name, "{server}", "{blink}▶ Click to join"),
+                                Npc.Action.SERVER,
+                                se.id,
+                                se.icon
                             )
                         );
                     }
@@ -1065,8 +1721,8 @@ public final class ModeManager {
 
     public ItemStack selectorItem() {
         return Items.of(Material.COMPASS)
-            .name("<b><gradient:#FFE066:#FFAA00>World Selector</gradient></b>")
-            .lore("<gray>Travel to every world and the", "<gray>PvP practice lobby.", "", "<green>▶ Click to choose")
+            .name("<b><gradient:#FFE066:#FFAA00>Server Selector</gradient></b>")
+            .lore("<gray>Practice, the SMP server", "<gray>and every other server.", "", "<green>▶ Click to choose")
             .tag(this.hubItemKey, "selector")
             .glint(true)
             .hideAll()
@@ -1090,19 +1746,5 @@ public final class ModeManager {
 
     public static String worldLabel(World w) {
         return w.getName().equals("practice_world") ? "arenas (internal)" : w.getName();
-    }
-
-    public static final class Stats {
-        public int hearts = -1;
-        public int strength;
-        public int points;
-        public int kills;
-        public int deaths;
-        public long eliminatedUntil;
-        public volatile double balance = -1.0;
-        /** Second currency (DonutSMP style), earned by playing and by kills. */
-        public long shards;
-        /** Minutes played in the economy toward the next shard. */
-        public int shardMinutes;
     }
 }

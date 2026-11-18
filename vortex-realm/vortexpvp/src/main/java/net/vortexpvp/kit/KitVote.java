@@ -25,8 +25,21 @@ public record KitVote(String id, String question, KitVote.Action action, Materia
         }
     }
 
+    /** True for votes that change an item stack in the kit (the others change a match rule). */
+    public boolean itemVote() {
+        return this.action == KitVote.Action.LIMIT || this.action == KitVote.Action.REMOVE;
+    }
+
     public static enum Action {
+        /** Keep at most {@code amount} of the item. */
         LIMIT,
-        REMOVE;
+        /** Take the item out of the kit. */
+        REMOVE,
+        /** Play first to {@code amount} rounds (1v1 duels). */
+        ROUNDS,
+        /** No natural regeneration for this match. */
+        NO_REGEN,
+        /** Knockback at {@code amount} percent for this match. */
+        KNOCKBACK;
     }
 }

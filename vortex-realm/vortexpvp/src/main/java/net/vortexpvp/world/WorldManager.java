@@ -215,7 +215,7 @@ public final class WorldManager {
     }
 
     public boolean storeOutside(Player p, Location from) {
-        if (!Cfg.bool(Opt.SEPARATE_INVENTORIES)) {
+        if (false) {
             return true;
         } else {
             File f = this.invFile(p);

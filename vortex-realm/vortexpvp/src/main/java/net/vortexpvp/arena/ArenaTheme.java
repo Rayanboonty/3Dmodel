@@ -68,6 +68,34 @@ public enum ArenaTheme {
     OPEN_DEEP_DARK(OpenArenaDesign.Style.DEEP_DARK, Material.SCULK),
     OPEN_MUSHROOM(OpenArenaDesign.Style.MUSHROOM, Material.RED_MUSHROOM_BLOCK),
     OPEN_SKY_CASTLE(OpenArenaDesign.Style.SKY_CASTLE, Material.STONE_BRICKS),
+    DUEL_TEMPLE(net.vortexpvp.build.DuelArenaDesign.Style.TEMPLE, Material.MOSSY_STONE_BRICKS, Biome.JUNGLE),
+    DUEL_SAKURA(net.vortexpvp.build.DuelArenaDesign.Style.SAKURA, Material.CHERRY_SAPLING, Biome.CHERRY_GROVE),
+    DUEL_BASTION(net.vortexpvp.build.DuelArenaDesign.Style.BASTION, Material.GILDED_BLACKSTONE, Biome.CRIMSON_FOREST),
+    DUEL_HARBOR(net.vortexpvp.build.DuelArenaDesign.Style.HARBOR, Material.PACKED_ICE, Biome.SNOWY_PLAINS),
+    DUEL_BAZAAR(net.vortexpvp.build.DuelArenaDesign.Style.BAZAAR, Material.CHISELED_SANDSTONE, Biome.DESERT),
+    DUEL_COURTYARD(net.vortexpvp.build.DuelArenaDesign.Style.COURTYARD, Material.STONE_BRICKS, Biome.PLAINS),
+    DUEL_MUSHROOM(net.vortexpvp.build.DuelArenaDesign.Style.MUSHROOM, Material.RED_MUSHROOM_BLOCK, Biome.MUSHROOM_FIELDS),
+    DUEL_CITADEL(net.vortexpvp.build.DuelArenaDesign.Style.CITADEL, Material.PURPUR_BLOCK, Biome.THE_END),
+    UHC_MEADOW(net.vortexpvp.build.DuelArenaDesign.Style.UHC_MEADOW, Material.OAK_SAPLING, Biome.MEADOW),
+    UHC_CANYON(net.vortexpvp.build.DuelArenaDesign.Style.UHC_CANYON, Material.RED_SAND, Biome.BADLANDS),
+    UHC_TAIGA(net.vortexpvp.build.DuelArenaDesign.Style.UHC_TAIGA, Material.SPRUCE_SAPLING, Biome.TAIGA),
+    UHC_RUINS(net.vortexpvp.build.DuelArenaDesign.Style.UHC_RUINS, Material.CRACKED_STONE_BRICKS, Biome.PLAINS),
+    TRAINING_GROUNDS(net.vortexpvp.build.DuelArenaDesign.Style.TRAINING, Material.TARGET, Biome.PLAINS),
+    // 3.10.0: the court arenas (detailed builds round a flat floor) replace the old colosseums and show arenas
+    ROYAL_COURTYARD(net.vortexpvp.build.CourtArenaDesign.Style.ROYAL_COURTYARD, Material.CHISELED_STONE_BRICKS, Biome.PLAINS),
+    FROSTHOLD(net.vortexpvp.build.CourtArenaDesign.Style.FROSTHOLD, Material.BLUE_ICE, Biome.SNOWY_PLAINS),
+    SULTAN_PALACE(net.vortexpvp.build.CourtArenaDesign.Style.SULTAN_PALACE, Material.GOLD_BLOCK, Biome.DESERT),
+    TITAN_COLOSSEUM(net.vortexpvp.build.CourtArenaDesign.Style.TITAN_COLOSSEUM, Material.SMOOTH_SANDSTONE, Biome.PLAINS),
+    HIGHLAND_PLAZA(net.vortexpvp.build.CourtArenaDesign.Style.HIGHLAND_PLAZA, Material.SPRUCE_SAPLING, Biome.TAIGA),
+    SAKURA_TERRACE(net.vortexpvp.build.CourtArenaDesign.Style.SAKURA_TERRACE, Material.PINK_PETALS, Biome.CHERRY_GROVE),
+    EMBER_SANDS(net.vortexpvp.build.CourtArenaDesign.Style.EMBER_SANDS, Material.RED_NETHER_BRICKS, Biome.DESERT),
+    GOTHIC_HARBOR(net.vortexpvp.build.CourtArenaDesign.Style.GOTHIC_HARBOR, Material.PURPLE_STAINED_GLASS, Biome.PLAINS),
+    // 3.11.0
+    TROPICAL_BEACH(net.vortexpvp.build.CourtArenaDesign.Style.TROPICAL_BEACH, Material.SAND, Biome.BEACH),
+    JUNGLE_TEMPLE(net.vortexpvp.build.CourtArenaDesign.Style.JUNGLE_TEMPLE, Material.MOSSY_STONE_BRICKS, Biome.JUNGLE),
+    VOLCANO_FORGE(net.vortexpvp.build.CourtArenaDesign.Style.VOLCANO_FORGE, Material.MAGMA_BLOCK, Biome.BASALT_DELTAS),
+    PIRATE_COVE(net.vortexpvp.build.CourtArenaDesign.Style.PIRATE_COVE, Material.BARREL, Biome.BEACH),
+    PHARAOH_TOMB(net.vortexpvp.build.CourtArenaDesign.Style.PHARAOH_TOMB, Material.CHISELED_SANDSTONE, Biome.DESERT),
     CUSTOM("Custom", Material.STONE, null, 0.0, 0);
 
     public final double sizeScale;
@@ -76,6 +104,10 @@ public enum ArenaTheme {
     public final OpenArenaDesign.Style open;
     /** Non-null = a show arena (oval floor, stands and a ring of buildings). */
     public final net.vortexpvp.build.ShowArenaDesign.Style show;
+    /** Non-null = a compact detailed duel arena (sword maps, or the UHC maps when its style is a building one). */
+    public final net.vortexpvp.build.DuelArenaDesign.Style duel;
+    /** Non-null = a court arena (3.10.0): a flat floor inside a detailed build (castle, palace, colosseum, plaza, town). */
+    public final net.vortexpvp.build.CourtArenaDesign.Style court;
     public final String display;
     public final Material icon;
     public final Biome biome;
@@ -88,7 +120,38 @@ public enum ArenaTheme {
         this(display, icon, biome, amplitude, mountains, 1.0);
     }
 
+    private ArenaTheme(net.vortexpvp.build.CourtArenaDesign.Style court, Material icon, Biome biome) {
+        this.court = court;
+        this.colosseum = null;
+        this.open = null;
+        this.show = null;
+        this.duel = null;
+        this.sizeScale = 1.0;
+        this.display = court.display;
+        this.icon = icon;
+        this.biome = biome;
+        this.amplitude = 0.0;
+        this.mountains = 0;
+        this.vanilla = null;
+    }
+
+    private ArenaTheme(net.vortexpvp.build.DuelArenaDesign.Style duel, Material icon, Biome biome) {
+        this.court = null;
+        this.colosseum = null;
+        this.open = null;
+        this.show = null;
+        this.duel = duel;
+        this.sizeScale = 1.0;
+        this.display = duel.display;
+        this.icon = icon;
+        this.biome = biome;
+        this.amplitude = 0.0;
+        this.mountains = 0;
+        this.vanilla = null;
+    }
+
     private ArenaTheme(net.vortexpvp.build.ShowArenaDesign.Style show, Material icon, Biome biome) {
+        this.court = null;
         this.colosseum = null;
         this.open = null;
         this.show = show;
@@ -99,9 +162,11 @@ public enum ArenaTheme {
         this.amplitude = 0.0;
         this.mountains = 0;
         this.vanilla = null;
+        this.duel = null;
     }
 
     private ArenaTheme(OpenArenaDesign.Style open, Material icon) {
+        this.court = null;
         this.colosseum = null;
         this.open = open;
         this.show = null;
@@ -112,9 +177,11 @@ public enum ArenaTheme {
         this.amplitude = 0.0;
         this.mountains = 0;
         this.vanilla = null;
+        this.duel = null;
     }
 
     private ArenaTheme(String display, Material icon, Biome biome, double amplitude, int mountains, VanillaTerrain.Spec vanilla) {
+        this.court = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -125,9 +192,11 @@ public enum ArenaTheme {
         this.amplitude = amplitude;
         this.mountains = mountains;
         this.vanilla = vanilla;
+        this.duel = null;
     }
 
     private ArenaTheme(ColosseumDesign.Style style, Material icon, Biome biome) {
+        this.court = null;
         this.sizeScale = 1.0;
         this.colosseum = style;
         this.open = null;
@@ -138,9 +207,11 @@ public enum ArenaTheme {
         this.amplitude = 0.0;
         this.mountains = 0;
         this.vanilla = null;
+        this.duel = null;
     }
 
     private ArenaTheme(String display, Material icon, Biome biome, double amplitude, int mountains, double sizeScale) {
+        this.court = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -151,6 +222,20 @@ public enum ArenaTheme {
         this.amplitude = amplitude;
         this.mountains = mountains;
         this.vanilla = null;
+        this.duel = null;
+    }
+
+    /**
+     * Arena looks that are no longer made (2.3.0: only the vanilla biome maps, the show arenas and the colosseums,
+     * like MCPVP / PvPHQ): the open arenas and the small themed duel maps. Their old maps are removed on start.
+     */
+    public boolean retired() {
+        return this.open != null
+            || this.duel != null && this != TRAINING_GROUNDS
+            // 3.10.0: the old colosseums and show arenas, replaced by the court arenas (the mace colosseum, the
+            // tournament colosseum and Mole PvP's mines stay)
+            || this.colosseum != null && this != GRAND_COLOSSEUM && this != CHAMPIONS_COLOSSEUM
+            || this.show != null && this != MOLE_MINES;
     }
 
     /** True when arenas of this theme are vanilla terrain right now (the theme supports it and the option is on). */

@@ -74,7 +74,7 @@ public final class MapModel {
         } else {
             // designed arenas (sword, pots, UHC); the biome maps keep their biome block
             String pool = Arena.normPool(a.pool);
-            return pool.equals("DESIGNED") || pool.equals("MACE") || pool.equals("ANY") && !a.vanilla();
+            return pool.equals("DESIGNED") || pool.equals("DUEL") || pool.equals("DUEL_BUILD") || pool.equals("MACE") || pool.equals("ANY") && !a.vanilla();
         }
     }
 

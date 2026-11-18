@@ -1168,3 +1168,18 @@ The updater now asks **every** update address and installs the newest version an
 
 - The built-in addresses are always asked, whatever *Update Sources* says, so a server can't be cut off from updates any more.
 - Check now: `/pvpadmin update check`. Install right away: `/pvpadmin update now` (otherwise it restarts when the server is empty, or at night).
+
+
+## 3.12.0 / 2.12.0 — 40+ new systems (the VortexPvP add-on is now part of VortexRealm)
+
+Every system of the VortexPvP test build (`README-VortexPvP.md` has the full details) now runs inside VortexRealm itself.
+
+- **Settings:** `plugins/VortexRealm/plus/config.yml` has an `enabled` switch for every system. `/plus reload` applies changes and `/plus status` shows what runs.
+- **Ranked:** rank ladder Coal→Netherite with divisions (`/ladder`), promotion series and demotion shield, fair ranked (repeat-win damping, alt check, ping equaliser), ranked seasons with a Hall of Fame (`/rseason`), clans and clan wars (`/clan`), ranked 2v2 (`/duo`), party wars (`/partywar`), the Weekly Cup, streak announcements, head-to-head and rivals.
+- **Getting better:** post-match analysis (`/lastmatch`), replays (`/replay`), training drills (`/skilldrill`), coach mode (`/coach`), match HUD (`/hud`).
+- **Things to do:** arcade (`/arcade`), FFA bounties and kill-streak rewards, missions (`/missions`), battle pass (`/pass`), ~300 achievements (`/achievements`), titles (`/titles`), daily rewards (`/daily`), kit vote (`/kitvote`), Match of the Week (`/motw`).
+- **Looks:** win effects and death messages (`/vfx`), gadgets (`/gadget`), hub parkour (`/parkour`), a punching dummy in queue, seasonal hub decorations, cinematic spectator (`/cinematic`). `/pet` now opens the new pets.
+- **Community:** creator codes (`/creator`, `/code`), LIVE badge and streamer mode (`/live`, `/streamer`), mentors (`/mentor`), friend spectate (`/fspec`), Discord verify (`/dverify`).
+- **Staff:** Fair+ checks, report evidence replays (`/evidence`), screenshare log (`/sslog`), alerts (`/alerts`).
+- **Renamed to avoid clashes:** ranked seasons → `/rseason` (`/season` stays the SMP season), training drills → `/skilldrill` (`/drill` stays the SMP drill), Discord verify → `/dverify` (`/link` stays).
+- **Removed:** the Eco SMP extras (crates, chest shops, bid house), because that SMP mode is gone. Rewards are paid in coins.

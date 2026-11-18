@@ -103,7 +103,12 @@ public final class Hub implements Listener {
     public void giveItems(Player p) {
         if (!this.fighting.contains(p.getUniqueId())) {
             PlayerInventory inv = p.getInventory();
-            if (Cfg.bool(Opt.SEPARATE_INVENTORIES)) {
+            if (!this.modes.stashForeign(p)) {
+                // could not save what they carry: never clear it
+                return;
+            }
+
+            if (true) {
                 inv.clear();
                 inv.setItem(0, this.modes.selectorItem());
                 inv.setItem(
@@ -111,7 +116,7 @@ public final class Hub implements Listener {
                     Items.of(Material.PLAYER_HEAD)
                         .skull(p)
                         .name("<gold><b>Your Profile")
-                        .lore("<gray>Ranks, hearts, strength,", "<gray>money and play time.", "", "<green>▶ Click to view")
+                        .lore("<gray>Your ranks, tiers", "<gray>and play time.", "", "<green>▶ Click to view")
                         .tag(this.key, "profile")
                         .build()
                 );
@@ -494,17 +499,8 @@ public final class Hub implements Listener {
         }
 
         header.add(pvp);
-        ModeManager.Stats s = this.modes.stats(p.getUniqueId());
-        header.add(
-            Text.mm("<red>❤ " + s.hearts + " hearts <dark_gray>• <light_purple>⚔ strength " + s.strength + " <dark_gray>• <yellow>★ ")
-                .append(BoardManager.tierTag(Tier.forElo(s.points)))
-                .append(Text.mm(" <gray>(" + s.points + " pts)"))
-        );
-        header.add(
-            Text.mm(
-                "<#3DDC84>$ " + String.format(Locale.US, "%,.2f", s.balance) + " <dark_gray>• <gray>kills <green>" + s.kills + " <gray>deaths <red>" + s.deaths
-            )
-        );
+        long minutes = p.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) / 20L / 60L;
+        header.add(Text.mm("<gray>Play time here: <white>" + net.vortexpvp.util.Fmt.duration(minutes * 60L)));
         List<ActionButton> b = new ArrayList<>();
         b.add(this.plugin.dialogs().lobby().btn(p, "<gold>Server Selector", null, () -> this.modes.selector(p)));
         this.plugin.dialogs().lobby().screen(p, Fx.shineFrame("PROFILE", Fx.GOLD, 1.0), List.of(), header, null, b, 1, this.plugin.dialogs().lobby().close(p));
@@ -533,7 +529,7 @@ public final class Hub implements Listener {
         this.modes.buildSpawn(admin, SpawnBuilder.Style.ROYAL_CASTLE, SpawnBuilder.Style.ROYAL_CASTLE.radius);
         admin.sendMessage(
             Text.mm(
-                "<green>Hub ready soon. <gray>Players will join here (Settings → SMP & Extras → Join at Hub). Edit the selector in <yellow>/pvpadmin → Server Selector</yellow>."
+                "<green>Hub ready soon. <gray>Players will join here (Settings → Hub & Extras → Join at Hub). Edit the selector in <yellow>/pvpadmin → Server Selector</yellow>."
             )
         );
     }

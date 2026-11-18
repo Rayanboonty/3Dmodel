@@ -245,10 +245,8 @@ public final class WebPlus {
         o.addProperty("ffa", this.plugin.ffa().playing());
         o.addProperty("reports", this.plugin.reports() == null ? 0 : this.plugin.reports().open().size());
         long shards = 0L;
-        if (this.plugin.modes() != null) {
-            for (ModeManager.Stats s : this.plugin.modes().allStats().values()) {
-                shards += s.shards;
-            }
+        for (PlayerData d : this.plus.store().loaded()) {
+            shards += d.coins;
         }
 
         o.addProperty("shards", shards);

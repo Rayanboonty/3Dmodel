@@ -69,26 +69,6 @@ commands:
   staffchat:
     description: PvP staff chat.
     aliases: [sc]
-  smpadmin:
-    description: SMP control panel (players, positions, inventories, logout spots, web map).
-    aliases: [sa]
-    permission: vortexpvp.smpadmin
-  craft:
-    description: Portable crafting table (SMP only).
-    aliases: [wb, workbench]
-  enderchest:
-    description: Open your ender chest (SMP only).
-    aliases: [ec]
-  trash:
-    description: Throw items away (SMP only).
-    aliases: [disposal]
-  hat:
-    description: Wear the item in your hand (SMP only).
-  nightvision:
-    description: Toggle night vision (SMP only).
-    aliases: [nv]
-  near:
-    description: Players near you (SMP only).
   playtime:
     description: Your (or another player's) play time.
     aliases: [pt]
@@ -96,84 +76,19 @@ commands:
     description: Discord, store and website links.
     aliases: [discord, store]
   worlds:
-    description: World selector (Lifesteal, Strength, Ranked SMP, PvP...).
+    description: Server selector (Practice, the SMP server...).
     aliases: [selector, servers]
-  withdraw:
-    description: Withdraw hearts (Lifesteal) or strength shards (Strength SMP).
-  smpstats:
-    description: Hearts, strength and ranked SMP points.
-    aliases: [hearts]
-  balance:
-    description: Eco SMP money (admins - balance give|set <player> <amount>).
-    aliases: [bal, money]
-  pay:
-    description: Pay another player (Eco SMP money).
-  baltop:
-    description: Richest players.
-  shards:
-    description: Your shards and the shard shop (Eco SMP).
-  sell:
-    description: Sell the item in your hand (or /sell all) in the Eco SMP.
-  shop:
-    description: Eco SMP shop.
   practice:
     description: Travel to PvP Practice.
   hub:
     description: Travel to the server hub.
   smp:
-    description: Travel to the Survival SMP.
-  lifesteal:
-    description: Travel to the Lifesteal SMP.
-  strength:
-    description: Travel to the Strength SMP.
-  eco:
-    description: Travel to the Eco SMP.
-  rankedsmp:
-    description: Travel to the Ranked SMP.
+    description: Go to the SMP server (another host of the network).
+    aliases: [survival]
   npc:
     description: Lobby NPCs (skins, actions, auras).
     aliases: [npcs]
     permission: vortexpvp.admin
-  spawn:
-    description: Spawn of your mode (PvP lobby in PvP worlds).
-  sethome:
-    description: Set a home in this mode.
-  home:
-    description: Teleport to a home.
-    aliases: [h]
-  delhome:
-    description: Delete a home.
-  homes:
-    description: Your homes.
-  back:
-    description: Back to where you were (or died).
-  rtp:
-    description: Random safe spot in this world.
-    aliases: [wild, randomtp]
-  tpa:
-    description: Ask to teleport to a player.
-  tpahere:
-    description: Ask a player to teleport to you.
-  tpaccept:
-    description: Accept a teleport request.
-    aliases: [tpyes]
-  tpdeny:
-    description: Deny a teleport request.
-    aliases: [tpno]
-  tpacancel:
-    description: Cancel your teleport requests.
-  tptoggle:
-    description: Turn teleport requests on or off.
-  warp:
-    description: Go to a warp.
-  warps:
-    description: Warps of this mode.
-  setwarp:
-    description: Create a warp here (icon = item in hand).
-    permission: vortexpvp.warps.admin
-  delwarp:
-    description: Delete a warp.
-    permission: vortexpvp.warps.admin
   msg:
     description: Private message.
     aliases: [tell, w, whisper, m, t, pm, dm]
@@ -216,42 +131,6 @@ commands:
   cosmetics:
     description: Armor trims and shield designs for your kits.
     aliases: [trims, shielddesign]
-  claim:
-    description: Claim the land around you.
-  claims:
-    description: Your land claims.
-  unclaim:
-    description: Abandon the claim you stand in.
-    aliases: [abandonclaim]
-  trust:
-    description: Trust a player in your claim.
-  untrust:
-    description: Remove a player's trust.
-  trustlist:
-    description: Who is trusted in this claim.
-  claiminfo:
-    description: Info about the claim you stand in.
-  smptop:
-    description: SMP leaderboards - kills, hearts, strength, ranked points, money.
-    aliases: [hearttop, killtop, strengthtop, rankedtop]
-  worth:
-    description: What the item in your hand sells for.
-  ecoadmin:
-    description: Edit the shop, sell prices and the auction house (admins).
-    aliases: [shopadmin, ecoedit]
-    permission: vortexpvp.admin
-  ah:
-    description: The auction house - /ah sell <price> to list the item in your hand.
-    aliases: [auction, auctionhouse, auctions]
-  orders:
-    description: Buy orders - ask for items, or deliver them for money.
-    aliases: [order]
-  afk:
-    description: Go to the AFK zone of the Eco Spawn (shards while you stay inside).
-  ecospawn:
-    description: Build the Eco Spawn (shop, sell, shard shop, warzone, AFK zone) where you stand.
-    usage: /ecospawn [remove | <world> <x> <y> <z>]
-    permission: vortexpvp.admin
   event:
     description: Tournaments - join, watch the bracket, host one (staff).
     aliases: [events, tournament, tourney]
@@ -308,11 +187,6 @@ commands:
     description: A player's client brand, mods and click stats (staff).
     aliases: [ci]
     permission: vortexpvp.staff
-  claimadmin:
-    description: Claim admin tools.
-    aliases: [ca]
-    permission: vortexpvp.claims.admin
-
   friend:
     description: "Friends - /friend [add|accept|deny|remove|list|requests] <player>."
     aliases: [friends]
@@ -330,6 +204,91 @@ commands:
   region:
     description: Pick the server region closest to you.
     aliases: [regions]
+
+  # ---- the SMP (it was the VortexSMP plugin)
+  setspawn:
+    description: Set the SMP spawn where you stand.
+    permission: vortexsmp.admin
+  oldstuff:
+    description: Take the items you had on the old SMP.
+    aliases: [olditems]
+  link:
+    description: Link your Discord account (your invites earn drills).
+  drill:
+    description: Drill pickaxes (2x2, 3x3, 4x4) earned with Discord invites.
+    aliases: [drills]
+  trade:
+    description: Trade safely with a player near you.
+  market:
+    description: Trade offers - post what you give and what you want.
+    aliases: [offers, trades]
+  smpadmin:
+    description: SMP control panel (players, positions, inventories, logout spots, web map).
+    aliases: [sa]
+    permission: vortexsmp.admin
+  craft:
+    description: Portable crafting table.
+    aliases: [wb, workbench]
+  enderchest:
+    description: Open your ender chest.
+    aliases: [ec]
+  trash:
+    description: Throw items away.
+    aliases: [disposal]
+  hat:
+    description: Wear the item in your hand.
+  nightvision:
+    description: Toggle night vision.
+    aliases: [nv]
+  near:
+    description: Players near you.
+  spawn:
+    description: The SMP spawn (in the SMP) or the lobby.
+  sethome:
+    description: Set a home.
+  home:
+    description: Teleport to a home.
+    aliases: [h]
+  delhome:
+    description: Delete a home.
+  homes:
+    description: Your homes.
+  back:
+    description: Back to where you were (or died).
+  rtp:
+    description: Random safe spot in this world.
+    aliases: [wild, randomtp]
+  tpa:
+    description: Ask to teleport to a player.
+  tpahere:
+    description: Ask a player to teleport to you.
+  tpaccept:
+    description: Accept a teleport request.
+    aliases: [tpyes]
+  tpdeny:
+    description: Deny a teleport request.
+    aliases: [tpno]
+  tpacancel:
+    description: Cancel your teleport requests.
+  tptoggle:
+    description: Turn teleport requests on or off.
+  warp:
+    description: Go to a warp.
+  warps:
+    description: The server warps.
+  setwarp:
+    description: Create a warp here (icon = item in hand).
+    permission: vortexsmp.warps.admin
+  delwarp:
+    description: Delete a warp.
+    permission: vortexsmp.warps.admin
+
+  namecolor:
+    description: Pick the colour of your name in chat.
+    aliases: [color, colour, namecolour]
+  season:
+    description: The current SMP season.
+    aliases: [seasons]
 
   # ---- VortexPvP add-on systems ----
   ladder:
@@ -479,6 +438,25 @@ permissions:
   vortexpvp.coach:
     description: "Can coach anyone (not only friends)."
     default: op
+  vortexsmp.admin:
+    description: Every admin command (/smpadmin, /setspawn, /vortexsmp, warps).
+    default: op
+    children:
+      vortexsmp.warps.admin: true
+      vortexsmp.teleport.bypass: true
+      vortexsmp.staff: true
+  vortexsmp.staff:
+    description: See staff details in /smpadmin.
+    default: op
+  vortexsmp.warps.admin:
+    description: /setwarp and /delwarp.
+    default: op
+  vortexsmp.teleport.bypass:
+    description: No teleport warmup or cooldown.
+    default: op
+  vortexsmp.homes.unlimited:
+    description: Unlimited homes.
+    default: op
   vortexpvp.admin:
     description: All admin features.
     default: op
@@ -487,9 +465,6 @@ permissions:
     default: op
   vortexpvp.staff.mod:
     description: PvP moderator tools (end matches, send players to the lobby).
-    default: op
-  vortexpvp.smpadmin:
-    description: /smpadmin control panel.
     default: op
   vortexpvp.lobbyfly:
     description: Fly in the lobby (when enabled in settings).
@@ -506,27 +481,12 @@ permissions:
   vortexpvp.cosmetics.shield:
     description: A custom shield design on kit shields.
     default: true
-  vortexpvp.homes.unlimited:
-    description: No home limit (or vortexpvp.homes.<number> for a higher limit).
-    default: op
-  vortexpvp.teleport.bypass:
-    description: No teleport warmup or cooldowns.
-    default: op
-  vortexpvp.warps.admin:
-    description: Create and delete warps.
-    default: op
   vortexpvp.chat.bypass:
     description: Ignore chat cooldown, anti-spam and chat mute.
     default: op
   vortexpvp.chat.filter.bypass:
     description: Not checked by the swear filter.
     default: false
-  vortexpvp.claims.admin:
-    description: Claim admin tools, admin claims, editing any claim.
-    default: op
-  vortexpvp.ah.unlimited:
-    description: Unlimited auction house listings.
-    default: op
   vortexpvp.famous:
     description: Counts as Famous in request filters and the Creators tab column (or give a rank listed in social.famous-ranks).
     default: false

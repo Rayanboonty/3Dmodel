@@ -126,6 +126,65 @@ public final class BotHall implements Listener {
         }));
     }
 
+    /** Places the mobs and NPCs of a Training Grounds wing (a hub build); they are kept with the hall's entities. */
+    /** Removes the bot-hall mobs, NPCs and their labels standing inside a box (a lobby that is being rebuilt). */
+    public int removeIn(net.vortexpvp.util.Cuboid box, World w) {
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(this.file);
+        List<String> ids = new ArrayList<>(y.getStringList("entities"));
+        int removed = 0;
+        java.util.Iterator<String> it = ids.iterator();
+        while (it.hasNext()) {
+            try {
+                Entity e = org.bukkit.Bukkit.getEntity(java.util.UUID.fromString(it.next()));
+                if (e == null) {
+                    continue;
+                }
+
+                Location l = e.getLocation();
+                if (l.getWorld() == w && box.contains(l.getBlockX(), l.getBlockY(), l.getBlockZ())) {
+                    e.remove();
+                    it.remove();
+                    removed++;
+                }
+            } catch (IllegalArgumentException ignored) {
+                it.remove();
+            }
+        }
+
+        y.set("entities", ids);
+        try {
+            y.save(this.file);
+        } catch (IOException var8) {
+            this.plugin.getLogger().warning("Could not save bot-hall.yml");
+        }
+
+        return removed;
+    }
+
+    public void placeFeatures(Map<String, Location> features) {
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(this.file);
+        List<String> ids = new ArrayList<>(y.getStringList("entities"));
+        for (Map.Entry<String, Location> f : features.entrySet()) {
+            String key = f.getKey();
+            if (key.startsWith("botmap:")) {
+                this.placeMap(f.getValue(), key.substring(7), ids);
+            } else if (key.startsWith("botnpc:")) {
+                this.placeNpc(f.getValue(), key.substring(7), ids);
+            }
+        }
+
+        y.set("entities", ids);
+        if (!features.isEmpty()) {
+            y.set("world", features.values().iterator().next().getWorld().getName());
+        }
+
+        try {
+            y.save(this.file);
+        } catch (IOException var6) {
+            this.plugin.getLogger().warning("Could not save bot-hall.yml");
+        }
+    }
+
     private void placeMap(Location l, String theme, List<String> ids) {
         World w = l.getWorld();
         Entity mob = w.spawnEntity(l, mobOf(theme));
@@ -147,7 +206,7 @@ public final class BotHall implements Listener {
             td.setPersistent(true);
             td.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
             td.setShadowed(true);
-            td.text(Text.mm(colourOf(theme) + "<b>" + Text.esc(t.display) + "</b>\n<yellow>Bots coming soon"));
+            td.text(Text.mm(colourOf(theme) + "<b>" + Text.esc(t.display) + "</b>\n<green>▶ Click to fight a bot"));
         });
         name.getPersistentDataContainer().set(this.mapKey, PersistentDataType.STRING, theme);
         ids.add(name.getUniqueId().toString());

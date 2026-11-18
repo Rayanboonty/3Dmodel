@@ -51,7 +51,6 @@ import net.vortexpvp.event.EventManager;
 import net.vortexpvp.extra.ChatFilter;
 import net.vortexpvp.extra.ChatManager;
 import net.vortexpvp.extra.Extras;
-import net.vortexpvp.extra.SmpAdmin;
 import net.vortexpvp.ffa.FfaArena;
 import net.vortexpvp.ffa.FfaManager;
 import net.vortexpvp.fx.Fx;
@@ -89,18 +88,11 @@ import net.vortexpvp.session.PlayerReset;
 import net.vortexpvp.session.PlayerState;
 import net.vortexpvp.session.Session;
 import net.vortexpvp.session.SessionManager;
-import net.vortexpvp.smp.CombatTag;
-import net.vortexpvp.smp.Economy;
-import net.vortexpvp.smp.Essentials;
 import net.vortexpvp.smp.Hub;
 import net.vortexpvp.smp.ModeManager;
 import net.vortexpvp.smp.ModeRules;
+import net.vortexpvp.smp.ServerLink;
 import net.vortexpvp.smp.ServerSelector;
-import net.vortexpvp.smp.SmpTop;
-import net.vortexpvp.smp.claims.ClaimManager;
-import net.vortexpvp.smp.claims.ClaimProtection;
-import net.vortexpvp.smp.eco.AuctionHouse;
-import net.vortexpvp.smp.eco.Orders;
 import net.vortexpvp.social.Countries;
 import net.vortexpvp.social.LinksDialog;
 import net.vortexpvp.social.Ranks;
@@ -153,20 +145,22 @@ public final class VortexPvP extends JavaPlugin {
     private CombatListener combat;
     private StaffManager staff;
     private Extras extras;
-    private SmpAdmin smpAdmin;
     private ModeManager modes;
+    private net.vortexpvp.arena.ArenaSeal arenaSeal;
+    private net.vortexpvp.survival.VortexSMP survival;
+    private boolean survivalPending;
     private ModeRules modeRules;
     private NpcManager npcs;
-    private Economy economy;
-    private net.vortexpvp.smp.EcoSpawn ecoSpawn;
     private ServerSelector serverSelector;
+    private ServerLink serverLink;
     private Hub hub;
     private Penalties penalties;
-    private CombatTag combatTag;
     private ArenaEditor arenaEditor;
     private ChatManager chat;
     private ChatFilter chatFilter;
     private net.vortexpvp.cosmetics.Cosmetics cosmetics;
+    private net.vortexpvp.cosmetics.Companions companions;
+    private net.vortexpvp.cosmetics.Showcases showcases;
     private net.vortexpvp.bot.BotManager bots;
     private net.vortexpvp.academy.Academy academy;
     private net.vortexpvp.bot.BotHall botHall;
@@ -182,10 +176,6 @@ public final class VortexPvP extends JavaPlugin {
     private SmpBoard smpBoard;
     private StatsHologram statsHologram;
     private EventManager events;
-    private AuctionHouse auctionHouse;
-    private Orders orders;
-    private Essentials essentials;
-    private ClaimManager claims;
     private WebServer web;
     private SamePortHttp sameHttp;
     private ScreenShare screenShare;
@@ -199,6 +189,9 @@ public final class VortexPvP extends JavaPlugin {
     private SettingsDialogs settingsDialogs;
     private DuelDialogs duelDialogs;
     private Regions regions;
+    private net.vortexpvp.update.AutoUpdater updater;
+    private net.vortexpvp.social.NetworkSync netSync;
+    private net.vortexpvp.lobby.Season season;
     private PingEqualizer pingEqualizer;
     private TabColumns tabColumns;
     private volatile boolean packRunning;
@@ -337,62 +330,39 @@ public final class VortexPvP extends JavaPlugin {
             this.extras.load();
             pm.registerEvents(this.extras, this);
 
-            for (String c : List.of("craft", "enderchest", "trash", "hat", "nightvision", "near", "playtime", "links")) {
+            for (String c : List.of("playtime", "links")) {
                 this.bind(c, this.extras);
             }
 
-            this.smpAdmin = new SmpAdmin(this);
-            this.smpAdmin.load();
-            pm.registerEvents(this.smpAdmin, this);
-            this.bind("smpadmin", this.smpAdmin);
             Tasks.timer(400L, 400L, this.extras::tick);
-            Tasks.timer(6000L, 6000L, this.smpAdmin::save);
         });
-        this.module("world modes / hub / selector / eco", () -> {
+        this.module("hub / selector / server link", () -> {
             this.modes = new ModeManager(this);
             this.modes.load();
             this.modeRules = new ModeRules(this, this.modes);
             pm.registerEvents(this.modeRules, this);
-            pm.registerEvents(new net.vortexpvp.smp.Portals(this, this.modes), this);
             this.hub = new Hub(this, this.modes);
             this.hub.init();
             pm.registerEvents(this.hub, this);
             this.serverSelector = new ServerSelector(this, this.modes);
             this.serverSelector.load();
-            this.economy = new Economy(this, this.modes);
-            this.economy.load();
-            this.economy.hookVault();
-            Tasks.timer(1200L, 1200L, this.economy::tickShards);
-            pm.registerEvents(this.economy, this);
+            this.serverLink = new ServerLink(this);
+            this.serverLink.start();
 
-            for (String c : List.of("balance", "pay", "baltop", "shards", "sell", "shop", "worth", "ecoadmin")) {
-                this.bind(c, this.economy);
-            }
-
-            this.auctionHouse = new AuctionHouse(this, this.economy);
-            this.auctionHouse.load();
-            this.bind("ah", this.auctionHouse);
-            Tasks.timer(1200L, 1200L, this.auctionHouse::tick);
-            this.orders = new Orders(this, this.economy);
-            this.orders.load();
-            this.bind("orders", this.orders);
-            this.bind("smptop", new SmpTop(this));
-            this.ecoSpawn = new net.vortexpvp.smp.EcoSpawn(this);
-            this.ecoSpawn.load();
-            pm.registerEvents(this.ecoSpawn, this);
-            this.bind("afk", this.ecoSpawn);
-            this.bind("ecospawn", this.ecoSpawn);
-            Tasks.timer(20L, 20L, this.ecoSpawn::tick);
-
-            for (String c : List.of("worlds", "withdraw", "smpstats", "practice", "hub", "smp", "lifesteal", "strength", "eco", "rankedsmp")) {
+            for (String c : List.of("worlds", "practice", "hub", "smp")) {
                 this.bind(c, this.modeRules);
             }
+
+            // the SMP on this server: inventory backups and last spots
+            Tasks.timer(1200L, Math.max(2, Cfg.i(Opt.SMP_BACKUP_MINUTES)) * 1200L, () -> {
+                if (Cfg.bool(Opt.AUTO_BACKUPS)) {
+                    this.modes.backupAll();
+                }
+            });
+            Tasks.timer(600L, 1200L, this.modes::saveLocations);
         });
-        this.module("combat tag", () -> {
-            this.combatTag = new CombatTag(this, this.modes);
-            pm.registerEvents(this.combatTag, this);
-            Tasks.timer(20L, 20L, this.combatTag::tick);
-        });
+        // the SMP (homes, tpa, rtp, warps, trade, market...) needs the worlds and modes above
+        this.module("smp", this::startSurvival);
         this.module("penalties", () -> {
             this.penalties = new Penalties(this);
             this.penalties.load();
@@ -510,7 +480,11 @@ public final class VortexPvP extends JavaPlugin {
                 }
             });
         });
-        this.module("data vault", () -> Tasks.timer(6000L, 432000L, () -> this.vaultSnapshot("auto", null)));
+        this.module("data vault", () -> Tasks.timer(6000L, 432000L, () -> {
+            if (Cfg.bool(Opt.AUTO_BACKUPS)) {
+                this.vaultSnapshot("auto", null);
+            }
+        }));
         this.module("ai assistant", () -> {
             this.ai = new AiAgent(this);
             this.bind("ai", new AiCommand(this, this.ai));
@@ -616,6 +590,25 @@ public final class VortexPvP extends JavaPlugin {
                 this.cosmetics.load(online.getUniqueId());
             }
         });
+        this.module("name colours", () -> this.bind("namecolor", new net.vortexpvp.social.NameColors(this)));
+        this.module("SMP seasons", () -> {
+            net.vortexpvp.smp.SmpSeasons seasons = new net.vortexpvp.smp.SmpSeasons(this);
+            pm.registerEvents(seasons, this);
+            this.bind("season", seasons);
+        });
+        this.module("everyone equal in the SMP", () -> {
+            net.vortexpvp.smp.SmpLockdown lock = new net.vortexpvp.smp.SmpLockdown(this);
+            pm.registerEvents(lock, this);
+            Tasks.timer(100L, 100L, lock::sweep);
+        });
+        this.module("pets, shoulder pets and wings", () -> {
+            this.companions = new net.vortexpvp.cosmetics.Companions(this);
+            pm.registerEvents(this.companions, this);
+            this.companions.start();
+            this.showcases = new net.vortexpvp.cosmetics.Showcases(this);
+            pm.registerEvents(this.showcases, this);
+            this.showcases.start();
+        });
         this.module("friends / status / privacy", () -> {
             this.social = new SocialManager(this);
             this.social.load();
@@ -632,9 +625,68 @@ public final class VortexPvP extends JavaPlugin {
             this.duelDialogs = new DuelDialogs(this);
         });
         this.module("regions", () -> {
+            this.netSync = new net.vortexpvp.social.NetworkSync(this);
             this.regions = new Regions(this);
             this.regions.load();
             this.bind("region", this.regions);
+            pm.registerEvents(this.regions, this);
+        });
+        this.module("winter lobby", () -> {
+            this.season = new net.vortexpvp.lobby.Season(this);
+            this.season.start();
+        });
+        this.module("auto-update", () -> {
+            this.updater = new net.vortexpvp.update.AutoUpdater(this, new net.vortexpvp.update.AutoUpdater.Host() {
+                @Override
+                public boolean enabled() {
+                    return Cfg.bool(Opt.UPDATES);
+                }
+
+                @Override
+                public List<String> sources() {
+                    // 3.11.1: the built-in update addresses are always asked too (the newest version of all wins), so
+                    // an old or edited setting can never cut a server off from updates
+                    List<String> out = new ArrayList<>(java.util.Arrays.asList(Cfg.s(Opt.UPDATE_SOURCES).split("\\s*,\\s*")));
+                    for (String built : Opt.UPDATE_SOURCES_BUILT_IN) {
+                        if (!out.contains(built)) {
+                            out.add(built);
+                        }
+                    }
+
+                    return out;
+                }
+
+                @Override
+                public int checkMinutes() {
+                    return Cfg.i(Opt.UPDATE_CHECK);
+                }
+
+                @Override
+                public String restartPolicy() {
+                    return Cfg.s(Opt.UPDATE_RESTART);
+                }
+
+                @Override
+                public int restartHour() {
+                    return Cfg.i(Opt.UPDATE_HOUR);
+                }
+
+                @Override
+                public boolean busy() {
+                    return VortexPvP.this.matches() != null && !VortexPvP.this.matches().active().isEmpty();
+                }
+
+                @Override
+                public void backup() throws Exception {
+                    VortexPvP.this.configBackup().backup(net.vortexpvp.data.ConfigBackup.Kind.FULL);
+                }
+
+                @Override
+                public boolean isAdmin(org.bukkit.command.CommandSender s) {
+                    return s.hasPermission("vortexpvp.admin");
+                }
+            });
+            this.updater.start();
         });
         this.module("ping equalizer", () -> {
             this.pingEqualizer = new PingEqualizer(this);
@@ -651,60 +703,6 @@ public final class VortexPvP extends JavaPlugin {
                 Tasks.timer(60L, 40L, this.tabColumns::tick);
             }
         });
-        this.module(
-            "smp essentials",
-            () -> {
-                if (this.modes == null) {
-                    throw new IllegalStateException("world modes did not start");
-                } else {
-                    this.essentials = new Essentials(this, this.modes);
-                    this.essentials.load();
-                    pm.registerEvents(this.essentials, this);
-
-                    for (String c : List.of(
-                        "spawn",
-                        "sethome",
-                        "home",
-                        "delhome",
-                        "homes",
-                        "back",
-                        "rtp",
-                        "tpa",
-                        "tpahere",
-                        "tpaccept",
-                        "tpdeny",
-                        "tpacancel",
-                        "tptoggle",
-                        "warp",
-                        "warps",
-                        "setwarp",
-                        "delwarp"
-                    )) {
-                        this.bind(c, this.essentials);
-                    }
-
-                    Tasks.timer(20L, 20L, this.essentials::tick);
-                }
-            }
-        );
-        this.module("land claims", () -> {
-            if (this.modes == null) {
-                throw new IllegalStateException("world modes did not start");
-            } else {
-                this.claims = new ClaimManager(this, this.modes);
-                this.claims.load();
-                pm.registerEvents(this.claims, this);
-                pm.registerEvents(new ClaimProtection(this.claims), this);
-
-                for (String c : List.of("claim", "claims", "unclaim", "trust", "untrust", "trustlist", "claiminfo", "claimadmin")) {
-                    this.bind(c, this.claims);
-                }
-
-                Tasks.timer(40L, 10L, this.claims::tick);
-                Tasks.timer(1200L, 1200L, this.claims::accrue);
-                Tasks.timer(600L, 600L, this.claims::save);
-            }
-        });
         this.module("npcs", () -> {
             this.npcs = new NpcManager(this);
             pm.registerEvents(this.npcs, this);
@@ -712,11 +710,9 @@ public final class VortexPvP extends JavaPlugin {
             Tasks.later(20L, this.npcs::load);
             Tasks.timer(40L, 2L, this.npcs::tick);
         });
-        this.module("world modes (online players)", () -> {
-            Tasks.timer(6000L, 6000L, this.modes::saveData);
-
+        this.module("hub (online players)", () -> {
             for (Player online : Bukkit.getOnlinePlayers()) {
-                this.modes.syncGroup(online);
+                this.modes.stashLegacy(online);
                 this.modeRules.apply(online);
             }
         });
@@ -755,6 +751,10 @@ public final class VortexPvP extends JavaPlugin {
             this.arenasReady = true;
             Tasks.later(40L, this::firstRunSetup);
             Tasks.later(100L, this.arenas::verifyAll);
+            // invisible walls around every arena (new copies get theirs within two minutes)
+            this.arenaSeal = new net.vortexpvp.arena.ArenaSeal(this);
+            Tasks.later(1200L, this.arenaSeal::rebuildOnce);
+            Tasks.timer(6000L, 6000L, () -> this.arenaSeal.sealAll(false));
         }));
         MapModel.warmLater(this);
         Tasks.later(1200L, () -> {
@@ -826,6 +826,30 @@ public final class VortexPvP extends JavaPlugin {
             }
         }
 
+        if (this.updater != null) {
+            this.updater.stop();
+        }
+
+        if (this.companions != null) {
+            this.companions.stop();
+        }
+
+        if (this.showcases != null) {
+            this.showcases.stop();
+        }
+
+        if (this.survival != null) {
+            try {
+                this.survival.disable();
+            } catch (RuntimeException e) {
+                this.getLogger().log(Level.SEVERE, "Stopping the SMP failed", e);
+            }
+        }
+
+        if (this.netSync != null) {
+            this.netSync.stop();
+        }
+
         if (this.academy != null) {
             try {
                 this.academy.shutdown();
@@ -859,6 +883,19 @@ public final class VortexPvP extends JavaPlugin {
                     this.tabColumns.shutdown();
                 }
 
+                if (this.modes != null) {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        try {
+                            this.modes.remember(p, p.getLocation());
+                            this.modes.saveCurrent(p);
+                        } catch (RuntimeException ex) {
+                            this.getLogger().log(Level.WARNING, "Could not save the SMP inventory of " + p.getName(), ex);
+                        }
+                    }
+
+                    this.modes.saveLocations();
+                }
+
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     Session s = this.sessions.get(p);
                     if (s.state == PlayerState.FFA) {
@@ -882,28 +919,12 @@ public final class VortexPvP extends JavaPlugin {
                 }
 
                 this.boards.shutdown();
-                if (this.smpAdmin != null) {
-                    this.smpAdmin.save();
-                }
-
                 if (this.npcs != null) {
                     this.npcs.shutdown();
                 }
 
-                if (this.modes != null) {
-                    this.modes.saveData();
-                }
-
-                if (this.claims != null) {
-                    this.claims.save();
-                }
-
-                if (this.auctionHouse != null) {
-                    this.auctionHouse.tick();
-                }
-
-                if (this.orders != null) {
-                    this.orders.save();
+                if (this.serverLink != null) {
+                    this.serverLink.stop();
                 }
 
                 if (this.countries != null) {
@@ -940,10 +961,16 @@ public final class VortexPvP extends JavaPlugin {
             this.profiles.saveAllNow();
 
             try {
+                if (!Cfg.bool(Opt.AUTO_BACKUPS)) {
+                    throw new IllegalStateException("off");
+                }
+
                 String name = this.vault.snapshot("shutdown", this.db::vaultCopy);
                 this.getLogger().info("Data vault: saved " + name);
             } catch (Throwable var4) {
-                this.getLogger().log(Level.WARNING, "Data vault snapshot at shutdown failed", var4);
+                if (!"off".equals(var4.getMessage())) {
+                    this.getLogger().log(Level.WARNING, "Data vault snapshot at shutdown failed", var4);
+                }
             }
 
             this.db.close();
@@ -981,6 +1008,10 @@ public final class VortexPvP extends JavaPlugin {
             this.boards.detach(p);
             this.worlds.exitPvP(p);
             s.state = PlayerState.OUTSIDE;
+            if (this.modes != null) {
+                // back outside: the inventory of the world group they're in now (hub, SMP...)
+                this.modes.stashLegacy(p);
+            }
         }
     }
 
@@ -1067,10 +1098,6 @@ public final class VortexPvP extends JavaPlugin {
             this.extras.load();
         }
 
-        if (this.economy != null) {
-            this.economy.load();
-        }
-
         if (this.serverSelector != null) {
             this.serverSelector.load();
         }
@@ -1118,18 +1145,45 @@ public final class VortexPvP extends JavaPlugin {
 
         File flagFile = new File(this.getDataFolder(), "locations.yml");
         YamlConfiguration y = YamlConfiguration.loadConfiguration(flagFile);
-        if (Cfg.bool(Opt.AUTO_GENERATE)) {
-            boolean fresh = !y.getBoolean("first-run-generated", false) && this.arenas.all().isEmpty() && this.ffa.all().isEmpty();
-            boolean pack = !y.getBoolean("arena-pack-7", false);
-            boolean ffaPack = !y.getBoolean("ffa-pack-7", false);
+        // with auto-generate off, the small compact duel maps and the Mole map are still made (seconds each, little memory)
+        boolean light = !Cfg.bool(Opt.AUTO_GENERATE);
+        if (true) {
+            boolean fresh = !light && !y.getBoolean("first-run-generated", false) && this.arenas.all().isEmpty() && this.ffa.all().isEmpty();
+            boolean pack = !y.getBoolean("arena-pack-8", false);
+            boolean ffaPack = !y.getBoolean("ffa-pack-8", false);
             java.util.Set<String> skipped = new java.util.HashSet<>(y.getStringList("pack-skipped"));
+            // 2.3.0: the open arenas and the small themed duel maps are gone; their FFA arenas get a new look
+            java.util.Set<String> retiredFfa = new java.util.HashSet<>();
+            List<String> retiredNames = new ArrayList<>();
+            for (Arena a : new ArrayList<>(this.arenas.all())) {
+                if (a.generated && a.theme != null && a.theme.retired() && !a.handEdited && !a.editing && a.instances.stream().noneMatch(ix -> ix.state == net.vortexpvp.arena.ArenaInstance.State.IN_USE)) {
+                    retiredNames.add(a.displayName);
+                    this.arenas.delete(a);
+                }
+            }
+
+            for (FfaArena f : new ArrayList<>(this.ffa.all())) {
+                if (f.generated && f.theme != null && f.theme.retired() && f.players.isEmpty()) {
+                    retiredNames.add(f.displayName);
+                    if (f.kitId != null) {
+                        retiredFfa.add(f.kitId.toLowerCase(java.util.Locale.ROOT));
+                    }
+
+                    this.ffa.delete(f);
+                }
+            }
+
+            if (!retiredNames.isEmpty()) {
+                this.getLogger().info("Removed arenas of the old looks (open arenas, small duel maps): " + String.join(", ", retiredNames));
+            }
+
             // 1.5.2: a generated map whose build was cut short by a restart has no blocks (or only some): it is
             // removed here and made again below, instead of being left void or switched off
             List<VortexPvP.PackMap> remake = new ArrayList<>();
             List<String> voided = new ArrayList<>();
 
             for (Arena a : new ArrayList<>(this.arenas.all())) {
-                if (this.arenas.isBroken(a)) {
+                if (this.arenas.isBroken(a) && (!light || a.theme != null && (a.theme.duel != null || a.theme == ArenaTheme.MOLE_MINES))) {
                     int cp = Math.max(1, a.instances.size() - 1);
                     remake.add(new VortexPvP.PackMap(a.id, a.theme, ArenaManager.packSize(a.theme), cp, a.deep));
                     voided.add(a.displayName);
@@ -1137,7 +1191,7 @@ public final class VortexPvP extends JavaPlugin {
                 }
             }
 
-            for (FfaArena f : new ArrayList<>(this.ffa.all())) {
+            for (FfaArena f : new ArrayList<>(light ? List.<FfaArena>of() : this.ffa.all())) {
                 if (ArenaManager.broken(f)) {
                     voided.add(f.displayName + " (FFA)");
                     this.ffa.delete(f);
@@ -1152,7 +1206,8 @@ public final class VortexPvP extends JavaPlugin {
             }
 
             // every arena (duel and FFA) whose map is there is switched on; a missing snapshot is taken again
-            ArenaManager.Report opened = this.arenas.enableAll(false);
+            // with auto-generate off this is skipped: it loads every arena chunk at once (the small maps switch on by themselves)
+            ArenaManager.Report opened = light ? new ArenaManager.Report() : this.arenas.enableAll(false);
             if (opened.on > 0) {
                 String msg = "Switched on " + opened.on + " arena(s).";
                 this.getLogger().info(msg);
@@ -1181,7 +1236,15 @@ public final class VortexPvP extends JavaPlugin {
                 // one map of every family first, so every kit can play as soon as possible
                 maps.add(new VortexPvP.PackMap("plains", ArenaTheme.PLAINS, vanillaSize, vCopies, false));
                 maps.add(new VortexPvP.PackMap("c_plains", ArenaTheme.PLAINS, vanillaSize, vCopies, true));
-                maps.add(new VortexPvP.PackMap("sakura", ArenaTheme.OPEN_SAKURA, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("royalcourt", ArenaTheme.ROYAL_COURTYARD, duelSize, dCopies, false));
+                // 2.1.0: the compact detailed duel maps of the sword kits, and the UHC maps with hills and cover
+                for (ArenaTheme t : ArenaTheme.values()) {
+                    if (t == ArenaTheme.TRAINING_GROUNDS) {
+                        maps.add(new VortexPvP.PackMap((t.duel.build ? "uhc_" : "duel_") + t.duel.name().toLowerCase(java.util.Locale.ROOT).replace("uhc_", ""),
+                            t, net.vortexpvp.arena.ArenaManager.targetSize(t, false), t == ArenaTheme.TRAINING_GROUNDS ? Math.max(4, copies) : Math.max(2, copies), false));
+                    }
+                }
+
                 maps.add(new VortexPvP.PackMap("grand", ArenaTheme.GRAND_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
                 // MCPVP's natural maps, all real vanilla terrain
                 maps.add(new VortexPvP.PackMap("snowy", ArenaTheme.SNOWY, vanillaSize, vCopies, false));
@@ -1196,31 +1259,33 @@ public final class VortexPvP extends JavaPlugin {
                 maps.add(new VortexPvP.PackMap("c_redbadlands", ArenaTheme.BADLANDS_DESERT, vanillaSize, vCopies, true));
                 maps.add(new VortexPvP.PackMap("crystalflats", ArenaTheme.FLATLANDS, duelSize, vCopies, false));
                 // designed arenas for the sword kits
-                maps.add(new VortexPvP.PackMap("ruins", ArenaTheme.OPEN_RUINS, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("oasis", ArenaTheme.OPEN_OASIS, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("frostpalace", ArenaTheme.OPEN_FROZEN, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("volcano", ArenaTheme.OPEN_VOLCANO, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("deepdark", ArenaTheme.OPEN_DEEP_DARK, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("mushroom", ArenaTheme.OPEN_MUSHROOM, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("skycastle", ArenaTheme.OPEN_SKY_CASTLE, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("colosseum", ArenaTheme.COLOSSEUM_DESERT, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("temple", ArenaTheme.COLOSSEUM_TEMPLE, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("spires", ArenaTheme.COLOSSEUM_SPIRES, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("inferno", ArenaTheme.COLOSSEUM_NETHER, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("frozen", ArenaTheme.COLOSSEUM_FROST, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("blossom", ArenaTheme.COLOSSEUM_CHERRY, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("gladiator", ArenaTheme.COLOSSEUM_GLADIATOR, duelSize, dCopies, false));
+                // 3.10.0: the court arenas (they replace the old colosseums and show arenas)
+                maps.add(new VortexPvP.PackMap("sultanpalace", ArenaTheme.SULTAN_PALACE, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("titancolosseum", ArenaTheme.TITAN_COLOSSEUM, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("highlandplaza", ArenaTheme.HIGHLAND_PLAZA, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("gothicharbor", ArenaTheme.GOTHIC_HARBOR, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("sakuraterrace", ArenaTheme.SAKURA_TERRACE, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("embersands", ArenaTheme.EMBER_SANDS, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("frosthold", ArenaTheme.FROSTHOLD, duelSize, dCopies, false));
+                // 3.11.0
+                maps.add(new VortexPvP.PackMap("tropicalbeach", ArenaTheme.TROPICAL_BEACH, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("jungletemple", ArenaTheme.JUNGLE_TEMPLE, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("volcanoforge", ArenaTheme.VOLCANO_FORGE, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("piratecove", ArenaTheme.PIRATE_COVE, duelSize, dCopies, false));
+                maps.add(new VortexPvP.PackMap("pharaohtomb", ArenaTheme.PHARAOH_TOMB, duelSize, dCopies, false));
                 // 1.4.0: the show arenas and every biome that was only made on request before
-                maps.add(new VortexPvP.PackMap("palace", ArenaTheme.DESERT_PALACE, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("olympus", ArenaTheme.OLYMPUS, duelSize, dCopies, false));
-                maps.add(new VortexPvP.PackMap("timberfort", ArenaTheme.TIMBER_FORT, duelSize, dCopies, false));
                 maps.add(new VortexPvP.PackMap("champions", ArenaTheme.CHAMPIONS_COLOSSEUM, duelSize, dCopies, false));
                 maps.add(new VortexPvP.PackMap("cherry", ArenaTheme.CHERRY, vanillaSize, vCopies, false));
                 maps.add(new VortexPvP.PackMap("palegarden", ArenaTheme.PALE, vanillaSize, vCopies, false));
                 maps.add(new VortexPvP.PackMap("crimson", ArenaTheme.CRIMSON, vanillaSize, vCopies, false));
                 maps.add(new VortexPvP.PackMap("mushroomfields", ArenaTheme.MUSHROOM, vanillaSize, vCopies, false));
+                // 2.3.0: big vanilla maps for the mace kits (MACE pool, next to the grand colosseum)
+                int maceVanilla = Cfg.i(Opt.MACE_VANILLA_SIZE);
+                maps.add(new VortexPvP.PackMap("m_plains", ArenaTheme.PLAINS, maceVanilla, vCopies, false));
+                maps.add(new VortexPvP.PackMap("m_badlands", ArenaTheme.BADLANDS, maceVanilla, vCopies, false));
+                maps.add(new VortexPvP.PackMap("m_snowy", ArenaTheme.SNOWY, maceVanilla, vCopies, false));
                 // 1.5.0: Mole PvP's underground map, the biggest one
-                maps.add(new VortexPvP.PackMap("molemines", ArenaTheme.MOLE_MINES, net.vortexpvp.build.MoleMinesDesign.RADIUS * 2 + 1, 1, false));
+                maps.add(new VortexPvP.PackMap("molemines", ArenaTheme.MOLE_MINES, net.vortexpvp.build.MoleMinesDesign.RADIUS * 2 + 1, Math.max(2, copies), false));
                 for (VortexPvP.PackMap r : remake) {
                     if (maps.stream().noneMatch(m -> m.id().equals(r.id()))) {
                         maps.add(r);
@@ -1234,7 +1299,7 @@ public final class VortexPvP extends JavaPlugin {
                 List<Integer> stepOrder = new ArrayList<>();
 
                 for (VortexPvP.PackMap m : maps) {
-                    if (skipped.contains(m.id())) {
+                    if (skipped.contains(m.id()) || light && m.theme().duel == null && m.theme() != ArenaTheme.MOLE_MINES) {
                         continue;
                     }
 
@@ -1247,10 +1312,19 @@ public final class VortexPvP extends JavaPlugin {
 
                     // a void map that was removed above is always made again, even if another map has its theme
                     boolean have = existing != null
-                        || remake.stream().noneMatch(r -> r.id().equals(m.id())) && this.arenas.all().stream().anyMatch(a -> a.theme == m.theme() && a.deep == m.deep() && (a.bounds != null || a.editing));
+                        || !m.id().startsWith("m_") && remake.stream().noneMatch(r -> r.id().equals(m.id())) && this.arenas.all().stream().anyMatch(a -> a.theme == m.theme() && a.deep == m.deep() && (a.bounds != null || a.editing));
                     if (!have) {
                         String name = m.deep() ? m.theme().display + " (Crystal)" : m.theme().display;
-                        steps.add(() -> this.arenas.generate(m.id(), name, m.theme(), m.size(), m.copies(), m.deep()));
+                        if (m.id().startsWith("m_")) {
+                            // the big mace copies of a biome map play in the MACE pool
+                            steps.add(() -> this.arenas.generate(m.id(), name + " (Mace)", m.theme(), m.size(), m.copies(), m.deep()).thenApply(a -> {
+                                a.pool = "MACE";
+                                this.arenas.save();
+                                return a;
+                            }));
+                        } else {
+                            steps.add(() -> this.arenas.generate(m.id(), name, m.theme(), m.size(), m.copies(), m.deep()));
+                        }
                         stepIds.add(m.id());
                         stepOrder.add(m.theme().isVanilla() ? 3 : 2);
                     }
@@ -1263,18 +1337,18 @@ public final class VortexPvP extends JavaPlugin {
                     // every FFA kit of the list that has no FFA arena yet (also when a first start was interrupted)
                     String[][] ffaDefs = new String[][]{
                         {"crystal", "PLAINS"},
-                        {"sword", "OPEN_SAKURA"},
+                        {"sword", "ROYAL_COURTYARD"},
                         {"mace", "GRAND_COLOSSEUM"},
                         {"spearmace", "BADLANDS"},
                         {"spear_mace", "BADLANDS"},
-                        {"uhc", "OPEN_RUINS"},
-                        {"nethpot", "COLOSSEUM_NETHER"},
-                        {"pot", "OPEN_SKY_CASTLE"},
-                        {"combo", "OPEN_OASIS"},
-                        {"axe", "COLOSSEUM_GLADIATOR"},
-                        {"trident", "OPEN_FROZEN"},
-                        {"gapple", "OPEN_VOLCANO"},
-                        {"nodebuff", "OPEN_DEEP_DARK"},
+                        {"uhc", "HIGHLAND_PLAZA"},
+                        {"nethpot", "EMBER_SANDS"},
+                        {"pot", "SAKURA_TERRACE"},
+                        {"combo", "SULTAN_PALACE"},
+                        {"axe", "GOTHIC_HARBOR"},
+                        {"trident", "TITAN_COLOSSEUM"},
+                        {"gapple", "FROSTHOLD"},
+                        {"nodebuff", "TITAN_COLOSSEUM"},
                         {"builduhc", "PLAINS"},
                         {"mole", "MOLE_MINES"}
                     };
@@ -1284,7 +1358,8 @@ public final class VortexPvP extends JavaPlugin {
                     }
 
                     // any other FFA kit (added by the admin) gets a decorated map too
-                    String[] spare = new String[]{"DESERT_PALACE", "OLYMPUS", "TIMBER_FORT", "OPEN_MUSHROOM", "COLOSSEUM_TEMPLE", "COLOSSEUM_SPIRES"};
+                    String[] spare = new String[]{"ROYAL_COURTYARD", "SULTAN_PALACE", "TITAN_COLOSSEUM", "HIGHLAND_PLAZA", "GOTHIC_HARBOR", "SAKURA_TERRACE", "EMBER_SANDS", "FROSTHOLD",
+                        "TROPICAL_BEACH", "JUNGLE_TEMPLE", "VOLCANO_FORGE", "PIRATE_COVE", "PHARAOH_TOMB"};
                     List<String[]> extra = new ArrayList<>();
                     int si = 0;
 
@@ -1300,7 +1375,7 @@ public final class VortexPvP extends JavaPlugin {
                         ffaDefs = all.toArray(new String[0][]);
                     }
 
-                    for (String[] defx : ffaDefs) {
+                    for (String[] defx : light ? java.util.Arrays.stream(ffaDefs).filter(d -> retiredFfa.contains(d[0])).toArray(String[][]::new) : ffaDefs) {
                         Kit k = this.kits().get(defx[0]);
                         FfaArena half = this.ffa.get(defx[0] + "_ffa");
                         if (half != null && (half.generated && half.bounds == null || half.generating && (half.bounds == null || half.spawns.isEmpty()))) {
@@ -1471,7 +1546,7 @@ public final class VortexPvP extends JavaPlugin {
             return true;
         } else {
             YamlConfiguration y = YamlConfiguration.loadConfiguration(new File(this.getDataFolder(), "locations.yml"));
-            return Cfg.bool(Opt.AUTO_GENERATE) && !(y.getBoolean("arena-pack-7", false) && y.getBoolean("ffa-pack-7", false));
+            return Cfg.bool(Opt.AUTO_GENERATE) && !(y.getBoolean("arena-pack-8", false) && y.getBoolean("ffa-pack-8", false));
         }
     }
 
@@ -1506,8 +1581,8 @@ public final class VortexPvP extends JavaPlugin {
         fresh.set("ffa-pack-5", true);
         fresh.set("arena-pack-6", true);
         fresh.set("ffa-pack-6", true);
-        fresh.set("arena-pack-7", true);
-        fresh.set("ffa-pack-7", true);
+        fresh.set("arena-pack-8", true);
+        fresh.set("ffa-pack-8", true);
         this.saveFlags(fresh, f);
     }
 
@@ -1545,6 +1620,10 @@ public final class VortexPvP extends JavaPlugin {
 
     public ArenaManager arenas() {
         return this.arenas;
+    }
+
+    public net.vortexpvp.arena.ArenaSeal arenaSeal() {
+        return this.arenaSeal;
     }
 
     public BlockJobs jobs() {
@@ -1623,6 +1702,46 @@ public final class VortexPvP extends JavaPlugin {
         return this.modes;
     }
 
+    /** The SMP part (homes, tpa, rtp, warps, trade, market...), null while it's off. */
+    public net.vortexpvp.survival.VortexSMP survival() {
+        return this.survival;
+    }
+
+    /**
+     * The SMP is part of this plugin now. When the old VortexSMP plugin is still installed it keeps running until the
+     * next restart (its jar is renamed so it won't load again, and its files are copied in then); after that only this
+     * plugin runs.
+     */
+    private void startSurvival() {
+        org.bukkit.plugin.Plugin old = this.getServer().getPluginManager().getPlugin("VortexSMP");
+        if (old != null) {
+            try {
+                java.io.File jar = new java.io.File(old.getClass().getProtectionDomain().getCodeSource().getLocation().toURI());
+                java.io.File to = new java.io.File(jar.getParentFile(), jar.getName() + ".merged-into-" + this.getName());
+                if (jar.isFile() && jar.renameTo(to)) {
+                    this.getLogger().warning("The SMP is part of " + this.getName() + " now: " + jar.getName() + " was renamed to " + to.getName() + " and won't load again.");
+                }
+            } catch (Exception e) {
+                this.getLogger().warning("The SMP is part of " + this.getName() + " now: delete " + old.getName() + "'s jar from plugins/.");
+            }
+
+            // it starts after this plugin (its commands lost their names to ours): switch it off right away
+            Tasks.later(1L, () -> {
+                if (old.isEnabled()) {
+                    this.getServer().getPluginManager().disablePlugin(old);
+                    this.getLogger().info("Switched the old VortexSMP plugin off - its homes, warps and market are in " + this.getName() + " now.");
+                }
+            });
+        }
+
+        this.survival = new net.vortexpvp.survival.VortexSMP(this);
+        this.survival.enable();
+    }
+
+    public boolean survivalPending() {
+        return this.survivalPending;
+    }
+
     public ModeRules modeRules() {
         return this.modeRules;
     }
@@ -1635,24 +1754,16 @@ public final class VortexPvP extends JavaPlugin {
         return this.serverSelector;
     }
 
+    public ServerLink serverLink() {
+        return this.serverLink;
+    }
+
     public Hub hub() {
         return this.hub;
     }
 
-    public Economy economy() {
-        return this.economy;
-    }
-
     public Penalties penalties() {
         return this.penalties;
-    }
-
-    public net.vortexpvp.smp.EcoSpawn ecoSpawn() {
-        return this.ecoSpawn;
-    }
-
-    public CombatTag combatTag() {
-        return this.combatTag;
     }
 
     public ArenaEditor arenaEditor() {
@@ -1811,6 +1922,14 @@ public final class VortexPvP extends JavaPlugin {
         return this.bots;
     }
 
+    public net.vortexpvp.cosmetics.Companions companions() {
+        return this.companions;
+    }
+
+    public net.vortexpvp.cosmetics.Showcases showcases() {
+        return this.showcases;
+    }
+
     public net.vortexpvp.cosmetics.Cosmetics cosmetics() {
         return this.cosmetics;
     }
@@ -1821,10 +1940,6 @@ public final class VortexPvP extends JavaPlugin {
 
     public ChatManager chat() {
         return this.chat;
-    }
-
-    public Essentials essentials() {
-        return this.essentials;
     }
 
     public SocialManager social() {
@@ -1843,6 +1958,18 @@ public final class VortexPvP extends JavaPlugin {
         return this.regions;
     }
 
+    public net.vortexpvp.update.AutoUpdater updater() {
+        return this.updater;
+    }
+
+    public net.vortexpvp.lobby.Season season() {
+        return this.season;
+    }
+
+    public net.vortexpvp.social.NetworkSync netSync() {
+        return this.netSync;
+    }
+
     public PingEqualizer pingEqualizer() {
         return this.pingEqualizer;
     }
@@ -1853,9 +1980,5 @@ public final class VortexPvP extends JavaPlugin {
 
     public SpectatorFeed spectatorFeed() {
         return this.spectatorFeed;
-    }
-
-    public ClaimManager claims() {
-        return this.claims;
     }
 }

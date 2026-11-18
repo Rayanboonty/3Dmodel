@@ -112,7 +112,7 @@ public final class Courses {
                 "...then switch to the MACE and smash in the same fall.",
                 "Put axe and mace next to each other on your hotbar.",
                 "It is the hardest mace move: practise the swap speed."
-            ), Demo.STUN_SLAM, DummyType.SHIELD, Goal.SHIELD_BREAKS, 2, 90),
+            ), Demo.STUN_SLAM, DummyType.STUNSLAM, Goal.SHIELD_BREAKS, 2, 90),
             new Lesson("mace.density", "Density vs Breach", List.of(
                 "Density: more damage per block fallen - best from very high.",
                 "Breach: ignores part of the armor - best against netherite.",
@@ -151,7 +151,12 @@ public final class Courses {
                 "After a totem pops, put a new one in your offhand AT ONCE.",
                 "Bind 'swap hands' (F) and keep totems in your hotbar.",
                 "The player who re-totems faster wins crystal fights."
-            ), Demo.TOTEM, DummyType.CRYSTAL, Goal.POPS, 3, 90)
+            ), Demo.TOTEM, DummyType.CRYSTAL, Goal.POPS, 3, 90),
+            new Lesson("crystal.dtap", "D-tap (double tap)", List.of(
+                "A totem only saves them once: the second hit right after the pop kills.",
+                "Place two crystals back to back - break the first, place and break the second at once.",
+                "Keep your crosshair on the obsidian and click in rhythm: place, hit, place, hit."
+            ), Demo.CRYSTAL, DummyType.DTAP, Goal.POPS, 4, 120)
         )),
         new Course("pot", "Potions", "<#FF5555>", Material.SPLASH_POTION, "nodebuff", List.of(
             new Lesson("pot.timing", "Pot timing", List.of(

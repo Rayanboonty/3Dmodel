@@ -54,22 +54,6 @@ public final class Opt<T> {
         "Show real item icons in nametags, chat and titles (1.21.9+ clients).",
         Material.ITEM_FRAME
     );
-    public static final Opt<Boolean> SMP_UTILS = bool(
-        "extras.smp-commands",
-        true,
-        Opt.Section.EXTRAS,
-        "SMP Utility Commands",
-        "/craft /ec /trash /hat /nv /near in SMP worlds (never in PvP).",
-        Material.CRAFTING_TABLE
-    );
-    public static final Opt<String> SMP_MAP_URL = str(
-        "extras.web-map-url",
-        "",
-        Opt.Section.EXTRAS,
-        "Web Map URL",
-        "Link of your BlueMap / squaremap page, shown in /smpadmin (e.g. http://play.example.com:8100).",
-        Material.FILLED_MAP
-    );
     public static final Opt<String> LINK_DISCORD = str(
         "extras.links.discord", "https://discord.gg/knHtEeHyk", Opt.Section.EXTRAS, "Discord Link", "Shown in /links.", Material.BELL
     );
@@ -125,8 +109,8 @@ public final class Opt<T> {
         "extras.welcome.brief",
         Opt.Type.STRING_LIST,
         List.of(
-            "<gray>Vortex Realm is a <white>PvP practice + SMP network</white>: duels in <gold>20+ kits</gold>, a <gold>tier ladder</gold> from <#9E9E9E>LT5</#9E9E9E> to <#FFAA00><b>HT1</b></#FFAA00>, FFA, parties and tournaments.",
-            "<gray>Off the battlefield: <green>Survival</green>, <red>Lifesteal</red>, <light_purple>Strength</light_purple>, <yellow>Ranked SMP</yellow> and <aqua>Eco</aqua> worlds - all one click away in the hub.",
+            "<gray>Vortex Realm is a <white>PvP practice network</white>: duels in <gold>20+ kits</gold>, a <gold>tier ladder</gold> from <#9E9E9E>LT5</#9E9E9E> to <#FFAA00><b>HT1</b></#FFAA00>, FFA, parties and tournaments.",
+            "<gray>Off the battlefield: our <green>Survival SMP</green> server - one click away in the hub (<white>/smp</white>).",
             "<gray>Play fair: cheaters end up in the <dark_red>hacker pool</dark_red>. <white>/report</white> anyone suspicious."
         ),
         Opt.Section.EXTRAS,
@@ -143,8 +127,8 @@ public final class Opt<T> {
         "extras.smp-sidebar",
         true,
         Opt.Section.EXTRAS,
-        "SMP & Hub Sidebars",
-        "A sidebar in the hub and every SMP mode (balance in Eco, hearts in Lifesteal...). Lines: scoreboards.yml.",
+        "Hub Sidebar",
+        "A sidebar in the hub. Lines: scoreboards.yml.",
         Material.OAK_SIGN
     );
     public static final Opt<Boolean> TAB_ENABLED = bool(
@@ -176,7 +160,7 @@ public final class Opt<T> {
         true,
         Opt.Section.EXTRAS,
         "Tab Per Mode",
-        "The tab list only shows players of your own mode (Practice, Hub, each SMP) - like separate servers. Staff always see everyone.",
+        "The tab list only shows players of your own mode (Practice or Hub). Staff always see everyone.",
         Material.ITEM_FRAME
     );
     public static final Opt<Boolean> COUNTRY_ON_NAMETAG = bool(
@@ -195,7 +179,7 @@ public final class Opt<T> {
         true,
         Opt.Section.EXTRAS,
         "Join at Hub",
-        "Players join the server at the hub (when a world has the Hub mode); the selector brings them back to their last spot in each mode.",
+        "Players join the server at the hub (when a world has the Hub mode).",
         Material.NETHER_STAR
     );
     public static final Opt<Boolean> ANNOUNCER = bool(
@@ -236,6 +220,20 @@ public final class Opt<T> {
         "First-Run Arenas",
         "Generate a starter set of biome arenas + FFA arenas when none exist.",
         Material.GRASS_BLOCK
+    );
+    public static final Opt<String> LOBBY_SEASON = str(
+        "lobby.season",
+        "OFF",
+        Opt.Section.LOBBY,
+        "Winter Lobby",
+        "WINTER = the whole lobby is snowed in (snow on the ground, roofs and trees, frozen water, snowmen, falling snow). AUTO = winter from 1 December to 15 January. OFF = normal. Every block comes back exactly when winter ends.",
+        Material.SNOW_BLOCK
+    );
+    public static final Opt<Integer> LOBBY_SEASON_RADIUS = integer(
+        "lobby.season-radius", 130, Opt.Section.LOBBY, "Winter Radius", "How far around the lobby the snow reaches (lobbies built by the plugin use their own size).", Material.SNOWBALL, 20, 300, 10
+    );
+    public static final Opt<Boolean> LOBBY_SNOWFALL = bool(
+        "lobby.snowfall", true, Opt.Section.LOBBY, "Falling Snow", "Snowflakes fall around players while the winter lobby is on.", Material.POWDER_SNOW_BUCKET
     );
     public static final Opt<Boolean> LOBBY_DOUBLE_JUMP = bool(
         "lobby.double-jump", true, Opt.Section.LOBBY, "Double Jump", "Players can double jump in the lobby (per-player toggle in settings).", Material.FEATHER
@@ -397,7 +395,7 @@ public final class Opt<T> {
         "match.elevator-depth", 6, Opt.Section.MATCH, "Elevator Depth", "How many blocks below the spawn the elevator starts.", Material.IRON_CHAIN, 2, 20, 1
     );
     public static final Opt<Integer> ELEVATOR_SECONDS = integer(
-        "match.elevator-seconds", 5, Opt.Section.MATCH, "Elevator Countdown", "Seconds the elevator ride lasts (counts down 5..1).", Material.CLOCK, 2, 10, 1
+        "match.elevator-seconds", 3, Opt.Section.MATCH, "Elevator Countdown", "Seconds the elevator ride lasts (counts down 5..1).", Material.CLOCK, 2, 10, 1
     );
     public static final Opt<List<String>> CAGE_KITS = new Opt<>(
         "match.cage-kits",
@@ -492,13 +490,13 @@ public final class Opt<T> {
         "match.max-duration-minutes", 15, Opt.Section.MATCH, "Max Match Length", "Minutes before a match ends as a draw.", Material.CLOCK, 1, 120, 1
     );
     public static final Opt<Integer> MATCH_FOUND_DELAY = integer(
-        "match.found-cooldown", 3, Opt.Section.MATCH, "Match Found Cooldown", "Seconds between 'match found' and the teleport.", Material.CLOCK, 1, 10, 1
+        "match.found-cooldown", 1, Opt.Section.MATCH, "Match Found Cooldown", "Seconds between 'match found' and the teleport.", Material.CLOCK, 1, 10, 1
     );
     public static final Opt<Boolean> MAP_BAN = bool(
         "match.map-ban-enabled", true, Opt.Section.MATCH, "Map Ban Phase", "Players ban maps from floating blocks before the match.", Material.GRASS_BLOCK
     );
     public static final Opt<Integer> MAP_BAN_SECONDS = integer(
-        "match.map-ban-time", 15, Opt.Section.MATCH, "Map Ban Time", "Seconds for the map ban phase.", Material.CLOCK, 5, 45, 1
+        "match.map-ban-time", 10, Opt.Section.MATCH, "Map Ban Time", "Seconds for the map ban phase.", Material.CLOCK, 5, 45, 1
     );
     public static final Opt<String> MAP_PREVIEW_3D = new Opt<>(
         "match.map-ban-3d-preview",
@@ -539,8 +537,19 @@ public final class Opt<T> {
         "Kit rule votes (e.g. 'Limit to 8 Totems'); applies only if everyone votes yes.",
         Material.EMERALD_BLOCK
     );
+    public static final Opt<Boolean> VOTE_ROUNDS = bool(
+        "match.rounds-vote",
+        true,
+        Opt.Section.MATCH,
+        "Rounds Vote",
+        "Before 1v1 duels, vote to play one more round (first to 2 or 3). Kits can turn it off.",
+        Material.CLOCK
+    );
+    public static final Opt<Integer> VOTE_MAX = integer(
+        "match.max-votes", 3, Opt.Section.MATCH, "Votes Per Match", "Most preference votes shown before one match.", Material.PAPER, 1, 6, 1
+    );
     public static final Opt<Integer> VOTE_SECONDS = integer(
-        "match.vote-time", 8, Opt.Section.MATCH, "Vote Time", "Seconds per preference vote.", Material.CLOCK, 3, 30, 1
+        "match.vote-time", 6, Opt.Section.MATCH, "Vote Time", "Seconds per preference vote.", Material.CLOCK, 3, 30, 1
     );
     public static final Opt<Boolean> ALLOW_SPECTATORS = bool(
         "match.allow-spectators", true, Opt.Section.MATCH, "Spectators", "Allow /spectate on matches (players can still opt out).", Material.ENDER_EYE
@@ -906,7 +915,7 @@ public final class Opt<T> {
         Material.FILLED_MAP
     );
     public static final Opt<Integer> MAP_BAN_TURN_SECONDS = integer(
-        "match.map-ban-turn-seconds", 15, Opt.Section.MATCH, "Map Ban Turn Time", "Seconds for each ban turn (the very first ban gets 5 more).", Material.CLOCK, 3, 30, 1
+        "match.map-ban-turn-seconds", 8, Opt.Section.MATCH, "Map Ban Turn Time", "Seconds for each ban turn (the very first ban gets 2 more).", Material.CLOCK, 3, 30, 1
     );
     public static final Opt<Boolean> SOCIAL_ENABLED = bool(
         "social.enabled", true, Opt.Section.CHAT, "Friends & Status", "Friends, follows, Online / Invisible / Do Not Disturb and request privacy.", Material.PLAYER_HEAD
@@ -1057,6 +1066,22 @@ public final class Opt<T> {
         Material.STONE_BRICK_WALL,
         Opt.WallStyle.class
     );
+    public static final Opt<Boolean> AUTO_BACKUPS = bool(
+        "backups.automatic",
+        false,
+        Opt.Section.GENERAL,
+        "Automatic Backups",
+        "Full backups (plugins/VortexPvP-Test-Vault) by themselves every 6 hours, at shutdown and before updates. Off = only when you click Backup Everything in /pvpadmin (saves storage).",
+        Material.ENDER_CHEST
+    );
+    public static final Opt<Boolean> ARENA_BARRIER_WALLS = bool(
+        "arena.barrier-walls",
+        true,
+        Opt.Section.ARENA,
+        "Invisible Arena Walls",
+        "Closes every duel, FFA and bot arena with invisible barrier walls up to the sky (no roof), so nobody can walk, pearl or fly out. Built in the background; off = removed again.",
+        Material.BARRIER
+    );
     public static final Opt<Boolean> ARENA_PLANTS = bool(
         "arena.plants",
         false,
@@ -1089,7 +1114,16 @@ public final class Opt<T> {
         1
     );
     public static final Opt<Integer> DUEL_ARENA_SIZE = integer(
-        "arena.duel-size", 192, Opt.Section.ARENA, "Duel Arena Size", "Side length of generated duel arenas (designed arenas and colosseums).", Material.MAP, 32, 400, 4
+        "arena.duel-size", 96, Opt.Section.ARENA, "Duel Arena Size", "Side length of the bigger designed duel arenas and colosseums (axe, bow, SMP kits...).", Material.MAP, 32, 400, 4
+    );
+    public static final Opt<Integer> MACE_VANILLA_SIZE = integer(
+        "arena.mace-vanilla-size", 320, Opt.Section.ARENA, "Mace Vanilla Map Size", "Side length of the big vanilla maps of the mace kits (they fly high).", Material.MACE, 160, 448, 16
+    );
+    public static final Opt<Integer> DUEL_COMPACT_SIZE = integer(
+        "arena.duel-compact-size", 72, Opt.Section.ARENA, "Compact Duel Size", "Playable size of the compact duel maps of the sword kits (sword, pot, NoDebuff, combo, gapple, shield).", Material.IRON_SWORD, 40, 160, 2
+    );
+    public static final Opt<Integer> DUEL_BUILD_SIZE = integer(
+        "arena.duel-build-size", 90, Opt.Section.ARENA, "UHC Duel Size", "Playable size of the UHC / Build UHC duel maps (hills and cover to build around).", Material.LAVA_BUCKET, 50, 200, 2
     );
     public static final Opt<Integer> FFA_ARENA_SIZE = integer(
         "arena.ffa-size", 256, Opt.Section.ARENA, "FFA Arena Size", "Side length of generated FFA arenas.", Material.FILLED_MAP, 40, 448, 4
@@ -1163,7 +1197,7 @@ public final class Opt<T> {
         Material.GRASS_BLOCK
     );
     public static final Opt<Integer> VANILLA_SIZE = integer(
-        "arena.vanilla.size", 256, Opt.Section.ARENA, "Vanilla Map Size", "Side length of vanilla terrain maps.", Material.FILLED_MAP, 96, 448, 16
+        "arena.vanilla.size", 200, Opt.Section.ARENA, "Vanilla Map Size", "Side length of vanilla terrain maps.", Material.FILLED_MAP, 96, 448, 16
     );
     public static final Opt<String> VANILLA_SEED = str(
         "arena.vanilla.seed",
@@ -1410,6 +1444,30 @@ public final class Opt<T> {
         "AI Local Address",
         "For a local or self-hosted model: its address, e.g. http://localhost:11434/v1 (Ollama) or http://192.168.1.5:1234/v1 (LM Studio). Also used as a proxy address for the provider picked in AI Provider. Empty = the usual one.",
         Material.REPEATER
+    );
+    public static final Opt<String> AI_MODE = str(
+        "ai.mode",
+        "both",
+        Opt.Section.WEB,
+        "AI Mode",
+        "online = only providers with an API key, local = only a model on your own machine (Ollama / LM Studio, no key, free), both = online first, then local if it fails. /ai setup local shows how to install Ollama.",
+        Material.LEVER
+    );
+    public static final Opt<Boolean> AI_CONSOLE = bool(
+        "ai.console-commands",
+        true,
+        Opt.Section.WEB,
+        "AI Console Access",
+        "Operators' AI can run any server command (every plugin and vanilla) as the console, read the log and plugin files, and edit any plugin's YAML.",
+        Material.COMMAND_BLOCK
+    );
+    public static final Opt<String> AI_BLOCKED = str(
+        "ai.blocked-commands",
+        "stop,restart,reload,op,deop,ai,webadmin",
+        Opt.Section.WEB,
+        "AI Blocked Commands",
+        "Commands the AI may never run, comma separated (the first word of the command).",
+        Material.BARRIER
     );
     public static final Opt<Boolean> AI_LOCAL_FALLBACK = bool(
         "ai.local-fallback",
@@ -1714,203 +1772,6 @@ public final class Opt<T> {
     public static final Opt<Integer> MAX_CPS = integer(
         "anticheat.max-cps", 20, Opt.Section.ANTICHEAT, "CPS Alert", "Clicks per second (held for 3 s) that alert staff.", Material.REDSTONE, 8, 50, 1
     );
-    public static final Opt<Boolean> ESSENTIALS = bool(
-        "smp.essentials",
-        true,
-        Opt.Section.ESSENTIALS,
-        "SMP Essentials",
-        "Built-in /home /spawn /back /rtp /tpa /warp for the SMP worlds (each mode keeps its own homes and warps). Turn off if another plugin should handle them.",
-        Material.RED_BED
-    );
-    public static final Opt<Boolean> ESS_HOMES = bool(
-        "smp.homes.enabled", true, Opt.Section.ESSENTIALS, "Homes", "/sethome /home /delhome /homes.", Material.WHITE_BED
-    );
-    public static final Opt<Integer> HOMES_MAX = integer(
-        "smp.homes.max",
-        3,
-        Opt.Section.ESSENTIALS,
-        "Max Homes",
-        "Homes per player per mode. More with the permission vortexpvp.homes.<number> or vortexpvp.homes.unlimited.",
-        Material.BLUE_BED,
-        1,
-        100,
-        1
-    );
-    public static final Opt<Integer> HOMES_HELPER = integer(
-        "smp.homes.helper", 4, Opt.Section.ESSENTIALS, "Homes: Helpers", "Homes per mode for staff with the Helper role.", Material.CYAN_BED, 1, 100, 1
-    );
-    public static final Opt<Integer> HOMES_MOD = integer(
-        "smp.homes.mod", 5, Opt.Section.ESSENTIALS, "Homes: Mods", "Homes per mode for staff with the Mod role.", Material.BLUE_BED, 1, 100, 1
-    );
-    public static final Opt<Integer> HOMES_ADMIN = integer(
-        "smp.homes.admin", 10, Opt.Section.ESSENTIALS, "Homes: Admins", "Homes per mode for staff with the Admin role (and ops).", Material.RED_BED, 1, 100, 1
-    );
-    public static final Opt<Boolean> ESS_TPA = bool(
-        "smp.tpa.enabled", true, Opt.Section.ESSENTIALS, "Teleport Requests", "/tpa /tpahere /tpaccept /tpdeny /tptoggle (same mode only).", Material.ENDER_EYE
-    );
-    public static final Opt<Integer> TPA_EXPIRE = integer(
-        "smp.tpa.expire-seconds", 60, Opt.Section.ESSENTIALS, "Request Expiry", "Seconds before a teleport request expires.", Material.CLOCK, 10, 600, 5
-    );
-    public static final Opt<Boolean> ESS_BACK = bool(
-        "smp.back.enabled", true, Opt.Section.ESSENTIALS, "/back", "Return to where you were before your last teleport.", Material.COMPASS
-    );
-    public static final Opt<String> BACK_DEATH_MODES = str(
-        "smp.back.on-death-modes",
-        "SURVIVAL,ECO",
-        Opt.Section.ESSENTIALS,
-        "/back After Death",
-        "Modes where /back also returns you to where you died (comma list of SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO; empty = none).",
-        Material.SKELETON_SKULL
-    );
-    public static final Opt<Boolean> ESS_RTP = bool(
-        "smp.rtp.enabled",
-        true,
-        Opt.Section.ESSENTIALS,
-        "Random Teleport",
-        "/rtp - a random safe spot in the overworld or nether of your mode.",
-        Material.GRASS_BLOCK
-    );
-    public static final Opt<Integer> RTP_MAX = integer(
-        "smp.rtp.max-radius",
-        5000,
-        Opt.Section.ESSENTIALS,
-        "RTP Max Distance",
-        "Farthest /rtp distance from the world spawn.",
-        Material.FILLED_MAP,
-        200,
-        50000,
-        100
-    );
-    public static final Opt<Integer> RTP_MIN = integer(
-        "smp.rtp.min-radius", 500, Opt.Section.ESSENTIALS, "RTP Min Distance", "Closest /rtp distance from the world spawn.", Material.MAP, 0, 20000, 100
-    );
-    public static final Opt<Integer> RTP_COOLDOWN = integer(
-        "smp.rtp.cooldown-seconds", 120, Opt.Section.ESSENTIALS, "RTP Cooldown", "Seconds between two /rtp of the same player.", Material.CLOCK, 0, 3600, 10
-    );
-    public static final Opt<Boolean> ESS_WARPS = bool(
-        "smp.warps.enabled",
-        true,
-        Opt.Section.ESSENTIALS,
-        "Warps",
-        "/warp /warps (admins: /setwarp /delwarp, icon = the item in your hand).",
-        Material.END_PORTAL_FRAME
-    );
-    public static final Opt<Integer> TP_WARMUP = integer(
-        "smp.teleport.warmup-seconds",
-        3,
-        Opt.Section.ESSENTIALS,
-        "Teleport Warmup",
-        "Seconds to stand still before /home /spawn /back /rtp /tpa /warp (0 = instant).",
-        Material.HOPPER,
-        0,
-        15,
-        1
-    );
-    public static final Opt<Integer> TP_COOLDOWN = integer(
-        "smp.teleport.cooldown-seconds",
-        5,
-        Opt.Section.ESSENTIALS,
-        "Teleport Cooldown",
-        "Seconds between two teleports of the same player.",
-        Material.REPEATER,
-        0,
-        600,
-        5
-    );
-    public static final Opt<Boolean> TP_CANCEL_MOVE = bool(
-        "smp.teleport.cancel-on-move", true, Opt.Section.ESSENTIALS, "Cancel On Move", "Moving during the warmup cancels the teleport.", Material.LEATHER_BOOTS
-    );
-    public static final Opt<Boolean> TP_CANCEL_DAMAGE = bool(
-        "smp.teleport.cancel-on-damage",
-        true,
-        Opt.Section.ESSENTIALS,
-        "Cancel On Damage",
-        "Taking damage during the warmup cancels the teleport.",
-        Material.IRON_SWORD
-    );
-    public static final Opt<Integer> COMBAT_TAG = integer(
-        "smp.combat-tag-seconds",
-        15,
-        Opt.Section.ESSENTIALS,
-        "SMP Combat Tag",
-        "Seconds a PvP hit blocks commands/teleports; logging out meanwhile = death (0 = off).",
-        Material.NETHERITE_SWORD,
-        0,
-        120,
-        1
-    );
-    public static final Opt<Boolean> CLAIMS = bool(
-        "claims.enabled",
-        true,
-        Opt.Section.CLAIMS,
-        "Land Claims",
-        "Players protect their builds with a golden shovel (or /claim). Nobody else can build, open chests or use doors there unless trusted.",
-        Material.GOLDEN_SHOVEL
-    );
-    public static final Opt<String> CLAIM_MODES = str(
-        "claims.modes",
-        "SURVIVAL,ECO",
-        Opt.Section.CLAIMS,
-        "Claim Modes",
-        "Modes where land can be claimed (comma list of SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO).",
-        Material.MAP
-    );
-    public static final Opt<Integer> CLAIM_START_BLOCKS = integer(
-        "claims.start-blocks",
-        1000,
-        Opt.Section.CLAIMS,
-        "Starting Claim Blocks",
-        "Claim blocks (area) every player starts with.",
-        Material.GRASS_BLOCK,
-        0,
-        100000,
-        100
-    );
-    public static final Opt<Integer> CLAIM_BLOCKS_HOUR = integer(
-        "claims.blocks-per-hour",
-        250,
-        Opt.Section.CLAIMS,
-        "Claim Blocks Per Hour",
-        "Claim blocks earned per hour played in a claim mode (not while AFK).",
-        Material.CLOCK,
-        0,
-        10000,
-        25
-    );
-    public static final Opt<Integer> CLAIM_MAX_EARNED = integer(
-        "claims.max-earned-blocks",
-        40000,
-        Opt.Section.CLAIMS,
-        "Max Earned Blocks",
-        "Playtime stops adding claim blocks after this many.",
-        Material.GOLD_BLOCK,
-        0,
-        1000000,
-        1000
-    );
-    public static final Opt<Integer> CLAIM_MIN_WIDTH = integer(
-        "claims.min-width", 5, Opt.Section.CLAIMS, "Min Claim Width", "Smallest side length of a claim.", Material.STICK, 1, 100, 1
-    );
-    public static final Opt<Integer> CLAIM_MAX_CLAIMS = integer(
-        "claims.max-claims", 10, Opt.Section.CLAIMS, "Max Claims", "Claims per player per mode.", Material.CHEST, 1, 200, 1
-    );
-    public static final Opt<Integer> CLAIM_SPAWN_DISTANCE = integer(
-        "claims.spawn-protection", 64, Opt.Section.CLAIMS, "Spawn Distance", "No claims this close to the world spawn.", Material.BEACON, 0, 2000, 8
-    );
-    public static final Opt<Boolean> CLAIM_EXPLOSIONS = bool(
-        "claims.block-explosions", true, Opt.Section.CLAIMS, "Explosion Protection", "TNT, creepers, beds... don't break blocks inside claims.", Material.TNT
-    );
-    public static final Opt<Boolean> CLAIM_PVP = bool(
-        "claims.block-pvp", false, Opt.Section.CLAIMS, "No PvP In Claims", "Players can't hurt each other inside claims.", Material.SHIELD
-    );
-    public static final Opt<Boolean> CLAIM_ENTER_MESSAGE = bool(
-        "claims.enter-message",
-        true,
-        Opt.Section.CLAIMS,
-        "Enter / Leave Messages",
-        "Action bar message when walking into or out of a claim.",
-        Material.OAK_SIGN
-    );
     public static final Opt<Boolean> CHAT_FORMAT_ON = bool(
         "chat.format.enabled",
         true,
@@ -1932,7 +1793,7 @@ public final class Opt<T> {
         true,
         Opt.Section.CHAT,
         "Chat Per Mode",
-        "Players only see chat from their own mode (PvP, Hub, each SMP) like separate servers. Start a message with ! to talk to everyone. Staff see everything.",
+        "Players only see chat from their own mode (PvP or Hub). Start a message with ! to talk to everyone. Staff see everything.",
         Material.ENDER_CHEST
     );
     public static final Opt<Boolean> CHAT_TIERS = bool(
@@ -2098,7 +1959,7 @@ public final class Opt<T> {
         List.of(),
         Opt.Section.GENERAL,
         "",
-        "Worlds the plugin ignores (e.g. your SMP worlds).",
+        "Worlds the plugin ignores.",
         Material.CHEST,
         0.0,
         0.0,
@@ -2106,35 +1967,113 @@ public final class Opt<T> {
         null,
         false
     );
-    public static final Opt<Boolean> SMP_DIMENSIONS = bool(
-        "smp.own-dimensions",
+    public static final Opt<Boolean> SMP_SAME_SERVER = bool(
+        "smp.same-server",
         true,
-        Opt.Section.EXTRAS,
-        "Own Nether & End",
-        "Every SMP world gets its own <world>_nether and <world>_the_end; portals lead there.",
-        Material.OBSIDIAN
+        Opt.Section.SMP,
+        "SMP On This Server",
+        "The SMP worlds of worlds.yml run on this server again: the selector opens them, every SMP world group keeps its own inventory, ender chest and XP (saved and backed up), and VortexSMP adds homes, tpa, rtp and more. Off = the SMP is on another server (transfer).",
+        Material.GRASS_BLOCK
     );
-    public static final Opt<Boolean> SMP_RESPAWN_BED = bool(
-        "smp.respawn-at-bed",
-        true,
-        Opt.Section.EXTRAS,
-        "Respawn At Bed",
-        "SMP deaths respawn at the player's bed or anchor; without one (or when off) at the hub.",
-        Material.RED_BED
+    public static final Opt<Integer> SMP_BACKUP_MINUTES = integer(
+        "smp.backup-minutes", 10, Opt.Section.SMP, "Inventory Backups", "Minutes between automatic backups of every SMP player's inventory and ender chest (also on every world switch and logout).", Material.CHEST, 2, 120, 1
     );
-    public static final Opt<Boolean> SEPARATE_INVENTORIES = new Opt<>(
-        "worlds.separate-inventories",
-        Opt.Type.BOOL,
+    public static final Opt<Integer> SMP_BACKUP_KEEP = integer(
+        "smp.backup-keep", 30, Opt.Section.SMP, "Backups Kept", "Inventory backups kept per player and world group (the oldest are removed).", Material.BOOKSHELF, 5, 500, 5
+    );
+    public static final Opt<Boolean> UPDATES = bool(
+        "updates.enabled",
         true,
-        Opt.Section.GENERAL,
-        "",
-        "Keep inventories of excluded worlds separate from PvP.",
-        Material.CHEST,
-        0.0,
-        1.0,
-        1.0,
-        null,
-        false
+        Opt.Section.NETWORK,
+        "Auto-Update",
+        "Download new versions of this plugin by itself and install them on a restart. A full backup is taken first; ranks, stats, kits and everything else are kept.",
+        Material.EXPERIENCE_BOTTLE
+    );
+    /** Always asked for updates, whatever updates.sources says (3.11.1). */
+    public static final List<String> UPDATE_SOURCES_BUILT_IN = List.of(
+        "https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/vortex-handoff/update.json",
+        "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json"
+    );
+    public static final Opt<String> UPDATE_SOURCES = str(
+        "updates.sources",
+        "https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/vortex-handoff/update.json,https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json",
+        Opt.Section.NETWORK,
+        "Update Sources",
+        "Extra update manifest links (update.json), comma separated. Every link is asked (the built-in ones too) and the newest version any of them offers is installed.",
+        Material.FILLED_MAP
+    );
+    // 3.11.0: everyone equal in the SMP
+    public static final Opt<Boolean> SMP_EQUAL = bool(
+        "smp.everyone-equal", true, Opt.Section.SMP, "Everyone Equal in SMP",
+        "Inside SMP worlds nobody has ranks perks or admin powers - not even ops or the owner: only player commands, survival only, no flying. Rank names still show. Admin work from the lobby or the console.",
+        Material.IRON_SWORD
+    );
+    public static final Opt<Boolean> NAME_COLORS = bool(
+        "chat.name-colors", true, Opt.Section.CHAT, "Name Colours", "Players pick the colour of their name in chat (/namecolor). Admins can set anyone's with /namecolor <player> <#hex>.", Material.ORANGE_DYE
+    );
+    // 3.11.0: pets, shoulder pets and wings
+    public static final Opt<Boolean> COSMETICS_ENABLED = bool(
+        "cosmetics.companions", true, Opt.Section.VISUALS, "Pets & Wings", "Pets that follow players, shoulder pets and wings (chosen in /cosmetics, unlocked by time played).", Material.BONE
+    );
+    public static final Opt<Boolean> COSMETICS_IN_FIGHTS = bool(
+        "cosmetics.in-fights", false, Opt.Section.VISUALS, "Wings in Fights", "Also show wings and shoulder pets in duels and FFA (pets that follow stay in the lobby, hub and SMP).", Material.ELYTRA
+    );
+    public static final Opt<Integer> COSMETIC_UPDATE_TICKS = integer(
+        "cosmetics.update-ticks", 2, Opt.Section.VISUALS, "Pet Smoothness", "Ticks between two pet / wing updates: 1 = smoothest, 2 = smooth and light (default), 4 = lightest.", Material.CLOCK, 1, 5, 1
+    );
+    public static final Opt<Integer> COSMETIC_VIEW_DISTANCE = integer(
+        "cosmetics.view-distance", 40, Opt.Section.VISUALS, "Pet View Distance", "Blocks away at which other players see pets and wings (lower = lighter for clients).", Material.SPYGLASS, 16, 64, 8
+    );
+    public static final Opt<Integer> UPDATE_CHECK = integer(
+        "updates.check-minutes", 30, Opt.Section.NETWORK, "Update Check", "Minutes between two checks for a new version.", Material.CLOCK, 5, 1440, 5
+    );
+    public static final Opt<String> UPDATE_RESTART = str(
+        "updates.restart",
+        "EMPTY_OR_NIGHT",
+        Opt.Section.NETWORK,
+        "Update Restart",
+        "When to restart for a downloaded update: EMPTY_OR_NIGHT (as soon as nobody is online, or at the restart hour with a 5-minute countdown), NOW (60-second countdown), MANUAL (your next restart). Turn on auto-restart in your host panel.",
+        Material.REPEATER
+    );
+    public static final Opt<Integer> UPDATE_HOUR = integer(
+        "updates.restart-hour", 5, Opt.Section.NETWORK, "Update Restart Hour", "Hour of the day (server time) for a night-time update restart.", Material.DAYLIGHT_DETECTOR, 0, 23, 1
+    );
+    public static final Opt<Boolean> BOTS_ENABLED = bool(
+        "bots.enabled", true, Opt.Section.BOTS, "Bot Fights", "Players can fight practice bots (/bot). Off = the Bot Hall and /bot say it is turned off.", Material.ARMOR_STAND
+    );
+    public static final Opt<Boolean> BOTS_TRAINING = bool(
+        "bots.training", true, Opt.Section.BOTS, "Training Dummies", "Players can train skills on dummies (/train): d-tap, stun slam, spear, elytra, crits...", Material.TARGET
+    );
+    public static final Opt<Boolean> BOTS_FLAT_MAPS = bool(
+        "bots.flat-maps", true, Opt.Section.BOTS, "Flat Training Maps", "Bot fights and training happen on the flat Training Grounds map (never on the biome maps).", Material.SMOOTH_STONE
+    );
+    public static final Opt<Boolean> BOTS_HALL_IN_HUB = bool(
+        "bots.hall-in-hub", true, Opt.Section.BOTS, "Bot Wing In The Hub", "Hub builds that have a Training Grounds wing get its NPCs and bot maps.", Material.LECTERN
+    );
+    public static final Opt<String> NETWORK_MODE = enumOpt(
+        "network.mode",
+        Opt.NetworkMode.TRANSFER,
+        Opt.Section.NETWORK,
+        "Send Players By",
+        "TRANSFER = the built-in server transfer (no proxy; the other server needs accepts-transfers=true). PROXY = ask Velocity/BungeeCord to connect them (the entry's proxy server name).",
+        Material.ENDER_PEARL,
+        Opt.NetworkMode.class
+    );
+    public static final Opt<Boolean> NETWORK_PING = bool(
+        "network.ping-servers",
+        true,
+        Opt.Section.NETWORK,
+        "Show Player Counts",
+        "Ask the other servers every 20 s how many players are on, for the selector, NPCs and tab.",
+        Material.SPYGLASS
+    );
+    public static final Opt<Boolean> NETWORK_SMP_COMMAND = bool(
+        "network.smp-command",
+        true,
+        Opt.Section.NETWORK,
+        "/smp Command",
+        "/smp (and /survival) send the player to the selector's SERVER entry with the id smp.",
+        Material.GRASS_BLOCK
     );
 
     private Opt(
@@ -2168,6 +2107,18 @@ public final class Opt<T> {
 
     public static List<Opt<?>> all() {
         return Collections.unmodifiableList(ALL);
+    }
+
+    /** An SMP setting (the SMP part's own options live in config.yml under smp. like every other setting). */
+    @SuppressWarnings("unchecked")
+    public static <T> Opt<T> smp(String path, T def, String name, String desc, Material icon, double min, double max, double step, boolean gui) {
+        Opt.Type t = def instanceof Boolean ? Opt.Type.BOOL : (def instanceof Integer ? Opt.Type.INT : Opt.Type.STRING);
+        return new Opt<>(path, t, def, Opt.Section.SMP, name, desc, icon, min, max, step, null, gui);
+    }
+
+    static {
+        // the SMP part's settings join this list before config.yml loads
+        net.vortexpvp.survival.config.Opt.all();
     }
 
     private static Opt<Boolean> bool(String path, boolean def, Opt.Section s, String name, String desc, Material icon) {
@@ -2233,6 +2184,11 @@ public final class Opt<T> {
         BLOCKS;
     }
 
+    public static enum NetworkMode {
+        TRANSFER,
+        PROXY;
+    }
+
     public static enum ResetMode {
         TRACKED,
         SNAPSHOT,
@@ -2251,11 +2207,12 @@ public final class Opt<T> {
         VISUALS("Visuals & Effects", Material.FIREWORK_ROCKET),
         ANTICHEAT("Anti-Cheat Compatibility", Material.SHIELD),
         EVENTS("Tournaments", Material.GOLDEN_HELMET),
-        EXTRAS("SMP & Extras", Material.OAK_SAPLING),
-        ESSENTIALS("SMP Homes & Teleports", Material.RED_BED),
-        CLAIMS("SMP Land Claims", Material.GOLDEN_SHOVEL),
+        EXTRAS("Hub & Extras", Material.OAK_SAPLING),
+        NETWORK("Network & Servers", Material.ENDER_EYE),
+        BOTS("Practice Bots & Training", Material.ARMOR_STAND),
         CHAT("Chat & Messages", Material.WRITABLE_BOOK),
-        WEB("Website & Resource Pack", Material.FILLED_MAP);
+        WEB("Website & Resource Pack", Material.FILLED_MAP),
+        SMP("SMP (Survival)", Material.GRASS_BLOCK);
 
         public final String title;
         public final Material icon;

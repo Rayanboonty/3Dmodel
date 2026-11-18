@@ -127,6 +127,8 @@ public final class WebSite implements TabExecutor {
             .exact(
                 "GET", "/api/events", r -> json(this.sync(() -> (Map)(this.plugin.events() == null ? new LinkedHashMap() : this.plugin.events().snapshot())))
             );
+        this.web.exact("GET", "/api/net/files", r -> this.plugin.netSync() == null ? error(404, "off") : this.plugin.netSync().files(r));
+        this.web.exact("POST", "/api/net/set", r -> this.plugin.netSync() == null ? error(404, "off") : this.plugin.netSync().set(r));
         this.web.exact("POST", "/api/admin/login", this::login);
         this.web.prefix(null, "/api/admin/", this::admin);
     }
@@ -807,7 +809,7 @@ public final class WebSite implements TabExecutor {
                 if (w != null && this.plugin.modes() != null) {
                     WorldMode m = WorldMode.parse(str(body, "mode"), null);
                     if (m == null) {
-                        return ok("Modes: PVP, HUB, SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO, NONE.");
+                        return ok("Modes: PVP, HUB, NONE.");
                     } else {
                         this.plugin.modes().setMode(w, m);
                         this.log(l, "world " + w.getName() + " mode " + m);

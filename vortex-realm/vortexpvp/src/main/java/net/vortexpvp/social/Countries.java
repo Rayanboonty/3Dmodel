@@ -84,6 +84,13 @@ public final class Countries {
         return this.chosen.containsKey(u);
     }
 
+    /** A country set by the network primary for a player (no forwarding). */
+    public void setStored(UUID u, String code) {
+        this.chosen.put(u, code == null ? "" : code.toUpperCase(Locale.ROOT));
+        this.dirty = true;
+        this.save();
+    }
+
     public void set(Player p, String code) {
         if (code != null && !code.isBlank()) {
             this.chosen.put(p.getUniqueId(), code.toUpperCase(Locale.ROOT));
@@ -93,6 +100,9 @@ public final class Countries {
 
         this.dirty = true;
         this.save();
+        if (this.plugin.netSync() != null) {
+            this.plugin.netSync().forward("country", p.getUniqueId(), this.chosen.get(p.getUniqueId()));
+        }
 
         try {
             this.plugin.boards().refreshNametag(p);
@@ -138,7 +148,7 @@ public final class Countries {
         }
 
         Component g = Glyphs.flag(c.code());
-        return Component.space().append(g == null ? c.tag() : g.hoverEvent(HoverEvent.showText(Text.mm("<white>" + Text.esc(c.name())))));
+        return Component.space().append(g == null ? c.tag() : Glyphs.isolate(g.hoverEvent(HoverEvent.showText(Text.mm("<white>" + Text.esc(c.name()))))));
     }
 
     public Component tag(UUID u, Player viewer) {
@@ -150,7 +160,7 @@ public final class Countries {
         if (viewer != null && this.plugin.hasPack(viewer)) {
             Component g = Glyphs.flag(c.code());
             if (g != null) {
-                return g.hoverEvent(HoverEvent.showText(Text.mm("<white>" + Text.esc(c.name()))));
+                return Glyphs.isolate(g.hoverEvent(HoverEvent.showText(Text.mm("<white>" + Text.esc(c.name())))));
             }
         }
 

@@ -981,7 +981,7 @@ public final class ShowArenaDesign extends MegaVoxels implements ArenaVoxels {
         PALACE("Desert Palace"),
         OLYMPUS("Olympus"),
         TIMBER_FORT("Timber Fort"),
-        MOLE_MINES("Mole Mines");
+        MOLE_MINES("Mole Hollow");
 
         public final String display;
 

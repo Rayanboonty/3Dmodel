@@ -786,7 +786,7 @@ public final class Welcome implements Listener, TabExecutor {
         PLAY("Play your first duel", "Win or lose - every match counts for your placement"),
         EDITOR("Arrange a kit", "Open the Kit Editor (book) and move items where you like them"),
         LEADERBOARD("Check the leaderboard", "Emerald in your hotbar, or /lb"),
-        SELECTOR("Open the server selector", "/hub then the compass - Survival, Lifesteal, Eco..."),
+        SELECTOR("Open the server selector", "/hub then the compass - Practice, the SMP server..."),
         DISCORD("Join our Discord", "Click the link in chat - events, giveaways, updates");
 
         final String title;

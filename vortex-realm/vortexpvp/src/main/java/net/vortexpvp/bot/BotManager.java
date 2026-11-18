@@ -9,6 +9,8 @@ import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import net.vortexpvp.VortexPvP;
+import net.vortexpvp.config.Cfg;
+import net.vortexpvp.config.Opt;
 import net.vortexpvp.arena.Arena;
 import net.vortexpvp.arena.ArenaInstance;
 import net.vortexpvp.dialog.LobbyDialogs;
@@ -49,6 +51,7 @@ public final class BotManager implements Listener, TabExecutor {
     private final VortexPvP plugin;
     private final Map<UUID, BotManager.Fight> fights = new HashMap<>();
     private final Map<UUID, PracticeBot> byBody = new HashMap<>();
+    private BotArenaUI arenaUi;
 
     public BotManager(VortexPvP plugin) {
         this.plugin = plugin;
@@ -104,7 +107,21 @@ public final class BotManager implements Listener, TabExecutor {
             return false;
         }
 
-        ArenaInstance inst = arena != null && arena.allows(kit) ? this.plugin.arenas().acquire(arena, p) : this.plugin.arenas().acquireAny(kit, p);
+        if (kit.id.equals("mole")) {
+            p.sendMessage(Text.mm("<red>There is no bot for Mole PvP yet (bots can't dig). <gray>Try <white>/learn mole</white> for the lessons."));
+            return false;
+        }
+
+        if (!Cfg.bool(Opt.BOTS_ENABLED)) {
+            p.sendMessage(Text.mm("<red>Bot fights are turned off on this server."));
+            return false;
+        }
+
+        ArenaInstance inst = this.flat(p);
+        if (inst == null) {
+            inst = arena != null && arena.allows(kit) ? this.plugin.arenas().acquire(arena, p) : this.plugin.arenas().acquireAny(kit, p);
+        }
+
         if (inst == null) {
             inst = this.anyFree(p);
         }
@@ -129,7 +146,7 @@ public final class BotManager implements Listener, TabExecutor {
         }
 
         Location start = p1.clone().add(toward.normalize().multiply(12.0));
-        start.setY(start.getWorld().getHighestBlockYAt(start) + 1.0);
+        start.setY(groundY(start, p1.getY()));
         if (!inst.contains(start) || start.getY() - p1.getY() > 12.0 || p1.getY() - start.getY() > 12.0) {
             start = inst.spawn2();
         }
@@ -138,6 +155,7 @@ public final class BotManager implements Listener, TabExecutor {
         PracticeBot bot = new PracticeBot(this.plugin, start, kit, diff, null, diff.label + " Bot");
         bot.target = p;
         bot.attackReady = 60;
+        bot.holdUntil = 60;
         bot.smashReady = 100;
         bot.crystalReady = 80;
         Fight f = new Fight(p, kit, bot, inst, 20 * 60 * 5);
@@ -153,12 +171,24 @@ public final class BotManager implements Listener, TabExecutor {
             return false;
         }
 
+        if (!Cfg.bool(Opt.BOTS_TRAINING)) {
+            p.sendMessage(Text.mm("<red>Training is turned off on this server."));
+            return false;
+        }
+
         Kit kit = this.plugin.kits().get(type.kit);
+        if (kit == null && type.kit.equals("spear_mace")) {
+            kit = this.plugin.kits().get("spearmace");
+        }
+
         if (kit == null) {
             kit = this.plugin.kits().all().stream().filter(k -> k.enabled).findFirst().orElse(null);
         }
 
-        ArenaInstance inst = kit == null ? null : this.plugin.arenas().acquireAny(kit, p);
+        ArenaInstance inst = this.flat(p);
+        if (inst == null) {
+            inst = kit == null ? null : this.plugin.arenas().acquireAny(kit, p);
+        }
         if (inst == null) {
             inst = this.anyFree(p);
         }
@@ -175,21 +205,23 @@ public final class BotManager implements Listener, TabExecutor {
         p.setGameMode(org.bukkit.GameMode.SURVIVAL);
         p.setHealth(p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
         this.plugin.kits().apply(p, kit, this.plugin.profiles().get(p).layouts.get(kit.id), List.of());
-        if (type == DummyType.MACE || type == DummyType.ELYTRA) {
-            p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE, 32));
-            if (type == DummyType.ELYTRA) {
-                p.getInventory().setChestplate(new ItemStack(Material.ELYTRA));
-                p.getInventory().addItem(Items.of(Material.FIREWORK_ROCKET).build().asQuantity(32));
-            }
+        if (type == DummyType.ANCHOR) {
+            p.getInventory().addItem(new ItemStack(Material.RESPAWN_ANCHOR, 32), new ItemStack(Material.GLOWSTONE, 64));
+        } else if (type == DummyType.PEARL) {
+            p.getInventory().addItem(new ItemStack(Material.ENDER_PEARL, 16), new ItemStack(Material.ENDER_PEARL, 16));
+        } else if (type == DummyType.POT) {
+            p.setMaximumNoDamageTicks(10);
         }
 
+        this.trainingItems(p, type);
         Vector dir = spawn.getDirection().setY(0);
         if (dir.lengthSquared() < 1.0E-4) {
             dir = new Vector(1, 0, 0);
         }
 
-        Location at = spawn.clone().add(dir.normalize().multiply(6.0));
-        at.setY(at.getWorld().getHighestBlockYAt(at) + 1.0);
+        // the archery target walks far away; every other dummy stands on the pad 6 blocks in front of you
+        Location at = spawn.clone().add(dir.normalize().multiply(type == DummyType.BOW ? 22.0 : 6.0));
+        at.setY(groundY(at, spawn.getY()));
         PracticeBot bot = new PracticeBot(this.plugin, at, kit, Difficulty.MEDIUM, type, "<gold>" + type.display);
         bot.target = p;
         Fight f = new Fight(p, kit, bot, inst, 20 * 60 * 10);
@@ -202,6 +234,127 @@ public final class BotManager implements Listener, TabExecutor {
         p.sendMessage(Text.mm(" "));
         Snd.play(p, "block.note_block.chime", 0.8F, 1.2F);
         return true;
+    }
+
+    /**
+     * The floor under a spot near the height {@code near}: the first solid block found going down from a little
+     * above it. Barriers don't count (the maps have an invisible roof, which is the "highest block").
+     */
+    public static double groundY(Location at, double near) {
+        org.bukkit.World w = at.getWorld();
+        int x = at.getBlockX();
+        int z = at.getBlockZ();
+        int top = (int)Math.floor(near) + 6;
+        for (int y = top; y > Math.max(w.getMinHeight(), (int)near - 30); y--) {
+            org.bukkit.block.Block b = w.getBlockAt(x, y, z);
+            Material m = b.getType();
+            if (m.isSolid() && m != Material.BARRIER && w.getBlockAt(x, y + 1, z).isPassable() && w.getBlockAt(x, y + 2, z).isPassable()) {
+                return y + 1.0;
+            }
+        }
+
+        return near;
+    }
+
+    /** A copy of the flat Training Grounds map (bots.flat-maps), or null to use the kit's maps. */
+    private ArenaInstance flat(Player p) {
+        if (!Cfg.bool(Opt.BOTS_FLAT_MAPS)) {
+            return null;
+        }
+
+        for (Arena a : this.plugin.arenas().all()) {
+            if (a.theme == net.vortexpvp.arena.ArenaTheme.TRAINING_GROUNDS && a.ready() && a.freeInstances() > 0L) {
+                ArenaInstance i = this.plugin.arenas().acquire(a, p);
+                if (i != null) {
+                    return i;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** What each training needs on top of its kit. */
+    private void trainingItems(Player p, DummyType type) {
+        org.bukkit.inventory.PlayerInventory inv = p.getInventory();
+        switch (type) {
+            case ANCHOR -> inv.addItem(new ItemStack(Material.RESPAWN_ANCHOR, 32), new ItemStack(Material.GLOWSTONE, 64));
+            case PEARL -> inv.addItem(new ItemStack(Material.ENDER_PEARL, 16), new ItemStack(Material.ENDER_PEARL, 16));
+            case POT -> p.setMaximumNoDamageTicks(10);
+            case DTAP -> {
+                // the d-tap sword knocks back (Knockback I), like the practice servers' d-tap kits
+                for (ItemStack it : inv.getContents()) {
+                    if (!Items.isEmpty(it) && it.getType().name().endsWith("_SWORD")) {
+                        it.editMeta(m -> m.addEnchant(org.bukkit.enchantments.Enchantment.KNOCKBACK, 1, true));
+                    }
+                }
+
+                inv.addItem(new ItemStack(Material.OBSIDIAN, 64), new ItemStack(Material.END_CRYSTAL, 64));
+            }
+            case BOW -> inv.addItem(new ItemStack(Material.ARROW, 64));
+            default -> {
+            }
+        }
+
+        if (type == DummyType.MACE || type == DummyType.ELYTRA || type == DummyType.STUNSLAM || type == DummyType.AIR_SLAM || type == DummyType.ELYTRA_SHIELD
+            || type == DummyType.SPEAR_SLAM || type == DummyType.SPEAR_MACE) {
+            inv.addItem(new ItemStack(Material.WIND_CHARGE, 64));
+        }
+
+        if (type == DummyType.ELYTRA || type == DummyType.ELYTRA_SHIELD) {
+            inv.setChestplate(new ItemStack(Material.ELYTRA));
+            inv.addItem(Items.of(Material.FIREWORK_ROCKET).build().asQuantity(32));
+        }
+
+        if (type == DummyType.STUNSLAM || type == DummyType.AIR_SLAM || type == DummyType.ELYTRA_SHIELD) {
+            // the axe has to be in the hotbar to break the shield (the mace kit keeps it in the inventory)
+            this.toHotbar(inv, "_AXE", Material.NETHERITE_AXE);
+            this.toHotbar(inv, "MACE", Material.MACE);
+        }
+
+        if (type == DummyType.SPEAR_SLAM || type == DummyType.SPEAR_MACE || type == DummyType.SPEAR_LUNGE) {
+            this.toHotbar(inv, "_SPEAR", Material.NETHERITE_SPEAR);
+        }
+
+        if (type == DummyType.SPEAR_SLAM || type == DummyType.SPEAR_MACE) {
+            this.toHotbar(inv, "MACE", Material.MACE);
+        }
+
+        p.updateInventory();
+    }
+
+    /** Puts the first item whose type ends with {@code suffix} into the hotbar (or gives a new one). */
+    private void toHotbar(org.bukkit.inventory.PlayerInventory inv, String suffix, Material fallback) {
+        int at = -1;
+        for (int i = 0; i < 36; i++) {
+            ItemStack it = inv.getItem(i);
+            if (!Items.isEmpty(it) && it.getType().name().endsWith(suffix)) {
+                at = i;
+                break;
+            }
+        }
+
+        if (at >= 0 && at < 9) {
+            return;
+        }
+
+        int free = -1;
+        for (int i = 8; i >= 0; i--) {
+            if (Items.isEmpty(inv.getItem(i))) {
+                free = i;
+                break;
+            }
+        }
+
+        int slot = free >= 0 ? free : 8;
+        ItemStack moving = at >= 0 ? inv.getItem(at) : new ItemStack(fallback);
+        ItemStack old = inv.getItem(slot);
+        inv.setItem(slot, moving);
+        if (at >= 0) {
+            inv.setItem(at, old);
+        } else if (!Items.isEmpty(old)) {
+            inv.addItem(old);
+        }
     }
 
     /** Every map of the kit is busy: a bot doesn't mind which map, so any free biome or designed map will do. */
@@ -287,9 +440,23 @@ public final class BotManager implements Listener, TabExecutor {
         }
 
         f.over = true;
+        try {
+            if (f.player.isOnline()) {
+                this.arenaUi().record(f.player, f.bot, f.kit, winner != null, why);
+            }
+        } catch (RuntimeException var6) {
+            this.plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not save the bot record", (Throwable)var6);
+        }
+
         this.fights.remove(f.player.getUniqueId());
         this.byBody.remove(f.bot.body.getUniqueId());
         PracticeBot b = f.bot;
+        if (b.dummy == null) {
+            this.plugin.getLogger().info("Bot fight over (" + f.kit.id + ", " + b.diff.name() + ", " + why + "): hits " + b.hitsGiven + ", crystals " + b.usedCrystals + ", d-taps "
+                + b.usedDtaps + ", anchors " + b.usedAnchors + ", wind " + b.usedWind + ", pearls " + b.usedPearls + ", rod " + b.usedRod + ", webs " + b.usedWebs + ", lava "
+                + b.usedLava + ", carts " + b.usedCarts + ", creepers " + b.usedCreepers + ", lunges " + b.usedLunges + ", tridents " + b.usedTridents);
+        }
+
         b.remove();
         this.plugin.arenas().release(f.inst);
         Player p = f.player;
@@ -312,6 +479,26 @@ public final class BotManager implements Listener, TabExecutor {
             } else {
                 p.sendMessage(Text.mm("<gray>Shield breaks <white>" + b.shieldBreaks + "</white> <dark_gray>|</dark_gray> best smash <white>" + String.format("%.1f", b.bestSmash)
                     + "</white> <dark_gray>|</dark_gray> totem pops <white>" + b.pops));
+                String special = switch (b.dummy) {
+                    case DTAP -> "<gray>D-taps <green>" + b.dtaps + "</green> <dark_gray>|</dark_gray> fastest <white>" + (b.bestPopGap < 0 ? "-" : b.bestPopGap + " ms");
+                    case ANCHOR -> "<gray>Anchor damage <white>" + String.format("%.0f", b.anchorDamage);
+                    case STUNSLAM -> "<gray>Stun slams <green>" + b.slams;
+                    case PEARL -> "<gray>Pearls landed <green>" + b.pearlsLanded + "</green>/" + b.pearlsThrown;
+                    case POT -> "<gray>Pots thrown <white>" + b.potsThrown;
+                    case SPEAR -> "<gray>Best spear hit <white>" + String.format("%.1f", b.bestSpear);
+                    case AIR_SLAM, ELYTRA_SHIELD, SPEAR_SLAM -> "<gray>Stun slams <green>" + b.slams + "</green> <dark_gray>|</dark_gray> shield breaks <white>" + b.shieldBreaks;
+                    case SPEAR_MACE -> "<gray>Spear → mace combos <green>" + b.spearMaces;
+                    case SPEAR_LUNGE -> "<gray>Lunges <green>" + b.lunges + "</green> <dark_gray>|</dark_gray> longest <white>" + String.format("%.1f", b.bestLunge) + " blocks";
+                    case WTAP -> "<gray>Best w-tap streak <green>" + b.bestWtap;
+                    case CRIT -> "<gray>Crits <green>" + b.crits + "</green> <dark_gray>|</dark_gray> best <white>" + String.format("%.1f", b.bestCrit);
+                    case BOW -> "<gray>Arrow hits <green>" + b.arrowHits + "</green> <dark_gray>|</dark_gray> longest <white>" + String.format("%.0f", b.bestShot) + " blocks";
+                    default -> null;
+                };
+                if (special != null) {
+                    p.sendMessage(Text.mm(special));
+                }
+
+                p.setMaximumNoDamageTicks(20);
                 p.sendMessage(Text.mm("<click:run_command:'/train " + b.dummy.name().toLowerCase(Locale.ROOT) + "'><green><b>[Again]</b></green></click>  <click:run_command:'/train'><aqua>[Other dummy]</aqua></click>"));
             }
 
@@ -387,7 +574,15 @@ public final class BotManager implements Listener, TabExecutor {
             return;
         }
 
-        if (b.dummy != null && b.body.getHealth() - e.getFinalDamage() <= 0.0 && b.dummy != DummyType.CRYSTAL) {
+        if (b.dummy == DummyType.ANCHOR && e.getCause() == EntityDamageEvent.DamageCause.BLOCK_EXPLOSION) {
+            b.anchorDamage += e.getFinalDamage();
+            b.hitsTaken++;
+            b.damageTaken += e.getFinalDamage();
+        }
+
+        boolean totem = b.body.getEquipment().getItemInOffHand().getType() == Material.TOTEM_OF_UNDYING
+            || b.body.getEquipment().getItemInMainHand().getType() == Material.TOTEM_OF_UNDYING;
+        if (b.dummy != null && b.body.getHealth() - e.getFinalDamage() <= 0.0 && (!b.dummy.crystalLike() || !totem)) {
             // dummies don't die: full health again
             e.setDamage(0.0);
             Tasks.later(1L, () -> {
@@ -398,7 +593,8 @@ public final class BotManager implements Listener, TabExecutor {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    // counted even when another plugin cancels the hit: a training stat must not depend on that
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onHitBot(EntityDamageByEntityEvent e) {
         PracticeBot b = this.botOf(e.getEntity());
         if (b != null) {
@@ -410,7 +606,8 @@ public final class BotManager implements Listener, TabExecutor {
 
             if (p != null) {
                 ItemStack hand = p.getInventory().getItemInMainHand();
-                b.hitBy(p, e.getFinalDamage(), hand.getType().name().endsWith("_AXE"));
+                boolean arrow = e.getDamager() instanceof org.bukkit.entity.AbstractArrow;
+                b.hitBy(p, e.getFinalDamage(), !arrow && hand.getType().name().endsWith("_AXE"), arrow);
             }
         }
     }
@@ -430,6 +627,34 @@ public final class BotManager implements Listener, TabExecutor {
         PracticeBot b = this.botOf(e.getEntity());
         if (b != null) {
             b.reTotem();
+        } else if (e.getEntity() instanceof Player p) {
+            // the player's totem popped: the bot may go for the d-tap
+            Fight f = this.fights.get(p.getUniqueId());
+            if (f != null) {
+                f.bot.onTargetPop();
+            }
+        }
+    }
+
+    @EventHandler
+    public void onPearlLand(org.bukkit.event.entity.ProjectileHitEvent e) {
+        if (e.getEntity() instanceof org.bukkit.entity.EnderPearl pearl && pearl.getShooter() instanceof Player p) {
+            Fight f = this.fights.get(p.getUniqueId());
+            if (f != null && f.bot.dummy == DummyType.PEARL && f.bot.valid()) {
+                double dist = pearl.getLocation().distance(f.bot.body.getLocation());
+                f.bot.pearlLanded(dist);
+                p.sendActionBar(Text.mm(dist <= 3.0 ? "<green>✔ " + String.format("%.1f", dist) + " blocks from the target" : "<red>✖ " + String.format("%.1f", dist) + " blocks away"));
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPotion(org.bukkit.event.entity.PotionSplashEvent e) {
+        if (e.getEntity().getShooter() instanceof Player p) {
+            Fight f = this.fights.get(p.getUniqueId());
+            if (f != null && f.bot.dummy != null) {
+                f.bot.potsThrown++;
+            }
         }
     }
 
@@ -474,139 +699,127 @@ public final class BotManager implements Listener, TabExecutor {
         return this.plugin.dialogs().lobby();
     }
 
-    /** Kit tiles (optionally filtered by a search), each opening the difficulty choice. */
+    /** The Bot Arena screen on the Fight tab (optionally filtered by a search; {@code arena} = a Bot Hall map). */
     public void kitMenu(Player p, String search, Arena arena) {
-        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
-        String q = search == null ? "" : search.toLowerCase(Locale.ROOT).trim();
+        this.arenaUi().fightTab(p, search, arena);
+    }
 
-        for (Kit k : this.plugin.kits().sorted()) {
-            if (k.enabled && k.hasContents() && (arena == null || arena.allows(k))
-                && (q.isEmpty() || k.displayName.toLowerCase(Locale.ROOT).contains(q) || k.id.contains(q))) {
-                tiles.add(
-                    new LobbyDialogs.Tile(
-                        k.iconStack(),
-                        Text.mm(k.color + "<b>" + Text.esc(k.displayName)),
-                        Text.mm("<gray>" + this.skillsOf(k)),
-                        List.of(Text.mm(k.color + "<b>" + Text.esc(k.displayName)), Text.mm("<gray>The bot uses: <white>" + this.skillsOf(k)), Text.mm("<green>▶ Pick a difficulty")),
-                        () -> this.difficultyMenu(p, k, arena)
-                    )
-                );
+    public BotArenaUI arenaUi() {
+        if (this.arenaUi == null) {
+            this.arenaUi = new BotArenaUI(this.plugin, this);
+        }
+
+        return this.arenaUi;
+    }
+
+    /** What the bot does with this kit, read from the same items its AI looks at. */
+    String skillsOf(Kit k) {
+        List<String> s = new ArrayList<>();
+        boolean mace = k.countOf(Material.MACE) > 0;
+        boolean axe = false;
+        boolean spear = false;
+        boolean heal = false;
+        boolean webs = false;
+        boolean blocksOk = k.build;
+        for (ItemStack it : k.contents) {
+            if (!Items.isEmpty(it)) {
+                String n = it.getType().name();
+                axe |= n.endsWith("_AXE");
+                spear |= n.endsWith("_SPEAR");
+                webs |= n.equals("COBWEB");
+                heal |= n.equals("SPLASH_POTION") && it.getItemMeta() instanceof org.bukkit.inventory.meta.PotionMeta pm && pm.getBasePotionType() != null
+                    && pm.getBasePotionType().name().contains("HEALING");
             }
         }
 
-        List<net.kyori.adventure.text.event.ClickEvent> none = List.of();
-        this.ui()
-            .screen(
-                p,
-                LobbyDialogs.title("Practice Bots", arena == null ? "Pick a gamemode" : arena.displayName),
-                tiles,
-                List.of(Text.mm(q.isEmpty() ? "<gray>Fight a bot that plays the kit like a real player." : "<gray>Search: <white>" + Text.esc(q))),
-                Text.mm("<gray>No gamemode matches \"" + Text.esc(q) + "\"."),
-                List.of(
-                    this.ui().btn(p, "<yellow>🔍 Search", "<gray>Find a gamemode by name", () -> this.plugin.dialogs().text(p, Text.mm("<gold><b>Search a gamemode"), "Name", "", 24, s -> this.kitMenu(p, s, arena))),
-                    this.ui().btn(p, "<aqua>🎯 Training Dummies", "<gray>Shield, crystal, combo, mace and elytra", () -> this.dummyMenu(p))
-                ),
-                2,
-                this.ui().close(p)
-            );
-    }
-
-    private String skillsOf(Kit k) {
-        List<String> s = new ArrayList<>();
-        boolean mace = k.countOf(Material.MACE) > 0;
         if (k.countOf(Material.END_CRYSTAL) > 0) {
-            s.add("crystals");
+            s.add("crystals + d-tap");
         }
 
-        if (mace) {
-            s.add("mace smash");
+        if (k.countOf(Material.RESPAWN_ANCHOR) > 0 && k.countOf(Material.GLOWSTONE) > 0) {
+            s.add("anchors");
         }
 
-        if (mace && k.countOf(Material.SHIELD) + k.countOf(Material.DIAMOND_AXE) + k.countOf(Material.NETHERITE_AXE) > 0) {
+        if (mace && k.countOf(Material.WIND_CHARGE) > 0) {
+            s.add("wind smash");
+        }
+
+        if (mace && axe) {
             s.add("stun slam");
+        }
+
+        if (mace && k.countOf(Material.ELYTRA) > 0) {
+            s.add("elytra dive");
+        }
+
+        if (spear) {
+            s.add("spear lunge");
+        }
+
+        if (k.countOf(Material.TRIDENT) > 0) {
+            s.add("trident throws");
+        }
+
+        if (axe && !mace) {
+            s.add("axe shield-break");
         }
 
         if (k.countOf(Material.SHIELD) > 0) {
             s.add("shield");
         }
 
-        if (k.countOf(Material.SPLASH_POTION) > 0) {
+        if (k.countOf(Material.ENDER_PEARL) > 0) {
+            s.add("pearls");
+        }
+
+        if (k.countOf(Material.FISHING_ROD) > 0) {
+            s.add("rod");
+        }
+
+        if (blocksOk && k.countOf(Material.LAVA_BUCKET) > 0) {
+            s.add("lava");
+        }
+
+        if (blocksOk && webs) {
+            s.add("cobwebs");
+        }
+
+        if (blocksOk && k.countOf(Material.TNT_MINECART) > 0) {
+            s.add("TNT carts");
+        }
+
+        if (k.countOf(Material.CREEPER_SPAWN_EGG) > 0) {
+            s.add("creepers");
+        }
+
+        if (heal) {
             s.add("pots");
         }
 
-        if (k.countOf(Material.BOW) > 0) {
+        if (k.countOf(Material.GOLDEN_APPLE) + k.countOf(Material.ENCHANTED_GOLDEN_APPLE) > 0) {
+            s.add("gapples");
+        }
+
+        if (k.countOf(Material.BOW) + k.countOf(Material.CROSSBOW) > 0) {
             s.add("bow");
         }
 
-        s.add("crits, strafing");
+        if (k.countOf(Material.TOTEM_OF_UNDYING) > 0) {
+            s.add("totems");
+        }
+
+        s.add("crits, strafing, w-tap");
         return String.join(", ", s);
     }
 
     public void difficultyMenu(Player p, Kit k, Arena arena) {
-        List<net.vortexpvp.dialog.LobbyDialogs.Tile> tiles = new ArrayList<>();
-
-        for (Difficulty d : Difficulty.values()) {
-            tiles.add(
-                new LobbyDialogs.Tile(
-                    new ItemStack(switch (d) {
-                        case EASY -> Material.LIME_DYE;
-                        case MEDIUM -> Material.YELLOW_DYE;
-                        case HARD -> Material.ORANGE_DYE;
-                        case EXPERT -> Material.RED_DYE;
-                    }),
-                    Text.mm(d.label + " <b>Bot"),
-                    Text.mm("<gray>" + d.about),
-                    List.of(Text.mm(d.label + " <b>Bot"), Text.mm("<gray>" + d.about), Text.mm("<green>▶ Fight")),
-                    () -> {
-                        p.closeDialog();
-                        this.fight(p, k, d, arena);
-                    }
-                )
-            );
-        }
-
-        this.ui()
-            .screen(
-                p,
-                LobbyDialogs.title(Text.plain(k.name()), "Bot difficulty"),
-                tiles,
-                List.of(),
-                null,
-                List.of(this.ui().btn(p, "<gray>« Back", null, () -> this.kitMenu(p, null, arena))),
-                1,
-                this.ui().close(p)
-            );
+        this.arenaUi().difficulty(p, k, arena);
     }
 
+    /** The training tabs, opened on the group of today's featured training. */
     public void dummyMenu(Player p) {
-        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
-
-        for (DummyType t : DummyType.values()) {
-            tiles.add(
-                new LobbyDialogs.Tile(
-                    new ItemStack(t.icon),
-                    Text.mm("<gold><b>" + t.display),
-                    Text.mm("<gray>" + t.what),
-                    List.of(Text.mm("<gold><b>" + t.display), Text.mm("<gray>" + t.what), Text.mm("<yellow>Goal: <white>" + t.goal), Text.mm("<green>▶ Train")),
-                    () -> {
-                        p.closeDialog();
-                        this.train(p, t);
-                    }
-                )
-            );
-        }
-
-        this.ui()
-            .screen(
-                p,
-                LobbyDialogs.title("Training Dummies", "Learn one skill at a time"),
-                tiles,
-                List.of(),
-                null,
-                List.of(this.ui().btn(p, "<gray>« Bots", null, () -> this.kitMenu(p, null, null))),
-                1,
-                this.ui().close(p)
-            );
+        String g = BotArenaUI.featured().group();
+        this.arenaUi().open(p, BotArenaUI.Tab.valueOf(g), null);
     }
 
     /** Practice bots and training dummies are not open yet. */
@@ -624,8 +837,8 @@ public final class BotManager implements Listener, TabExecutor {
             return true;
         }
 
-        if (COMING_SOON) {
-            comingSoon(p);
+        if (COMING_SOON || !Cfg.bool(Opt.BOTS_ENABLED) && !Cfg.bool(Opt.BOTS_TRAINING)) {
+            p.sendMessage(Text.mm("<red>Practice bots and training are turned off on this server."));
             return true;
         }
 

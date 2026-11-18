@@ -222,6 +222,37 @@ public final class Cfg {
             changed = true;
         }
 
+        if (yaml.getInt("config-version", 1) < 14) {
+            // 2.1.0: smaller duel maps like the big practice servers (sword kits play on the new compact maps)
+            if (VALUES.get(Opt.DUEL_ARENA_SIZE) instanceof Number n && n.intValue() == 192) {
+                VALUES.put(Opt.DUEL_ARENA_SIZE, Opt.DUEL_ARENA_SIZE.def);
+                yaml.set(Opt.DUEL_ARENA_SIZE.path, Opt.DUEL_ARENA_SIZE.def);
+            }
+
+            yaml.set("config-version", 14);
+            changed = true;
+        }
+
+        if (yaml.getInt("config-version", 1) < 15) {
+            // 2.3.0: a faster way from "match found" to the fight, smaller vanilla maps, the old duel size again.
+            // Only values still on the old defaults move.
+            Object[][] moved = new Object[][]{
+                {Opt.ELEVATOR_SECONDS, 5}, {Opt.MATCH_FOUND_DELAY, 3}, {Opt.MAP_BAN_SECONDS, 15}, {Opt.VOTE_SECONDS, 8}, {Opt.MAP_BAN_TURN_SECONDS, 15},
+                {Opt.VANILLA_SIZE, 256}, {Opt.DUEL_ARENA_SIZE, 110}, {Opt.DUEL_ARENA_SIZE, 192}
+            };
+
+            for (Object[] f : moved) {
+                Opt<?> opt = (Opt<?>)f[0];
+                if (VALUES.get(opt) instanceof Number n && n.intValue() == (Integer)f[1]) {
+                    VALUES.put(opt, opt.def);
+                    yaml.set(opt.path, opt.def);
+                }
+            }
+
+            yaml.set("config-version", 15);
+            changed = true;
+        }
+
         yaml.options()
             .setHeader(
                 List.of(

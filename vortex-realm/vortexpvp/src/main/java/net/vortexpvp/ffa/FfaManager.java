@@ -707,6 +707,7 @@ public final class FfaManager {
                 a.enabled = true;
                 a.generating = false;
                 this.save();
+                this.resealLater(a);
                 result.complete(a);
             }
         }));
@@ -743,7 +744,9 @@ public final class FfaManager {
             String want = f.theme.isVanilla()
                 ? VanillaTerrain.signature(crystal ? Cfg.i(Opt.CRYSTAL_DEPTH) : Cfg.i(Opt.FFA_DEPTH), crystal)
                 : ArenaGenerator.signature(f.theme, true, crystal);
-            return !want.equals(f.genSignature) || f.size > 0 && f.size < ArenaManager.targetSize(f.theme, true);
+            int target = ArenaManager.targetSize(f.theme, true);
+            boolean fixed = f.theme == net.vortexpvp.arena.ArenaTheme.MOLE_MINES || f.theme.duel != null;
+            return !want.equals(f.genSignature) || f.size > 0 && (fixed ? f.size != target : f.size < target);
         }
     }
 
@@ -784,7 +787,7 @@ public final class FfaManager {
             long seed = sameLayout && a.seed != 0L ? a.seed : ThreadLocalRandom.current().nextLong();
             boolean crystal = this.crystal(a);
             int target = ArenaManager.targetSize(a.theme, true);
-            if (a.size > 0 && a.size < target) {
+            if (a.size > 0 && a.size < target || (a.theme == net.vortexpvp.arena.ArenaTheme.MOLE_MINES || a.theme.duel != null) && target > 0) {
                 a.size = target;
             }
 
@@ -829,12 +832,20 @@ public final class FfaManager {
                         this.plugin.getLogger().log(Level.SEVERE, "Rebuilding FFA arena " + a.id + " failed", err);
                         result.completeExceptionally(err);
                     } else {
+                        this.resealLater(a);
                         result.complete(null);
                     }
                 }));
             return result;
         } else {
             return CompletableFuture.failedFuture(new IllegalStateException(a.id + " is busy"));
+        }
+    }
+
+    /** Walls of a rebuilt / new FFA arena (the rebuild wiped the old ones). */
+    private void resealLater(FfaArena a) {
+        if (this.plugin.arenaSeal() != null) {
+            this.plugin.arenaSeal().reseal(a);
         }
     }
 
@@ -875,6 +886,7 @@ public final class FfaManager {
                 this.plugin.getLogger().log(Level.SEVERE, "Rebuilding FFA arena " + a.id + " failed", err);
                 result.completeExceptionally(err);
             } else {
+                this.resealLater(a);
                 result.complete(null);
             }
         }));

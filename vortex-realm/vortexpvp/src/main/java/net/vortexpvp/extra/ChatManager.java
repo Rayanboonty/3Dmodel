@@ -190,15 +190,12 @@ public final class ChatManager implements Listener, TabExecutor {
         }
 
         Component hearts = Component.empty();
-        if ("LIFESTEAL".equals(zone) && this.plugin.modes() != null) {
-            hearts = Text.mm("<red>❤" + this.plugin.modes().stats(p.getUniqueId()).hearts + "</red> ");
-        }
 
         Component prefix = this.papi(p, "%luckperms_prefix%");
         String nameColor = "#FFFFFF";
         if (this.plugin.serverRanks() != null) {
             Ranks.Rank rank = this.plugin.serverRanks().of(p);
-            nameColor = rank.nameColor;
+            nameColor = net.vortexpvp.social.NameColors.colorOf(p, rank.nameColor);
             if (prefix.equals(Component.empty())) {
                 prefix = rank.prefix();
             }

@@ -143,7 +143,7 @@ public final class ClientGuard implements Listener, TabExecutor {
 
     private boolean fighting(Player p) {
         PlayerState st = this.plugin.sessions().state(p);
-        return st.fighting() || this.plugin.combatTag() != null && this.plugin.combatTag().tagged(p);
+        return st.fighting();
     }
 
     @EventHandler(

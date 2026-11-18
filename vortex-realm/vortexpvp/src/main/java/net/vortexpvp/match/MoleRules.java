@@ -10,12 +10,12 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 /**
- * Mole PvP rules, for every fight whose kit plays on the MOLE pool: a sonar ping every 30 seconds tells each player
+ * Mole PvP rules, for every fight whose kit plays on the MOLE pool: a sonar ping every 20 seconds tells each player
  * roughly where the nearest enemy is (so nobody can hide forever), and after 8 minutes sudden death starts: everyone
  * glows and the sonar pings every 5 seconds.
  */
 public final class MoleRules {
-    private static final int SONAR = 30;
+    private static final int SONAR = 20;
     private static final int SUDDEN = 480;
     private final VortexPvP plugin;
 

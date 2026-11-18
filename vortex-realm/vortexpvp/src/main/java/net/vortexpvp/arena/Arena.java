@@ -84,7 +84,11 @@ public final class Arena {
             return theme.colosseum == ColosseumDesign.Style.GRAND ? "MACE" : "DESIGNED";
         } else if (theme == ArenaTheme.MOLE_MINES) {
             return "MOLE";
-        } else if (theme.open != null || theme.show != null) {
+        } else if (theme == ArenaTheme.TRAINING_GROUNDS) {
+            return "BOT";
+        } else if (theme.duel != null) {
+            return theme.duel.build ? "DUEL_BUILD" : "DUEL";
+        } else if (theme.open != null || theme.show != null || theme.court != null) {
             return "DESIGNED";
         } else {
             return "VANILLA";

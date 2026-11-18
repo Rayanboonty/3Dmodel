@@ -1042,7 +1042,10 @@ public final class ColosseumDesign {
             for (int y = this.floorY + 1; y <= this.floorY + this.wallH; y++) {
                 int h = y - this.floorY;
                 String blk;
-                if (pillar) {
+                if (h == 1 && this.wallH >= 3 && this.style != ColosseumDesign.Style.LOBBY) {
+                    // a base course along the foot of the wall, framing the arched panels with the top band
+                    blk = this.pal.wallBand;
+                } else if (pillar) {
                     blk = this.pal.wallPillar;
                 } else if (h == this.wallH) {
                     blk = this.pal.wallBand;
@@ -1069,12 +1072,38 @@ public final class ColosseumDesign {
 
             if (this.style == ColosseumDesign.Style.FROST && !pillar) {
                 out.set(x, this.floorY + this.wallH + 2, z, "minecraft:snow[layers=2]");
+            } else if (!pillar && this.style != ColosseumDesign.Style.CHERRY && this.style != ColosseumDesign.Style.LOBBY && this.hash(x, 7, z) < 130) {
+                // potted plants and candle clusters along the wall top, picked by theme
+                out.set(x, this.floorY + this.wallH + 2, z, this.wallTopDecor(x, z));
             }
 
             if (this.style == ColosseumDesign.Style.CHERRY && !pillar && this.hash(x, 5, z) < 500) {
                 out.set(x, this.floorY + this.wallH + 2, z, "minecraft:pink_petals[facing=" + outward + ",flower_amount=" + (1 + this.hash(x, 6, z) % 4) + "]");
             }
         }
+    }
+
+    private String wallTopDecor(int x, int z) {
+        int h = this.hash(x, 8, z);
+        String[] pots = switch (this.style) {
+            case DESERT, GLADIATOR -> new String[]{"potted_dead_bush", "potted_cactus", "candle"};
+            case TEMPLE -> new String[]{"potted_fern", "potted_bamboo", "potted_jungle_sapling"};
+            case SPIRES -> new String[]{"potted_wither_rose", "potted_azure_bluet", "candle"};
+            case NETHER -> new String[]{"potted_crimson_fungus", "potted_warped_roots", "candle"};
+            default -> new String[]{"potted_azalea_bush", "potted_flowering_azalea_bush", "candle"};
+        };
+        String pick = pots[Math.floorMod(h, pots.length)];
+        if (pick.equals("candle")) {
+            String color = switch (this.style) {
+                case NETHER -> "red_candle";
+                case SPIRES -> "purple_candle";
+                case DESERT, GLADIATOR -> "orange_candle";
+                default -> "white_candle";
+            };
+            return "minecraft:" + color + "[candles=" + (2 + Math.floorMod(h >> 3, 3)) + ",lit=true]";
+        }
+
+        return b(pick);
     }
 
     private boolean inVip(int rx, int rz) {

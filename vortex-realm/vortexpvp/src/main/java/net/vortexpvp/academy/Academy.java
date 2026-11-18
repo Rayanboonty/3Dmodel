@@ -193,7 +193,7 @@ public final class Academy implements Listener, TabExecutor {
 
         fwd.normalize();
         Location stage = a.clone().add(fwd.clone().multiply(6.0));
-        stage.setY(stage.getWorld().getHighestBlockYAt(stage) + 1.0);
+        stage.setY(net.vortexpvp.bot.BotManager.groundY(stage, a.getY()));
         Academy.Run r = new Academy.Run(p, course, lesson, kit, inst, stage, fwd);
         this.runs.put(p.getUniqueId(), r);
         s.state = PlayerState.BOT;
@@ -214,7 +214,7 @@ public final class Academy implements Listener, TabExecutor {
         World w = r.stage.getWorld();
         Location actorAt = r.stage.clone();
         Location targetAt = r.stage.clone().add(r.fwd.clone().multiply(3.2));
-        targetAt.setY(w.getHighestBlockYAt(targetAt) + 1.0);
+        targetAt.setY(net.vortexpvp.bot.BotManager.groundY(targetAt, r.stage.getY()));
         actorAt.setDirection(r.fwd);
         targetAt.setDirection(r.fwd.clone().multiply(-1));
         r.actor = this.mannequin(w, actorAt, "<aqua>Coach", r.kit, false);
@@ -616,7 +616,7 @@ public final class Academy implements Listener, TabExecutor {
 
         if (r.lesson.goal() != Courses.Goal.BLOCKS) {
             Location at = r.stage.clone().add(r.fwd.clone().multiply(4.0));
-            at.setY(at.getWorld().getHighestBlockYAt(at) + 1.0);
+            at.setY(net.vortexpvp.bot.BotManager.groundY(at, r.stage.getY()));
             r.dummy = this.plugin.bots().spawnDummy(at, r.kit, r.lesson.dummy(), p);
         } else {
             p.getInventory().addItem(new ItemStack(Material.NETHERITE_PICKAXE), new ItemStack(Material.DIAMOND_SHOVEL));

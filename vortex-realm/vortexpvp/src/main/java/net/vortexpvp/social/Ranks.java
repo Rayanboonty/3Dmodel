@@ -433,6 +433,10 @@ public final class Ranks implements TabExecutor, Listener {
         }
 
         this.save();
+        if (this.plugin.netSync() != null) {
+            // on a region server the rank is also given on the primary, so every region has it
+            this.plugin.netSync().forward("rank", u, rank);
+        }
         Player p = Bukkit.getPlayer(u);
         if (p != null) {
             this.apply(p);
