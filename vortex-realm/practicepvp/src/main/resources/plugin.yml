@@ -283,6 +283,13 @@ commands:
     description: Delete a warp.
     permission: vortexsmp.warps.admin
 
+  namecolor:
+    description: Pick the colour of your name in chat.
+    aliases: [color, colour, namecolour]
+  season:
+    description: The current SMP season.
+    aliases: [seasons]
+
 permissions:
   vortexsmp.admin:
     description: Every admin command (/smpadmin, /setspawn, /vortexsmp, warps).

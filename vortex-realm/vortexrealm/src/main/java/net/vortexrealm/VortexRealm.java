@@ -159,6 +159,8 @@ public final class VortexRealm extends JavaPlugin {
     private ChatManager chat;
     private ChatFilter chatFilter;
     private net.vortexrealm.cosmetics.Cosmetics cosmetics;
+    private net.vortexrealm.cosmetics.Companions companions;
+    private net.vortexrealm.cosmetics.Showcases showcases;
     private net.vortexrealm.bot.BotManager bots;
     private net.vortexrealm.academy.Academy academy;
     private net.vortexrealm.bot.BotHall botHall;
@@ -599,6 +601,25 @@ public final class VortexRealm extends JavaPlugin {
                 this.cosmetics.load(online.getUniqueId());
             }
         });
+        this.module("name colours", () -> this.bind("namecolor", new net.vortexrealm.social.NameColors(this)));
+        this.module("SMP seasons", () -> {
+            net.vortexrealm.smp.SmpSeasons seasons = new net.vortexrealm.smp.SmpSeasons(this);
+            pm.registerEvents(seasons, this);
+            this.bind("season", seasons);
+        });
+        this.module("everyone equal in the SMP", () -> {
+            net.vortexrealm.smp.SmpLockdown lock = new net.vortexrealm.smp.SmpLockdown(this);
+            pm.registerEvents(lock, this);
+            Tasks.timer(100L, 100L, lock::sweep);
+        });
+        this.module("pets, shoulder pets and wings", () -> {
+            this.companions = new net.vortexrealm.cosmetics.Companions(this);
+            pm.registerEvents(this.companions, this);
+            this.companions.start();
+            this.showcases = new net.vortexrealm.cosmetics.Showcases(this);
+            pm.registerEvents(this.showcases, this);
+            this.showcases.start();
+        });
         this.module("friends / status / privacy", () -> {
             this.social = new SocialManager(this);
             this.social.load();
@@ -788,6 +809,14 @@ public final class VortexRealm extends JavaPlugin {
     public void onDisable() {
         if (this.updater != null) {
             this.updater.stop();
+        }
+
+        if (this.companions != null) {
+            this.companions.stop();
+        }
+
+        if (this.showcases != null) {
+            this.showcases.stop();
         }
 
         if (this.survival != null) {
@@ -1219,6 +1248,12 @@ public final class VortexRealm extends JavaPlugin {
                 maps.add(new VortexRealm.PackMap("sakuraterrace", ArenaTheme.SAKURA_TERRACE, duelSize, dCopies, false));
                 maps.add(new VortexRealm.PackMap("embersands", ArenaTheme.EMBER_SANDS, duelSize, dCopies, false));
                 maps.add(new VortexRealm.PackMap("frosthold", ArenaTheme.FROSTHOLD, duelSize, dCopies, false));
+                // 3.11.0
+                maps.add(new VortexRealm.PackMap("tropicalbeach", ArenaTheme.TROPICAL_BEACH, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("jungletemple", ArenaTheme.JUNGLE_TEMPLE, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("volcanoforge", ArenaTheme.VOLCANO_FORGE, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("piratecove", ArenaTheme.PIRATE_COVE, duelSize, dCopies, false));
+                maps.add(new VortexRealm.PackMap("pharaohtomb", ArenaTheme.PHARAOH_TOMB, duelSize, dCopies, false));
                 // 1.4.0: the show arenas and every biome that was only made on request before
                 maps.add(new VortexRealm.PackMap("champions", ArenaTheme.CHAMPIONS_COLOSSEUM, duelSize, dCopies, false));
                 maps.add(new VortexRealm.PackMap("cherry", ArenaTheme.CHERRY, vanillaSize, vCopies, false));
@@ -1304,7 +1339,8 @@ public final class VortexRealm extends JavaPlugin {
                     }
 
                     // any other FFA kit (added by the admin) gets a decorated map too
-                    String[] spare = new String[]{"ROYAL_COURTYARD", "SULTAN_PALACE", "TITAN_COLOSSEUM", "HIGHLAND_PLAZA", "GOTHIC_HARBOR", "SAKURA_TERRACE", "EMBER_SANDS", "FROSTHOLD"};
+                    String[] spare = new String[]{"ROYAL_COURTYARD", "SULTAN_PALACE", "TITAN_COLOSSEUM", "HIGHLAND_PLAZA", "GOTHIC_HARBOR", "SAKURA_TERRACE", "EMBER_SANDS", "FROSTHOLD",
+                        "TROPICAL_BEACH", "JUNGLE_TEMPLE", "VOLCANO_FORGE", "PIRATE_COVE", "PHARAOH_TOMB"};
                     List<String[]> extra = new ArrayList<>();
                     int si = 0;
 
@@ -1865,6 +1901,14 @@ public final class VortexRealm extends JavaPlugin {
 
     public net.vortexrealm.bot.BotManager bots() {
         return this.bots;
+    }
+
+    public net.vortexrealm.cosmetics.Companions companions() {
+        return this.companions;
+    }
+
+    public net.vortexrealm.cosmetics.Showcases showcases() {
+        return this.showcases;
     }
 
     public net.vortexrealm.cosmetics.Cosmetics cosmetics() {

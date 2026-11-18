@@ -282,6 +282,13 @@ commands:
   delwarp:
     description: Delete a warp.
     permission: vortexsmp.warps.admin
+
+  namecolor:
+    description: Pick the colour of your name in chat.
+    aliases: [color, colour, namecolour]
+  season:
+    description: The current SMP season.
+    aliases: [seasons]
   vortex:
     description: "Vortex Realm info - /vortex migrate moves PracticePvP data."
     aliases: [vr, vortexrealm]

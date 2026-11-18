@@ -255,6 +255,32 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         this.plugin.vaultSnapshot("manual", (name, err) -> note(sender, err != null ? "<red>Backup failed: " + Text.esc(String.valueOf(err.getMessage())) : "<green>Backed up: <white>" + name + "</white> in plugins/VortexRealm-Vault"));
                         break;
                 }
+                case "showcase": {
+                        // /pvpadmin showcase add <cosmetic> | remove | list : pets and wings on display in the lobby
+                        net.vortexrealm.cosmetics.Showcases sc = this.plugin.showcases();
+                        String sub = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+                        if (sc == null) {
+                            sender.sendMessage(Text.mm("<red>Cosmetics didn't start - see the console."));
+                        } else if (sub.equals("list")) {
+                            List<String> l = sc.list();
+                            sender.sendMessage(Text.mm("<gold><b>Showcases</b> <gray>(" + l.size() + ")"));
+                            for (String line : l) {
+                                sender.sendMessage(Text.mm("<gray>- <white>" + Text.esc(line)));
+                            }
+                        } else if (p == null) {
+                            sender.sendMessage(Text.mm("<red>Stand where it should be (players only)."));
+                        } else if (sub.equals("remove")) {
+                            sender.sendMessage(Text.mm(sc.removeNear(p.getLocation()) ? "<green>Showcase removed." : "<red>No showcase within 5 blocks."));
+                        } else if (sub.equals("add") && args.length > 2) {
+                            String err = sc.add(p.getLocation(), args[2].toLowerCase(Locale.ROOT));
+                            sender.sendMessage(Text.mm(err == null ? "<green>Showcase of <white>" + Text.esc(args[2]) + "</white> placed here (facing you)." : "<red>" + Text.esc(err)));
+                        } else {
+                            sender.sendMessage(Text.mm("<gray>Usage: /pvpadmin showcase add <cosmetic> | remove | list"));
+                            sender.sendMessage(Text.mm("<gray>Cosmetics: <white>" + String.join(", ", net.vortexrealm.cosmetics.CosmeticModels.all().keySet())));
+                        }
+
+                        break;
+                }
                 case "regenerate": {
                         // /pvpadmin regenerate [confirm]: every designed duel + FFA arena from zero, then its walls
                         net.vortexrealm.arena.ArenaSeal seal = this.plugin.arenaSeal();
@@ -1296,6 +1322,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                         "backupall",
                         "walls",
                         "regenerate",
+                        "showcase",
                         "smp",
                         "rebuild",
                         "reload",

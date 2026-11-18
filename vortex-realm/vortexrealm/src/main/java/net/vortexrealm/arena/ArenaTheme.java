@@ -90,6 +90,12 @@ public enum ArenaTheme {
     SAKURA_TERRACE(net.vortexrealm.build.CourtArenaDesign.Style.SAKURA_TERRACE, Material.PINK_PETALS, Biome.CHERRY_GROVE),
     EMBER_SANDS(net.vortexrealm.build.CourtArenaDesign.Style.EMBER_SANDS, Material.RED_NETHER_BRICKS, Biome.DESERT),
     GOTHIC_HARBOR(net.vortexrealm.build.CourtArenaDesign.Style.GOTHIC_HARBOR, Material.PURPLE_STAINED_GLASS, Biome.PLAINS),
+    // 3.11.0
+    TROPICAL_BEACH(net.vortexrealm.build.CourtArenaDesign.Style.TROPICAL_BEACH, Material.SAND, Biome.BEACH),
+    JUNGLE_TEMPLE(net.vortexrealm.build.CourtArenaDesign.Style.JUNGLE_TEMPLE, Material.MOSSY_STONE_BRICKS, Biome.JUNGLE),
+    VOLCANO_FORGE(net.vortexrealm.build.CourtArenaDesign.Style.VOLCANO_FORGE, Material.MAGMA_BLOCK, Biome.BASALT_DELTAS),
+    PIRATE_COVE(net.vortexrealm.build.CourtArenaDesign.Style.PIRATE_COVE, Material.BARREL, Biome.BEACH),
+    PHARAOH_TOMB(net.vortexrealm.build.CourtArenaDesign.Style.PHARAOH_TOMB, Material.CHISELED_SANDSTONE, Biome.DESERT),
     CUSTOM("Custom", Material.STONE, null, 0.0, 0);
 
     public final double sizeScale;

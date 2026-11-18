@@ -15,7 +15,12 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
         PALACE,
         COLOSSEUM,
         PLAZA,
-        GOTHIC
+        GOTHIC,
+        BEACH,
+        TEMPLE,
+        VOLCANO,
+        COVE,
+        TOMB
     }
 
     public enum Style {
@@ -26,7 +31,12 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
         HIGHLAND_PLAZA("Highland Plaza", Layout.PLAZA),
         SAKURA_TERRACE("Sakura Terrace", Layout.PLAZA),
         EMBER_SANDS("Ember Sands", Layout.PLAZA),
-        GOTHIC_HARBOR("Gothic Harbor", Layout.GOTHIC);
+        GOTHIC_HARBOR("Gothic Harbor", Layout.GOTHIC),
+        TROPICAL_BEACH("Tropical Beach", Layout.BEACH),
+        JUNGLE_TEMPLE("Jungle Temple", Layout.TEMPLE),
+        VOLCANO_FORGE("Volcano Forge", Layout.VOLCANO),
+        PIRATE_COVE("Pirate Cove", Layout.COVE),
+        PHARAOH_TOMB("Pharaoh's Tomb", Layout.TOMB);
 
         public final String display;
         public final Layout layout;
@@ -55,7 +65,7 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
         this.depth = depth;
         this.ffa = ffa;
         Layout l = style.layout;
-        this.rect = l == Layout.CASTLE || l == Layout.PALACE || l == Layout.GOTHIC;
+        this.rect = l == Layout.CASTLE || l == Layout.PALACE || l == Layout.GOTHIC || l == Layout.TEMPLE || l == Layout.TOMB;
         this.hx = (int)Math.round(Math.max(28.0, Math.min(72.0, this.R * 0.5)));
         this.hz = (int)Math.round(this.hx * 0.7);
         this.a = Math.max(28.0, Math.min(70.0, this.R * 0.53));
@@ -67,6 +77,11 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
             case COLOSSEUM -> this.colosseum();
             case PLAZA -> this.plaza();
             case GOTHIC -> this.gothic();
+            case BEACH -> this.beach();
+            case TEMPLE -> this.temple();
+            case VOLCANO -> this.volcano();
+            case COVE -> this.cove();
+            case TOMB -> this.tomb();
         }
 
         this.barrierRing();
@@ -159,7 +174,8 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
 
     private String subBlock() {
         return switch (this.style) {
-            case SULTAN_PALACE, TITAN_COLOSSEUM, EMBER_SANDS, GOTHIC_HARBOR -> "sandstone";
+            case SULTAN_PALACE, TITAN_COLOSSEUM, EMBER_SANDS, GOTHIC_HARBOR, TROPICAL_BEACH, PIRATE_COVE, PHARAOH_TOMB -> "sandstone";
+            case VOLCANO_FORGE -> "blackstone";
             default -> "dirt";
         };
     }
@@ -171,6 +187,10 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
             case FROSTHOLD -> n > 0.8 ? "packed_ice" : "snow_block";
             case SULTAN_PALACE, EMBER_SANDS -> n > 0.8 ? "sandstone" : "sand";
             case GOTHIC_HARBOR -> n > 0.7 ? "coarse_dirt" : "grass_block";
+            case TROPICAL_BEACH, PIRATE_COVE -> n > 0.85 ? "sandstone" : "sand";
+            case PHARAOH_TOMB -> n > 0.8 ? "sandstone" : "sand";
+            case VOLCANO_FORGE -> n > 0.7 ? "basalt" : (n < 0.2 ? "smooth_basalt" : "blackstone");
+            case JUNGLE_TEMPLE -> n > 0.75 ? "moss_block" : (n < 0.12 ? "coarse_dirt" : "grass_block");
             case SAKURA_TERRACE -> n > 0.85 ? "pink_petals_ground" : "grass_block";
             default -> n > 0.86 ? "coarse_dirt" : (n < 0.1 ? "podzol" : "grass_block");
         };
@@ -222,6 +242,79 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
                 return n > 0.85 ? "sandstone" : "sand";
             case GOTHIC_HARBOR:
                 return this.harborFloor(x, z);
+            case TROPICAL_BEACH: {
+                double r = Math.sqrt(x * x + z * z);
+                double ang = Math.atan2(z, x);
+                if (r < 2.2) {
+                    return "orange_terracotta";
+                }
+
+                if (r < 4.5) {
+                    return "yellow_terracotta";
+                }
+
+                if (r < 9 && Math.abs(Math.sin(ang * 6)) > 0.88) {
+                    return "orange_terracotta";
+                }
+
+                if (r < 9.6 && r > 8.6) {
+                    return "yellow_terracotta";
+                }
+
+                return n > 0.8 ? "smooth_sandstone" : (hash3(this.seed, x, 0, z) < 0.012 ? "pink_terracotta" : "sand");
+            }
+            case JUNGLE_TEMPLE: {
+                double r = Math.sqrt(x * x + z * z);
+                if (r < 7.5) {
+                    int ring = (int)r;
+                    return ring == 6 || ring == 3 ? "chiseled_stone_bricks" : (ring == 0 ? "gold_block" : (ring % 2 == 0 ? "stone_bricks" : "mossy_stone_bricks"));
+                }
+
+                if (Math.floorMod(x, 8) == 0 && Math.floorMod(z, 8) == 0) {
+                    return "chiseled_stone_bricks";
+                }
+
+                return n > 0.72 ? "moss_block" : (m > 0.7 ? "mossy_stone_bricks" : (n < 0.18 ? "cracked_stone_bricks" : (m < 0.3 ? "mossy_cobblestone" : "stone_bricks")));
+            }
+            case VOLCANO_FORGE: {
+                double c = noise(this.seed + 77L, x * 1.6, z * 1.6);
+                if (Math.abs(c - 0.5) < 0.009 && noise(this.seed + 79L, x * 3.0, z * 3.0) > 0.4) {
+                    return "shroomlight";
+                }
+
+                return n > 0.7 ? "polished_blackstone" : (m > 0.72 ? "basalt" : (n < 0.2 ? "polished_blackstone_bricks" : "blackstone"));
+            }
+            case PIRATE_COVE: {
+                if (Math.abs(z) <= 1 && Math.abs(x) < this.a * 0.85) {
+                    return Math.abs(z) == 1 ? "stripped_spruce_wood[axis=x]" : "oak_planks";
+                }
+
+                return n > 0.8 ? "coarse_dirt" : (m > 0.78 ? "smooth_sandstone" : "sand");
+            }
+            case PHARAOH_TOMB: {
+                double r = Math.sqrt(x * x + z * z);
+                if (r < 2.5) {
+                    return "gold_block";
+                }
+
+                if (r < 3.5) {
+                    return "orange_terracotta";
+                }
+
+                if (r < 6 && Math.abs(Math.sin(Math.atan2(z, x) * 8)) > 0.8) {
+                    return "yellow_terracotta";
+                }
+
+                if (r > 5.9 && r < 6.8) {
+                    return "lapis_block";
+                }
+
+                if (Math.floorMod(x, 6) == 0 || Math.floorMod(z, 6) == 0) {
+                    return Math.floorMod(x, 6) == 0 && Math.floorMod(z, 6) == 0 ? "chiseled_sandstone" : "cut_sandstone";
+                }
+
+                return n > 0.8 ? "sandstone" : "smooth_sandstone";
+            }
             case HIGHLAND_PLAZA:
                 return this.swirlFloor(x, z, "smooth_stone", "stone", "cobblestone", "andesite", "chiseled_stone_bricks");
             case SAKURA_TERRACE:
@@ -322,10 +415,10 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
     /** Pools and other features cut into the floor (shallow, one block of water). */
     private void floorFeatures() {
         switch (this.style) {
-            case ROYAL_COURTYARD -> this.pools(1, 4.5, "water", "clay", "sand", true);
-            case FROSTHOLD -> this.pools(2, 4.0, "ice", "packed_ice", "snow_block", false);
-            case TITAN_COLOSSEUM -> this.pools(3, 4.2, "water", "sand", "sand", false);
-            case GOTHIC_HARBOR -> this.pools(3, 5.0, "water", "prismarine", "dark_prismarine", false);
+            // 3.11.0: no water on the floors any more: patterned patches where the pools were
+            case FROSTHOLD -> this.pools(2, 4.0, "packed_ice", "packed_ice", "snow_block", false);
+            case TITAN_COLOSSEUM -> this.pools(3, 4.2, "smooth_sandstone", "sandstone", "cut_sandstone", false);
+            case GOTHIC_HARBOR -> this.pools(3, 5.0, "dark_prismarine", "prismarine", "prismarine_bricks", false);
             default -> {
             }
         }
@@ -376,7 +469,7 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
                         if (lilies && hash3(ps, x, 1, z) < 0.04) {
                             this.set(x, 1, z, "lily_pad");
                         }
-                    } else if (d < 1.0 && !liquid.equals("ice")) {
+                    } else if (d < 1.0 && !liquid.endsWith("ice")) {
                         this.set(x, 0, z, rim);
                     }
                 }
@@ -1774,6 +1867,14 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
                 rock = new String[]{"calcite", "white_terracotta", "diorite", "calcite", "smooth_sandstone"};
                 top = "sand";
             }
+            case VOLCANO_FORGE -> {
+                rock = new String[]{"basalt[axis=y]", "blackstone", "tuff", "smooth_basalt", "blackstone", "deepslate"};
+                top = "blackstone";
+            }
+            case PIRATE_COVE -> {
+                rock = new String[]{"stone", "andesite", "stone", "cobblestone", "tuff", "andesite"};
+                top = "grass_block";
+            }
             default -> {
                 rock = new String[]{"stone", "andesite", "tuff", "stone", "cobblestone", "andesite"};
                 top = "grass_block";
@@ -2068,7 +2169,7 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
                     }
                 }
 
-                this.set(x, topY + 1, z, dz == 0 ? "water" : "smooth_sandstone_slab[type=bottom]");
+                this.set(x, topY + 1, z, dz == 0 ? "light_blue_stained_glass" : "smooth_sandstone_slab[type=bottom]");
             }
         }
 
@@ -2384,6 +2485,949 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
             this.ringAt(tx, tz, 3.5, 5.2, 32, of("polished_deepslate"));
             this.coneRoof(tx, tz, 5.0, 33, 12, this.copper);
             this.spire(tx, 46, tz, 2, "deepslate_brick_wall", "lightning_rod[facing=up]");
+        }
+    }
+    // ================================================================== shared helpers for the 3.11.0 arenas
+
+    /** A giant jungle tree: 2x2 trunk with buttress roots, a wide layered canopy and hanging vines. */
+    private void jungleGiant(int x, int y, int z, int h) {
+        for (int k = 0; k < h; k++) {
+            for (int dx = 0; dx <= 1; dx++) {
+                for (int dz = 0; dz <= 1; dz++) {
+                    this.set(x + dx, y + k, z + dz, log("jungle_log", 'y'));
+                }
+            }
+        }
+
+        for (int[] r : new int[][]{{-1, 0}, {2, 1}, {0, -1}, {1, 2}}) {
+            for (int k = 0; k < 3; k++) {
+                this.set(x + r[0], y + k - 1, z + r[1], log("jungle_log", 'y'));
+            }
+        }
+
+        this.blob(x, y + h + 1, z, 7.5, leaves("jungle"));
+        this.blob(x + 4, y + h - 3, z - 3, 5.0, leaves("jungle"));
+        this.blob(x - 4, y + h - 4, z + 3, 5.0, leaves("jungle"));
+        this.blob(x + 1, y + h - 6, z + 5, 4.0, leaves("jungle"));
+        for (int i = 0; i < 18; i++) {
+            int vx = x + this.rnd.nextInt(15) - 7;
+            int vz = z + this.rnd.nextInt(15) - 7;
+            for (int vy = y + h + 2; vy > y + h - 10; vy--) {
+                String here = this.get(vx, vy, vz);
+                if (here != null && here.startsWith("jungle_leaves") && this.empty(vx, vy - 1, vz)) {
+                    int len = 3 + this.rnd.nextInt(7);
+                    for (int k = 1; k <= len && this.empty(vx, vy - k, vz); k++) {
+                        String face = this.get(vx + 1, vy - k + 1, vz) != null ? "east" : (this.get(vx - 1, vy - k + 1, vz) != null ? "west" : "north");
+                        this.set(vx, vy - k, vz, "vine[" + face + "=true]");
+                    }
+
+                    break;
+                }
+            }
+        }
+    }
+
+    /** A beach umbrella: a pole and a striped round canopy. */
+    private void umbrella(int x, int y, int z, String color) {
+        for (int k = 0; k < 3; k++) {
+            this.set(x, y + k, z, "bamboo_fence");
+        }
+
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                double d = Math.hypot(dx, dz);
+                if (d <= 2.4) {
+                    boolean stripe = Math.floorMod((int)Math.round(Math.toDegrees(Math.atan2(dz, dx)) / 45.0), 2) == 0;
+                    this.set(x + dx, y + 3, z + dz, d < 1.2 ? color + "_wool" : (stripe ? color + "_carpet" : "white_carpet"));
+                }
+            }
+        }
+
+        this.set(x, y + 4, z, color + "_wool");
+    }
+
+    /** A hut on stilts with bamboo walls, a thatched (hay) roof and a little porch. */
+    private void stiltHut(int x, int y, int z, int w, int d, String facing) {
+        int floor = y + 3;
+        for (int dx = -w; dx <= w; dx++) {
+            for (int dz = -d; dz <= d; dz++) {
+                this.set(x + dx, floor, z + dz, "spruce_planks");
+                if ((Math.abs(dx) == w || Math.abs(dz) == d) && (Math.abs(dx) == w && Math.abs(dz) == d || dx == 0 || dz == 0)) {
+                    for (int k = y; k < floor; k++) {
+                        this.set(x + dx, k, z + dz, log("stripped_jungle_log", 'y'));
+                    }
+                }
+            }
+        }
+
+        for (int dx = -w + 1; dx <= w - 1; dx++) {
+            for (int dz = -d + 1; dz <= d - 1; dz++) {
+                if (Math.abs(dx) == w - 1 || Math.abs(dz) == d - 1) {
+                    for (int k = 1; k <= 3; k++) {
+                        boolean corner = Math.abs(dx) == w - 1 && Math.abs(dz) == d - 1;
+                        this.set(x + dx, floor + k, z + dz, corner ? log("stripped_jungle_log", 'y') : (k == 2 && (dx == 0 || dz == 0) ? "air" : "bamboo_mosaic"));
+                    }
+                }
+            }
+        }
+
+        this.pyramidRoof(x - w, z - d, x + w, z + d, floor + 4, null, this.mixOf(711L, "hay_block", "bamboo_block", 0.15));
+        int[] f = switch (facing) {
+            case "north" -> new int[]{0, -1};
+            case "south" -> new int[]{0, 1};
+            case "east" -> new int[]{1, 0};
+            default -> new int[]{-1, 0};
+        };
+        for (int k = 1; k <= 3; k++) {
+            this.set(x + f[0] * (w + k), floor - k + 1, z + f[1] * (d + k), stairs("spruce", opposite(facing), false));
+        }
+
+        this.set(x + f[0] * (w - 1), floor + 2, z + f[1] * (d - 1), "air");
+        this.set(x + f[0] * (w - 1), floor + 1, z + f[1] * (d - 1), "air");
+        this.set(x + f[0] * w, floor + 4, z + f[1] * d, "lantern[hanging=true]");
+    }
+
+    /** A red and white striped lighthouse on a rock, with a glowing lantern room and a gallery. */
+    private void lighthouse(int x, int y, int z) {
+        this.ellipsoid(x, y - 1, z, 7, 4, 7, this.mixOf(721L, "stone", "andesite", 0.3, "mossy_cobblestone", 0.2));
+        int top = y + 26;
+        for (int k = y; k <= top; k++) {
+            double r = 3.6 - (k - y) * 0.035;
+            String band = ((k - y) / 4) % 2 == 0 ? "red_concrete" : "white_concrete";
+            this.ringAt(x, z, 0, r, k, of(band));
+        }
+
+        for (int k = y + 4; k < top - 2; k += 6) {
+            this.set(x - 3, k, z, "glass");
+            this.set(x - 3, k + 1, z, "glass");
+        }
+
+        this.ringAt(x, z, 0, 4.2, top + 1, of("polished_andesite"));
+        this.ringAt(x, z, 3.6, 4.2, top + 2, of("iron_bars"));
+        this.ringAt(x, z, 0, 2.2, top + 2, of("sea_lantern"));
+        this.ringAt(x, z, 2.0, 2.6, top + 3, of("light_blue_stained_glass"));
+        this.ringAt(x, z, 0, 1.6, top + 3, of("sea_lantern"));
+        this.ringAt(x, z, 2.0, 2.6, top + 4, of("light_blue_stained_glass"));
+        this.coneRoof(x, z, 3.0, top + 5, 4, of("red_concrete"));
+        this.set(x, top + 10, z, "lightning_rod[facing=up]");
+    }
+
+    private void obelisk(int x, int y, int z, int h) {
+        for (int k = 0; k < h; k++) {
+            int half = k < 2 ? 2 : 1;
+            for (int dx = -half; dx <= half; dx++) {
+                for (int dz = -half; dz <= half; dz++) {
+                    if (k >= 2 && (Math.abs(dx) == 1 && Math.abs(dz) == 1) && k > h / 2) {
+                        continue;
+                    }
+
+                    this.set(x + dx, y + k, z + dz, k < 2 ? "smooth_sandstone" : (k % 5 == 3 ? "chiseled_sandstone" : "cut_sandstone"));
+                }
+            }
+        }
+
+        this.set(x, y + h, z, "gold_block");
+        this.set(x, y + h + 1, z, "lightning_rod[facing=up]");
+    }
+
+    // ================================================================== TROPICAL BEACH
+
+    private void beach() {
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                double d = this.sd(x, z);
+                if (d < 0.0) {
+                    continue;
+                }
+
+                double t = Math.atan2(z / this.b, x / this.a);
+                boolean east = Math.abs(t) < 0.62;
+                boolean west = Math.abs(Math.abs(t) - Math.PI) < 0.62;
+                double s = this.along(x, z);
+                if (d < 1.5) {
+                    double local = s - Math.round(s / 5.0) * 5.0;
+                    if (Math.abs(local) < 0.6) {
+                        for (int y = 1; y <= 3; y++) {
+                            this.set(x, y, z, log("stripped_jungle_log", 'y'));
+                        }
+
+                        this.set(x, 4, z, d < 0.8 ? "lantern[hanging=false]" : "bamboo_block[axis=y]");
+                    } else {
+                        this.set(x, 1, z, "bamboo_mosaic");
+                        this.set(x, 2, z, "bamboo_fence");
+                    }
+                } else if (d >= 8.4 && d < 9.0 && !east && !west) {
+                    this.set(x, 0, z, "white_concrete_powder");
+                } else if (d >= 9.0 && d < 23.0 && !east && !west) {
+                    // the lagoon: clear blue glass over pale sand - it looks like water but it is solid ground
+                    double depth = Math.min(1.0, (d - 9.0) / 6.0);
+                    this.set(x, 0, z, depth > 0.6 ? "light_blue_stained_glass" : "cyan_stained_glass");
+                    this.set(x, -1, z, depth > 0.6 ? "prismarine" : "sand");
+                } else if (d >= 23.0 && d < 24.0 && !east && !west) {
+                    this.set(x, 0, z, "white_concrete_powder");
+                }
+            }
+        }
+
+        // umbrellas and loungers on the beach ring
+        int n = (int)Math.round(Math.PI * (this.a + this.b + 10) / 13.0);
+        String[] colors = {"red", "orange", "yellow", "lime", "light_blue", "pink", "magenta"};
+        for (int k = 0; k < n; k++) {
+            double t = Math.PI * 2 * (k + 0.5) / n;
+            int ux = (int)Math.round(Math.cos(t) * (this.a + 5));
+            int uz = (int)Math.round(Math.sin(t) * (this.b + 5));
+            this.umbrella(ux, 1, uz, colors[k % colors.length]);
+            int lx = (int)Math.round(Math.cos(t + 0.06) * (this.a + 6.5));
+            int lz = (int)Math.round(Math.sin(t + 0.06) * (this.b + 6.5));
+            String face = this.outward(lx, lz);
+            this.set(lx, 1, lz, stairs("birch", face, false));
+            this.set(lx - (face.equals("east") ? 1 : face.equals("west") ? -1 : 0), 1, lz - (face.equals("south") ? 1 : face.equals("north") ? -1 : 0), "birch_slab[type=bottom]");
+        }
+
+        // huts on stilts over the lagoon
+        for (double t : new double[]{1.1, 1.9, -1.1, -1.9}) {
+            int hx2 = (int)Math.round(Math.cos(t) * (this.a + 15));
+            int hz2 = (int)Math.round(Math.sin(t) * (this.b + 15));
+            this.stiltHut(hx2, 0, hz2, 3, 3, hz2 > 0 ? "north" : "south");
+            // a boardwalk back to the beach
+            for (int k = 0; k <= 7; k++) {
+                int bx = (int)Math.round(Math.cos(t) * (this.a + 8 + k));
+                int bz = (int)Math.round(Math.sin(t) * (this.b + 8 + k));
+                this.set(bx, 1, bz, "spruce_slab[type=bottom]");
+                this.set(bx + 1, 1, bz, "spruce_slab[type=bottom]");
+            }
+        }
+
+        // the lighthouse on the rocks at the east end, the tiki bar at the west end
+        this.lighthouse((int)Math.round(this.a + 17), 1, 0);
+        this.tikiBar(-(int)Math.round(this.a + 11), 0);
+        // sand islands and palms beyond the lagoon
+        this.grove(3.5, 0.45, 2);
+        this.grove(24.0, 0.7, 2);
+    }
+
+    /** A tiki bar: a round counter, bamboo posts and a big thatched roof, with lanterns and a sign. */
+    private void tikiBar(int x, int z) {
+        for (int dx = -5; dx <= 5; dx++) {
+            for (int dz = -5; dz <= 5; dz++) {
+                double d = Math.hypot(dx, dz);
+                if (d <= 5.2) {
+                    this.set(x + dx, 0, z + dz, "bamboo_planks");
+                }
+
+                if (d > 3.4 && d < 4.4 && !(dx > 2 && Math.abs(dz) <= 1)) {
+                    this.set(x + dx, 1, z + dz, "bamboo_block[axis=y]");
+                    this.set(x + dx, 2, z + dz, "bamboo_slab[type=bottom]");
+                }
+            }
+        }
+
+        for (int[] c : new int[][]{{-4, -4}, {-4, 4}, {4, -4}, {4, 4}}) {
+            for (int y = 1; y <= 5; y++) {
+                this.set(x + c[0], y, z + c[1], log("stripped_jungle_log", 'y'));
+            }
+
+            this.set(x + c[0], 6, z + c[1], "lantern[hanging=false]");
+        }
+
+        this.coneRoof(x, z, 7.2, 6, 5, this.mixOf(731L, "hay_block", "bamboo_block", 0.2));
+        this.set(x, 1, z, "barrel[facing=up]");
+        this.set(x, 2, z, "barrel[facing=up]");
+        this.set(x + 1, 2, z + 1, "flower_pot");
+        this.set(x - 1, 2, z - 1, "potted_bamboo");
+    }
+
+    // ================================================================== JUNGLE TEMPLE
+
+    private void temple() {
+        Mat moss = this.mixOf(801L, "mossy_stone_bricks", "stone_bricks", 0.3, "cracked_stone_bricks", 0.12, "mossy_cobblestone", 0.15);
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                double d = this.sd(x, z);
+                if (d < 0.0 || d >= 11.0) {
+                    continue;
+                }
+
+                String out = this.outward(x, z);
+                double s = this.along(x, z);
+                if (d < 1.0) {
+                    this.set(x, 1, z, stairs("mossy_stone_brick", out, false));
+                } else if (d < 4.0) {
+                    this.set(x, 1, z, moss.at(x, 1, z));
+                    this.set(x, 2, z, d < 2.0 ? stairs("mossy_stone_brick", out, false) : moss.at(x, 2, z));
+                    if (d >= 2.0 && Math.floorMod((int)Math.round(s), 6) == 0) {
+                        for (int y = 3; y <= 5; y++) {
+                            this.set(x, y, z, y == 4 ? "chiseled_stone_bricks" : moss.at(x, y, z));
+                        }
+
+                        this.set(x, 6, z, "lantern[hanging=false]");
+                    } else if (d >= 3.0 && hash3(this.seed, x, 3, z) < 0.25) {
+                        this.set(x, 3, z, "moss_carpet");
+                    }
+                } else if (d < 10.0) {
+                    // ruined walls: tall and broken, mossy, with vines down their faces
+                    double r = noise(this.seed + 811L, s * 0.35, d);
+                    int h = (int)Math.round(5 + r * 11);
+                    if (r < 0.22) {
+                        h = 2;
+                    }
+
+                    for (int y = 1; y <= h; y++) {
+                        this.set(x, y, z, d < 5.0 && y % 4 == 2 && Math.floorMod((int)Math.round(s), 4) == 1 ? "chiseled_stone_bricks" : moss.at(x, y, z));
+                    }
+
+                    if (h > 3 && d < 5.0 && hash3(this.seed + 3, x, h, z) < 0.35) {
+                        int len = 2 + (int)(hash3(this.seed + 4, x, 0, z) * (h - 2));
+                        for (int k = 0; k < len; k++) {
+                            int vx = x;
+                            int vz = z;
+                            switch (out) {
+                                case "east" -> vx = x - 1;
+                                case "west" -> vx = x + 1;
+                                case "south" -> vz = z - 1;
+                                default -> vz = z + 1;
+                            }
+
+                            if (this.empty(vx, h - k, vz) && this.sd(vx, vz) >= 4.0 - 1.5) {
+                                this.set(vx, h - k, vz, "vine[" + out + "=true]");
+                            }
+                        }
+                    }
+
+                    if (hash3(this.seed + 5, x, h, z) < 0.3) {
+                        this.set(x, h + 1, z, hash3(this.seed + 6, x, h, z) < 0.5 ? "moss_carpet" : "fern");
+                    }
+                }
+            }
+        }
+
+        this.stepPyramid((int)Math.round(this.hx + 22.0), 0);
+        this.stoneHead(-(int)Math.round(this.hx + 15.0), 0);
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sz = -1; sz <= 1; sz += 2) {
+                this.jungleGiant(sx * (this.hx + 12), 1, sz * (this.hz + 12), 18);
+            }
+
+            this.jungleGiant(sx * 6, 1, sx * (this.hz + 15), 16);
+        }
+
+        this.hills(11.0, 6, "grass_block", "dirt");
+        this.grove(11.0, 0.9, 6);
+    }
+
+    /** A Mayan step pyramid facing the floor: six terraces, a wide stairway up the front and a temple on top. */
+    private void stepPyramid(int cx, int cz) {
+        Mat moss = this.mixOf(821L, "mossy_stone_bricks", "stone_bricks", 0.35, "mossy_cobblestone", 0.15, "cracked_stone_bricks", 0.08);
+        int half = 15;
+        int y = 1;
+        for (int step = 0; step < 6; step++) {
+            int hlf = half - step * 2;
+            for (int x = cx - hlf; x <= cx + hlf; x++) {
+                for (int z = cz - hlf; z <= cz + hlf; z++) {
+                    for (int k = 0; k < 4; k++) {
+                        boolean edge = Math.abs(x - cx) == hlf || Math.abs(z - cz) == hlf;
+                        this.set(x, y + k, z, edge && k == 3 ? "chiseled_stone_bricks" : moss.at(x, y + k, z));
+                    }
+                }
+            }
+
+            y += 4;
+        }
+
+        // the stairway on the west face
+        for (int k = 0; k < y - 1; k++) {
+            int x = cx - half - 1 + k / 2;
+            for (int z = cz - 3; z <= cz + 3; z++) {
+                this.set(x, k + 1, z, Math.abs(z - cz) == 3 ? moss.at(x, k + 1, z) : stairs("mossy_stone_brick", "east", false));
+                for (int f = 1; f <= k; f++) {
+                    if (this.empty(x, f, z)) {
+                        this.set(x, f, z, moss.at(x, f, z));
+                    }
+                }
+            }
+        }
+
+        // temple on top
+        int ty = y;
+        for (int x = cx - 4; x <= cx + 4; x++) {
+            for (int z = cz - 4; z <= cz + 4; z++) {
+                for (int k = 0; k <= 6; k++) {
+                    boolean wall = Math.abs(x - cx) == 4 || Math.abs(z - cz) == 4;
+                    if (wall || k == 6) {
+                        this.set(x, ty + k, z, k == 5 ? "chiseled_stone_bricks" : moss.at(x, ty + k, z));
+                    }
+                }
+            }
+        }
+
+        for (int k = 0; k < 4; k++) {
+            for (int z = cz - 1; z <= cz + 1; z++) {
+                this.set(cx - 4, ty + k, z, null);
+            }
+        }
+
+        this.set(cx, ty, cz, "gold_block");
+        this.set(cx, ty + 1, cz, "gold_block");
+        this.set(cx, ty + 2, cz, "carved_pumpkin[facing=west]");
+        // roof comb with carvings
+        for (int z = cz - 3; z <= cz + 3; z++) {
+            for (int k = 7; k <= 10; k++) {
+                if (k < 10 || Math.abs(z - cz) <= 1) {
+                    this.set(cx, ty + k, z, (k + z) % 2 == 0 ? "chiseled_stone_bricks" : moss.at(cx, ty + k, z));
+                }
+            }
+        }
+
+        this.set(cx - 5, ty + 2, cz - 2, "lantern[hanging=false]");
+        this.set(cx - 5, ty + 2, cz + 2, "lantern[hanging=false]");
+    }
+
+    /** A huge carved stone head with a helmet, half sunk in the jungle, looking at the floor. */
+    private void stoneHead(int cx, int cz) {
+        Mat st = this.mixOf(831L, "stone", "andesite", 0.3, "mossy_cobblestone", 0.15, "tuff", 0.1);
+        this.ellipsoid(cx, 8, cz, 6.5, 9, 7, st);
+        this.ellipsoid(cx, 15, cz, 7.2, 3.6, 7.6, this.mixOf(833L, "mossy_stone_bricks", "stone_bricks", 0.3));
+        int fx = cx + 6;
+        for (int dz = -4; dz <= 4; dz++) {
+            for (int y = 3; y <= 13; y++) {
+                if (!this.empty(fx, y, cz + dz)) {
+                    continue;
+                }
+
+                if (Math.abs(dz) <= 5 && y <= 12) {
+                    this.set(fx, y, cz + dz, st.at(fx, y, cz + dz));
+                }
+            }
+        }
+
+        for (int side = -1; side <= 1; side += 2) {
+            this.set(fx + 1, 10, cz + side * 2, "black_concrete");
+            this.set(fx + 1, 10, cz + side * 3, "black_concrete");
+            this.set(fx + 1, 11, cz + side * 2, "polished_andesite");
+            this.set(fx + 1, 11, cz + side * 3, "polished_andesite");
+            this.ellipsoid(cx, 9, cz + side * 7.5, 1.8, 2.6, 1.2, st);
+        }
+
+        for (int y = 6; y <= 9; y++) {
+            this.set(fx + 1, y, cz, st.at(fx, y, cz));
+        }
+
+        this.set(fx + 2, 6, cz, st.at(fx, 6, cz));
+        for (int dz = -2; dz <= 2; dz++) {
+            this.set(fx + 1, 4, cz + dz, "polished_andesite");
+            this.set(fx + 1, 3, cz + dz, "andesite");
+        }
+
+        for (int i = 0; i < 25; i++) {
+            int vx = cx + this.rnd.nextInt(13) - 6;
+            int vz = cz + this.rnd.nextInt(15) - 7;
+            for (int vy = 19; vy > 2; vy--) {
+                if (!this.empty(vx, vy, vz) && this.empty(vx, vy + 1, vz)) {
+                    this.set(vx, vy + 1, vz, this.rnd.nextBoolean() ? "moss_carpet" : "fern");
+                    break;
+                }
+            }
+        }
+    }
+
+    // ================================================================== VOLCANO FORGE
+
+    private void volcano() {
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                double d = this.sd(x, z);
+                if (d < 0.0 || d >= 6.0) {
+                    continue;
+                }
+
+                double s = this.along(x, z);
+                double local = s - Math.round(s / 6.0) * 6.0;
+                if (d < 1.6) {
+                    if (Math.abs(local) < 1.0) {
+                        for (int y = 1; y <= 4; y++) {
+                            this.set(x, y, z, "polished_basalt[axis=y]");
+                        }
+
+                        this.set(x, 5, z, "polished_blackstone");
+                        if (Math.abs(local) < 0.5 && d < 0.8) {
+                            this.set(x, 6, z, "soul_lantern[hanging=false]");
+                        }
+                    } else {
+                        for (int y = 1; y <= 3; y++) {
+                            this.set(x, y, z, y == 2 && Math.floorMod((int)Math.round(s), 3) == 0 ? "gilded_blackstone" : "polished_blackstone_bricks");
+                        }
+
+                        this.set(x, 4, z, "polished_blackstone_slab[type=bottom]");
+                    }
+                } else {
+                    for (int y = 1; y <= 2; y++) {
+                        this.set(x, y, z, "blackstone");
+                    }
+
+                    this.set(x, 3, z, Math.abs(local) < 0.6 && d > 4.5 ? "shroomlight" : "polished_blackstone");
+                }
+            }
+        }
+
+        this.terrain(20);
+        this.volcanoCone((int)Math.round(this.a + 24), 0);
+        this.forge(-(int)Math.round(this.a + 13), 0);
+        // basalt columns and glowing lava streaks on the slopes
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                if (this.sd(x, z) < 7.0) {
+                    continue;
+                }
+
+                int h = this.groundTop(x, z);
+                if (h < 4) {
+                    continue;
+                }
+
+                double c = noise(this.seed + 901L, x * 0.9, z * 0.9);
+                if (Math.abs(c - 0.5) < 0.03) {
+                    this.set(x, h, z, hash3(this.seed, x, h, z) < 0.5 ? "shroomlight" : "orange_concrete");
+                } else if (hash3(this.seed + 9, x, 0, z) < 0.006) {
+                    int ph = 3 + (int)(hash3(this.seed + 10, x, 0, z) * 8);
+                    for (int k = 1; k <= ph; k++) {
+                        this.set(x, h + k, z, "basalt[axis=y]");
+                    }
+                }
+            }
+        }
+    }
+
+    /** The volcano: a steep dark cone with a glowing crater lake, lava streams down its sides and smoke on top. */
+    private void volcanoCone(int cx, int cz) {
+        int peak = 62;
+        double base = 30;
+        for (int x = cx - 32; x <= cx + 32; x++) {
+            for (int z = cz - 32; z <= cz + 32; z++) {
+                double r = Math.hypot(x - cx, z - cz) * (0.9 + 0.2 * noise(this.seed + 911L, x * 1.3, z * 1.3));
+                if (r > base) {
+                    continue;
+                }
+
+                int h = (int)Math.round(peak * Math.pow(1.0 - r / base, 1.35));
+                double rr = Math.hypot(x - cx, z - cz);
+                if (rr < 6.5) {
+                    h = peak - 8;
+                }
+
+                for (int y = 1; y <= h; y++) {
+                    if (this.empty(x, y, z) || y > this.groundTop(x, z) - 1) {
+                        double v = noise(this.seed + 913L, x * 1.5 + y, z * 1.5 - y);
+                        this.set(x, y, z, v > 0.7 ? "basalt[axis=y]" : (v < 0.25 ? "tuff" : (v < 0.4 ? "smooth_basalt" : "blackstone")));
+                    }
+                }
+
+                if (rr < 6.5) {
+                    this.set(x, h, z, rr < 5.5 ? (hash3(this.seed, x, h, z) < 0.4 ? "shroomlight" : "orange_concrete") : "magma_block");
+                }
+
+                if (rr >= 6.5 && rr < 8.0 && hash3(this.seed + 11, x, 0, z) < 0.18) {
+                    this.set(x, h + 1, z, "campfire[lit=true]");
+                }
+            }
+        }
+
+        // lava streams down the slopes
+        for (double t : new double[]{Math.PI, Math.PI * 0.72, Math.PI * 1.28, Math.PI * 0.4}) {
+            for (double r = 6.5; r < base - 1; r += 0.5) {
+                double wig = Math.sin(r * 0.4 + t * 3) * 1.6;
+                int x = cx + (int)Math.round(Math.cos(t) * r - Math.sin(t) * wig);
+                int z = cz + (int)Math.round(Math.sin(t) * r + Math.cos(t) * wig);
+                int h = this.groundTop(x, z);
+                if (h > 1) {
+                    this.set(x, h, z, hash3(this.seed + 13, x, h, z) < 0.45 ? "shroomlight" : "orange_concrete");
+                    this.set(x + 1, h, z, "magma_block");
+                }
+            }
+        }
+    }
+
+    /** The dwarven forge hall: blackstone walls, a glowing arch full of furnaces, anvils and two smoking chimneys. */
+    private void forge(int cx, int cz) {
+        Mat wall = this.mixOf(921L, "polished_blackstone_bricks", "cracked_polished_blackstone_bricks", 0.2, "blackstone", 0.15);
+        Face f = new Face(cx + 7, cz, -1, 0);
+        f.box(-11, 1, 0, 11, 14, 14, wall);
+        for (int u = -11; u <= 11; u++) {
+            f.set(u, 14, -1, stairs("polished_blackstone_brick", f.back(), true));
+            f.set(u, 15, 0, Math.floorMod(u, 2) == 0 ? "polished_blackstone_brick_wall" : "polished_blackstone");
+            if (Math.floorMod(u, 4) == 0) {
+                for (int y = 1; y <= 13; y++) {
+                    f.set(u, y, -1, y % 4 == 2 ? "gilded_blackstone" : "polished_blackstone");
+                }
+            }
+        }
+
+        this.arch(f, 0, 1, 7, 9, false, 4, null, "gilded_blackstone");
+        Face back = f.moved(0, 4);
+        for (int u = -3; u <= 3; u++) {
+            for (int y = 1; y <= 3; y++) {
+                back.set(u, y, 0, y == 2 ? "blast_furnace[facing=" + f.front() + ",lit=true]" : "polished_blackstone_bricks");
+            }
+
+            back.set(u, 4, 0, "shroomlight");
+        }
+
+        f.set(-4, 1, -2, "anvil[facing=north]");
+        f.set(4, 1, -2, "anvil[facing=south]");
+        f.set(-6, 1, -2, "smithing_table");
+        f.set(6, 1, -2, "grindstone[face=floor,facing=north]");
+        for (int u : new int[]{-8, 8}) {
+            this.window(f, u, 6, 1, 4, true, "orange_stained_glass_pane", "shroomlight", "gilded_blackstone", null, 1);
+            for (int y = 15; y <= 24; y++) {
+                for (int dw = 9; dw <= 10; dw++) {
+                    for (int du = u - 1; du <= u; du++) {
+                        f.set(du, y, dw, "nether_bricks");
+                    }
+                }
+            }
+
+            f.set(u, 25, 9, "campfire[lit=true]");
+        }
+
+        int ax = Math.min(f.x(-12, 1), f.x(12, 15));
+        int bx = Math.max(f.x(-12, 1), f.x(12, 15));
+        int az = Math.min(f.z(-12, 1), f.z(12, 15));
+        int bz = Math.max(f.z(-12, 1), f.z(12, 15));
+        this.gableRoof(ax, az, bx, bz, 15, f.rx == 0, "nether_brick", of("nether_bricks"), wall);
+    }
+
+    // ================================================================== PIRATE COVE
+
+    private void cove() {
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                double d = this.sd(x, z);
+                if (d < 0.0 || d >= 1.6) {
+                    continue;
+                }
+
+                double s = this.along(x, z);
+                int h = 3 + (int)Math.floorMod((int)Math.round(s * 1.7), 2);
+                for (int y = 1; y <= h; y++) {
+                    this.set(x, y, z, log("spruce_log", 'y'));
+                }
+
+                this.set(x, h + 1, z, "spruce_fence");
+                if (Math.floorMod((int)Math.round(s), 9) == 0 && d < 0.8) {
+                    this.set(x, h + 2, z, "lantern[hanging=false]");
+                }
+            }
+        }
+
+        // crates and barrels along the outside of the palisade
+        int n = (int)Math.round(Math.PI * (this.a + this.b + 6) / 7.0);
+        for (int k = 0; k < n; k++) {
+            double t = Math.PI * 2 * k / n;
+            if (Math.abs(Math.cos(t)) > 0.85 && Math.cos(t) > 0) {
+                continue;
+            }
+
+            int cx = (int)Math.round(Math.cos(t) * (this.a + 3));
+            int cz = (int)Math.round(Math.sin(t) * (this.b + 3));
+            this.set(cx, 1, cz, k % 3 == 0 ? "barrel[facing=up]" : "spruce_planks");
+            if (k % 2 == 0) {
+                this.set(cx, 2, cz, k % 4 == 0 ? "barrel[facing=up]" : "chest[facing=north]");
+            }
+        }
+
+        this.terrain(34);
+        // the east end opens onto the beach and the sea, where the ship lies
+        int sx = (int)Math.round(this.a + 22);
+        for (int x = (int)Math.round(this.a + 4); x <= this.R; x++) {
+            for (int z = -22; z <= 22; z++) {
+                double open = Math.abs(z) / 22.0;
+                if (open > 1.0 - (x - this.a - 4) * 0.0 && Math.abs(z) > 20 - (x - this.a) * 0.2) {
+                    continue;
+                }
+
+                for (int y = 1; y <= 60; y++) {
+                    String b = this.get(x, y, z);
+                    if (b != null && !b.startsWith("spruce") && !b.startsWith("barrel") && !b.startsWith("chest") && !b.startsWith("lantern")) {
+                        this.set(x, y, z, null);
+                    }
+                }
+
+                this.set(x, 0, z, x > this.a + 12 ? (x > this.a + 15 ? "light_blue_stained_glass" : "cyan_stained_glass") : "sand");
+                this.set(x, -1, z, x > this.a + 12 ? "prismarine" : "sand");
+            }
+        }
+
+        this.ship(sx, 0);
+        // a dock from the beach toward the ship
+        for (int x = (int)Math.round(this.a + 6); x <= sx - 10; x++) {
+            for (int z = 11; z <= 13; z++) {
+                this.set(x, 1, z, "spruce_slab[type=top]");
+            }
+
+            if (x % 4 == 0) {
+                this.set(x, 0, 11, log("spruce_log", 'y'));
+                this.set(x, 0, 13, log("spruce_log", 'y'));
+                this.set(x, 2, 11, "spruce_fence");
+                this.set(x, 2, 13, "spruce_fence");
+            }
+        }
+
+        // treasure in a cave mouth on the west side
+        int tx = -(int)Math.round(this.a + 9);
+        for (int x = tx - 4; x <= tx + 3; x++) {
+            for (int z = -4; z <= 4; z++) {
+                for (int y = 1; y <= 6; y++) {
+                    if (Math.hypot((x - tx) * 0.9, z) < 4.6 && y <= 6 - Math.abs(z) / 2) {
+                        this.set(x, y, z, null);
+                    }
+                }
+
+                this.set(x, 0, z, "sand");
+            }
+        }
+
+        for (int[] g : new int[][]{{0, 0}, {-1, 1}, {-1, -1}, {-2, 0}, {0, 2}, {0, -2}}) {
+            this.set(tx + g[0], 1, g[1], "gold_block");
+        }
+
+        this.set(tx - 1, 2, 0, "gold_block");
+        this.set(tx + 1, 1, 2, "chest[facing=east]");
+        this.set(tx + 1, 1, -2, "chest[facing=east]");
+        this.set(tx - 2, 1, 2, "barrel[facing=up]");
+        this.set(tx + 2, 4, 0, "lantern[hanging=true]");
+        this.set(tx - 3, 1, -2, "skeleton_skull[rotation=4]");
+        this.grove(8.0, 0.35, 2);
+    }
+
+    /** A pirate ship, bow toward the floor: a curved hull, two masts with full sails, a crow's nest and a skull flag. */
+    private void ship(int cx, int cz) {
+        int len = 13;
+        for (int dx = -len; dx <= len; dx++) {
+            double t = (double)dx / len;
+            double halfW = 5.6 * Math.sqrt(Math.max(0.0, 1.0 - Math.pow(Math.max(0.0, -t) * 1.0, 2) * 0.95)) * (t > 0.7 ? 1.0 - (t - 0.7) * 0.6 : 1.0);
+            int keel = (int)Math.round(1 + Math.abs(t) * Math.abs(t) * 3);
+            int deck = 7 + (t > 0.55 ? 2 : 0) + (t < -0.8 ? 1 : 0);
+            for (int dz = -6; dz <= 6; dz++) {
+                double ax = Math.abs(dz);
+                if (ax > halfW + 0.3) {
+                    continue;
+                }
+
+                for (int y = keel; y <= deck; y++) {
+                    boolean shell = ax > halfW - 1.0 || y == keel;
+                    if (shell) {
+                        this.set(cx + dx, y, cz + dz, y == deck - 2 ? "stripped_spruce_wood[axis=y]" : (y == deck - 4 && dx % 3 == 0 && ax > halfW - 1 ? "black_concrete" : "dark_oak_planks"));
+                    } else if (y < deck) {
+                        this.set(cx + dx, y, cz + dz, null);
+                    }
+                }
+
+                this.set(cx + dx, deck, cz + dz, "spruce_planks");
+                if (ax > halfW - 1.0) {
+                    this.set(cx + dx, deck + 1, cz + dz, "dark_oak_fence");
+                }
+            }
+        }
+
+        // bowsprit
+        for (int k = 1; k <= 7; k++) {
+            this.set(cx - len - k, 8 + k / 3, cz, log("spruce_log", 'x'));
+        }
+
+        // masts, sails, crow's nest, flag
+        for (int[] m : new int[][]{{-4, 26}, {5, 22}}) {
+            int mx = cx + m[0];
+            for (int y = 8; y <= m[1]; y++) {
+                this.set(mx, y, cz, log("spruce_log", 'y'));
+            }
+
+            for (int row = 0; row < 2; row++) {
+                int y0 = 11 + row * 7;
+                int half = row == 0 ? 6 : 5;
+                for (int z = -half; z <= half; z++) {
+                    this.set(mx, y0 + 6, cz + z, log("spruce_log", 'z'));
+                    for (int y = y0; y <= y0 + 5; y++) {
+                        double bulge = Math.sin((y - y0) / 5.0 * Math.PI) * (1.0 - Math.pow((double)z / (half + 1), 2)) * 1.6;
+                        this.set(mx - 1 - (int)Math.round(bulge), y, cz + z, (row == 0 && y == y0 + 3 && Math.abs(z) <= 1) ? "black_wool" : "white_wool");
+                    }
+                }
+            }
+
+            if (m[0] < 0) {
+                this.ringAt(mx, cz, 0, 1.6, m[1] - 2, of("spruce_slab[type=bottom]"));
+                for (int z = 1; z <= 4; z++) {
+                    for (int y = m[1] - 3; y <= m[1]; y++) {
+                        boolean skull = (y == m[1] - 1 && (z == 2 || z == 3)) || (y == m[1] - 2 && z == 2);
+                        this.set(mx, y, cz + z, skull ? "white_wool" : "black_wool");
+                    }
+                }
+            }
+        }
+
+        // stern cabin
+        int sx = cx + len - 3;
+        for (int dx = 0; dx <= 3; dx++) {
+            for (int dz = -4; dz <= 4; dz++) {
+                for (int y = 10; y <= 12; y++) {
+                    if (dx == 0 || Math.abs(dz) == 4 || y == 12) {
+                        this.set(sx + dx, y, cz + dz, y == 12 ? "dark_oak_slab[type=bottom]" : (y == 11 && dx == 0 && Math.abs(dz) == 2 ? "orange_stained_glass" : "dark_oak_planks"));
+                    }
+                }
+            }
+        }
+
+        this.set(sx - 1, 11, cz, "lantern[hanging=false]");
+    }
+
+    // ================================================================== PHARAOH'S TOMB
+
+    private void tomb() {
+        Mat sand = this.mixOf(1001L, "cut_sandstone", "smooth_sandstone", 0.3, "sandstone", 0.1);
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                double d = this.sd(x, z);
+                if (d < 0.0 || d >= 10.0) {
+                    continue;
+                }
+
+                String out = this.outward(x, z);
+                double s = this.along(x, z);
+                if (d < 1.0) {
+                    this.set(x, 1, z, stairs("smooth_sandstone", out, false));
+                } else if (d < 2.0) {
+                    this.set(x, 1, z, "smooth_sandstone");
+                    this.set(x, 2, z, stairs("smooth_sandstone", out, false));
+                } else if (Math.abs(z) <= 12 && Math.abs(x) > this.hx) {
+                    // the colonnade opens at both ends onto the pylon gate (east) and the sphinx (west)
+                    for (int y = 1; y <= 2; y++) {
+                        this.set(x, y, z, "smooth_sandstone");
+                    }
+                } else {
+                    // the colonnade: a raised floor, painted columns, a hieroglyph wall behind, a roof
+                    for (int y = 1; y <= 2; y++) {
+                        this.set(x, y, z, "smooth_sandstone");
+                    }
+
+                    int col = Math.floorMod((int)Math.round(s), 5);
+                    if (d >= 3.0 && d < 5.0 && col <= 1) {
+                        for (int y = 3; y <= 12; y++) {
+                            this.set(x, y, z, y == 11 ? "blue_terracotta" : (y == 12 ? "orange_terracotta" : (y % 4 == 0 ? "chiseled_sandstone" : "cut_sandstone")));
+                        }
+                    }
+
+                    if (d >= 2.4 && d < 5.6) {
+                        this.set(x, 13, z, d < 3.0 ? stairs("smooth_sandstone", opposite(out), true) : "smooth_sandstone");
+                        this.set(x, 14, z, d < 3.0 ? "blue_terracotta" : "cut_sandstone");
+                        this.set(x, 15, z, "smooth_sandstone_slab[type=bottom]");
+                    }
+
+                    if (d >= 8.0) {
+                        for (int y = 3; y <= 15; y++) {
+                            double g = hash3(this.seed + 7, (int)Math.round(s), y, 0);
+                            String glyph = y >= 5 && y <= 12 && d < 9.0
+                                ? (g < 0.18 ? "chiseled_sandstone" : (g < 0.26 ? "blue_terracotta" : (g < 0.3 ? "orange_terracotta" : (g < 0.33 ? "gold_block" : sand.at(x, y, z)))))
+                                : sand.at(x, y, z);
+                            this.set(x, y, z, glyph);
+                        }
+                    }
+
+                    if (d >= 5.6 && d < 8.0) {
+                        this.set(x, 15, z, "smooth_sandstone_slab[type=bottom]");
+                        this.set(x, 14, z, "cut_sandstone");
+                    }
+                }
+            }
+        }
+
+        this.pylonAndPyramid((int)Math.round(this.hx + 4.0), 0);
+        this.sphinx(-(int)Math.round(this.hx + 16.0), 0);
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sz = -1; sz <= 1; sz += 2) {
+                this.obelisk(sx * (this.hx + 13), 1, sz * (this.hz + 14), 22);
+            }
+        }
+
+        this.hills(12.0, 5, "sand", "sandstone");
+        this.grove(12.0, 0.45, 2);
+    }
+
+    /** A pylon gate (two sloped towers with banners) in front of a great stepped pyramid with a golden top. */
+    private void pylonAndPyramid(int gx, int cz) {
+        Mat sand = this.mixOf(1011L, "cut_sandstone", "smooth_sandstone", 0.35, "sandstone", 0.08);
+        for (int side = -1; side <= 1; side += 2) {
+            for (int y = 1; y <= 22; y++) {
+                int inset = y / 6;
+                for (int x = gx; x <= gx + 7 - inset; x++) {
+                    for (int z = side * 4; Math.abs(z) <= 13 - inset; z += side) {
+                        this.set(x, y, z, sand.at(x, y, z));
+                    }
+                }
+            }
+
+            for (int y = 20; y <= 22; y++) {
+                for (int z = side * 4; Math.abs(z) <= 10; z += side) {
+                    this.set(gx - 1, y, z, y == 21 ? "blue_terracotta" : "orange_terracotta");
+                }
+            }
+
+            Face f = new Face(gx, side * 8, 1, 0);
+            this.cloth(f, 0, 18, 3, 12, "blue_wool", "yellow_wool", "yellow_wool");
+        }
+
+        for (int z = -3; z <= 3; z++) {
+            for (int y = 13; y <= 16; y++) {
+                this.set(gx, y, z, y == 16 ? "gold_block" : sand.at(gx, y, z));
+                this.set(gx + 1, y, z, sand.at(gx, y, z));
+            }
+        }
+
+        // the great pyramid behind: steep (two blocks up for every block in), golden on top
+        int px = gx + 28;
+        int half = 24;
+        for (int k = 0; k < half; k++) {
+            for (int dy = 0; dy < 2; dy++) {
+                int y = 1 + k * 2 + dy;
+                String edge = dy == 1 ? "smooth_sandstone_slab[type=bottom]" : null;
+                for (int x = px - half + k; x <= px + half - k; x++) {
+                    for (int z = cz - half + k; z <= cz + half - k; z++) {
+                        boolean rim = x == px - half + k || x == px + half - k || z == cz - half + k || z == cz + half - k;
+                        String b = k >= half - 3 ? "gold_block" : (hash3(this.seed, x, y, z) < 0.1 ? "sandstone" : "smooth_sandstone");
+                        this.set(x, y, z, rim && edge != null && k < half - 3 ? edge : b);
+                    }
+                }
+            }
+        }
+    }
+
+    /** A sphinx lying on a plinth, looking at the floor: lion body and paws, a striped headdress, a face. */
+    private void sphinx(int cx, int cz) {
+        Mat st = this.mixOf(1021L, "sandstone", "smooth_sandstone", 0.35, "cut_sandstone", 0.15);
+        this.fill(cx - 13, 1, cz - 7, cx + 8, 2, cz + 7, of("cut_sandstone"));
+        this.ellipsoid(cx - 3, 6, cz, 10, 4.5, 5, st);
+        for (int side = -1; side <= 1; side += 2) {
+            this.fill(cx + 4, 3, cz + side * 2 - 1, cx + 12, 4, cz + side * 2 + (side > 0 ? 1 : 1) - 0, st);
+        }
+
+        // head with nemes stripes
+        int hx2 = cx + 6;
+        this.ellipsoid(hx2, 12, cz, 3.4, 4.2, 3.6, st);
+        for (int y = 9; y <= 16; y++) {
+            for (int dz = -5; dz <= 5; dz++) {
+                for (int dx = -3; dx <= 1; dx++) {
+                    double e = Math.pow((dx + 1) / 3.0, 2) + Math.pow(dz / 5.2, 2) + Math.pow((y - 12.5) / 4.6, 2);
+                    if (e <= 1.0 && (Math.abs(dz) >= 3 || y >= 15) && this.empty(hx2 + dx, y, cz + dz) || e <= 1.0 && (Math.abs(dz) >= 3 || y >= 15)) {
+                        this.set(hx2 + dx, y, cz + dz, (y % 2 == 0) ? "blue_terracotta" : "yellow_terracotta");
+                    }
+                }
+            }
+        }
+
+        this.set(hx2 + 4, 13, cz - 1, "black_concrete");
+        this.set(hx2 + 4, 13, cz + 1, "black_concrete");
+        this.set(hx2 + 4, 11, cz, "smooth_sandstone");
+        this.set(hx2 + 5, 11, cz, "smooth_sandstone");
+        this.set(hx2 + 4, 10, cz, "orange_terracotta");
+        for (int y = 7; y <= 9; y++) {
+            this.set(hx2 + 3, y, cz, "blue_terracotta");
         }
     }
 }

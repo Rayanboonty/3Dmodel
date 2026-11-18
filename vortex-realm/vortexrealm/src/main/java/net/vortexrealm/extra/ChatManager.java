@@ -195,7 +195,7 @@ public final class ChatManager implements Listener, TabExecutor {
         String nameColor = "#FFFFFF";
         if (this.plugin.serverRanks() != null) {
             Ranks.Rank rank = this.plugin.serverRanks().of(p);
-            nameColor = rank.nameColor;
+            nameColor = net.vortexrealm.social.NameColors.colorOf(p, rank.nameColor);
             if (prefix.equals(Component.empty())) {
                 prefix = rank.prefix();
             }

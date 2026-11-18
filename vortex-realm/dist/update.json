@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.10.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.10.0.jar",
-    "sha256": "947a919f548c0beac703ef8b59dd1e3954cb31d6bc673362be8794f215bcfc0f",
-    "notes": "8 new detailed arenas (castle, palace, colosseum, plazas, gothic town) replace the old colosseums; invisible walls on every arena incl. FFA and vanilla maps and after every rebuild; /pvpadmin regenerate; SMP nether and end are backed up"
+    "version": "2.11.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.11.0.jar",
+    "sha256": "a38464bcfcf00d7b9dd29fbfa20e63ac1b3f7b8315347b6c26b9032b8ec94728",
+    "notes": "Pets that follow you (they roll!), shoulder pets and animated wings unlocked by playtime; 5 new arenas (beach, jungle temple, volcano, pirate cove, pharaoh tomb); walls to the sky; no water in arenas; everyone equal in SMP; name colours; SMP seasons; new match start"
   },
   "VortexRealm": {
-    "version": "3.10.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.10.0.jar",
-    "sha256": "cabf190334eebca4da434f356ca04e0bd1d9c49847de1e88008bac2ec32be465",
-    "notes": "8 new detailed arenas (castle, palace, colosseum, plazas, gothic town) replace the old colosseums; invisible walls on every arena incl. FFA and vanilla maps and after every rebuild; /pvpadmin regenerate; SMP nether and end are backed up"
+    "version": "3.11.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.11.0.jar",
+    "sha256": "31ec7f1a31eddf9ac3afe81d88e9983dbc2c385d323c82edafe65cb2a9d824e9",
+    "notes": "Pets that follow you (they roll!), shoulder pets and animated wings unlocked by playtime; 5 new arenas (beach, jungle temple, volcano, pirate cove, pharaoh tomb); walls to the sky; no water in arenas; everyone equal in SMP; name colours; SMP seasons; new match start"
   },
   "VortexSMP": {
     "version": "1.6.0",

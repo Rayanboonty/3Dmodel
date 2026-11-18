@@ -1097,3 +1097,66 @@ The arena walls go 20 blocks above each arena instead of to the top of the world
 - They are now linked to the SMP by themselves: same inventory, backups every few minutes.
 - `/pvpadmin smp link <world> [smp world]`, `/pvpadmin smp unlink <world>`, `/pvpadmin smp links`.
 - *Nether & End* button on the SMP page.
+
+
+## 3.11.0 / 2.11.0 — pets & wings, 5 new arenas, walls to the sky, no water, everyone equal in SMP
+
+**Pets, shoulder pets and wings.** Open `/cosmetics` to pick them. Each one unlocks after a set amount of time played on the server.
+
+| Kind | Cosmetics (hours to unlock) |
+|---|---|
+| Pets that follow you | Chonky Dog 1, Chonky Cat 2, Chonky Bunny 4, Chonky Pig 6, Chonky Penguin 10, Chonky Panda 16, Chonky Fox 24 |
+| Shoulder pets | Parrot 0.5, Tiny Cat 3, Tiny Dog 5, Bee 8, Axolotl 12, Tiny Penguin 20 |
+| Wings | Angel 2, Butterfly 6, Bat 12, Frost 20, Dragon 35, Phoenix 50, Void 75, Golden 100 |
+
+How they behave:
+- **Pets** waddle behind you, wag their tails and look at you. The chubby ones roll out when you summon them and roll after you like a ball when you run. While waiting they sometimes roll or hop, with hearts.
+- **Wings** flap, and flap faster when you sprint or jump.
+- **Shoulder pets** bob and look around; the parrot flutters when you jump.
+
+Technical notes:
+- Everything is built from block displays: no resource pack needed, no hitboxes, and other plugins' teleports aren't affected.
+- They show in the lobby, hub and SMP. Settings → Visuals & Effects has *Wings in Fights*, *Pet Smoothness* and *Pet View Distance*.
+- `practice.cosmetics.all` (`vortex.cosmetics.all`) unlocks everything.
+- **Showcases for the lobby:** `/pvpadmin showcase add <cosmetic>` puts one where you stand, with its name and unlock time. `remove` removes the nearest one; `list` lists them all.
+- Pictures: `previews/cosmetics-pets.png`, `previews/cosmetics-wings.png`.
+
+**5 new arenas:**
+
+| Arena | What it looks like |
+|---|---|
+| Tropical Beach | sand floor with a sun mosaic, a bamboo wall, umbrellas and loungers, a lagoon (glass, not water), huts on stilts, a tiki bar, a striped lighthouse, palms |
+| Jungle Temple | a mossy carved court, ruined walls with vines, a step pyramid with a temple on top, a giant stone head, huge jungle trees |
+| Volcano Forge | a blackstone floor with glowing cracks, a 60-block volcano with glowing streams and smoke, a dwarven forge hall, basalt columns |
+| Pirate Cove | a palisade, rocky cliffs, a pirate ship with full sails and a skull flag, a dock, treasure in a cave |
+| Pharaoh's Tomb | a sandstone court with gold and lapis inlays, a painted colonnade, a pylon gate, a steep golden-topped pyramid, a sphinx, obelisks |
+
+**Invisible walls go up to the top of the world**, still built one arena at a time.
+
+**No water in the arenas:**
+- The court arenas have no pools any more.
+- New vanilla maps fill lakes and rivers with ground.
+- On the first start, every existing arena has its water filled once (lily pads and underwater plants removed, waterlogged blocks drained). Its reset copy is saved again, so resets don't bring the water back.
+
+**Everyone equal in the SMP** (Settings → SMP → *Everyone Equal in SMP*, on by default):
+- Inside SMP worlds only player commands work, even for ops and the owner.
+- Survival only, no flying.
+- Rank perks (more homes, teleport bypass, admin rights) are off while there.
+- Rank names still show. Admin work is done from the lobby or the console.
+
+**Name colours:**
+- `/namecolor` (also `/color`) opens a palette of 18 colours; `/namecolor #hex` sets any colour; `/namecolor reset` goes back to the rank colour.
+- Admins set anyone's: `/namecolor <player> <#hex|reset>`.
+
+**SMP seasons:**
+- Players see the current season with `/season`, and a short line when they come into the SMP.
+- Admins write the next one with `/season new <name>`, `theme <text>`, `rule <text>` and `days <n>`, then `/season start` announces it with a title and sound.
+- `/season ideas` lists 10 ready-made seasons; `/season idea <n>` loads one.
+
+**Match start:**
+- Every count shows as "✪ 3 ✪" with a ring of light closing in round the player.
+- "✪ FIGHT! ✪" fires a burst ring with sparks and a sweep.
+
+**5 more leaderboard designs:** Medals, Gradient, Minimal, Trophy Wall, Esports.
+
+**Server plan:** `docs/SERVER-PLAN.md` — the Discord layout, staff ranks and applications, boards, season ideas and the upgrade roadmap.

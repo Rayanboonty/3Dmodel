@@ -48,7 +48,7 @@ public final class Versus {
     /** The name colour of {@code p}'s server rank (white without one). */
     public static int colorOf(Player p) {
         try {
-            return Anim.parseRgb(PracticePlugin.get().serverRanks().of(p).nameColor, 0xFFFFFF);
+            return Anim.parseRgb(net.practicepvp.social.NameColors.colorOf(p, PracticePlugin.get().serverRanks().of(p).nameColor), 0xFFFFFF);
         } catch (RuntimeException var2) {
             return 0xFFFFFF;
         }

@@ -1011,6 +1011,23 @@ public final class VanillaTerrain {
             BlockData netherrack = Material.NETHERRACK.createBlockData();
             BlockData snowBlock = Material.SNOW_BLOCK.createBlockData();
             BlockData dirt = Material.DIRT.createBlockData();
+            // 3.11.0: no water in the arenas - lakes, rivers and ponds are filled to their surface with ground
+            Material dryM = Material.GRASS_BLOCK;
+            for (org.bukkit.block.Biome bio : spec.biomes) {
+                String bn = bio.getKey().getKey();
+                if (bn.contains("desert") || bn.contains("beach")) {
+                    dryM = Material.SAND;
+                } else if (bn.contains("badlands")) {
+                    dryM = Material.RED_SAND;
+                } else if (bn.contains("snowy") || bn.contains("frozen")) {
+                    dryM = Material.SNOW_BLOCK;
+                } else if (bn.contains("mushroom")) {
+                    dryM = Material.MYCELIUM;
+                }
+            }
+
+            BlockData dryTop = dryM.createBlockData();
+            BlockData dryFill = dryM == Material.SAND || dryM == Material.RED_SAND ? dryTop : dirt;
             // cave mouths and ravines: land columns in a narrow trench are raised to just under its rim
             int[] raise = fill ? trenches(a) : new int[s * s];
             BlockData[] raiseTop = new BlockData[s * s];
@@ -1034,6 +1051,7 @@ public final class VanillaTerrain {
                     BlockData rock = null;
                     BlockData above = null;
                     boolean surfaceSeen = false;
+                    boolean waterSeen = false;
                     boolean frozen = false;
                     int iceY = Integer.MIN_VALUE;
                     int raised = raiseTop[i] != null ? raise[i] : Integer.MIN_VALUE;
@@ -1088,6 +1106,13 @@ public final class VanillaTerrain {
                         } else if (fill && ground != Integer.MIN_VALUE && y < ground && (m.isAir() || FLUID[o] || FILLABLE[o])) {
                             // a hollow right under the surface takes the block above it (dirt under grass, sand under sand)
                             d = above != null ? above : (rock != null ? rock : dirt);
+                        } else if (!nether && !end && ground != Integer.MIN_VALUE && y > ground && (m == Material.WATER || m == Material.KELP
+                            || m == Material.KELP_PLANT || m == Material.SEAGRASS || m == Material.TALL_SEAGRASS || m == Material.BUBBLE_COLUMN)) {
+                            // surface water: filled with ground up to where the water was, so no fight happens in water
+                            d = waterSeen ? dryFill : dryTop;
+                            waterSeen = true;
+                        } else if (m == Material.LILY_PAD) {
+                            d = air;
                         } else if (end && (m == Material.FIRE || m == Material.END_GATEWAY || !spec.mainIsland && m == Material.BEDROCK)) {
                             d = air;
                         } else if (d instanceof Leaves) {

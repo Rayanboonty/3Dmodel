@@ -32,7 +32,7 @@ public final class ArenaPreview {
     private int[] rgb;
     private int[] shape;
 
-    private ArenaPreview(Voxels d) {
+    ArenaPreview(Voxels d) {
         this.ox = d.minX();
         this.oz = d.minZ();
         this.oy = d.bottomY();

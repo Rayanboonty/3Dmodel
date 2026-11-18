@@ -159,6 +159,8 @@ public final class PracticePlugin extends JavaPlugin {
     private ChatManager chat;
     private ChatFilter chatFilter;
     private net.practicepvp.cosmetics.Cosmetics cosmetics;
+    private net.practicepvp.cosmetics.Companions companions;
+    private net.practicepvp.cosmetics.Showcases showcases;
     private net.practicepvp.bot.BotManager bots;
     private net.practicepvp.academy.Academy academy;
     private net.practicepvp.bot.BotHall botHall;
@@ -588,6 +590,25 @@ public final class PracticePlugin extends JavaPlugin {
                 this.cosmetics.load(online.getUniqueId());
             }
         });
+        this.module("name colours", () -> this.bind("namecolor", new net.practicepvp.social.NameColors(this)));
+        this.module("SMP seasons", () -> {
+            net.practicepvp.smp.SmpSeasons seasons = new net.practicepvp.smp.SmpSeasons(this);
+            pm.registerEvents(seasons, this);
+            this.bind("season", seasons);
+        });
+        this.module("everyone equal in the SMP", () -> {
+            net.practicepvp.smp.SmpLockdown lock = new net.practicepvp.smp.SmpLockdown(this);
+            pm.registerEvents(lock, this);
+            Tasks.timer(100L, 100L, lock::sweep);
+        });
+        this.module("pets, shoulder pets and wings", () -> {
+            this.companions = new net.practicepvp.cosmetics.Companions(this);
+            pm.registerEvents(this.companions, this);
+            this.companions.start();
+            this.showcases = new net.practicepvp.cosmetics.Showcases(this);
+            pm.registerEvents(this.showcases, this);
+            this.showcases.start();
+        });
         this.module("friends / status / privacy", () -> {
             this.social = new SocialManager(this);
             this.social.load();
@@ -777,6 +798,14 @@ public final class PracticePlugin extends JavaPlugin {
     public void onDisable() {
         if (this.updater != null) {
             this.updater.stop();
+        }
+
+        if (this.companions != null) {
+            this.companions.stop();
+        }
+
+        if (this.showcases != null) {
+            this.showcases.stop();
         }
 
         if (this.survival != null) {
@@ -1208,6 +1237,12 @@ public final class PracticePlugin extends JavaPlugin {
                 maps.add(new PracticePlugin.PackMap("sakuraterrace", ArenaTheme.SAKURA_TERRACE, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("embersands", ArenaTheme.EMBER_SANDS, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("frosthold", ArenaTheme.FROSTHOLD, duelSize, dCopies, false));
+                // 3.11.0
+                maps.add(new PracticePlugin.PackMap("tropicalbeach", ArenaTheme.TROPICAL_BEACH, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("jungletemple", ArenaTheme.JUNGLE_TEMPLE, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("volcanoforge", ArenaTheme.VOLCANO_FORGE, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("piratecove", ArenaTheme.PIRATE_COVE, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pharaohtomb", ArenaTheme.PHARAOH_TOMB, duelSize, dCopies, false));
                 // 1.4.0: the show arenas and every biome that was only made on request before
                 maps.add(new PracticePlugin.PackMap("champions", ArenaTheme.CHAMPIONS_COLOSSEUM, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("cherry", ArenaTheme.CHERRY, vanillaSize, vCopies, false));
@@ -1293,7 +1328,8 @@ public final class PracticePlugin extends JavaPlugin {
                     }
 
                     // any other FFA kit (added by the admin) gets a decorated map too
-                    String[] spare = new String[]{"ROYAL_COURTYARD", "SULTAN_PALACE", "TITAN_COLOSSEUM", "HIGHLAND_PLAZA", "GOTHIC_HARBOR", "SAKURA_TERRACE", "EMBER_SANDS", "FROSTHOLD"};
+                    String[] spare = new String[]{"ROYAL_COURTYARD", "SULTAN_PALACE", "TITAN_COLOSSEUM", "HIGHLAND_PLAZA", "GOTHIC_HARBOR", "SAKURA_TERRACE", "EMBER_SANDS", "FROSTHOLD",
+                        "TROPICAL_BEACH", "JUNGLE_TEMPLE", "VOLCANO_FORGE", "PIRATE_COVE", "PHARAOH_TOMB"};
                     List<String[]> extra = new ArrayList<>();
                     int si = 0;
 
@@ -1854,6 +1890,14 @@ public final class PracticePlugin extends JavaPlugin {
 
     public net.practicepvp.bot.BotManager bots() {
         return this.bots;
+    }
+
+    public net.practicepvp.cosmetics.Companions companions() {
+        return this.companions;
+    }
+
+    public net.practicepvp.cosmetics.Showcases showcases() {
+        return this.showcases;
     }
 
     public net.practicepvp.cosmetics.Cosmetics cosmetics() {

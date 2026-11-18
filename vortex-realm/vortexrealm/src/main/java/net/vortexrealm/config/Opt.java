@@ -1997,6 +1997,28 @@ public final class Opt<T> {
         "Update manifest links (update.json), comma separated, tried in order. The first is the GitHub one; add your own website or file host after it.",
         Material.FILLED_MAP
     );
+    // 3.11.0: everyone equal in the SMP
+    public static final Opt<Boolean> SMP_EQUAL = bool(
+        "smp.everyone-equal", true, Opt.Section.SMP, "Everyone Equal in SMP",
+        "Inside SMP worlds nobody has ranks perks or admin powers - not even ops or the owner: only player commands, survival only, no flying. Rank names still show. Admin work from the lobby or the console.",
+        Material.IRON_SWORD
+    );
+    public static final Opt<Boolean> NAME_COLORS = bool(
+        "chat.name-colors", true, Opt.Section.CHAT, "Name Colours", "Players pick the colour of their name in chat (/namecolor). Admins can set anyone's with /namecolor <player> <#hex>.", Material.ORANGE_DYE
+    );
+    // 3.11.0: pets, shoulder pets and wings
+    public static final Opt<Boolean> COSMETICS_ENABLED = bool(
+        "cosmetics.companions", true, Opt.Section.VISUALS, "Pets & Wings", "Pets that follow players, shoulder pets and wings (chosen in /cosmetics, unlocked by time played).", Material.BONE
+    );
+    public static final Opt<Boolean> COSMETICS_IN_FIGHTS = bool(
+        "cosmetics.in-fights", false, Opt.Section.VISUALS, "Wings in Fights", "Also show wings and shoulder pets in duels and FFA (pets that follow stay in the lobby, hub and SMP).", Material.ELYTRA
+    );
+    public static final Opt<Integer> COSMETIC_UPDATE_TICKS = integer(
+        "cosmetics.update-ticks", 2, Opt.Section.VISUALS, "Pet Smoothness", "Ticks between two pet / wing updates: 1 = smoothest, 2 = smooth and light (default), 4 = lightest.", Material.CLOCK, 1, 5, 1
+    );
+    public static final Opt<Integer> COSMETIC_VIEW_DISTANCE = integer(
+        "cosmetics.view-distance", 40, Opt.Section.VISUALS, "Pet View Distance", "Blocks away at which other players see pets and wings (lower = lighter for clients).", Material.SPYGLASS, 16, 64, 8
+    );
     public static final Opt<Integer> UPDATE_CHECK = integer(
         "updates.check-minutes", 30, Opt.Section.NETWORK, "Update Check", "Minutes between two checks for a new version.", Material.CLOCK, 5, 1440, 5
     );

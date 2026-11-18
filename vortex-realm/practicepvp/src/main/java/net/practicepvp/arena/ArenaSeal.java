@@ -23,8 +23,8 @@ import org.bukkit.block.Block;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
- * Closes every arena with invisible barrier walls: a ring one block outside its bounds, from just under the floor to
- * 20 blocks above its top (no roof, so mace and wind-charge jumps keep working). Only air, plants, liquids and other
+ * Closes every arena with invisible barrier walls: a ring one block outside its bounds, from just under the floor up
+ * to the top of the world (no roof, so mace and wind-charge jumps keep working). Only air, plants, liquids and other
  * replaceable blocks become barriers - terrain and builds are left alone. Every arena is closed: duel copies, FFA arenas
  * and bot arenas, designed maps and vanilla maps alike. Built in small steps, one arena at a time (light on memory).
  *
@@ -128,22 +128,189 @@ public final class ArenaSeal {
      * had lost theirs.
      */
     public void rebuildOnce() {
+        if (!this.done.getBoolean("dry-v1")) {
+            // 3.11.0: the water is taken out of every arena once (then the walls are checked)
+            this.running = true;
+            this.dryAll().whenComplete((n, err) -> net.practicepvp.util.Tasks.ensureSync(() -> {
+                this.running = false;
+                if (err != null) {
+                    this.plugin.getLogger().log(Level.WARNING, "Taking the water out of the arenas failed", err);
+                }
+
+                this.done.set("dry-v1", true);
+                this.save();
+                this.rebuildOnce();
+            }));
+            return;
+        }
+
         if (!Cfg.bool(Opt.ARENA_BARRIER_WALLS)) {
             return;
         }
 
-        if (!this.done.getBoolean("walls-v3")) {
+        if (!this.done.getBoolean("walls-v4")) {
+            // 3.11.0: the walls go up to the top of the world now, so every arena is closed again once
             for (String k : new ArrayList<>(this.done.getKeys(false))) {
-                this.done.set(k, null);
+                if (!k.equals("dry-v1")) {
+                    this.done.set(k, null);
+                }
             }
 
             this.done.set("rebuilt-with-walls", true);
-            this.done.set("walls-v3", true);
+            this.done.set("walls-v4", true);
             this.save();
-            this.plugin.getLogger().info("Checking the invisible walls of every arena once (FFA and vanilla maps too)...");
+            this.plugin.getLogger().info("Building the invisible walls of every arena up to the sky, one arena at a time...");
         }
 
         this.sealAll(false);
+    }
+
+    // ------------------------------------------------------------------ no water in the arenas
+
+    /**
+     * Takes the water out of every arena, one at a time: lakes, rivers and pools are filled with ground up to where the
+     * water was (sand where the bed is sand, else dirt under a grass top), underwater plants and lily pads go, and
+     * waterlogged blocks are drained. The arena's reset snapshot is taken again after, so resets don't bring it back.
+     */
+    public CompletableFuture<Integer> dryAll() {
+        List<Object[]> work = new ArrayList<>();
+        for (Arena a : this.plugin.arenas().all()) {
+            if (a.bounds != null && !a.editing && !a.instances.isEmpty()) {
+                work.add(new Object[]{a});
+            }
+        }
+
+        if (this.plugin.ffa() != null) {
+            for (FfaArena f : this.plugin.ffa().all()) {
+                if (areaOf(f) != null) {
+                    work.add(new Object[]{f});
+                }
+            }
+        }
+
+        this.plugin.getLogger().info("Taking the water out of " + work.size() + " arenas (one at a time, in the background)...");
+        CompletableFuture<Integer> chain = CompletableFuture.completedFuture(0);
+        for (Object[] w : work) {
+            chain = chain.thenCompose(n -> {
+                CompletableFuture<Integer> f = new CompletableFuture<>();
+                net.practicepvp.util.Tasks.later(40L, () -> {
+                    List<Object[]> areas = w[0] instanceof Arena a ? areasOf(a) : java.util.Collections.singletonList(areaOf((FfaArena)w[0]));
+                    int[] changed = new int[1];
+                    CompletableFuture<Void> c = CompletableFuture.completedFuture(null);
+                    for (Object[] ar : areas) {
+                        if (ar != null) {
+                            c = c.thenCompose(v -> this.plugin.jobs().submit(this.dryJob((World)ar[0], (Cuboid)ar[1], changed)));
+                        }
+                    }
+
+                    c.whenComplete((v, err) -> net.practicepvp.util.Tasks.ensureSync(() -> {
+                        if (changed[0] > 0) {
+                            if (w[0] instanceof Arena a) {
+                                this.plugin.arenas().captureSnapshot(a);
+                                this.plugin.getLogger().info("Water taken out of " + a.displayName + " (" + changed[0] + " blocks)");
+                            } else {
+                                FfaArena fa = (FfaArena)w[0];
+                                this.plugin.ffa().captureSnapshot(fa);
+                                this.plugin.getLogger().info("Water taken out of " + fa.displayName + " (" + changed[0] + " blocks)");
+                            }
+                        }
+
+                        f.complete(n + (changed[0] > 0 ? 1 : 0));
+                    }));
+                });
+                return f;
+            });
+        }
+
+        return chain;
+    }
+
+    private static final java.util.Map<Material, Boolean> WATERLOGGABLE = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static boolean canWaterlog(Material m) {
+        return WATERLOGGABLE.computeIfAbsent(m, k -> k.isBlock() && k.createBlockData() instanceof org.bukkit.block.data.Waterlogged);
+    }
+
+    private static boolean wet(Material m) {
+        return m == Material.WATER || m == Material.KELP || m == Material.KELP_PLANT || m == Material.SEAGRASS || m == Material.TALL_SEAGRASS
+            || m == Material.BUBBLE_COLUMN;
+    }
+
+    /** Column by column: every run of water is filled from its bed up to where its surface was. */
+    private BlockJobs.Job dryJob(World w, Cuboid c, int[] changed) {
+        return new BlockJobs.Job() {
+            int x = c.minX();
+            int z = c.minZ();
+
+            @Override
+            public int step(int budget) {
+                int used = 0;
+                while (this.x <= c.maxX() && used < budget) {
+                    int top = Math.min(c.maxY(), w.getHighestBlockYAt(this.x, this.z));
+                    int y = top;
+                    while (y >= c.minY()) {
+                        Block b = w.getBlockAt(this.x, y, this.z);
+                        Material m = b.getType();
+                        used++;
+                        if (m.isAir()) {
+                            y--;
+                            continue;
+                        }
+
+                        if (m == Material.LILY_PAD) {
+                            b.setType(Material.AIR, false);
+                            changed[0]++;
+                        } else if (canWaterlog(m) && b.getBlockData() instanceof org.bukkit.block.data.Waterlogged wl && wl.isWaterlogged()) {
+                            wl.setWaterlogged(false);
+                            b.setBlockData(wl, false);
+                            changed[0]++;
+                        } else if (wet(m)) {
+                            int runTop = y;
+                            int bed = y;
+                            while (bed >= c.minY() && wet(w.getBlockAt(this.x, bed, this.z).getType())) {
+                                bed--;
+                            }
+
+                            Material bm = bed >= c.minY() ? w.getBlockAt(this.x, bed, this.z).getType() : Material.DIRT;
+                            boolean sandy = bm == Material.SAND || bm == Material.GRAVEL || bm == Material.CLAY || bm == Material.RED_SAND || bm == Material.SANDSTONE;
+                            Material topM = sandy ? (bm == Material.RED_SAND ? Material.RED_SAND : Material.SAND) : Material.GRASS_BLOCK;
+                            Material fillM = sandy ? topM : Material.DIRT;
+                            for (int yy = runTop; yy > bed; yy--) {
+                                w.getBlockAt(this.x, yy, this.z).setType(yy == runTop ? topM : fillM, false);
+                                changed[0]++;
+                                used += 2;
+                            }
+
+                            y = bed;
+                            continue;
+                        }
+
+                        y--;
+                    }
+
+                    if (++this.z > c.maxZ()) {
+                        this.z = c.minZ();
+                        this.x++;
+                    }
+
+                    if ((used & 255) == 0 && BlockJobs.overDeadline()) {
+                        break;
+                    }
+                }
+
+                return Math.max(1, used);
+            }
+
+            @Override
+            public boolean done() {
+                return this.x > c.maxX();
+            }
+
+            @Override
+            public String name() {
+                return "dry arena";
+            }
+        };
     }
 
     /**
@@ -330,7 +497,7 @@ public final class ArenaSeal {
         int mz = (z0 + z1) / 2;
         int[][] spots = {{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}, {mx, z0}, {mx, z1}, {x0, mz}, {x1, mz}};
         int bottom = Math.max(w.getMinHeight(), c.minY() - 3);
-        int top = Math.min(w.getMaxHeight() - 1, c.maxY() + 20);
+        int top = w.getMaxHeight() - 1;
         for (int[] s : spots) {
             if (!w.isChunkLoaded(s[0] >> 4, s[1] >> 4)) {
                 continue;
@@ -359,7 +526,7 @@ public final class ArenaSeal {
 
         return chain.thenApply(v -> {
             for (String k : new ArrayList<>(this.done.getKeys(false))) {
-                if (!k.equals("rebuilt-with-walls") && !k.equals("walls-v3")) {
+                if (!k.equals("rebuilt-with-walls") && !k.equals("walls-v4") && !k.equals("dry-v1")) {
                     this.done.set(k, null);
                 }
             }
@@ -395,8 +562,8 @@ public final class ArenaSeal {
         }
 
         int bottom = Math.max(w.getMinHeight(), c.minY() - 3);
-        // 20 blocks above the arena's top: high enough to stop everyone, low enough to keep memory use small
-        int top = Math.min(w.getMaxHeight() - 1, c.maxY() + 20);
+        // 3.11.0: up to the top of the world (still one arena at a time, in small steps)
+        int top = w.getMaxHeight() - 1;
         return new BlockJobs.Job() {
             int col = 0;
             int y = bottom;

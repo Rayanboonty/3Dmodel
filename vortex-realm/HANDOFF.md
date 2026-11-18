@@ -33,6 +33,8 @@ vortex-realm/
     build_paper_api.sh      builds the Paper API from GitHub source into ~/.m2 when repo.papermc.io is blocked
     papi-stub/              compile-only PlaceholderAPI classes used by build_paper_api.sh
     preview/ArenaPreview.java  renders any arena design to PNGs (floor / back / north / air views) without a server
+    preview/CosmeticPreview.java  renders every pet / shoulder pet / wings model (1/16-block voxels) to PNGs
+  docs/SERVER-PLAN.md       Discord layout, staff ranks + applications, boards, season ideas, growth roadmap
     make_update_json.py     writes dist/update.json
     make_vortexpvp.py       practicepvp/ -> vortexpvp/ (test build)
   pom.xml           parent pom (modules practicepvp, vortexrealm, vortexsmp)
@@ -127,6 +129,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 | `tools/vortexrealm-extra/main/java/net/vortexrealm/VortexMigration.java` | VortexRealm only: moves a PracticePvP install over (files, `pp_*`→`vr_*`, perms), `/vortex migrate` |
 | `build/CourtArenaDesign.java` + `build/CourtParts.java` | 3.10.0 court arenas: 8 styles on 5 layouts (CASTLE, PALACE, COLOSSEUM, PLAZA, GOTHIC). CourtParts = building kit (Face with u/w coords, window, arch, cornice, cloth, roofs, onion dome, trees). Theme entries in `ArenaTheme` (field `court`), plan in `ArenaGenerator.courtPlan`, list in `PracticePlugin` pack maps + FFA defs |
 | `arena/ArenaSeal.java` | invisible walls round every arena (vanilla and FFA too since 3.10.0); `reseal()` after every rebuild (hooked in ArenaManager / FfaManager); gap check of loaded arenas every 5 min; `regenerateDesigned()` for `/pvpadmin regenerate` |
+| `cosmetics/CosmeticModels.java`, `CosmeticRig.java`, `Companions.java`, `Showcases.java` | 3.11.0 pets / shoulder pets / wings: models are box lists in pixels (pure data, previewable); a rig = block displays riding an item-display root (one teleport moves it; TeleportFlag RETAIN_PASSENGERS); Companions runs follow / roll / walk / tricks / wing flap every `cosmetics.update-ticks`; unlocks by Statistic.PLAY_ONE_MINUTE; never mounted on players (player teleports would fail) |
+| `smp/SmpLockdown.java`, `smp/SmpSeasons.java`, `social/NameColors.java` | 3.11.0: everyone equal in SMP (command whitelist, survival, perk permissions set false by an attachment), `/season`, `/namecolor` (stored in cosmetics data key "color") |
 | `smp/ModeManager.java` links | 3.10.0: worlds linked to an SMP world (`links:` in worlds.yml), `autoLink()` for the default world_nether / world_the_end, `/pvpadmin smp link/unlink/links` |
 
 ## 6. Admin commands cheat sheet
@@ -156,10 +160,16 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.9.0 / 2.9.0** — Club Spawn lobby (MCPVP.CLUB spawn converted from Bedrock).
 - **3.9.1 / 2.9.1** — automatic backups off, Backup Everything button.
 - **3.9.2 / 2.9.2** — out-of-memory fix: low arena walls built one at a time, vanilla maps skipped, one-time rebuild.
-- **3.10.0 / 2.10.0** (second agent) — 8 new court arenas replace the old colosseums / show arenas; walls on every arena incl. FFA + vanilla, re-sealed after rebuilds, gap self-check; `/pvpadmin regenerate`; SMP nether/end linking so they're backed up. **← current release** (`dist/VortexRealm-3.10.0.jar`, sha256 `cabf1903…2be465`)
+- **3.10.0 / 2.10.0** (second agent) — 8 new court arenas replace the old colosseums / show arenas; walls on every arena incl. FFA + vanilla, re-sealed after rebuilds, gap self-check; `/pvpadmin regenerate`; SMP nether/end linking so they're backed up.
+- **3.11.0 / 2.11.0** — pets (roll), shoulder pets, wings by playtime + lobby showcases; 5 more arenas (beach, jungle temple, volcano, pirate cove, pharaoh tomb); walls to world top; water removed from all arenas (one-time pass + vanilla cutter); everyone equal in SMP; name colours; SMP seasons; star countdown + rings; 5 leaderboard designs. **← current release** (`dist/VortexRealm-3.11.0.jar`, sha256 `31ec7f1a…d824e9`)
 
 ## 8. Open problems / unverified
 
+- **3.11.0 cosmetics were never seen in game** (no server here): the display-entity maths was checked offline and the
+  models rendered, but the passenger offset of block displays riding an item display, the interpolation look and the
+  per-tick cost must be checked on the real server first. Settings → Visuals → Pets & Wings turns them all off.
+- The live server pulls updates from `mroudani-cyber/claud` branch `ccr-7054e872-gpe1kq` /vortex-handoff/update.json
+  (set by the owner as Update Sources) until push access to Rayanboonty/3Dmodel works; keep both manifests updated.
 - **3.10.0 was not run on a server** (no Paper server could be downloaded here). Compiles; every block state of the 8
   arenas was checked against Paper's block list; the designs were rendered and checked with tools/preview. Watch the
   first start: old designed maps are deleted and 8 new maps (+ new FFA maps for sword, uhc, nethpot, pot, combo, axe,

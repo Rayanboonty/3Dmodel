@@ -75,7 +75,13 @@ public final class HologramManager {
         ROYAL("Royal", "Gold trim, purple card, spinning crown", HoloFx.Kind.ROYAL),
         MARQUEE("Marquee", "Scrolling title, striped rows", HoloFx.Kind.NONE),
         ORBIT("Orbit", "Kit items orbit the card", HoloFx.Kind.ORBIT),
-        PODIUM("Podium", "Top 3 stand on gold, silver and bronze pedestals");
+        PODIUM("Podium", "Top 3 stand on gold, silver and bronze pedestals"),
+        // 3.11.0
+        MEDALS("Medals", "Gold, silver and bronze stars for the top 3"),
+        GRADIENT("Gradient", "Title and rows in a colour fade"),
+        MINIMAL("Minimal", "Clean text, no card"),
+        TROPHY("Trophy Wall", "Crowns and stars on a dark gold card"),
+        ESPORTS("Esports", "Big numbers in red and black, like a tournament screen");
 
         public final String display;
         public final String desc;
@@ -214,7 +220,7 @@ public final class HologramManager {
         YamlConfiguration y = new YamlConfiguration();
         y.options().setHeader(List.of(
             "Leaderboard holograms. Edit them in game: stand next to one, /pvpadmin -> Leaderboard Hologram -> Edit Nearest.",
-            "stat: ELO, WINS, WINRATE, STREAK, FFA_KILLS, FFA_KD. design: CLASSIC, GLASS, NEON, FRAME, HOLO, ROYAL, MARQUEE, ORBIT, PODIUM.",
+            "stat: ELO, WINS, WINRATE, STREAK, FFA_KILLS, FFA_KD. design: CLASSIC, GLASS, NEON, FRAME, HOLO, ROYAL, MARQUEE, ORBIT, PODIUM, MEDALS, GRADIENT, MINIMAL, TROPHY, ESPORTS.",
             "title: MiniMessage, <kit> and <stat> are replaced. kits: several = they take turns every cycle-seconds."
         ));
         y.set("version", 2);
@@ -585,7 +591,15 @@ public final class HologramManager {
             return h.title.replace("<kit>", Text.esc(name)).replace("<stat>", statName(h.stat));
         } else {
             String color = h.design == HologramManager.Design.CLASSIC ? "<gold>" : "<" + h.accent + ">";
-            return color + "<b>" + Text.esc(name) + (h.stat.equals("ELO") ? " Leaderboard" : " - " + statName(h.stat));
+            String t = Text.esc(name) + (h.stat.equals("ELO") ? " Leaderboard" : " - " + statName(h.stat));
+            return switch (h.design) {
+                case MEDALS -> "<#FFD54A>★ <b>" + t + "</b> ★";
+                case GRADIENT -> "<b><gradient:" + h.accent + ":#FFFFFF>" + t + "</gradient>";
+                case MINIMAL -> "<white><b>" + t;
+                case TROPHY -> "<#FFD54A>♛ <b>" + t + "</b> ♛";
+                case ESPORTS -> "<#FF3B3B><b>» " + t.toUpperCase(java.util.Locale.ROOT) + " «";
+                default -> color + "<b>" + t;
+            };
         }
     }
 
@@ -593,7 +607,34 @@ public final class HologramManager {
         String color = i == 0 ? h.top1 : (i == 1 ? h.top2 : (i == 2 ? h.top3 : h.rest));
         Tier t = h.showTier && e.tier() >= 0 ? Tier.byIndex(e.tier()) : null;
         String wl = h.showWL && !h.stat.startsWith("FFA") ? " <dark_gray>(" + "<green>" + e.wins() + "<dark_gray>/<red>" + e.losses() + "<dark_gray>)" : "";
-        String line = "<" + color + ">#" + (i + 1) + " <white>" + Text.esc(e.name()) + " <dark_gray>- " + (t == null ? "" : t.mm() + " ") + "<gray>" + value(h.stat, e.value()) + wl;
+        String tier = t == null ? "" : t.mm() + " ";
+        String val = value(h.stat, e.value());
+        String name = Text.esc(e.name());
+        switch (h.design) {
+            case MEDALS -> {
+                String star = i == 0 ? "<#FFD700>★" : (i == 1 ? "<#D9D9D9>★" : (i == 2 ? "<#CD7F32>★" : "<dark_gray>•"));
+                return star + " <white>" + name + " <dark_gray>- " + tier + "<gray>" + val + wl;
+            }
+            case GRADIENT -> {
+                int k = Math.min(255, 90 + i * 16);
+                String hex = String.format("#%02X%02X%02X", k, k, 255);
+                return "<" + hex + ">" + (i + 1) + ". " + name + " <gray>" + tier + val;
+            }
+            case MINIMAL -> {
+                return "<gray>" + (i + 1) + ". <white>" + name + " <dark_gray>" + val;
+            }
+            case TROPHY -> {
+                String mark = i == 0 ? "<#FFD54A>♛" : (i < 3 ? "<#FFE9A6>★" : "<#B08A3E>✦");
+                return mark + " <#FFF3D0>" + name + " <#B08A3E>- " + tier + "<#FFE9A6>" + val;
+            }
+            case ESPORTS -> {
+                return "<#FF3B3B><b>" + String.format("%02d", i + 1) + "</b> <white>" + name + " <dark_gray>| " + tier + "<#FF9C9C>" + val;
+            }
+            default -> {
+            }
+        }
+
+        String line = "<" + color + ">#" + (i + 1) + " <white>" + name + " <dark_gray>- " + tier + "<gray>" + val + wl;
         return stripe && i % 2 == 1 ? "<#D8D8D8>" + line : line;
     }
 
@@ -636,7 +677,10 @@ public final class HologramManager {
         Color bg = switch (h.design) {
             case CLASSIC -> h.bgAlpha >= 0 ? Color.fromARGB(h.bgAlpha, 0, 0, 0) : Color.fromARGB(140, 0, 0, 0);
             case NEON -> HoloFx.background(HoloFx.Kind.NONE, rgb, h.bgAlpha < 0 ? 110 : h.bgAlpha);
-            case GLASS, MARQUEE, ORBIT, PODIUM -> Color.fromARGB(h.bgAlpha < 0 ? 160 : h.bgAlpha, 9, 12, 24);
+            case GLASS, MARQUEE, ORBIT, PODIUM, MEDALS, GRADIENT -> Color.fromARGB(h.bgAlpha < 0 ? 160 : h.bgAlpha, 9, 12, 24);
+            case MINIMAL -> Color.fromARGB(h.bgAlpha < 0 ? 0 : h.bgAlpha, 0, 0, 0);
+            case TROPHY -> Color.fromARGB(h.bgAlpha < 0 ? 175 : h.bgAlpha, 42, 28, 6);
+            case ESPORTS -> Color.fromARGB(h.bgAlpha < 0 ? 185 : h.bgAlpha, 18, 4, 6);
             default -> HoloFx.background(h.design.fx, rgb, h.bgAlpha);
         };
         l.card = HoloFx.card(cardAt, h.yaw, fixed, s, bg, h.lineWidth, e -> this.tag(e, h));
@@ -661,7 +705,13 @@ public final class HologramManager {
         List<String> out = new ArrayList<>();
         String title = this.title(h, kit);
         out.add(h.design == HologramManager.Design.MARQUEE ? "<b><" + h.accent + ">" + HoloFx.marquee(title, this.ticks, 22) : title);
-        if (h.design != HologramManager.Design.CLASSIC) {
+        if (h.design == HologramManager.Design.MINIMAL) {
+            out.add("<dark_gray>──────────────");
+        } else if (h.design == HologramManager.Design.ESPORTS) {
+            out.add("<#FF3B3B>━━━━━━━━━━━━━━");
+        } else if (h.design == HologramManager.Design.TROPHY) {
+            out.add("<#B08A3E>✦ ✦ ✦ ✦ ✦ ✦ ✦");
+        } else if (h.design != HologramManager.Design.CLASSIC) {
             out.add("<" + h.accent + ">▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
         }
 

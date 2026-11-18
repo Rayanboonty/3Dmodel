@@ -17,6 +17,7 @@ import net.vortexrealm.dialog.LobbyDialogs;
 import net.vortexrealm.kit.Kit;
 import net.vortexrealm.util.Snd;
 import net.vortexrealm.util.Text;
+import net.vortexrealm.cosmetics.CosmeticModels;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -74,6 +75,8 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
         final Map<String, String> trims = new HashMap<>();
         DyeColor shieldBase;
         final List<String[]> layers = new ArrayList<>();
+        /** 3.11.0: pet, shoulder and wings (model ids) and the name colour. */
+        public final Map<String, String> extra = new java.util.LinkedHashMap<>();
 
         String serialize() {
             StringBuilder sb = new StringBuilder();
@@ -92,6 +95,12 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
                 sb.append(';');
             }
 
+            for (Map.Entry<String, String> e : this.extra.entrySet()) {
+                if (e.getValue() != null && !e.getValue().isEmpty()) {
+                    sb.append(e.getKey()).append('=').append(e.getValue().replace(";", "").replace("=", "")).append(';');
+                }
+            }
+
             return sb.toString();
         }
 
@@ -105,7 +114,9 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
                         String v = part.substring(eq + 1);
                         if (k.startsWith("trim.")) {
                             d.trims.put(k.substring(5), v);
-                        } else if (k.equals("shield")) {
+                        } else if (!k.equals("shield")) {
+                            d.extra.put(k, v);
+                        } else {
                             String[] bits = v.split("\\|");
 
                             try {
@@ -159,6 +170,11 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
                 }
             }).exceptionally(err -> null);
         }
+    }
+
+    /** Saves a player's cosmetics now (name colour, pets...). */
+    public void saveNow(UUID u) {
+        this.save(u);
     }
 
     private void save(UUID u) {
@@ -499,6 +515,83 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
         return new LobbyDialogs.Tile(icon, Text.mm(name), Text.mm(line), h, click);
     }
 
+    private static String key(CosmeticModels.Kind k) {
+        return switch (k) {
+            case PET -> "pet";
+            case SHOULDER -> "shoulder";
+            case WINGS -> "wings";
+        };
+    }
+
+    private static String kindName(CosmeticModels.Kind k) {
+        return switch (k) {
+            case PET -> "Pet";
+            case SHOULDER -> "Shoulder Pet";
+            case WINGS -> "Wings";
+        };
+    }
+
+    private static Material icon(CosmeticModels.Model m) {
+        Material mat = Material.matchMaterial(m.icon());
+        return mat == null || !mat.isItem() ? Material.BONE : mat;
+    }
+
+    /** Sets (or clears, id null) a player's pet / shoulder pet / wings. */
+    public void setCompanion(Player p, CosmeticModels.Kind k, String id) {
+        Cosmetics.Data d = this.of(p.getUniqueId());
+        if (id == null) {
+            d.extra.remove(key(k));
+        } else {
+            d.extra.put(key(k), id);
+        }
+
+        this.save(p.getUniqueId());
+        if (this.plugin.companions() != null) {
+            this.plugin.companions().refresh(p);
+        }
+    }
+
+    /** The list of pets / shoulder pets / wings: unlocked ones to pick, locked ones with the hours they need. */
+    public void models(Player p, CosmeticModels.Kind k) {
+        Cosmetics.Data d = this.of(p.getUniqueId());
+        String cur = d.extra.get(key(k));
+        double hours = net.vortexrealm.cosmetics.Companions.hoursPlayed(p);
+        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
+        tiles.add(tile(new ItemStack(Material.BARRIER), "<gray><b>None", cur == null ? "<green>Chosen" : "<gray>Click to take it off", List.of(), () -> {
+            this.setCompanion(p, k, null);
+            this.models(p, k);
+        }));
+        for (CosmeticModels.Model m : CosmeticModels.of(k)) {
+            boolean open = this.plugin.companions() != null && this.plugin.companions().unlocked(p, m);
+            boolean on = m.id().equals(cur);
+            String line = on ? "<green>✔ Chosen" : (open ? "<yellow>Click to use" : "<red>🔒 " + fmtHours(m.hours() - hours) + " more to play");
+            tiles.add(tile(new ItemStack(open ? icon(m) : Material.GRAY_DYE), (open ? "<gold><b>" : "<gray><b>") + m.name(), line,
+                List.of("<gray>Unlocks at <white>" + fmtHours(m.hours()) + "</white> played", m.fat() ? "<light_purple>Rolls after you like a ball!" : ""), () -> {
+                    if (!open) {
+                        p.sendMessage(Text.mm("<red>" + m.name() + " unlocks after " + fmtHours(m.hours()) + " played <gray>(you: " + fmtHours(hours) + ")."));
+                        Snd.error(p);
+                        return;
+                    }
+
+                    this.setCompanion(p, k, m.id());
+                    Snd.play(p, "entity.player.levelup", 0.5F, 1.6F);
+                    this.models(p, k);
+                }));
+        }
+
+        this.ui().screen(p, LobbyDialogs.title(kindName(k), "Unlocked by time played"), tiles,
+            List.of(Text.mm("<gray>You have played <white>" + fmtHours(hours) + "</white>. Play more to unlock more!")), null,
+            List.of(this.ui().btn(p, "<gray>« Cosmetics", null, () -> this.open(p))), 1, this.ui().close(p));
+    }
+
+    private static String fmtHours(double h) {
+        if (h < 1) {
+            return Math.max(1, Math.round(h * 60)) + "m";
+        }
+
+        return (h < 10 ? String.format(java.util.Locale.ROOT, "%.1f", h) : String.valueOf(Math.round(h))) + "h";
+    }
+
     /** The cosmetics hub. */
     public void open(Player p) {
         Cosmetics.Data d = this.of(p.getUniqueId());
@@ -539,6 +632,33 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
                 () -> this.shield(p)
             )
         );
+        // 3.11.0: pets, shoulder pets and wings, unlocked by time played
+        double hours = net.vortexrealm.cosmetics.Companions.hoursPlayed(p);
+        for (CosmeticModels.Kind k : CosmeticModels.Kind.values()) {
+            String key = key(k);
+            CosmeticModels.Model cur = CosmeticModels.get(d.extra.get(key));
+            int open = 0;
+            List<CosmeticModels.Model> list = CosmeticModels.of(k);
+            for (CosmeticModels.Model m : list) {
+                open += this.plugin.companions() != null && this.plugin.companions().unlocked(p, m) ? 1 : 0;
+            }
+
+            tiles.add(
+                tile(
+                    new ItemStack(cur != null ? icon(cur) : (k == CosmeticModels.Kind.PET ? Material.BONE : (k == CosmeticModels.Kind.WINGS ? Material.ELYTRA : Material.FEATHER))),
+                    "<gold><b>" + kindName(k),
+                    cur == null ? "<gray>None <dark_gray>• <gray>" + open + "/" + list.size() + " unlocked" : "<white>" + cur.name() + " <dark_gray>• <gray>" + open + "/" + list.size() + " unlocked",
+                    List.of(
+                        "<gray>" + (k == CosmeticModels.Kind.PET ? "A chubby pet that follows you and rolls" : (k == CosmeticModels.Kind.WINGS ? "Animated wings on your back" : "A tiny pet on your shoulder")),
+                        "<gray>Play more to unlock more <dark_gray>(you: <white>" + String.format(java.util.Locale.ROOT, "%.1f", hours) + "h</white>)",
+                        "",
+                        "<green>▶ Click to choose"
+                    ),
+                    () -> this.models(p, k)
+                )
+            );
+        }
+
         tiles.add(
             tile(new ItemStack(Material.BARRIER), "<red><b>Reset Everything", "<gray>No trims, plain shield", List.of("<red>Removes all your cosmetics."), () -> {
                 this.data.put(p.getUniqueId(), new Cosmetics.Data());
