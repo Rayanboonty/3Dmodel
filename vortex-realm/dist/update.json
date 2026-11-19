@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.1",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.1.jar",
-    "sha256": "582d9f96ba27dc551e78c5fee51cc4f8f7f0a3319952b4075b4af6c9f0391dfe",
-    "notes": "Fix: worlds can be set as Survival, Lifesteal, Strength or Ranked SMP again in the World Manager (plus everything of 3.13.0: 1.8 kits, Legacy Hall, arcade arenas)"
+    "version": "2.13.2",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.2.jar",
+    "sha256": "e01708598f7ebe19ca8d0cce5e12906412fd2b30677af9b929706849eb106aec",
+    "notes": "Fix: in the SMP every normal player command works again (/enderchest, /ec, /craft, /hat, /nv, homes, clans, daily rewards...); only admin, staff and cheat commands stay blocked"
   },
   "VortexRealm": {
-    "version": "3.13.1",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.1.jar",
-    "sha256": "acadcee9b76a934786814f7a479d5567bc791072e9fa5b21b67245f8ef72c9f8",
-    "notes": "Fix: worlds can be set as Survival, Lifesteal, Strength or Ranked SMP again in the World Manager (plus everything of 3.13.0: 1.8 kits, Legacy Hall, arcade arenas)"
+    "version": "3.13.2",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.2.jar",
+    "sha256": "2c5d82de551660d10b7c63d84fbe63bae02a6d05bf98ad966e1f0a1d575f5234",
+    "notes": "Fix: in the SMP every normal player command works again (/enderchest, /ec, /craft, /hat, /nv, homes, clans, daily rewards...); only admin, staff and cheat commands stay blocked"
   },
   "VortexSMP": {
     "version": "1.6.0",

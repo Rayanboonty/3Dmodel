@@ -33,14 +33,25 @@ import org.bukkit.permissions.PermissionAttachment;
  * Settings -> SMP -> "Everyone Equal in SMP" turns it off.
  */
 public final class SmpLockdown implements Listener {
-    /** What everybody can use in the SMP. */
-    private static final Set<String> ALLOWED = Set.of(
-        "home", "homes", "sethome", "delhome", "tpa", "tpahere", "tpaccept", "tpdeny", "tpacancel", "tptoggle", "rtp", "spawn", "back",
-        "warp", "warps", "trade", "market", "ah", "auction", "trash", "smp", "hub", "lobby", "practice", "worlds", "leave", "leavepvp",
-        "msg", "tell", "w", "whisper", "m", "r", "reply", "msgtoggle", "ignore", "report", "friend", "friends", "f", "party", "p", "partychat",
-        "pc", "status", "settings", "cosmetics", "namecolor", "color", "colour", "season", "stats", "playtime", "ping", "rank", "country",
-        "link", "links", "website", "guide", "help", "rules", "discord", "verify", "list", "near", "drill", "leaderboard", "lb", "region"
+    /**
+     * 3.13.2: what nobody can use in the SMP (a block-list: every normal player command works, /enderchest, /craft,
+     * /hat, /homes, clans, daily rewards...). Cheats and world commands of the game and the usual admin plugins, our
+     * staff tools, and (found at start) every command of this plugin that needs an admin or staff permission.
+     */
+    private static final Set<String> BLOCKED = Set.of(
+        "gamemode", "gm", "gmc", "gms", "gma", "gmsp", "creative", "adventure", "spectator", "gamerule", "defaultgamemode", "difficulty",
+        "give", "i", "item", "more", "tp", "teleport", "tphere", "tpall", "tpo", "tppos", "tpohere", "top", "jump", "j", "put", "effect", "enchant",
+        "xp", "exp", "experience", "time", "day", "night", "ptime", "weather", "sun", "rain", "thunder", "kill", "killall", "butcher", "summon",
+        "spawnmob", "mob", "fill", "setblock", "clone", "attribute", "data", "execute", "function", "scoreboard", "loot", "place", "spreadplayers",
+        "setworldspawn", "spawnpoint", "forceload", "worldborder", "tick", "damage", "ride", "fly", "god", "heal", "feed", "speed", "flyspeed",
+        "walkspeed", "vanish", "v", "invsee", "repair", "fix", "unlimited", "sudo", "op", "deop", "reload", "rl", "stop", "restart", "whitelist",
+        "ban", "ban-ip", "pardon", "kick", "lp", "luckperms", "perm", "perms", "pex", "we", "worldedit", "fawe", "wand", "schem", "schematic",
+        "broadcast", "bc", "staff", "staffchat", "sc", "socialspy", "spy", "mutechat", "clearchat", "cc", "mute", "unmute", "mutes", "chatfilter",
+        "swearfilter", "chatmod", "alts", "altcheck", "ss", "screenshare", "freeze", "admit", "sentinel", "ac", "anticheat", "ai", "assistant",
+        "setspawn", "setwarp", "delwarp"
     );
+    private final Set<String> adminCommands = new java.util.HashSet<>();
+
     /** Perk and admin permissions switched off inside the SMP (also for operators). */
     private static final List<String> PERKS = List.of(
         "vortexsmp.admin", "vortexsmp.staff", "vortexsmp.homes.unlimited", "vortexsmp.teleport.bypass", "vortexsmp.warps.admin",
@@ -57,6 +68,22 @@ public final class SmpLockdown implements Listener {
 
     public SmpLockdown(VortexRealm plugin) {
         this.plugin = plugin;
+        // this plugin's admin and staff commands, with their aliases
+        for (Map.Entry<String, Map<String, Object>> c : plugin.getDescription().getCommands().entrySet()) {
+            Object perm = c.getValue().get("permission");
+            String ps = perm == null ? "" : perm.toString();
+            if (ps.contains(".admin") || ps.contains(".staff") || ps.contains("smpadmin")) {
+                this.adminCommands.add(c.getKey().toLowerCase(Locale.ROOT));
+                Object al = c.getValue().get("aliases");
+                if (al instanceof List<?> l) {
+                    for (Object o : l) {
+                        this.adminCommands.add(String.valueOf(o).toLowerCase(Locale.ROOT));
+                    }
+                } else if (al != null) {
+                    this.adminCommands.add(al.toString().toLowerCase(Locale.ROOT));
+                }
+            }
+        }
     }
 
     private boolean on() {
@@ -136,9 +163,10 @@ public final class SmpLockdown implements Listener {
         int sp = m.indexOf(' ');
         String label = (sp < 0 ? m : m.substring(0, sp)).toLowerCase(Locale.ROOT);
         label = label.substring(label.indexOf(':') + 1);
-        if (!ALLOWED.contains(label)) {
+        // WorldEdit's //wand, //set... start with a second slash
+        if (label.startsWith("/") || BLOCKED.contains(label) || this.adminCommands.contains(label)) {
             e.setCancelled(true);
-            p.sendMessage(Text.mm("<red>Everyone plays the SMP as a normal player.</red> <gray>/" + Text.esc(label) + " doesn't work here (ranks and admin commands are for Practice and the lobby)."));
+            p.sendMessage(Text.mm("<red>Everyone plays the SMP as a normal player.</red> <gray>/" + Text.esc(label) + " doesn't work here (admin and cheat commands are for Practice and the lobby)."));
             Snd.error(p);
         }
     }

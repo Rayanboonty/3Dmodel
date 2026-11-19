@@ -1198,3 +1198,7 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 ## 3.13.1 / 2.13.1 — SMP worlds can be set again
 
 - **World Manager:** a world's page lists Survival SMP, Lifesteal SMP, Strength SMP and Ranked SMP again (they were hidden), and so does the mode choice when you create or load a world. Picking one turns on Settings → SMP → "SMP On This Server" by itself if it was off (before, the world silently became "Nothing").
+
+## 3.13.2 / 2.13.2 — SMP player commands back
+
+- **Everyone Equal in SMP** now blocks only what it should: admin and staff commands, cheats (gamemode, give, tp, fly, god, heal, time, weather...), WorldEdit and permission plugins. Every normal player command works in the SMP again: `/enderchest` (`/ec`), `/craft` (`/wb`), `/hat`, `/nightvision`, `/homes`, `/near`, clans, missions, daily rewards, the battle pass and so on. Before, it only let a short list through.
