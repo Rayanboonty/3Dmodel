@@ -156,6 +156,9 @@ public final class CosmeticModels {
         b.pair(eye, eyeX, eyeY, face - 0.2f, eyeX + 1.6f, eyeY + 1.8f, face + 0.25f);
         b.pair("white_concrete", eyeX + 0.9f, eyeY + 1.0f, face + 0.25f, eyeX + 1.5f, eyeY + 1.6f, face + 0.35f);
         b.box(nose, -1.0f, noseY, noseZ - 0.3f, 1.0f, noseY + 1.2f, noseZ + 0.4f);
+        // 3.13.4: a little ":3" mouth under the nose
+        b.rot("gray_concrete", 0.05f, noseY - 0.75f, noseZ - 0.05f, 1.15f, noseY - 0.4f, noseZ + 0.3f, 0, 0, -25);
+        b.rot("gray_concrete", -1.15f, noseY - 0.75f, noseZ - 0.05f, -0.05f, noseY - 0.4f, noseZ + 0.3f, 0, 0, 25);
         if (blush) {
             b.pair("pink_concrete", eyeX + 1.7f, eyeY - 1.4f, face - 0.1f, eyeX + 3.0f, eyeY - 0.6f, face + 0.2f);
         }
@@ -364,14 +367,14 @@ public final class CosmeticModels {
         copyAsShoulder("chonky_penguin", "shoulder_penguin", "Tiny Penguin", 20);
 
         // ============================================================ WINGS (on your back, they flap)
-        wings("wings_angel", "Angel Wings", 2, "FEATHER", "white_wool", "white_concrete", "light_gray_wool", false, false);
+        wings("wings_angel", "Angel Wings", 2, "FEATHER", "white_concrete", "white_wool", "light_gray_wool", "light_gray_concrete", false);
         butterfly("wings_butterfly", "Butterfly Wings", 6, "orange_concrete", "black_concrete", "yellow_concrete");
         bat("wings_bat", "Bat Wings", 12, "red_concrete", "black_concrete", false);
-        wings("wings_frost", "Frost Wings", 20, "PACKED_ICE", "light_blue_stained_glass", "white_stained_glass", "cyan_stained_glass", true, true);
+        wings("wings_frost", "Frost Wings", 20, "PACKED_ICE", "light_blue_stained_glass", "white_stained_glass", "cyan_stained_glass", "packed_ice", true);
         bat("wings_dragon", "Dragon Wings", 35, "purple_concrete", "black_concrete", true);
-        wings("wings_phoenix", "Phoenix Wings", 50, "BLAZE_POWDER", "orange_concrete", "yellow_concrete", "red_concrete", true, false);
+        wings("wings_phoenix", "Phoenix Wings", 50, "BLAZE_POWDER", "orange_concrete", "yellow_concrete", "red_concrete", "red_terracotta", true);
         butterfly("wings_void", "Void Wings", 75, "purple_stained_glass", "black_concrete", "magenta_stained_glass");
-        wings("wings_golden", "Golden Wings", 100, "GOLD_INGOT", "gold_block", "yellow_concrete", "orange_concrete", true, false);
+        wings("wings_golden", "Golden Wings", 100, "GOLD_INGOT", "gold_block", "yellow_concrete", "orange_concrete", "yellow_terracotta", true);
     }
 
     /** A shoulder version of a pet: the same boxes, shrunk. */
@@ -381,35 +384,54 @@ public final class CosmeticModels {
     }
 
     /**
-     * Feathered wings, built like a bird's: an arm from the spine up to the wrist, a row of short coverts along it, and
-     * the secondaries and long primaries fanning down and out from it. Groups wingL / wingR, pivots at the spine.
+     * Feathered wings, built like a bird's (3.13.4, more detailed): a two-part arm from the spine to the wrist and on to
+     * the hand, a small alula at the wrist, two rows of coverts (small then greater), a layer of secondaries in the
+     * shadow tone, and seven primaries fanning out from the hand, the outer ones with a coloured tip. Groups wingL /
+     * wingR, pivots at the spine. About 27 boxes a side.
      */
-    private static void wings(String id, String name, double hours, String icon, String main, String light, String tip, boolean glow, boolean glass) {
+    private static void wings(String id, String name, double hours, String icon, String main, String light, String tip, String shadow, boolean glow) {
         B b = new B();
         for (int side = -1; side <= 1; side += 2) {
             String g = side > 0 ? "wingL" : "wingR";
             b.g(g, side * 1.5f, 0, -2.5f);
-            float ax0 = 1.5f, ay0 = 3, ax1 = 13, ay1 = 12;
-            // the arm (leading edge)
-            feather(b, g, side, main, ax0, ay0, (float)Math.hypot(ax1 - ax0, ay1 - ay0) + 1.5f, 2.8f,
-                (float)Math.toDegrees(Math.atan2(ay1 - ay0, ax1 - ax0)), -3.7f, glow);
-            // coverts: short and rounded, along the arm, pointing down and out
-            for (int k = 0; k < 5; k++) {
-                float t = (k + 0.3f) / 5f;
-                feather(b, g, side, light, ax0 + (ax1 - ax0) * t, ay0 + (ay1 - ay0) * t - 0.6f, 6.5f, 3.4f, -62 + k * 4, -3.5f, glow);
-            }
-
-            // secondaries: from the inner arm, hanging down
+            float ax0 = 1.5f, ay0 = 3, wx = 12.5f, wy = 11.5f, hx = 19, hy = 13;
+            // the arm: shoulder to wrist, wrist to hand
+            feather(b, g, side, main, ax0, ay0, (float)Math.hypot(wx - ax0, wy - ay0) + 1.2f, 2.6f, (float)Math.toDegrees(Math.atan2(wy - ay0, wx - ax0)), -3.75f, glow);
+            feather(b, g, side, main, wx - 0.6f, wy, (float)Math.hypot(hx - wx, hy - wy) + 1.2f, 2.2f, (float)Math.toDegrees(Math.atan2(hy - wy, hx - wx)), -3.75f, glow);
+            // the alula: a little feather pointing forward at the wrist
+            feather(b, g, side, light, wx, wy + 0.4f, 4.2f, 1.6f, 38, -3.85f, glow);
+            // small coverts right under the arm
             for (int k = 0; k < 4; k++) {
-                float t = (k + 0.1f) / 5f;
-                feather(b, g, side, main, ax0 + (ax1 - ax0) * t, ay0 + (ay1 - ay0) * t - 1.5f, 11 + k * 0.8f, 3.2f, -96 + k * 5, -3.25f, glow);
+                float t = (k + 0.4f) / 4.4f;
+                feather(b, g, side, light, ax0 + (wx - ax0) * t, ay0 + (wy - ay0) * t - 0.5f, 4.0f, 2.6f, -64 + k * 5, -3.6f, glow);
             }
 
-            // primaries: from the wrist, the long fan
-            float[][] prim = {{-76, 13}, {-56, 15.5f}, {-36, 16.5f}, {-16, 15.5f}, {4, 12.5f}};
+            // greater coverts, longer, a row lower
+            for (int k = 0; k < 4; k++) {
+                float t = (k + 0.3f) / 4.3f;
+                feather(b, g, side, main, ax0 + (wx - ax0) * t, ay0 + (wy - ay0) * t - 1.4f, 7.0f + k * 0.5f, 3.0f, -76 + k * 5, -3.45f, glow);
+            }
+
+            // secondaries: the shadow layer hanging from the inner arm
+            for (int k = 0; k < 5; k++) {
+                float t = (k + 0.1f) / 5.2f;
+                feather(b, g, side, shadow, ax0 + (wx - ax0) * t, ay0 + (wy - ay0) * t - 1.8f, 11.5f + k * 0.7f, 2.9f, -98 + k * 4.5f, -3.25f, false);
+            }
+
+            // primaries from the hand, a fan; the outer four get a coloured tip
+            float[][] prim = {{-82, 12}, {-64, 14.2f}, {-47, 15.8f}, {-30, 16.8f}, {-14, 16.4f}, {1, 14.6f}, {14, 12}};
             for (int k = 0; k < prim.length; k++) {
-                float t = 0.72f + k * 0.07f;
-                feather(b, g, side, k >= 3 ? tip : light, ax0 + (ax1 - ax0) * t, ay0 + (ay1 - ay0) * t - 0.8f, prim[k][1], 3.0f, prim[k][0], -3.0f, glow);
+                float t = k / (float)(prim.length - 1);
+                float x = wx + (hx - wx) * t;
+                float y = wy + (hy - wy) * t - 0.9f;
+                double a = Math.toRadians(prim[k][0]);
+                feather(b, g, side, light, x, y, prim[k][1], 2.8f, prim[k][0], -3.05f, glow);
+                if (k >= 3) {
+                    float tl = 3.2f;
+                    float tx = x + (float)Math.cos(a) * (prim[k][1] - tl);
+                    float ty = y + (float)Math.sin(a) * (prim[k][1] - tl);
+                    feather(b, g, side, tip, tx, ty, tl + 0.2f, 2.9f, prim[k][0], -3.15f, glow);
+                }
             }
         }
 
@@ -445,7 +467,20 @@ public final class CosmeticModels {
                 b.parts.add(new Part(membrane, cx - f[2] / 2, f[1] - f[3] / 2 + 3, -2.9f, f[2], f[3], 0.5f, g, 0, 0, side * f[4], false));
             }
 
+            // 3.13.4: a darker inner membrane near the body, claws at the wrist and the finger tips
+            String inner = dragon ? "magenta_terracotta" : "brown_concrete";
+            b.parts.add(new Part(inner, side > 0 ? 2.5f : -2.5f - 9, 1.5f, -2.75f, 9, 7, 0.4f, g, 0, 0, side * 18, false));
+            b.parts.add(new Part(bone, side * 12.6f - 0.8f, 9.6f, -3.4f, 1.6f, 2.4f, 1.2f, g, 0, 0, side * -25, false));
+            for (float[] f : new float[][]{{12, 9, 14, -20}, {12, 9, 16, -55}, {12, 9, 12, -90}}) {
+                double ang = Math.toRadians(f[3]);
+                float tx = side * (f[0] + (float)Math.cos(ang) * f[2]);
+                float ty = f[1] + (float)Math.sin(ang) * f[2];
+                b.parts.add(new Part(dragon ? "magenta_concrete" : "white_concrete", tx - 0.5f, ty - 0.9f, -3.25f, 1.0f, 1.8f, 0.8f, g, 0, 0, side * (f[3] + 90), dragon));
+            }
+
             if (dragon) {
+                // a horn at the wing's top joint
+                b.parts.add(new Part("black_concrete", side * 22.0f - 0.6f, 12.5f, -3.3f, 1.2f, 3.4f, 1.0f, g, 0, 0, side * -30, false));
                 for (int k = 0; k < 4; k++) {
                     float x = 4 + k * 4.5f;
                     float y = 5 + k * 2.6f;
@@ -479,6 +514,14 @@ public final class CosmeticModels {
                 float x0 = 1.5f + row * 0.4f;
                 b.parts.add(new Part(border, side > 0 ? x0 : -x0 - len - 0.6f, y - 0.1f, -3.0f, len + 0.6f, 2.4f, 0.5f, g, 0, 0, 0, false));
                 b.parts.add(new Part(fill, side > 0 ? x0 : -x0 - len, y, -3.2f, len, 2.2f, 0.5f, g, 0, 0, 0, glowing));
+            }
+
+            // 3.13.4: veins from the body across both lobes, a bright inner ring around the big eye spot
+            for (float[] v : new float[][]{{2, 6, 15, 28}, {2, 5, 16, 8}, {2, 4, 13, -12}, {2, -2, 10, -35}, {2, -3, 8, -60}}) {
+                double ang = Math.toRadians(v[3]);
+                float cx = side * (v[0] + (float)Math.cos(ang) * v[2] / 2);
+                float cy = v[1] + (float)Math.sin(ang) * v[2] / 2;
+                b.parts.add(new Part(border, cx - v[2] / 2, cy - 0.2f, -3.3f, v[2], 0.4f, 0.2f, g, 0, 0, side * v[3], false));
             }
 
             for (float[] s : new float[][]{{12, 9, 3}, {7, 4, 2.4f}, {6, -6, 2.4f}, {15, 5, 1.8f}}) {

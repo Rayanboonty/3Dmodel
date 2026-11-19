@@ -1209,3 +1209,10 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **New setting for players:** "Your Wings & Shoulder Pet": shown or hidden from yourself (others always see them).
 - **Pet collars:** `/cosmetics` → Pet Collar, 16 colours with a gold tag.
 - **Pet lead:** `/cosmetics` → Pet Lead: a lead from your hand to your pet's collar. It never drops a lead item and can't be untied by other players.
+
+## 3.13.4 / 2.13.4 — more detailed wings and pets
+
+- **Feathered wings** (Angel, Frost, Phoenix, Golden): a two-part arm, an alula, two rows of coverts, a shadow layer of secondaries and seven primaries with coloured tips.
+- **Bat and Dragon wings:** a darker inner membrane, claws at the wrist and finger tips; the dragon gets a horn.
+- **Butterfly and Void wings:** veins across both wings.
+- **Pets:** a little ":3" mouth under the nose.

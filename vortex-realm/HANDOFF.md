@@ -171,7 +171,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
   (`combat/FightExtras.java`); `schematics/` (tools/schem/SchemExport.java), `datapack/`, JUnit tests in `practicepvp/src/test`.
 - **3.13.1 / 2.13.1** — World Manager offers the SMP modes again (were hidden); setMode turns "SMP On This Server" on instead of making the world "Nothing".
 - **3.13.2 / 2.13.2** — SmpLockdown is a block-list now (BLOCKED + this plugin's admin/staff commands from plugin.yml); /enderchest, /craft etc. work in the SMP.
-- **3.13.3 / 2.13.3** — wings/shoulder rigs ride the player (CosmeticRig.mountOn; Companions.detach on Tp.to cross-world, portals, death; AuthMe login + 4 s first); pet collars (CosmeticModels.withCollar) and leads (invisible leashed baby chicken, PDC `pet_lead`); Setting OWN_COSMETICS; Opt COSMETICS_ATTACH. **← current release**
+- **3.13.3 / 2.13.3** — wings/shoulder rigs ride the player (CosmeticRig.mountOn; Companions.detach on Tp.to cross-world, portals, death; AuthMe login + 4 s first); pet collars (CosmeticModels.withCollar) and leads (invisible leashed baby chicken, PDC `pet_lead`); Setting OWN_COSMETICS; Opt COSMETICS_ATTACH.
+- **3.13.4 / 2.13.4** — wing models redone with more detail (CosmeticModels.wings/bat/butterfly), pet mouths. **← current release**
 
 ## 8. Open problems / unverified
 
