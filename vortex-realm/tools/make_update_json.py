@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Fix: in the SMP every normal player command works again (/enderchest, /ec, /craft, /hat, /nv, homes, clans, daily rewards...); only admin, staff and cheat commands stay blocked',
-    'PracticePvP': 'Fix: in the SMP every normal player command works again (/enderchest, /ec, /craft, /hat, /nv, homes, clans, daily rewards...); only admin, staff and cheat commands stay blocked',
+    'VortexRealm': 'Wings and shoulder pets now stick to the player (they ride you, no lag, no swinging into view); pet collars (16 colours) and a pet lead; option to hide your own wings from yourself',
+    'PracticePvP': 'Wings and shoulder pets now stick to the player (they ride you, no lag, no swinging into view); pet collars (16 colours) and a pet lead; option to hide your own wings from yourself',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

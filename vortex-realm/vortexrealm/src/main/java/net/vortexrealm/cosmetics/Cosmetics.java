@@ -424,6 +424,29 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
             List.of(this.ui().btn(p, "<gray>« Back", null, () -> this.open(p))), 1, this.ui().close(p));
     }
 
+    private void collars(Player p) {
+        Cosmetics.Data d = this.of(p.getUniqueId());
+        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
+        tiles.add(tile(new ItemStack(Material.STRING), "<white><b>No Collar", "<gray>A free pet", List.of(), () -> {
+            d.extra.remove("collar");
+            this.save(p.getUniqueId());
+            this.open(p);
+        }));
+        for (DyeColor c : DyeColor.values()) {
+            String key = c.name().toLowerCase(java.util.Locale.ROOT);
+            Material wool = Material.matchMaterial(key + "_wool");
+            tiles.add(tile(new ItemStack(wool == null ? Material.WHITE_WOOL : wool), "<white><b>" + nice(key), key.equals(d.extra.get("collar")) ? "<green>✔ Chosen" : "<gray>Collar colour", List.of(), () -> {
+                d.extra.put("collar", key);
+                this.save(p.getUniqueId());
+                Snd.play(p, "entity.item.pickup", 0.8F, 1.2F);
+                this.open(p);
+            }));
+        }
+
+        this.ui().screen(p, LobbyDialogs.title("Pet Collar", "Pick a colour"), tiles, List.of(), null,
+            List.of(this.ui().btn(p, "<gray>« Back", null, () -> this.open(p))), 1, this.ui().close(p));
+    }
+
     private void leatherColours(Player p) {
         Cosmetics.Data d = this.of(p.getUniqueId());
         List<LobbyDialogs.Tile> tiles = new ArrayList<>();
@@ -833,6 +856,24 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
             );
         }
 
+        // 3.13.3: a collar and a lead for the pet
+        String collar = d.extra.get("collar");
+        tiles.add(tile(new ItemStack(collar == null ? Material.STRING : java.util.Objects.requireNonNullElse(Material.matchMaterial(collar + "_wool"), Material.STRING)),
+            "<gold><b>Pet Collar", collar == null ? "<gray>No collar" : "<white>" + nice(collar) + " collar",
+            List.of("<gray>A coloured collar with a gold tag", "<gray>on the pet that follows you.", "", "<green>▶ Click to choose"), () -> this.collars(p)));
+        boolean lead = "on".equals(d.extra.get("lead"));
+        tiles.add(tile(new ItemStack(Material.LEAD), "<gold><b>Pet Lead", lead ? "<green>On: you walk your pet" : "<gray>Off",
+            List.of("<gray>A lead from your hand to", "<gray>your pet's collar.", "", "<green>▶ Click to turn " + (lead ? "off" : "on")), () -> {
+                if (lead) {
+                    d.extra.remove("lead");
+                } else {
+                    d.extra.put("lead", "on");
+                }
+
+                this.save(p.getUniqueId());
+                Snd.play(p, "entity.leash_knot.place", 0.8F, 1.0F);
+                this.open(p);
+            }));
         tiles.add(
             tile(new ItemStack(Material.BARRIER), "<red><b>Reset Everything", "<gray>No trims, plain shield", List.of("<red>Removes all your cosmetics."), () -> {
                 this.data.put(p.getUniqueId(), new Cosmetics.Data());

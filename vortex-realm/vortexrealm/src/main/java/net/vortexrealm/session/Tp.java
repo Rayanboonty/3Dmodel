@@ -24,6 +24,11 @@ public final class Tp {
                     p.leaveVehicle();
                 }
 
+                // 3.13.3: wings and shoulder pets ride the player; a player with riders can't change worlds
+                if (l.getWorld() != p.getWorld() && VortexRealm.get().companions() != null) {
+                    VortexRealm.get().companions().detach(p);
+                }
+
                 var3 = p.teleport(l, TeleportCause.PLUGIN);
             } finally {
                 s.internalTeleport = false;

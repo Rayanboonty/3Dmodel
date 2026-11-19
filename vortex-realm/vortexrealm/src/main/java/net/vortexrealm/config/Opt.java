@@ -2015,6 +2015,9 @@ public final class Opt<T> {
     public static final Opt<Boolean> COSMETICS_ENABLED = bool(
         "cosmetics.companions", true, Opt.Section.VISUALS, "Pets & Wings", "Pets that follow players, shoulder pets and wings (chosen in /cosmetics, unlocked by time played).", Material.BONE
     );
+    public static final Opt<Boolean> COSMETICS_ATTACH = bool(
+        "cosmetics.attach", true, Opt.Section.VISUALS, "Wings Stick To Players", "Wings and shoulder pets ride the player so they move with them every frame. Off = they follow a moment behind (use it if another plugin's teleports to other worlds fail).", Material.LEAD
+    );
     public static final Opt<Boolean> COSMETICS_IN_FIGHTS = bool(
         "cosmetics.in-fights", false, Opt.Section.VISUALS, "Wings in Fights", "Also show wings and shoulder pets in duels and FFA (pets that follow stay in the lobby, hub and SMP).", Material.ELYTRA
     );

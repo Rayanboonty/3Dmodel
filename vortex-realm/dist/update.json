@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.2",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.2.jar",
-    "sha256": "e01708598f7ebe19ca8d0cce5e12906412fd2b30677af9b929706849eb106aec",
-    "notes": "Fix: in the SMP every normal player command works again (/enderchest, /ec, /craft, /hat, /nv, homes, clans, daily rewards...); only admin, staff and cheat commands stay blocked"
+    "version": "2.13.3",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.3.jar",
+    "sha256": "954fc20a35ceda222fa31b96ad4cdbab83a79970c59e74305fd4a55fc4bafde3",
+    "notes": "Wings and shoulder pets now stick to the player (they ride you, no lag, no swinging into view); pet collars (16 colours) and a pet lead; option to hide your own wings from yourself"
   },
   "VortexRealm": {
-    "version": "3.13.2",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.2.jar",
-    "sha256": "2c5d82de551660d10b7c63d84fbe63bae02a6d05bf98ad966e1f0a1d575f5234",
-    "notes": "Fix: in the SMP every normal player command works again (/enderchest, /ec, /craft, /hat, /nv, homes, clans, daily rewards...); only admin, staff and cheat commands stay blocked"
+    "version": "3.13.3",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.3.jar",
+    "sha256": "69f855361101784fae076974b1c97abbf3c42aa27a15a1a10367da29a26fb625",
+    "notes": "Wings and shoulder pets now stick to the player (they ride you, no lag, no swinging into view); pet collars (16 colours) and a pet lead; option to hide your own wings from yourself"
   },
   "VortexSMP": {
     "version": "1.6.0",

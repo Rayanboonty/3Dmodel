@@ -123,6 +123,7 @@ public enum Setting {
         "soul:Soul Fire"
     ),
     TITLES(Setting.Category.VISUAL, "Big Titles", Material.PAINTING, "Countdown, round and victory titles.", 0, "on:On", "off:Off"),
+    OWN_COSMETICS(Setting.Category.VISUAL, "Your Wings & Shoulder Pet", Material.ELYTRA, "See your own wings and shoulder pet (others always see them).", 0, "shown:Shown", "hidden:Hidden from you"),
     SCORE_BAR(Setting.Category.VISUAL, "Score Bar", Material.ITEM_FRAME, "Heads + live score above your hotbar during duels.", 0, "on:On", "off:Off"),
     HEALTH_TAGS(
         Setting.Category.VISUAL, "Health Under Names", Material.GLISTERING_MELON_SLICE, "Show health under players' names in matches.", 0, "on:On", "off:Off"

@@ -45,6 +45,14 @@ public final class Companions implements Listener {
         CosmeticRig pet;
         CosmeticRig shoulder;
         CosmeticRig wings;
+        /** 3.13.3: the invisible little animal at the pet's collar the lead is tied to. */
+        org.bukkit.entity.Chicken lead;
+        /** No riding the player before this time (ms): after a portal or a world change. */
+        long noMountUntil;
+        /** When the player was first seen logged in (AuthMe), ms. */
+        long authedSince;
+        /** The player's own wings and shoulder pet are hidden from them. */
+        boolean selfHidden;
         // pet state
         Vector pos;
         float yaw;
@@ -94,6 +102,12 @@ public final class Companions implements Listener {
         if (w.wings != null) {
             w.wings.remove();
             w.wings = null;
+        }
+
+        if (w.lead != null) {
+            w.lead.setLeashHolder(null);
+            w.lead.remove();
+            w.lead = null;
         }
     }
 
@@ -175,6 +189,21 @@ public final class Companions implements Listener {
                 this.worn.put(p.getUniqueId(), w);
             }
 
+            boolean hide = "hidden".equals(this.plugin.profiles().get(p).get(net.practicepvp.data.Setting.OWN_COSMETICS));
+            if (hide != w.selfHidden && (w.wings != null || w.shoulder != null)) {
+                if (w.wings != null) {
+                    w.wings.remove();
+                    w.wings = null;
+                }
+
+                if (w.shoulder != null) {
+                    w.shoulder.remove();
+                    w.shoulder = null;
+                }
+
+                w.selfHidden = hide;
+            }
+
             try {
                 this.pet(p, w, petM != null && this.unlocked(p, petM) && this.allowedHere(p, true) ? petM : null, every);
                 this.shoulder(p, w, shM != null && this.unlocked(p, shM) && this.allowedHere(p, false) ? shM : null, every);
@@ -224,10 +253,28 @@ public final class Companions implements Listener {
         pose.group("wingL", new org.joml.Quaternionf().rotateY((float)Math.toRadians(open)).rotateZ((float)Math.toRadians(lift)));
         pose.group("wingR", new org.joml.Quaternionf().rotateY((float)Math.toRadians(-open)).rotateZ((float)Math.toRadians(-lift)));
         Location at = p.getLocation();
+        boolean ride = this.mayRide(p, w);
+        if (ride) {
+            pose.offset.y -= (float)p.getHeight();
+        }
+
         if (w.wings == null) {
             w.wings = CosmeticRig.spawn(at, m, pose, every, viewRange());
+            this.own(p, w, w.wings);
+            if (ride) {
+                w.wings.mountOn(p);
+            }
         } else {
-            w.wings.moveTo(at);
+            if (ride) {
+                if (!w.wings.mountOn(p)) {
+                    pose.offset.y += (float)p.getHeight();
+                    w.wings.moveTo(at);
+                }
+            } else {
+                w.wings.dismount();
+                w.wings.moveTo(at);
+            }
+
             w.wings.pose(pose);
         }
     }
@@ -251,7 +298,7 @@ public final class Companions implements Listener {
 
         CosmeticRig.Pose pose = new CosmeticRig.Pose();
         pose.yaw = p.getBodyYaw();
-        pose.offset.set(0.36f, p.isSneaking() ? 1.17f : 1.42f, -0.02f);
+        pose.offset.set(0.36f, p.isSneaking() ? 1.14f : 1.40f, -0.08f);
         double t = this.tick * every / 20.0;
         pose.lift = (float)(Math.sin(t * 2.4) * 0.35);
         pose.group("tail", CosmeticRig.rotY(Math.sin(t * 5.0) * 22));
@@ -262,10 +309,28 @@ public final class Companions implements Listener {
         pose.group("legFL", CosmeticRig.rotZ(flap));
         pose.group("legFR", CosmeticRig.rotZ(-flap));
         Location at = p.getLocation();
+        boolean ride = this.mayRide(p, w);
+        if (ride) {
+            pose.offset.y -= (float)p.getHeight();
+        }
+
         if (w.shoulder == null) {
             w.shoulder = CosmeticRig.spawn(at, m, pose, every, viewRange());
+            this.own(p, w, w.shoulder);
+            if (ride) {
+                w.shoulder.mountOn(p);
+            }
         } else {
-            w.shoulder.moveTo(at);
+            if (ride) {
+                if (!w.shoulder.mountOn(p)) {
+                    pose.offset.y += (float)p.getHeight();
+                    w.shoulder.moveTo(at);
+                }
+            } else {
+                w.shoulder.dismount();
+                w.shoulder.moveTo(at);
+            }
+
             w.shoulder.pose(pose);
         }
     }
@@ -273,6 +338,15 @@ public final class Companions implements Listener {
     // ------------------------------------------------------------------ pet that follows
 
     private void pet(Player p, Worn w, Model m, int every) {
+        Cosmetics.Data cd = this.plugin.cosmetics() == null ? null : this.plugin.cosmetics().of(p.getUniqueId());
+        m = CosmeticModels.withCollar(m, cd == null ? null : cd.extra.get("collar"));
+        boolean leadOn = m != null && cd != null && "on".equals(cd.extra.get("lead"));
+        if (!leadOn && w.lead != null) {
+            w.lead.setLeashHolder(null);
+            w.lead.remove();
+            w.lead = null;
+        }
+
         if (m == null) {
             if (w.pet != null) {
                 w.pet.remove();
@@ -404,6 +478,195 @@ public final class Companions implements Listener {
         } else {
             w.pet.moveTo(at);
             w.pet.pose(pose);
+        }
+
+        if (leadOn) {
+            this.lead(p, w, m, at, pose);
+        }
+    }
+
+    // ------------------------------------------------------------------ 3.13.3: the lead
+
+    /** A lead from the player's hand to the pet's collar: tied to an invisible, silent little chicken at the neck. */
+    private void lead(Player p, Worn w, Model m, Location at, CosmeticRig.Pose pose) {
+        float[] head = m.pivot("head");
+        double k = m.scale() / 16.0;
+        double yaw = Math.toRadians(pose.yaw);
+        double fwd = head[2] * k;
+        Location knot = at.clone().add(-Math.sin(yaw) * fwd, head[1] * k + pose.lift * k - 0.35, Math.cos(yaw) * fwd);
+        if (w.lead != null && (!w.lead.isValid() || w.lead.getWorld() != p.getWorld())) {
+            w.lead.remove();
+            w.lead = null;
+        }
+
+        if (w.lead == null) {
+            w.lead = p.getWorld().spawn(knot, org.bukkit.entity.Chicken.class, c -> {
+                c.setPersistent(false);
+                c.setRemoveWhenFarAway(false);
+                c.setAI(false);
+                c.setSilent(true);
+                c.setInvulnerable(true);
+                c.setInvisible(true);
+                c.setGravity(false);
+                c.setCollidable(false);
+                c.setBaby();
+                c.setAgeLock(true);
+                c.setEggLayTime(Integer.MAX_VALUE);
+                c.getPersistentDataContainer().set(this.leadKey(), org.bukkit.persistence.PersistentDataType.BYTE, (byte)1);
+            });
+        } else {
+            w.lead.teleport(knot);
+        }
+
+        if (!w.lead.isLeashed() || w.lead.getLeashHolder() != p) {
+            w.lead.setLeashHolder(p);
+        }
+    }
+
+    private org.bukkit.NamespacedKey leadKey;
+
+    private org.bukkit.NamespacedKey leadKey() {
+        if (this.leadKey == null) {
+            this.leadKey = new org.bukkit.NamespacedKey(this.plugin, "pet_lead");
+        }
+
+        return this.leadKey;
+    }
+
+    private boolean isLead(org.bukkit.entity.Entity e) {
+        return e instanceof org.bukkit.entity.Chicken && e.getPersistentDataContainer().has(this.leadKey(), org.bukkit.persistence.PersistentDataType.BYTE);
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
+    public void onUnleash(org.bukkit.event.player.PlayerUnleashEntityEvent e) {
+        if (this.isLead(e.getEntity())) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
+    public void onLeadBreak(org.bukkit.event.entity.EntityUnleashEvent e) {
+        if (this.isLead(e.getEntity())) {
+            // never drops a lead item; it is tied again on the next update
+            e.setDropLeash(false);
+        }
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
+    public void onLeadHit(org.bukkit.event.entity.EntityDamageEvent e) {
+        if (this.isLead(e.getEntity())) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
+    public void onLeadClick(org.bukkit.event.player.PlayerInteractEntityEvent e) {
+        if (this.isLead(e.getRightClicked())) {
+            e.setCancelled(true);
+        }
+    }
+
+    // ------------------------------------------------------------------ 3.13.3: riding the player
+
+    /** Wings and shoulder pets ride the player (stuck to the body) unless that could get in the way of a teleport. */
+    private boolean mayRide(Player p, Worn w) {
+        if (!Cfg.bool(Opt.COSMETICS_ATTACH) || System.currentTimeMillis() < w.noMountUntil || p.isDead()) {
+            return false;
+        }
+
+        if (!loggedIn(p)) {
+            w.authedSince = 0;
+            return false;
+        }
+
+        if (w.authedSince == 0) {
+            w.authedSince = System.currentTimeMillis();
+        }
+
+        // a few seconds after logging in: login plugins move the player back to where they logged out
+        return System.currentTimeMillis() - w.authedSince > 4000L;
+    }
+
+    private static java.lang.reflect.Method authCheck;
+    private static Object authApi;
+    private static boolean authLooked;
+
+    /** True when AuthMe is not installed or the player has logged in. */
+    private static boolean loggedIn(Player p) {
+        if (!authLooked) {
+            authLooked = true;
+            org.bukkit.plugin.Plugin a = Bukkit.getPluginManager().getPlugin("AuthMe");
+            if (a != null && a.isEnabled()) {
+                try {
+                    Class<?> c = Class.forName("fr.xephi.authme.api.v3.AuthMeApi", true, a.getClass().getClassLoader());
+                    authApi = c.getMethod("getInstance").invoke(null);
+                    authCheck = c.getMethod("isAuthenticated", Player.class);
+                } catch (Throwable t) {
+                    authCheck = null;
+                }
+            }
+        }
+
+        if (authCheck == null) {
+            return true;
+        }
+
+        try {
+            return (Boolean)authCheck.invoke(authApi, p);
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    /** Takes the wings and shoulder pet off the player for a few seconds (a teleport to another world, a portal). */
+    public void detach(Player p) {
+        Worn w = this.worn.get(p.getUniqueId());
+        if (w != null) {
+            w.noMountUntil = System.currentTimeMillis() + 3000L;
+            if (w.wings != null) {
+                w.wings.dismount();
+            }
+
+            if (w.shoulder != null) {
+                w.shoulder.dismount();
+            }
+        }
+
+        // anything else of ours riding the player (left over) gets off too
+        for (org.bukkit.entity.Entity e : p.getPassengers()) {
+            if (e instanceof org.bukkit.entity.ItemDisplay) {
+                p.removePassenger(e);
+            }
+        }
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
+    public void onPortal(org.bukkit.event.entity.EntityPortalEnterEvent e) {
+        if (e.getEntity() instanceof Player p) {
+            this.detach(p);
+        }
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
+    public void onTeleport(org.bukkit.event.player.PlayerTeleportEvent e) {
+        if (e.getTo() != null && e.getTo().getWorld() != e.getFrom().getWorld()) {
+            this.detach(e.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onDeath(org.bukkit.event.entity.PlayerDeathEvent e) {
+        this.detach(e.getPlayer());
+    }
+
+    /** Hides a player's own wings or shoulder pet from them when they chose that in Settings. */
+    private void own(Player p, Worn w, CosmeticRig rig) {
+        boolean hide = "hidden".equals(this.plugin.profiles().get(p).get(net.practicepvp.data.Setting.OWN_COSMETICS));
+        w.selfHidden = hide;
+        if (hide) {
+            for (org.bukkit.entity.Entity e : rig.entities()) {
+                p.hideEntity(this.plugin, e);
+            }
         }
     }
 

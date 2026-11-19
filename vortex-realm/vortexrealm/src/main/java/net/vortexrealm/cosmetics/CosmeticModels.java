@@ -47,6 +47,38 @@ public final class CosmeticModels {
     }
 
     private static final Map<String, Model> ALL = new LinkedHashMap<>();
+    private static final Map<String, Model> COLLARED = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * 3.13.3: a pet wearing a collar in a dye colour ("red", "light_blue"...): a band around the bottom of its head
+     * with a little gold tag in front. The same model object comes back for the same pet and colour.
+     */
+    public static Model withCollar(Model m, String color) {
+        if (m == null || color == null || color.isEmpty() || m.kind() != Kind.PET) {
+            return m;
+        }
+
+        return COLLARED.computeIfAbsent(m.id() + "#" + color, k -> {
+            Part head = null;
+            for (Part p : m.parts()) {
+                if ("head".equals(p.group()) && (head == null || p.w() * p.h() * p.d() > head.w() * head.h() * head.d())) {
+                    head = p;
+                }
+            }
+
+            if (head == null) {
+                return m;
+            }
+
+            List<Part> parts = new ArrayList<>(m.parts());
+            float pad = 0.45f;
+            float y0 = head.y() - 0.1f;
+            parts.add(new Part(color + "_concrete", head.x() - pad, y0, head.z() - pad, head.w() + pad * 2, 1.7f, head.d() + pad * 2, "head"));
+            float front = head.z() + head.d() + pad;
+            parts.add(new Part("gold_block", -0.9f, y0 - 1.5f, front - 0.5f, 1.8f, 1.8f, 0.7f, "head", 0, 0, 45, false));
+            return new Model(m.id(), m.name(), m.kind(), m.hours(), m.icon(), List.copyOf(parts), m.pivots(), m.scale(), m.fat());
+        });
+    }
 
     public static Map<String, Model> all() {
         return ALL;

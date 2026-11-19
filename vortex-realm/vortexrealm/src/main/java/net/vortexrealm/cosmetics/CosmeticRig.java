@@ -115,8 +115,51 @@ public final class CosmeticRig {
         });
     }
 
+    /**
+     * 3.13.3: rides an entity (the player): the client then moves the model with it every frame, so wings and
+     * shoulder pets stay stuck to the body. The root sits at the top of the player's hitbox.
+     */
+    public boolean mountOn(org.bukkit.entity.Entity vehicle) {
+        if (this.root.getVehicle() == vehicle) {
+            return true;
+        }
+
+        if (vehicle.getWorld() != this.root.getWorld()) {
+            return false;
+        }
+
+        if (this.root.isInsideVehicle()) {
+            this.root.leaveVehicle();
+        }
+
+        this.root.teleport(vehicle.getLocation(), TeleportFlag.EntityState.RETAIN_PASSENGERS);
+        return vehicle.addPassenger(this.root);
+    }
+
+    public boolean mounted() {
+        return this.root.isInsideVehicle();
+    }
+
+    /** Gets off whatever it rides (before a world change or a portal). */
+    public void dismount() {
+        if (this.root.isInsideVehicle()) {
+            this.root.leaveVehicle();
+        }
+    }
+
+    /** The root and its boxes (to hide them from someone). */
+    public List<org.bukkit.entity.Entity> entities() {
+        List<org.bukkit.entity.Entity> out = new java.util.ArrayList<>(this.parts);
+        out.add(this.root);
+        return out;
+    }
+
     /** Moves the whole model (one packet for the root; the boxes ride it). */
     public void moveTo(Location to) {
+        if (this.root.isInsideVehicle()) {
+            return;
+        }
+
         Location l = to.clone();
         l.setYaw(0);
         l.setPitch(0);

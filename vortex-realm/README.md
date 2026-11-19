@@ -1202,3 +1202,10 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 ## 3.13.2 / 2.13.2 — SMP player commands back
 
 - **Everyone Equal in SMP** now blocks only what it should: admin and staff commands, cheats (gamemode, give, tp, fly, god, heal, time, weather...), WorldEdit and permission plugins. Every normal player command works in the SMP again: `/enderchest` (`/ec`), `/craft` (`/wb`), `/hat`, `/nightvision`, `/homes`, `/near`, clans, missions, daily rewards, the battle pass and so on. Before, it only let a short list through.
+
+## 3.13.3 / 2.13.3 — wings stick to you, pet collars and leads
+
+- **Wings and shoulder pets ride the player** now, so the game moves them with you every frame: no more lagging behind or swinging into your view when you run or turn. They come off for a moment by themselves for portals and world changes (a player with riders can't change worlds) and only go on a few seconds after an AuthMe login. Settings → Visuals → "Wings Stick To Players" turns it off if another plugin's teleports to other worlds ever fail.
+- **New setting for players:** "Your Wings & Shoulder Pet": shown or hidden from yourself (others always see them).
+- **Pet collars:** `/cosmetics` → Pet Collar, 16 colours with a gold tag.
+- **Pet lead:** `/cosmetics` → Pet Lead: a lead from your hand to your pet's collar. It never drops a lead item and can't be untied by other players.
