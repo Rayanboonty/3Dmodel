@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.8",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.8.jar",
-    "sha256": "926671b7d2bc460d0b469033b19920971d64b8d9cb911cf9183b3e795e3b1651",
-    "notes": "Fix: out of memory at startup (the arena water pass now resumes arena by arena and waits for free memory; arena building pauses when memory is almost full); SMP kits and the Legacy Hall start again"
+    "version": "2.13.9",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.9.jar",
+    "sha256": "549f770da501feef1765bab3d0399664d645c6d7121e6001764df455168581d7",
+    "notes": "Fix: memory at startup. Arenas are no longer all checked when the server starts: a duel arena is checked the first time it is used (players wait at their spawn), an FFA arena when its first player joins, once per restart, one at a time"
   },
   "VortexRealm": {
-    "version": "3.13.8",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.8.jar",
-    "sha256": "1d9a46df56e128f43de66af586ee516e58c1278a2452082101dd758e46f753be",
-    "notes": "Fix: out of memory at startup (the arena water pass now resumes arena by arena and waits for free memory; arena building pauses when memory is almost full); SMP kits and the Legacy Hall start again"
+    "version": "3.13.9",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.9.jar",
+    "sha256": "f2dc37cbaecb62f76b9aa0ca334e4f163eb19c1e1da7dcc703c3b86c2e161217",
+    "notes": "Fix: memory at startup. Arenas are no longer all checked when the server starts: a duel arena is checked the first time it is used (players wait at their spawn), an FFA arena when its first player joins, once per restart, one at a time"
   },
   "VortexSMP": {
     "version": "1.6.0",

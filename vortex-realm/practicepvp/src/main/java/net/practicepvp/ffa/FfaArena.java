@@ -39,6 +39,8 @@ public final class FfaArena {
     public final ChangeTracker tracker = new ChangeTracker();
     public RegionSnapshot snapshot;
     public long lastFullRegen = System.currentTimeMillis();
+    /** 3.13.9: regenerated since the server started (done when the first player joins). */
+    public boolean checked;
     public boolean regenWarned;
     public boolean building;
     public transient boolean editing;

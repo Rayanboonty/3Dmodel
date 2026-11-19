@@ -520,7 +520,32 @@ public final class Match {
         p.setWorldBorder(wb);
     }
 
+    private boolean preparing;
+
     private void startRound(boolean first) {
+        // 3.13.9: the first time a copy is used after a restart it is checked first; the players wait at their spawn
+        if (first && this.state != Match.State.ENDED && this.instance != null && !this.instance.checked && !this.preparing) {
+            this.preparing = true;
+            for (Player p : this.alivePlayers()) {
+                PlayerReset.freeze(p, this.plugin.sessions().get(p));
+                p.showTitle(net.kyori.adventure.title.Title.title(Text.mm("<gold>Preparing the arena"), Text.mm("<gray>one moment...")));
+            }
+
+            this.plugin.arenas().prepare(this.instance).whenComplete((v, e) -> Tasks.ensureSync(() -> {
+                this.preparing = false;
+                if (this.state == Match.State.ENDED) {
+                    return;
+                }
+
+                for (Player p : this.alivePlayers()) {
+                    Tp.to(p, this.spawnOf(p));
+                }
+
+                this.startRound(true);
+            }));
+            return;
+        }
+
         if (this.state != Match.State.ENDED) {
             this.round++;
             this.state = Match.State.STARTING;

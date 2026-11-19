@@ -260,6 +260,18 @@ public final class FfaManager {
                     s.ffaJoinTime = System.currentTimeMillis();
                     a.players.add(p.getUniqueId());
                     this.spawnInto(p, a, kit, spawn);
+                    // 3.13.9: the first player after a restart waits while the arena is checked and repaired
+                    if (!a.checked) {
+                        a.checked = true;
+                        PlayerReset.freeze(p, s);
+                        p.showTitle(net.kyori.adventure.title.Title.title(Text.mm("<gold>Preparing the arena"), Text.mm("<gray>one moment...")));
+                        this.fullRegen(a).whenComplete((v, e) -> Tasks.ensureSync(() -> {
+                            if (p.isOnline() && s.state == PlayerState.FFA) {
+                                PlayerReset.unfreeze(p, s);
+                            }
+                        }));
+                    }
+
                     this.plugin.lobby().refreshVisibilityAll();
                     this.plugin.boards().refreshNametag(p);
                     Msg.send(p, "ffa.joined", "arena", a.displayName, "kit", kit.label());
@@ -537,8 +549,12 @@ public final class FfaManager {
                         }
                     }
 
-                    if (now >= due2) {
+                    if (now >= due2 && !a.players.isEmpty()) {
                         this.fullRegen(a);
+                    } else if (now >= due2) {
+                        // nobody there: nothing to regenerate until someone comes
+                        a.lastFullRegen = now;
+                        a.checked = false;
                     }
                 }
             }

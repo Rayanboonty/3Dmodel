@@ -1244,3 +1244,11 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **Fix:** the one-time "water out of the arenas" pass (from 3.11) runs a minute after start and only marked itself done at the very end: if memory ran out in the middle, the next start did it all again. Now every arena is marked as it finishes (a restart goes on with the next one) and it waits while memory is over 70% full.
 - All arena building pauses while memory is over 82% full, so the garbage collector can catch up instead of the server crashing.
 - Host tip: on a 6 GB server give Java about 5 GB (`-Xmx5G`), not all 6: Java needs some memory outside that for itself.
+
+## 3.13.9 / 2.13.9 — arenas checked when used, not at startup
+
+- **Fix (memory, exit code 137):** at startup every copy of every arena was compared with its saved snapshot at the same time, which loads all their chunks at once. Now nothing is checked at startup:
+  - a duel arena copy is checked (and repaired if needed) the first time a duel uses it after a restart; the players wait at their spawn ("Preparing the arena") and then the start animation runs;
+  - an FFA arena is checked when its first player joins after a restart, and empty FFA arenas are no longer regenerated on the timer;
+  - once a copy is checked it is not checked again until the next restart (it is still repaired after each match, as before);
+  - checks run one at a time across the whole server.

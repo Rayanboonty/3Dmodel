@@ -271,7 +271,34 @@ public final class RegionSnapshot {
         return b.build();
     }
 
+    /** 3.13.9: comparisons run one after another (each loads every chunk of an arena copy). */
+    private static CompletableFuture<?> diffChain = CompletableFuture.completedFuture(null);
+
     public CompletableFuture<List<RegionSnapshot.Fix>> diff(World w, int dx, int dz) {
+        CompletableFuture<List<RegionSnapshot.Fix>> out = new CompletableFuture<>();
+        synchronized (RegionSnapshot.class) {
+            diffChain = diffChain.handle((v, e) -> null).thenCompose(v -> {
+                CompletableFuture<List<RegionSnapshot.Fix>> one;
+                try {
+                    one = this.diffNow(w, dx, dz);
+                } catch (RuntimeException ex) {
+                    one = CompletableFuture.failedFuture(ex);
+                }
+
+                return one.whenComplete((r, e) -> {
+                    if (e != null) {
+                        out.completeExceptionally(e);
+                    } else {
+                        out.complete(r);
+                    }
+                });
+            });
+        }
+
+        return out;
+    }
+
+    private CompletableFuture<List<RegionSnapshot.Fix>> diffNow(World w, int dx, int dz) {
         Cuboid target = this.region().shift(dx, 0, dz);
         return loadSnapshots(w, target).thenApplyAsync(snaps -> {
             List<RegionSnapshot.Fix> fixes = new ArrayList<>();

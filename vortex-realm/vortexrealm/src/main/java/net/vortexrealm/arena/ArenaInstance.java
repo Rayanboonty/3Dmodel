@@ -15,6 +15,8 @@ public final class ArenaInstance {
     public volatile ArenaInstance.State state = ArenaInstance.State.FREE;
     public Object owner;
     public final ChangeTracker tracker = new ChangeTracker();
+    /** 3.13.9: checked against its snapshot since the server started (done when a duel first needs it). */
+    public volatile boolean checked;
 
     public ArenaInstance(Arena arena, int index, String worldName, int dx, int dz) {
         this.arena = arena;

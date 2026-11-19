@@ -371,6 +371,8 @@ public final class ArenaManager {
                     inst.arena.busySince = 0L;
                 }
 
+                inst.checked = true;
+
                 this.ticket(inst, false);
             }));
         }
@@ -1424,17 +1426,43 @@ public final class ArenaManager {
         }
     }
 
+    /**
+     * 3.13.9: nothing is checked at start any more (checking every copy at once filled the memory). Each copy is
+     * checked and repaired the first time a duel needs it after a restart; the players wait at their spawn.
+     */
     public void verifyAll() {
         for (Arena a : this.arenas.values()) {
-            if (a.snapshot != null) {
-                for (ArenaInstance i : a.instances) {
-                    if (i.state == ArenaInstance.State.FREE && i.world() != null) {
-                        i.state = ArenaInstance.State.IN_USE;
-                        this.release(i);
-                    }
-                }
+            for (ArenaInstance i : a.instances) {
+                i.checked = false;
             }
         }
+    }
+
+    /** Checks (and repairs) a copy once per restart; already checked copies are ready at once. */
+    public CompletableFuture<Void> prepare(ArenaInstance inst) {
+        if (inst == null || inst.checked || inst.arena.snapshot == null) {
+            if (inst != null) {
+                inst.checked = true;
+            }
+
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Void> f;
+        try {
+            f = this.resetFull(inst);
+        } catch (RuntimeException e) {
+            f = CompletableFuture.failedFuture(e);
+        }
+
+        return f.handle((v, e) -> {
+            inst.checked = true;
+            if (e != null) {
+                this.plugin.getLogger().log(Level.WARNING, "Checking " + inst.label() + " failed; it is used as it is", e);
+            }
+
+            return null;
+        });
     }
 
     public int removeCopies(Arena a) {
