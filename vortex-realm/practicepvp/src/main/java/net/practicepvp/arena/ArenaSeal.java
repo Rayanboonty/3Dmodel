@@ -174,15 +174,16 @@ public final class ArenaSeal {
      */
     public CompletableFuture<Integer> dryAll() {
         List<Object[]> work = new ArrayList<>();
+        // 3.13.8: every arena is marked as it finishes, so a restart in the middle goes on with the next one
         for (Arena a : this.plugin.arenas().all()) {
-            if (a.bounds != null && !a.editing && !a.instances.isEmpty()) {
+            if (a.bounds != null && !a.editing && !a.instances.isEmpty() && !this.done.getBoolean("dry." + a.id)) {
                 work.add(new Object[]{a});
             }
         }
 
         if (this.plugin.ffa() != null) {
             for (FfaArena f : this.plugin.ffa().all()) {
-                if (areaOf(f) != null) {
+                if (areaOf(f) != null && !this.done.getBoolean("dry.ffa." + f.id)) {
                     work.add(new Object[]{f});
                 }
             }
@@ -193,7 +194,7 @@ public final class ArenaSeal {
         for (Object[] w : work) {
             chain = chain.thenCompose(n -> {
                 CompletableFuture<Integer> f = new CompletableFuture<>();
-                net.practicepvp.util.Tasks.later(40L, () -> {
+                this.whenMemoryFree(() -> {
                     List<Object[]> areas = w[0] instanceof Arena a ? areasOf(a) : java.util.Collections.singletonList(areaOf((FfaArena)w[0]));
                     int[] changed = new int[1];
                     CompletableFuture<Void> c = CompletableFuture.completedFuture(null);
@@ -215,6 +216,8 @@ public final class ArenaSeal {
                             }
                         }
 
+                        this.done.set(w[0] instanceof Arena a ? "dry." + a.id : "dry.ffa." + ((FfaArena)w[0]).id, true);
+                        this.save();
                         f.complete(n + (changed[0] > 0 ? 1 : 0));
                     }));
                 });
@@ -223,6 +226,17 @@ public final class ArenaSeal {
         }
 
         return chain;
+    }
+
+    /** Runs the next arena once memory use is under 70% (checked every 2 s; gives the garbage collector time). */
+    private void whenMemoryFree(Runnable r) {
+        Runtime rt = Runtime.getRuntime();
+        long used = rt.totalMemory() - rt.freeMemory();
+        if (used < rt.maxMemory() * 0.70) {
+            net.practicepvp.util.Tasks.later(40L, r);
+        } else {
+            net.practicepvp.util.Tasks.later(40L, () -> this.whenMemoryFree(r));
+        }
     }
 
     private static final java.util.Map<Material, Boolean> WATERLOGGABLE = new java.util.concurrent.ConcurrentHashMap<>();

@@ -1238,3 +1238,9 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 ## 3.13.7 / 2.13.7 — fix
 
 - **Fix:** "SMP kits" and "1.8 legacy hall" failed to start (ClassCastException ... TabCompleter): their commands now have tab completion, and a command without it no longer stops its part from starting.
+
+## 3.13.8 / 2.13.8 — out of memory at startup
+
+- **Fix:** the one-time "water out of the arenas" pass (from 3.11) runs a minute after start and only marked itself done at the very end: if memory ran out in the middle, the next start did it all again. Now every arena is marked as it finishes (a restart goes on with the next one) and it waits while memory is over 70% full.
+- All arena building pauses while memory is over 82% full, so the garbage collector can catch up instead of the server crashing.
+- Host tip: on a 6 GB server give Java about 5 GB (`-Xmx5G`), not all 6: Java needs some memory outside that for itself.

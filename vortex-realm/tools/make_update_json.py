@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Fix: SMP kits (/kit) and the 1.8 Legacy Hall (/legacyhall) failed to start',
-    'PracticePvP': 'Fix: SMP kits (/kit) and the 1.8 Legacy Hall (/legacyhall) failed to start',
+    'VortexRealm': 'Fix: out of memory at startup (the arena water pass now resumes arena by arena and waits for free memory; arena building pauses when memory is almost full); SMP kits and the Legacy Hall start again',
+    'PracticePvP': 'Fix: out of memory at startup (the arena water pass now resumes arena by arena and waits for free memory; arena building pauses when memory is almost full); SMP kits and the Legacy Hall start again',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

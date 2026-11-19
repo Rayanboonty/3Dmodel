@@ -64,7 +64,21 @@ public final class BlockJobs {
         return this.queue.size() + this.priority.size();
     }
 
+    private long lowMemoryLog;
+
     private void tick() {
+        // 3.13.8: nearly out of memory: no block work this tick, so the garbage collector can free what was loaded
+        Runtime rt = Runtime.getRuntime();
+        if (this.pending() > 0 && rt.totalMemory() - rt.freeMemory() > rt.maxMemory() * 0.82) {
+            if (System.currentTimeMillis() - this.lowMemoryLog > 60000L) {
+                this.lowMemoryLog = System.currentTimeMillis();
+                this.plugin.getLogger().warning("Memory is almost full (" + (rt.totalMemory() - rt.freeMemory() >> 20) + " / " + (rt.maxMemory() >> 20)
+                    + " MB): arena building waits until it frees up.");
+            }
+
+            return;
+        }
+
         this.tickWith(Cfg.i(Opt.BLOCKS_PER_TICK));
     }
 
