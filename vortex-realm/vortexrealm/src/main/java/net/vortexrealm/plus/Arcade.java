@@ -55,7 +55,7 @@ import org.bukkit.potion.PotionEffect;
  * are waiting. On weekends one mode is featured (double XP) and announced.
  */
 public final class Arcade implements Listener {
-    public static final int BUILD_VERSION = 1;
+    public static final int BUILD_VERSION = 2;
     private final VortexRealm plugin;
     private final PlusModule plus;
     private final Map<Mode, List<UUID>> queues = new LinkedHashMap<>();
@@ -288,13 +288,58 @@ public final class Arcade implements Listener {
         this.plus.store().dirty("ground");
     }
 
+    /** 3.13.0: the designed arenas (all but the parkour), placed right away. */
+    private static net.vortexrealm.build.ArcadeArenaDesign design(Mode m, Location c) {
+        return new net.vortexrealm.build.ArcadeArenaDesign(m.name(), c.getBlockX(), c.getBlockY(), c.getBlockZ(), 1813L + m.ordinal());
+    }
+
+    private static void placeNow(World w, net.vortexrealm.build.Voxels d) {
+        Map<String, org.bukkit.block.data.BlockData> cache = new HashMap<>();
+        for (int x = d.minX(); x <= d.maxX(); x++) {
+            for (int z = d.minZ(); z <= d.maxZ(); z++) {
+                d.column(x, z, (bx, by, bz, b) -> {
+                    org.bukkit.block.data.BlockData bd = cache.computeIfAbsent(b, Bukkit::createBlockData);
+                    Block blk = w.getBlockAt(bx, by, bz);
+                    if (!blk.getBlockData().equals(bd)) {
+                        blk.setBlockData(bd, false);
+                    }
+                });
+            }
+        }
+    }
+
+    /** At start: arenas built by an older version are rebuilt in the background (time-sliced, no lag). */
+    public void prebuild() {
+        for (Mode m : Mode.values()) {
+            String key = "arcade." + m.name();
+            if (m == Mode.PARKOUR || this.games.containsKey(m) || this.plus.store().doc("ground").getInt(key, 0) == BUILD_VERSION) {
+                continue;
+            }
+
+            Location c = this.center(m);
+            if (c.getWorld() == null) {
+                return;
+            }
+
+            net.vortexrealm.build.SpawnBuilder.build(this.plugin, c.getWorld(), design(m, c)).whenComplete((v, err) -> net.vortexrealm.util.Tasks.ensureSync(() -> {
+                if (err == null) {
+                    this.plus.store().doc("ground").set(key, BUILD_VERSION);
+                    this.plus.store().dirty("ground");
+                } else {
+                    this.plugin.getLogger().warning("Arcade arena " + m.display + " could not be built: " + err.getMessage());
+                }
+            }));
+        }
+    }
+
     void build(Mode m, Location c) {
         World w = c.getWorld();
         int x = c.getBlockX();
         int y = c.getBlockY();
         int z = c.getBlockZ();
         if (m != Mode.PARKOUR) {
-            Grounds.box(w, x - 24, y - 4, z - 24, x + 24, y + 8, z + 24, Material.AIR);
+            placeNow(w, design(m, c));
+            return;
         }
 
         switch (m) {

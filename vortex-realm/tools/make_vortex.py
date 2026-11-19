@@ -65,6 +65,8 @@ def main():
         shutil.rmtree(os.path.join(DST, 'src'))
     os.makedirs(DST, exist_ok=True)
     shutil.copytree(os.path.join(SRC, 'src'), os.path.join(DST, 'src'))
+    # the unit tests run on the core (net.practicepvp) build only
+    shutil.rmtree(os.path.join(DST, 'src', 'test'), ignore_errors=True)
     jroot = os.path.join(DST, 'src/main/java/net')
     os.rename(jroot + '/practicepvp', jroot + '/vortexrealm')
     jdir = jroot + '/vortexrealm'

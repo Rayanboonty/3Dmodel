@@ -79,6 +79,7 @@ public final class PlusModule {
         this.replays = new Replays(this.plugin, this);
         this.drills = new Drills(this.plugin, this);
         this.arcade = new Arcade(this.plugin, this);
+        net.vortexrealm.util.Tasks.later(200L, () -> this.arcade.prebuild());
         this.flair = new Flair(this.plugin, this);
         this.bounties = new Bounties(this.plugin, this);
         this.hub = new HubFun(this.plugin, this);

@@ -1376,6 +1376,9 @@ public final class ModeManager {
         this.placeNpcs(admin, use, r.npcSpots());
         this.placeFeatureNpcs(admin, r.features());
         this.placeFeatures(r.features());
+        if (this.plugin.legacyHall() != null) {
+            this.plugin.legacyHall().place(r.features());
+        }
         if (style == SpawnBuilder.Style.CASTLE_MARKET && this.plugin.decos() != null && DecoModels.get("crown") != null) {
             // a slowly spinning crown floats over the fountain, like the big items of the MCPVP lobby
             this.plugin.decos().placeAt(new Location(at.getWorld(), at.getBlockX() + 0.5, at.getBlockY() + 10.0, at.getBlockZ() + 0.5), "crown", 0.0F);

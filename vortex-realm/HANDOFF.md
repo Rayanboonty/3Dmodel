@@ -161,9 +161,22 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.9.1 / 2.9.1** — automatic backups off, Backup Everything button.
 - **3.9.2 / 2.9.2** — out-of-memory fix: low arena walls built one at a time, vanilla maps skipped, one-time rebuild.
 - **3.10.0 / 2.10.0** (second agent) — 8 new court arenas replace the old colosseums / show arenas; walls on every arena incl. FFA + vanilla, re-sealed after rebuilds, gap self-check; `/pvpadmin regenerate`; SMP nether/end linking so they're backed up.
-- **3.11.0 / 2.11.0** — pets (roll), shoulder pets, wings by playtime + lobby showcases; 5 more arenas (beach, jungle temple, volcano, pirate cove, pharaoh tomb); walls to world top; water removed from all arenas (one-time pass + vanilla cutter); everyone equal in SMP; name colours; SMP seasons; star countdown + rings; 5 leaderboard designs. **← current release** (`dist/VortexRealm-3.11.0.jar`, sha256 `31ec7f1a…d824e9`)
+- **3.11.0 / 2.11.0** — pets (roll), shoulder pets, wings by playtime + lobby showcases; 5 more arenas (beach, jungle temple, volcano, pirate cove, pharaoh tomb); walls to world top; water removed from all arenas (one-time pass + vanilla cutter); everyone equal in SMP; name colours; SMP seasons; star countdown + rings; 5 leaderboard designs.
+- **3.11.1 / 2.11.1** — auto-update asks every source and installs the newest; built-in sources always included.
+- **3.12.0 / 2.12.0** — the VortexPvP add-on systems (40+) merged in (`plus/`).
+- **3.13.0 / 2.13.0** — 1.8 combat per kit (`combat/LegacyCombat.java`) + eight 1.8 kits + "1.8 Kits" queue tab; the 1.8 Legacy Hall
+  (`build/LegacyHallDesign.java`, stamped into `ClubSpawnDesign` at HALL_X/Y/Z, NPCs + `/legacyhall` in `lobby/LegacyHall.java`);
+  designed arcade arenas (`build/ArcadeArenaDesign.java`, `Arcade.BUILD_VERSION` 2); VexBot bridge (`bot/VexBotBridge.java`, reflection,
+  off by default); per-piece trims, sword skins, leather colour (Cosmetics); auto GG, kill sounds, death recap, fight HUD
+  (`combat/FightExtras.java`); `schematics/` (tools/schem/SchemExport.java), `datapack/`, JUnit tests in `practicepvp/src/test`.
+  **← current release** (`dist/VortexRealm-3.13.0.jar`)
 
 ## 8. Open problems / unverified
+
+- **3.13.0 is untested in game.** Check first: the 1.8 knockback feel (Settings → Matches → 1.8 Knockback numbers), sword
+  blocking (a sword gets a `consumable` component with the BLOCK animation), the Legacy Hall placement on the real Club
+  Spawn (`/legacyhall build`), the arcade rebuild (happens 10 s after start), and VexBot (needs a VexBot build for 1.21.11;
+  the uploaded one is for MC 26.3 and has no licence: never copy or edit its code).
 
 - **3.11.0 cosmetics were never seen in game** (no server here): the display-entity maths was checked offline and the
   models rendered, but the passenger offset of block displays riding an item display, the interpolation look and the

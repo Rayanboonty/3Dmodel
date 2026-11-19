@@ -177,7 +177,7 @@ public final class KitManager {
         }
 
         y.set("e", effects);
-        y.set("r", k.build + "/" + k.regen + "/" + k.hunger + "/" + k.roundsToWin + "/" + k.buildHeight + "/" + k.pearlCooldown + "/" + k.windCooldown + "/" + k.hitDelay + (k.knockback != 100 ? "/kb" + k.knockback : "") + (k.roundsVote ? "" : "/norv"));
+        y.set("r", k.build + "/" + k.regen + "/" + k.hunger + "/" + k.roundsToWin + "/" + k.buildHeight + "/" + k.pearlCooldown + "/" + k.windCooldown + "/" + k.hitDelay + (k.knockback != 100 ? "/kb" + k.knockback : "") + (k.roundsVote ? "" : "/norv") + (k.legacy ? "/legacy" : ""));
 
         try {
             byte[] d = java.security.MessageDigest.getInstance("SHA-1").digest(y.saveToString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -196,7 +196,9 @@ public final class KitManager {
      * </ul>
      */
     /** Default kits added in later versions (not in the bundled kit file of a first start). */
-    private static final java.util.Set<String> NEWER_KITS = java.util.Set.of("mole");
+    private static final java.util.Set<String> NEWER_KITS = java.util.Set.of(
+        "mole", "nodebuff18", "debuff", "gapple18", "soup", "archer", "combo18", "builduhc18", "classic"
+    );
 
     private void mergeDefaults(YamlConfiguration y) {
         this.mergeReport.clear();
@@ -305,6 +307,7 @@ public final class KitManager {
         k.hitDelay = s.getInt("hit-delay", -1);
         k.knockback = Math.max(0, Math.min(400, s.getInt("knockback", 100)));
         k.roundsVote = s.getBoolean("rounds-vote", true);
+        k.legacy = s.getBoolean("legacy-combat", false);
         k.arenaType = s.getString("arena-type", "AUTO").toUpperCase(Locale.ROOT);
         k.throwMode = s.getString("round-throw", "AUTO").toUpperCase(Locale.ROOT);
         k.arenas.clear();
@@ -411,6 +414,7 @@ public final class KitManager {
             y.set(base + "hit-delay", k.hitDelay);
             y.set(base + "knockback", k.knockback);
             y.set(base + "rounds-vote", k.roundsVote);
+            y.set(base + "legacy-combat", k.legacy);
             y.set(base + "arena-type", k.arenaType);
             y.set(base + "round-throw", k.throwMode);
             y.set(base + "arenas", new ArrayList<>(k.arenas));

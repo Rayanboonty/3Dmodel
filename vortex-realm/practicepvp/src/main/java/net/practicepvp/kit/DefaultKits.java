@@ -39,7 +39,223 @@ public final class DefaultKits {
     }
 
     public static List<Kit> added() {
-        return List.of(axe(), trident(), gapple(), noDebuff(), buildUhc(), combo(), mole());
+        List<Kit> out = new ArrayList<>(List.of(axe(), trident(), gapple(), noDebuff(), buildUhc(), combo(), mole()));
+        out.addAll(legacy());
+        return out;
+    }
+
+    // ------------------------------------------------------------------ 3.13.0: the 1.8 legacy kits (1.8 combat)
+
+    /** The classic 1.8 practice kits, played with 1.8 combat (no cooldown, 1.8 knockback, sword blocking). */
+    public static List<Kit> legacy() {
+        return List.of(noDebuff18(), debuff(), gapple18(), soup(), archer(), combo18(), buildUhc18(), classic());
+    }
+
+    private static Kit legacyKit(String id, String name, String color, String sprite, String glyph, Material icon, int order, String... description) {
+        Kit k = kit(id, name, color, sprite, glyph, icon, KitCategory.LEGACY, order, description);
+        k.legacy = true;
+        k.arenaType = "DESIGNED";
+        k.hitDelay = 20;
+        return k;
+    }
+
+    private static void prot(Kit k, Material helmet, Material chest, Material legs, Material boots, int level, boolean unbreaking) {
+        Object[] e = unbreaking ? new Object[]{Enchantment.PROTECTION, level, Enchantment.UNBREAKING, 3} : new Object[]{Enchantment.PROTECTION, level};
+        armor(k, level > 0 ? ench(helmet, e) : it(helmet), level > 0 ? ench(chest, e) : it(chest), level > 0 ? ench(legs, e) : it(legs), level > 0 ? ench(boots, e) : it(boots));
+    }
+
+    private static void fillHeals(Kit k) {
+        for (int i = 0; i < 36; i++) {
+            if (k.contents[i] == null) {
+                k.contents[i] = heal();
+            }
+        }
+    }
+
+    private static Kit noDebuff18() {
+        Kit k = legacyKit("nodebuff18", "NoDebuff 1.8", "<#FF5C5C>", "gui:mob_effect/instant_health", "✙", Material.SPLASH_POTION, 1,
+            "The classic: heal pots, pearls and speed", "with 1.8 combat. Pot fast, block-hit, aim pearls.");
+        armor(
+            k,
+            ench(Material.DIAMOND_HELMET, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_CHESTPLATE, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_LEGGINGS, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_BOOTS, Enchantment.PROTECTION, 2, Enchantment.FEATHER_FALLING, 4, Enchantment.UNBREAKING, 3)
+        );
+        k.contents[0] = ench(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3, Enchantment.FIRE_ASPECT, 2, Enchantment.UNBREAKING, 3);
+        k.contents[1] = it(Material.ENDER_PEARL, 16);
+        k.contents[2] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[3] = potion(Material.POTION, PotionType.LONG_FIRE_RESISTANCE);
+        k.contents[8] = it(Material.COOKED_BEEF, 64);
+        k.contents[17] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[26] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[35] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        fillHeals(k);
+        return k;
+    }
+
+    private static Kit debuff() {
+        Kit k = legacyKit("debuff", "Debuff", "<#7CD64A>", "gui:mob_effect/poison", "☠", Material.SPIDER_EYE, 2,
+            "NoDebuff plus poison and slowness", "splash pots: debuff them, then go in.");
+        armor(
+            k,
+            ench(Material.DIAMOND_HELMET, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_CHESTPLATE, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_LEGGINGS, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_BOOTS, Enchantment.PROTECTION, 2, Enchantment.FEATHER_FALLING, 4, Enchantment.UNBREAKING, 3)
+        );
+        k.contents[0] = ench(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3, Enchantment.FIRE_ASPECT, 2, Enchantment.UNBREAKING, 3);
+        k.contents[1] = it(Material.ENDER_PEARL, 16);
+        k.contents[2] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[3] = potion(Material.POTION, PotionType.LONG_FIRE_RESISTANCE);
+        k.contents[4] = potion(Material.SPLASH_POTION, PotionType.SLOWNESS);
+        k.contents[5] = potion(Material.SPLASH_POTION, PotionType.POISON);
+        k.contents[8] = it(Material.COOKED_BEEF, 64);
+        k.contents[13] = potion(Material.SPLASH_POTION, PotionType.SLOWNESS);
+        k.contents[14] = potion(Material.SPLASH_POTION, PotionType.POISON);
+        k.contents[17] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[26] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[35] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        fillHeals(k);
+        return k;
+    }
+
+    private static Kit gapple18() {
+        Kit k = legacyKit("gapple18", "Gapple 1.8", "<#FFD23F>", "item/golden_apple", "◉", Material.GOLDEN_APPLE, 3,
+            "Golden apples, strength and speed with", "1.8 combat and a spare armor set.");
+        k.hunger = false;
+        armor(
+            k,
+            ench(Material.DIAMOND_HELMET, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_CHESTPLATE, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_LEGGINGS, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_BOOTS, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3)
+        );
+        k.contents[0] = ench(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 5, Enchantment.UNBREAKING, 3);
+        k.contents[1] = it(Material.GOLDEN_APPLE, 64);
+        k.contents[2] = potion(Material.POTION, PotionType.STRONG_STRENGTH);
+        k.contents[3] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[4] = potion(Material.POTION, PotionType.STRONG_STRENGTH);
+        k.contents[5] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[9] = ench(Material.DIAMOND_HELMET, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3);
+        k.contents[10] = ench(Material.DIAMOND_CHESTPLATE, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3);
+        k.contents[11] = ench(Material.DIAMOND_LEGGINGS, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3);
+        k.contents[12] = ench(Material.DIAMOND_BOOTS, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3);
+        return k;
+    }
+
+    private static Kit soup() {
+        Kit k = legacyKit("soup", "Soup", "<#C8874A>", "item/mushroom_stew", "♨", Material.MUSHROOM_STEW, 4,
+            "Old-school soup PvP: a stew heals", "3.5 hearts at once. Refill fast, keep hitting.");
+        k.hunger = false;
+        k.regen = false;
+        prot(k, Material.IRON_HELMET, Material.IRON_CHESTPLATE, Material.IRON_LEGGINGS, Material.IRON_BOOTS, 1, false);
+        k.contents[0] = ench(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 1);
+        for (int i = 1; i < 36; i++) {
+            k.contents[i] = it(Material.MUSHROOM_STEW);
+        }
+
+        return k;
+    }
+
+    private static Kit archer() {
+        Kit k = legacyKit("archer", "Archer", "<#B8E986>", "item/bow", "➶", Material.BOW, 5,
+            "Bows only: Infinity and Power. Strafe,", "lead your shots, never stand still.");
+        k.hunger = false;
+        k.arenaType = "VANILLA,DESIGNED";
+        armor(
+            k,
+            ench(Material.LEATHER_HELMET, Enchantment.PROTECTION, 2),
+            ench(Material.LEATHER_CHESTPLATE, Enchantment.PROTECTION, 2),
+            ench(Material.LEATHER_LEGGINGS, Enchantment.PROTECTION, 2),
+            ench(Material.LEATHER_BOOTS, Enchantment.PROTECTION, 2, Enchantment.FEATHER_FALLING, 4)
+        );
+        k.contents[0] = ench(Material.BOW, Enchantment.POWER, 2, Enchantment.INFINITY, 1, Enchantment.UNBREAKING, 3);
+        k.contents[1] = it(Material.GOLDEN_CARROT, 64);
+        k.contents[2] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[3] = potion(Material.POTION, PotionType.STRONG_SWIFTNESS);
+        k.contents[9] = it(Material.ARROW);
+        return k;
+    }
+
+    private static Kit combo18() {
+        Kit k = legacyKit("combo18", "Combo 1.8", "<#FF6BE0>", "item/pufferfish", "✺", Material.PUFFERFISH, 6,
+            "Hit delay 3 ticks with 1.8 knockback:", "keep them in the air, never let them land.");
+        k.hunger = false;
+        k.hitDelay = 3;
+        armor(
+            k,
+            ench(Material.DIAMOND_HELMET, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_CHESTPLATE, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_LEGGINGS, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3),
+            ench(Material.DIAMOND_BOOTS, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3)
+        );
+        k.contents[0] = ench(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 2, Enchantment.UNBREAKING, 3);
+        k.contents[1] = it(Material.GOLDEN_APPLE, 64);
+        k.contents[2] = it(Material.ENDER_PEARL, 16);
+        k.contents[3] = potion(Material.POTION, PotionType.LONG_SWIFTNESS);
+        k.contents[4] = potion(Material.POTION, PotionType.LONG_STRENGTH);
+        return k;
+    }
+
+    /** A golden apple that heals twice as long (Regeneration II 10 s), like the UHC golden heads. */
+    private static ItemStack goldenHead(int amount) {
+        ItemStack s = named(it(Material.GOLDEN_APPLE, amount), "<gold><b>Golden Head</b>");
+        s.setData(io.papermc.paper.datacomponent.DataComponentTypes.CONSUMABLE, io.papermc.paper.datacomponent.item.Consumable.consumable()
+            .consumeSeconds(1.6F)
+            .animation(io.papermc.paper.datacomponent.item.consumable.ItemUseAnimation.EAT)
+            .addEffect(io.papermc.paper.datacomponent.item.consumable.ConsumeEffect.applyStatusEffects(List.of(
+                new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.REGENERATION, 200, 1),
+                new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.ABSORPTION, 2400, 0)
+            ), 1.0F)));
+        return s;
+    }
+
+    private static Kit buildUhc18() {
+        Kit k = legacyKit("builduhc18", "BuildUHC 1.8", "<#FF9A3D>", "item/golden_apple", "⛰", Material.LAVA_BUCKET, 7,
+            "UHC with blocks and buckets, rods and", "golden heads, no natural regeneration.");
+        k.build = true;
+        k.regen = false;
+        k.arenaType = "VANILLA,DESIGNED";
+        armor(
+            k,
+            ench(Material.DIAMOND_HELMET, Enchantment.PROTECTION, 2),
+            ench(Material.DIAMOND_CHESTPLATE, Enchantment.PROTECTION, 2),
+            ench(Material.DIAMOND_LEGGINGS, Enchantment.PROTECTION, 2),
+            ench(Material.DIAMOND_BOOTS, Enchantment.PROTECTION, 2)
+        );
+        k.contents[0] = ench(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3);
+        k.contents[1] = it(Material.FISHING_ROD);
+        k.contents[2] = ench(Material.BOW, Enchantment.POWER, 3);
+        k.contents[3] = it(Material.WATER_BUCKET);
+        k.contents[4] = it(Material.LAVA_BUCKET);
+        k.contents[5] = it(Material.GOLDEN_APPLE, 6);
+        k.contents[6] = goldenHead(3);
+        k.contents[7] = it(Material.COBBLESTONE, 64);
+        k.contents[8] = it(Material.OAK_PLANKS, 64);
+        k.contents[9] = it(Material.ARROW, 64);
+        k.contents[10] = ench(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 3);
+        k.contents[11] = ench(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 3);
+        k.contents[12] = it(Material.WATER_BUCKET);
+        k.contents[13] = it(Material.LAVA_BUCKET);
+        k.contents[14] = it(Material.COBBLESTONE, 64);
+        k.contents[15] = it(Material.OAK_PLANKS, 64);
+        k.contents[16] = it(Material.COOKED_BEEF, 64);
+        k.votes.add(new KitVote("no_lava", "No Lava Buckets", KitVote.Action.REMOVE, Material.LAVA_BUCKET, 0));
+        return k;
+    }
+
+    private static Kit classic() {
+        Kit k = legacyKit("classic", "Classic", "<#9FC5FF>", "item/iron_sword", "⚔", Material.IRON_SWORD, 8,
+            "Iron armor, a sword, a rod and a bow:", "pure 1.8 fundamentals, no potions.");
+        prot(k, Material.IRON_HELMET, Material.IRON_CHESTPLATE, Material.IRON_LEGGINGS, Material.IRON_BOOTS, 0, false);
+        k.contents[0] = it(Material.DIAMOND_SWORD);
+        k.contents[1] = it(Material.FISHING_ROD);
+        k.contents[2] = it(Material.BOW);
+        k.contents[3] = it(Material.GOLDEN_APPLE, 3);
+        k.contents[8] = it(Material.COOKED_BEEF, 16);
+        k.contents[9] = it(Material.ARROW, 12);
+        return k;
     }
 
     private static Kit combo() {

@@ -266,6 +266,10 @@ public final class Dialogs {
             buttons.add(this.tabButton(p, Dialogs.QueueTab.SKILL, tab));
             buttons.add(this.tabButton(p, Dialogs.QueueTab.VANILLA, tab));
             buttons.add(this.tabButton(p, Dialogs.QueueTab.OTHER, tab));
+            if (this.plugin.kits().sorted().stream().anyMatch(kx -> kx.category == KitCategory.LEGACY && kx.enabled)) {
+                buttons.add(this.tabButton(p, Dialogs.QueueTab.LEGACY, tab));
+            }
+
             buttons.add(this.tabButton(p, Dialogs.QueueTab.MOST_PLAYED, tab));
             Kit ready = null;
 
@@ -312,6 +316,10 @@ public final class Dialogs {
                 label = "<light_purple>Other Kits";
                 icon = Text.mm("<green>✦");
                 break;
+            case LEGACY:
+                label = "<#FFB547>1.8 Kits";
+                icon = Icons.spriteOr(KitCategory.LEGACY.sprite, "<#FFB547>⚔");
+                break;
             default:
                 label = "<white>Most Played Kits";
         }
@@ -343,6 +351,7 @@ public final class Dialogs {
             case SKILL -> pool.stream().filter(kx -> kx.category == KitCategory.SKILL).toList();
             case VANILLA -> pool.stream().filter(kx -> kx.category == KitCategory.VANILLA).toList();
             case OTHER -> pool.stream().filter(kx -> kx.category == KitCategory.OTHER).toList();
+            case LEGACY -> pool.stream().filter(kx -> kx.category == KitCategory.LEGACY).toList();
             default -> pool.stream()
                 .sorted(
                     Comparator.<Kit>comparingInt(kx -> -(this.plugin.queues().size(kx) + this.plugin.matches().playing(kx)))
@@ -1004,6 +1013,7 @@ public final class Dialogs {
         MOST_PLAYED,
         SKILL,
         VANILLA,
-        OTHER;
+        OTHER,
+        LEGACY;
     }
 }

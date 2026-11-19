@@ -5,7 +5,7 @@ api-version: '1.21.11'
 description: Vortex Realm - MCPVP-style practice (ranked duels, LT5-HT1 tiers, Tier Tests and Tier Defense, friends, MCPVP tab), FFA, parties, practice bots, hub and server selector for the network, web panel.
 authors: [Vortex Realm]
 website: https://vortexrealm.net
-softdepend: [PlaceholderAPI, Vulcan, GrimAC, LuckPerms, Vault]
+softdepend: [PlaceholderAPI, Vulcan, GrimAC, LuckPerms, Vault, VexBot]
 
 commands:
   lobby:
@@ -420,6 +420,9 @@ commands:
     description: "PracticePvP add-on admin: status, tests, reload, rollback, web dashboard."
     aliases: [vortexplus, vpp]
     permission: vortex.admin
+  legacyhall:
+    description: "The 1.8 Legacy Hall: old-school kits with 1.8 combat. Admins: /legacyhall build."
+    aliases: [legacy, oldkits]
   vortex:
     description: "Vortex Realm info - /vortex migrate moves PracticePvP data."
     aliases: [vr, vortexrealm]

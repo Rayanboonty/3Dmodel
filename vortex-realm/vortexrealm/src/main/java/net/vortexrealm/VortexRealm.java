@@ -612,6 +612,23 @@ public final class VortexRealm extends JavaPlugin {
             pm.registerEvents(lock, this);
             Tasks.timer(100L, 100L, lock::sweep);
         });
+        this.module("1.8 combat", () -> {
+            this.legacyCombat = new net.vortexrealm.combat.LegacyCombat(this);
+            pm.registerEvents(this.legacyCombat, this);
+            Tasks.timer(10L, 10L, this.legacyCombat::sweep);
+        });
+        this.module("VexBot bridge", () -> {
+            this.vexBot = new net.vortexrealm.bot.VexBotBridge(this);
+            pm.registerEvents(this.vexBot, this);
+            // VexBot may enable after us: look it up once everything is loaded
+            Tasks.later(40L, this.vexBot::connect);
+            Tasks.timer(20L, 20L, this.vexBot::second);
+        });
+        this.module("fight extras (auto gg, kill sounds, death recap, fight HUD)", () -> pm.registerEvents(new net.vortexrealm.combat.FightExtras(this), this));
+        this.module("1.8 legacy hall", () -> {
+            this.legacyHall = new net.vortexrealm.lobby.LegacyHall(this);
+            this.bind("legacyhall", this.legacyHall);
+        });
         this.module("pets, shoulder pets and wings", () -> {
             this.companions = new net.vortexrealm.cosmetics.Companions(this);
             pm.registerEvents(this.companions, this);
@@ -845,6 +862,14 @@ public final class VortexRealm extends JavaPlugin {
 
         if (this.companions != null) {
             this.companions.stop();
+        }
+
+        if (this.legacyCombat != null) {
+            this.legacyCombat.shutdown();
+        }
+
+        if (this.vexBot != null) {
+            this.vexBot.shutdown();
         }
 
         if (this.showcases != null) {
@@ -1933,6 +1958,23 @@ public final class VortexRealm extends JavaPlugin {
 
     public net.vortexrealm.bot.BotManager bots() {
         return this.bots;
+    }
+
+    private net.vortexrealm.combat.LegacyCombat legacyCombat;
+    private net.vortexrealm.lobby.LegacyHall legacyHall;
+    private net.vortexrealm.bot.VexBotBridge vexBot;
+
+    public net.vortexrealm.bot.VexBotBridge vexBot() {
+        return this.vexBot;
+    }
+
+    public net.vortexrealm.lobby.LegacyHall legacyHall() {
+        return this.legacyHall;
+    }
+
+    /** 3.13.0: 1.8 combat for the legacy kits (null if it failed to start). */
+    public net.vortexrealm.combat.LegacyCombat legacy() {
+        return this.legacyCombat;
     }
 
     public net.vortexrealm.cosmetics.Companions companions() {

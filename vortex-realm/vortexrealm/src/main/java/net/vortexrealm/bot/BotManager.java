@@ -79,6 +79,10 @@ public final class BotManager implements Listener, TabExecutor {
         public PracticeBot bot() {
             return this.bot;
         }
+
+        public Kit kit() {
+            return this.kit;
+        }
     }
 
     public Fight fightOf(Player p) {
@@ -152,6 +156,12 @@ public final class BotManager implements Listener, TabExecutor {
         }
 
         start.setDirection(p1.toVector().subtract(start.toVector()));
+        // 3.13.0: VexBot's bots when the owner turned them on and VexBot fits this server
+        if (this.plugin.vexBot() != null && this.plugin.vexBot().fight(p, kit, inst, start)) {
+            this.countdown(p, kit.displayName + " vs VexBot");
+            return true;
+        }
+
         PracticeBot bot = new PracticeBot(this.plugin, start, kit, diff, null, diff.label + " Bot");
         bot.target = p;
         bot.attackReady = 60;

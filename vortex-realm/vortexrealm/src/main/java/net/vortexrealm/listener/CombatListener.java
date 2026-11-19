@@ -280,8 +280,14 @@ public final class CombatListener implements Listener {
                         s.match.stats(p.getUniqueId()).gotHit(e.getFinalDamage());
                     }
 
-                    if ("ding".equals(this.plugin.profiles().get(attacker).get(Setting.HIT_SOUND))) {
-                        Snd.play(attacker, "entity.arrow.hit_player", 0.5F, 1.2F);
+                    switch (this.plugin.profiles().get(attacker).get(Setting.HIT_SOUND)) {
+                        case "ding" -> Snd.play(attacker, "entity.arrow.hit_player", 0.5F, 1.2F);
+                        case "pling" -> Snd.play(attacker, "block.note_block.pling", 0.5F, 1.6F);
+                        case "click" -> Snd.play(attacker, "ui.button.click", 0.35F, 1.8F);
+                        case "bass" -> Snd.play(attacker, "block.note_block.bass", 0.6F, 1.0F);
+                        case "chime" -> Snd.play(attacker, "block.amethyst_block.chime", 0.8F, 1.3F);
+                        default -> {
+                        }
                     }
                 }
             }

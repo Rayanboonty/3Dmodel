@@ -601,6 +601,23 @@ public final class PracticePlugin extends JavaPlugin {
             pm.registerEvents(lock, this);
             Tasks.timer(100L, 100L, lock::sweep);
         });
+        this.module("1.8 combat", () -> {
+            this.legacyCombat = new net.practicepvp.combat.LegacyCombat(this);
+            pm.registerEvents(this.legacyCombat, this);
+            Tasks.timer(10L, 10L, this.legacyCombat::sweep);
+        });
+        this.module("VexBot bridge", () -> {
+            this.vexBot = new net.practicepvp.bot.VexBotBridge(this);
+            pm.registerEvents(this.vexBot, this);
+            // VexBot may enable after us: look it up once everything is loaded
+            Tasks.later(40L, this.vexBot::connect);
+            Tasks.timer(20L, 20L, this.vexBot::second);
+        });
+        this.module("fight extras (auto gg, kill sounds, death recap, fight HUD)", () -> pm.registerEvents(new net.practicepvp.combat.FightExtras(this), this));
+        this.module("1.8 legacy hall", () -> {
+            this.legacyHall = new net.practicepvp.lobby.LegacyHall(this);
+            this.bind("legacyhall", this.legacyHall);
+        });
         this.module("pets, shoulder pets and wings", () -> {
             this.companions = new net.practicepvp.cosmetics.Companions(this);
             pm.registerEvents(this.companions, this);
@@ -834,6 +851,14 @@ public final class PracticePlugin extends JavaPlugin {
 
         if (this.companions != null) {
             this.companions.stop();
+        }
+
+        if (this.legacyCombat != null) {
+            this.legacyCombat.shutdown();
+        }
+
+        if (this.vexBot != null) {
+            this.vexBot.shutdown();
         }
 
         if (this.showcases != null) {
@@ -1922,6 +1947,23 @@ public final class PracticePlugin extends JavaPlugin {
 
     public net.practicepvp.bot.BotManager bots() {
         return this.bots;
+    }
+
+    private net.practicepvp.combat.LegacyCombat legacyCombat;
+    private net.practicepvp.lobby.LegacyHall legacyHall;
+    private net.practicepvp.bot.VexBotBridge vexBot;
+
+    public net.practicepvp.bot.VexBotBridge vexBot() {
+        return this.vexBot;
+    }
+
+    public net.practicepvp.lobby.LegacyHall legacyHall() {
+        return this.legacyHall;
+    }
+
+    /** 3.13.0: 1.8 combat for the legacy kits (null if it failed to start). */
+    public net.practicepvp.combat.LegacyCombat legacy() {
+        return this.legacyCombat;
     }
 
     public net.practicepvp.cosmetics.Companions companions() {

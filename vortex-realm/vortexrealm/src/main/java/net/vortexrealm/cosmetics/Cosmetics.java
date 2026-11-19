@@ -301,17 +301,183 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
         }
     }
 
+    /** helmet, chestplate, leggings or boots. */
+    static String pieceOf(Material m) {
+        String n = m.name();
+        return n.endsWith("_HELMET") ? "helmet" : (n.endsWith("_CHESTPLATE") ? "chestplate" : (n.endsWith("_LEGGINGS") ? "leggings" : "boots"));
+    }
+
+    /** 3.13.0: a trim for one armor piece: this kit's piece, this kit, every kit's piece, every kit. */
+    public String[] pieceTrim(UUID u, String kitId, String piece) {
+        Cosmetics.Data d = this.data.get(u);
+        if (d == null) {
+            return null;
+        }
+
+        String v = d.trims.get(kitId + "@" + piece);
+        if (v == null) {
+            v = d.trims.get(kitId);
+        }
+
+        if (v == null) {
+            v = d.trims.get(ALL + "@" + piece);
+        }
+
+        if (v == null) {
+            v = d.trims.get(ALL);
+        }
+
+        if (v == null || v.equals("none")) {
+            return null;
+        }
+
+        String[] pm = v.split(":");
+        return pm.length == 2 ? pm : null;
+    }
+
+    /** 3.13.0: what a sword can look like (vanilla item models, no resource pack), unlocked by time played. */
+    public enum SwordSkin {
+        NETHERITE("netherite_sword", "Netherite Blade", 0),
+        GOLDEN("golden_sword", "Golden Blade", 1),
+        IRON("iron_sword", "Iron Blade", 0),
+        STONE("stone_sword", "Stone Blade", 0),
+        WOODEN("wooden_sword", "Wooden Stick Sword", 2),
+        BLAZE("blaze_rod", "Blaze Rod", 4),
+        BREEZE("breeze_rod", "Breeze Rod", 8),
+        BONE("bone", "Bone Club", 6),
+        AMETHYST("amethyst_shard", "Amethyst Shard", 12),
+        ECHO("echo_shard", "Echo Shard", 20),
+        END_ROD("end_rod", "Light Saber", 30),
+        FISH("tropical_fish", "The Fish", 40),
+        FEATHER("feather", "Feather Duster", 50),
+        COPPER("copper_sword", "Copper Blade", 3);
+
+        public final String model;
+        public final String display;
+        public final int hours;
+
+        SwordSkin(String model, String display, int hours) {
+            this.model = model;
+            this.display = display;
+            this.hours = hours;
+        }
+
+        static SwordSkin of(String s) {
+            if (s == null) {
+                return null;
+            }
+
+            try {
+                return valueOf(s.toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
+    }
+
+    boolean skinUnlocked(Player p, SwordSkin s) {
+        return p.hasPermission("vortex.cosmetics.all") || net.vortexrealm.cosmetics.Companions.hoursPlayed(p) >= s.hours;
+    }
+
+    private void swordSkins(Player p) {
+        Cosmetics.Data d = this.of(p.getUniqueId());
+        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
+        tiles.add(tile(new ItemStack(Material.DIAMOND_SWORD), "<white><b>Normal", "<gray>Swords look like swords", List.of(), () -> {
+            d.extra.remove("swordskin");
+            this.save(p.getUniqueId());
+            this.open(p);
+        }));
+        for (SwordSkin s : SwordSkin.values()) {
+            Material icon = Material.matchMaterial(s.model);
+            boolean open = this.skinUnlocked(p, s);
+            boolean on = s.name().equalsIgnoreCase(d.extra.get("swordskin"));
+            tiles.add(tile(new ItemStack(icon == null ? Material.STICK : icon), (on ? "<green>✔ " : "") + (open ? "<gold><b>" : "<dark_gray><b>") + s.display,
+                open ? "<gray>Your swords look like this" : "<red>Unlocks at " + s.hours + "h played", List.of(), () -> {
+                    if (!this.skinUnlocked(p, s)) {
+                        Snd.error(p);
+                        return;
+                    }
+
+                    d.extra.put("swordskin", s.name());
+                    this.save(p.getUniqueId());
+                    Snd.play(p, "item.armor.equip_netherite", 0.7F, 1.2F);
+                    this.open(p);
+                }));
+        }
+
+        this.ui().screen(p, LobbyDialogs.title("Sword Skin", "Same sword, new look"), tiles, List.of(Text.mm("<gray>Only the look changes: damage and enchantments stay.")), null,
+            List.of(this.ui().btn(p, "<gray>« Back", null, () -> this.open(p))), 1, this.ui().close(p));
+    }
+
+    private void pieces(Player p) {
+        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
+        Material[] icons = {Material.DIAMOND_HELMET, Material.DIAMOND_CHESTPLATE, Material.DIAMOND_LEGGINGS, Material.DIAMOND_BOOTS};
+        String[] names = {"helmet", "chestplate", "leggings", "boots"};
+        for (int i = 0; i < 4; i++) {
+            String piece = names[i];
+            String[] t = this.pieceTrim(p.getUniqueId(), "", piece);
+            tiles.add(tile(hide(new ItemStack(icons[i])), "<gold><b>" + nice(piece), this.trimLabel(t), List.of("<green>▶ Click to choose this piece's trim"),
+                () -> this.patterns(p, ALL + "@" + piece)));
+        }
+
+        this.ui().screen(p, LobbyDialogs.title("Trim per Piece", "Mix patterns and materials"), tiles, List.of(Text.mm("<gray>Every kit; a kit's own trim still wins.")), null,
+            List.of(this.ui().btn(p, "<gray>« Back", null, () -> this.open(p))), 1, this.ui().close(p));
+    }
+
+    private void leatherColours(Player p) {
+        Cosmetics.Data d = this.of(p.getUniqueId());
+        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
+        tiles.add(tile(new ItemStack(Material.LEATHER_CHESTPLATE), "<white><b>Natural Leather", "<gray>No colour", List.of(), () -> {
+            d.extra.remove("dye");
+            this.save(p.getUniqueId());
+            this.open(p);
+        }));
+        for (String[] c : net.vortexrealm.social.NameColors.palette()) {
+            ItemStack icon = new ItemStack(Material.LEATHER_CHESTPLATE);
+            icon.editMeta(org.bukkit.inventory.meta.LeatherArmorMeta.class, m -> m.setColor(org.bukkit.Color.fromRGB(Integer.parseInt(c[1].substring(1), 16))));
+            tiles.add(tile(hide(icon), "<" + c[1] + "><b>" + c[0], c[1].equalsIgnoreCase(d.extra.get("dye")) ? "<green>✔ Chosen" : "<gray>Leather armor colour", List.of(), () -> {
+                d.extra.put("dye", c[1]);
+                this.save(p.getUniqueId());
+                Snd.play(p, "item.armor.equip_leather", 0.8F, 1.1F);
+                this.open(p);
+            }));
+        }
+
+        this.ui().screen(p, LobbyDialogs.title("Leather Colour", "Archer and other leather kits"), tiles, List.of(), null,
+            List.of(this.ui().btn(p, "<gray>« Back", null, () -> this.open(p))), 1, this.ui().close(p));
+    }
+
     /** Puts the player's trim and shield on the items of a kit (armor 36-39, everything else for shields). */
     public void apply(Player p, String kitId, ItemStack[] c) {
         Cosmetics.Data d = this.data.get(p.getUniqueId());
         if (d != null) {
-            String[] trim = p.hasPermission("vortex.cosmetics.trims") ? this.trimFor(p.getUniqueId(), kitId) : null;
+            boolean trims = p.hasPermission("vortex.cosmetics.trims");
             boolean shield = d.shieldBase != null && p.hasPermission("vortex.cosmetics.shield");
+            String dye = d.extra.get("dye");
+            SwordSkin skin = SwordSkin.of(d.extra.get("swordskin"));
+            if (skin != null && !this.skinUnlocked(p, skin)) {
+                skin = null;
+            }
 
             for (int i = 0; i < c.length; i++) {
                 ItemStack it = c[i];
                 if (it != null && !it.isEmpty()) {
-                    if (trim != null && Tag.ITEMS_TRIMMABLE_ARMOR.isTagged(it.getType())) {
+                    // 3.13.0: leather armor in the player's colour, sword skins
+                    if (dye != null && dye.matches("#[0-9A-Fa-f]{6}") && it.getItemMeta() instanceof org.bukkit.inventory.meta.LeatherArmorMeta lm) {
+                        ItemStack out = it.clone();
+                        lm.setColor(org.bukkit.Color.fromRGB(Integer.parseInt(dye.substring(1), 16)));
+                        out.setItemMeta(lm);
+                        c[i] = it = out;
+                    }
+
+                    if (skin != null && Tag.ITEMS_SWORDS.isTagged(it.getType())) {
+                        ItemStack out = it.clone();
+                        out.setData(io.papermc.paper.datacomponent.DataComponentTypes.ITEM_MODEL, net.kyori.adventure.key.Key.key("minecraft", skin.model));
+                        c[i] = it = out;
+                    }
+
+                    String[] trim = trims && Tag.ITEMS_TRIMMABLE_ARMOR.isTagged(it.getType()) ? this.pieceTrim(p.getUniqueId(), kitId, pieceOf(it.getType())) : null;
+                    if (trim != null) {
                         c[i] = withTrim(it, trim[0], trim[1]);
                     } else if (shield && it.getType() == Material.SHIELD) {
                         c[i] = withShield(it, d);
@@ -623,6 +789,14 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
                 () -> this.kits(p)
             )
         );
+        tiles.add(tile(hide(new ItemStack(Material.NETHERITE_CHESTPLATE)), "<gold><b>Trim per Piece", "<gray>A different trim on each piece",
+            List.of("<gray>Helmet, chestplate, leggings and boots", "<gray>each with their own pattern and material.", "", "<green>▶ Click to choose"), () -> this.pieces(p)));
+        SwordSkin skin = SwordSkin.of(d.extra.get("swordskin"));
+        tiles.add(tile(new ItemStack(skin == null ? Material.DIAMOND_SWORD : java.util.Objects.requireNonNullElse(Material.matchMaterial(skin.model), Material.STICK)),
+            "<gold><b>Sword Skin", skin == null ? "<gray>Normal swords" : "<white>" + skin.display,
+            List.of("<gray>Your swords look like another item.", "<gray>Play more to unlock more.", "", "<green>▶ Click to choose"), () -> this.swordSkins(p)));
+        tiles.add(tile(new ItemStack(Material.LEATHER_CHESTPLATE), "<gold><b>Leather Colour", d.extra.get("dye") == null ? "<gray>Natural" : "<" + d.extra.get("dye") + ">" + d.extra.get("dye"),
+            List.of("<gray>Dye the leather armor of your kits.", "", "<green>▶ Click to choose"), () -> this.leatherColours(p)));
         tiles.add(
             tile(
                 this.shieldIcon(p),
@@ -732,7 +906,11 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
             tiles.add(tile(new ItemStack(Material.PAPER), "<white><b>Same as every kit", "<gray>Use your main trim", List.of(), () -> {
                 d.trims.remove(target);
                 this.save(p.getUniqueId());
-                this.kits(p);
+                if (target.contains("@")) {
+                    this.pieces(p);
+                } else {
+                    this.kits(p);
+                }
             }));
         }
 

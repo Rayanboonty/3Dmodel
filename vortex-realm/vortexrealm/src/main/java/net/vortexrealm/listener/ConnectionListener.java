@@ -33,6 +33,11 @@ public final class ConnectionListener implements Listener {
     )
     public void onJoin(PlayerJoinEvent e) {
         Player p = e.getPlayer();
+        if (p.hasMetadata("NPC")) {
+            // a fake player of a bot plugin (VexBot): not one of ours
+            return;
+        }
+
         this.plugin.sessions().get(p);
         this.plugin.syncWorldState(p, true);
         this.plugin.lobby().refreshVisibilityAll();

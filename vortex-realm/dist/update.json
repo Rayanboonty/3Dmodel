@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.12.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.12.0.jar",
-    "sha256": "d7ae179c4fc84f5c8e883793a2abd6514b231ec48b580a2d145ff07f71473941",
-    "notes": "40+ new systems: rank ladder with divisions, ranked seasons + hall of fame, clans + clan wars, ranked 2v2, weekly cup, battle pass, missions, ~300 achievements, titles, daily rewards, replays, post-match analysis, training drills, coach mode, arcade, bounties, win effects, gadgets, parkour, creator codes, streamer mode and more"
+    "version": "2.13.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.0.jar",
+    "sha256": "10dcb10fdd75dc605772b1f5f578323df34cd385c6ce88d14ac139e847c89a01",
+    "notes": "1.8 legacy kits with 1.8 combat (no cooldown, 1.8 knockback, sword blocking), the 1.8 Legacy Hall in the Club Spawn, new arcade arenas, VexBot bots, sword skins, per-piece trims, auto GG, kill sounds, death recap, fight HUD"
   },
   "VortexRealm": {
-    "version": "3.12.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.12.0.jar",
-    "sha256": "0541fdc82aaceeccf6ddc995cc8cbf615f0e39b5fb79aa27e7726c6b49244559",
-    "notes": "40+ new systems: rank ladder with divisions, ranked seasons + hall of fame, clans + clan wars, ranked 2v2, weekly cup, battle pass, missions, ~300 achievements, titles, daily rewards, replays, post-match analysis, training drills, coach mode, arcade, bounties, win effects, gadgets, parkour, creator codes, streamer mode and more"
+    "version": "3.13.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.0.jar",
+    "sha256": "885abe65dd6d0da997bb68a348337f6b636a78e879ed9b8df45454e54dd54244",
+    "notes": "1.8 legacy kits with 1.8 combat (no cooldown, 1.8 knockback, sword blocking), the 1.8 Legacy Hall in the Club Spawn, new arcade arenas, VexBot bots, sword skins, per-piece trims, auto GG, kill sounds, death recap, fight HUD"
   },
   "VortexSMP": {
     "version": "1.6.0",

@@ -1183,3 +1183,14 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **Staff:** Fair+ checks, report evidence replays (`/evidence`), screenshare log (`/sslog`), alerts (`/alerts`).
 - **Renamed to avoid clashes:** ranked seasons → `/rseason` (`/season` stays the SMP season), training drills → `/skilldrill` (`/drill` stays the SMP drill), Discord verify → `/dverify` (`/link` stays).
 - **Removed:** the Eco SMP extras (crates, chest shops, bid house), because that SMP mode is gone. Rewards are paid in coins.
+
+## 3.13.0 / 2.13.0 — 1.8 kits, the Legacy Hall, new arcade arenas, VexBot
+
+- **1.8 combat** for kits with "1.8 Combat" on (kit editor): no attack cooldown, no sweep, 1.8 knockback (push, sprint push, lift in the air; every number in Settings → Matches), sword blocking with the 1.8 pose (hold right click, halves damage), rod knockback, instant soup, 1.8 regeneration, no off-hand. Arcade games use it too (setting).
+- **Eight 1.8 kits:** NoDebuff 1.8, Debuff, Gapple 1.8, Soup, Archer, Combo 1.8, BuildUHC 1.8 (with golden heads) and Classic, in a new **1.8 Kits** queue tab. Added on update without touching edited kits.
+- **The 1.8 Legacy Hall:** a white quartz temple with prismarine accents at the end of the dirt path south-west of the Club Spawn plaza: eight kit fighters on pedestals (click: unranked, ranked, bot, edit layout) and a stage with Sumo, The Bridge, Boxing and Spleef. New Club Spawn builds include it; on a spawn that is already built run **`/legacyhall build`**. Players use **`/legacyhall`** (or `/legacy`).
+- **New arcade arenas:** Sumo sky dojo (15x15 ring with a hanging roof), a boxing ring with stands, The Bridge with team castles and drop-in goals, a frozen spleef stadium, a ruined OITC courtyard and a KOTH temple hill. Rebuilt by themselves after the update.
+- **VexBot:** Settings → Bots → "VexBot Bots" makes bot fights use the VexBot plugin's bots (install the VexBot build made for your Minecraft version). Off or missing = the built-in bots.
+- **Cosmetics:** trims per armor piece, sword skins (unlocked by time played), leather armor colour.
+- **Settings:** Auto GG, kill sounds, death recap, fight HUD (combo, reach, CPS), more hit sounds.
+- **For builders:** `schematics/` (.schem for WorldEdit/FAWE), `datapack/vortex_practice` (barrier ceilings, spawns, gamerules), JUnit tests (`mvn test`), `docs/PROJECT-STRUCTURE.md`.

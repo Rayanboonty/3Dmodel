@@ -420,6 +420,10 @@ public final class Hub implements Listener {
     )
     public void onJoin(PlayerJoinEvent e) {
         Player p = e.getPlayer();
+        if (p.hasMetadata("NPC")) {
+            return;
+        }
+
         World hub = this.modes.hubWorld();
         if (hub != null && Cfg.bool(Opt.JOIN_AT_HUB)) {
             Tasks.later(4L, () -> {

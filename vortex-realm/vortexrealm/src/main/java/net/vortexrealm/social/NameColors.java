@@ -36,6 +36,11 @@ public final class NameColors implements CommandExecutor, TabCompleter {
     };
     private final VortexRealm plugin;
 
+    /** The colour palette (name, #hex, icon), also used for leather armor. */
+    public static String[][] palette() {
+        return PALETTE;
+    }
+
     public NameColors(VortexRealm plugin) {
         this.plugin = plugin;
     }
