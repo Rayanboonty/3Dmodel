@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.5",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.5.jar",
-    "sha256": "b428cb8c8e8d586c30ed869819ac21b37abfbd4b7fb8e5323a6bff30184951f6",
-    "notes": "PvP HQ capsule start; fixes for logging out in The Bridge and other arcade games, the elevator; 1.8 arcade games in the 1.8 tab; staff /spectate in the SMP; SMP kits by rank (/kit); SMP nether and end; calmer wings that follow your moves; lighter arena building"
+    "version": "2.13.6",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.6.jar",
+    "sha256": "5afcbd892448d87f5b15b4350fe8ce57d49c4ba68025b5c7b70b270676840bbb",
+    "notes": "Fix: the server no longer shuts itself down when empty to install an update (only with a restart script); the keep-online bot is never touched by the SMP lock or cosmetics"
   },
   "VortexRealm": {
-    "version": "3.13.5",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.5.jar",
-    "sha256": "6d15e493dc2695b60249e4d55afae69ae4e7558ca371043e578daa56b739ec4a",
-    "notes": "PvP HQ capsule start; fixes for logging out in The Bridge and other arcade games, the elevator; 1.8 arcade games in the 1.8 tab; staff /spectate in the SMP; SMP kits by rank (/kit); SMP nether and end; calmer wings that follow your moves; lighter arena building"
+    "version": "3.13.6",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.6.jar",
+    "sha256": "f23c1c8ef8f0ecc386ec4d0a6583ed14e6353883025e0f523c50c7b298d7144d",
+    "notes": "Fix: the server no longer shuts itself down when empty to install an update (only with a restart script); the keep-online bot is never touched by the SMP lock or cosmetics"
   },
   "VortexSMP": {
     "version": "1.6.0",

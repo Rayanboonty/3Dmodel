@@ -320,6 +320,18 @@ public final class AutoUpdater {
             return;
         }
 
+        // 3.13.6: a restart only happens by itself when the server comes back by itself (a restart script in
+        // spigot.yml). Without one, a "restart" only stops the server and many hosts leave it off: then the update
+        // waits in the update folder and goes in at the next normal restart.
+        if (!policy.equals("NOW") && !comesBack()) {
+            if (!this.waitLogged) {
+                this.waitLogged = true;
+                this.plugin.getLogger().info(this.plugin.getName() + " " + this.staged + " is downloaded and goes in at the next restart (no restart script, so the server is not stopped by itself).");
+            }
+
+            return;
+        }
+
         // keep-online bots and other NPC players don't count
         if (Bukkit.getOnlinePlayers().stream().allMatch(p -> p.hasMetadata("NPC"))) {
             this.restart();
@@ -340,6 +352,23 @@ public final class AutoUpdater {
             }
 
             this.startCountdown(policy.equals("NOW") ? 60 : 300);
+        }
+    }
+
+    private boolean waitLogged;
+
+    /** True when spigot.yml's restart script exists, so a restart brings the server back. */
+    static boolean comesBack() {
+        try {
+            String script = Bukkit.spigot().getConfig().getString("settings.restart-script", "./start.sh").trim();
+            if (script.isEmpty()) {
+                return false;
+            }
+
+            String first = script.split("\\s+")[0];
+            return new java.io.File(first).isFile();
+        } catch (Throwable t) {
+            return false;
         }
     }
 

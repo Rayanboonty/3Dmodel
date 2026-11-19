@@ -1229,3 +1229,8 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **SMP kits:** `/kit`: Starter (once, everyone), VIP, MVP/Legend, Diamond (staff, creators, top ranks), Moderator (enchanted diamond), Netherite (owner, admin: full netherite with mending, elytra, totem). 24 h cooldowns, a menu with the items shown as pictures.
 - **SMP nether and end:** World Manager → an SMP world → "Create Nether" / "Create The End". They are linked (same inventory, backed up) and the SMP's portals lead to them.
 - **Lighter arena building:** block work only uses the time a tick has spare (no lag on a busy server), runs faster while nobody is online and pauses when memory is nearly full.
+
+## 3.13.6 / 2.13.6 — no more shutting down when empty
+
+- **Fix:** when an update was downloaded, the server "restarted" as soon as nobody (or only the keep-online bot) was online. Without a restart script that only stops the server, and many hosts leave it off. Now it restarts by itself only when `spigot.yml` has a restart script that exists; otherwise the update waits in the update folder and goes in at your next normal restart (or `/pvpadmin update` to do it now).
+- The keep-online bot (`/pvpadmin smp bot on`) is still there; the SMP lock and the cosmetics now leave it alone.

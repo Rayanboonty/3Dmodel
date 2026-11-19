@@ -172,6 +172,10 @@ public final class Companions implements Listener {
 
         int every = Math.max(1, Cfg.i(Opt.COSMETIC_UPDATE_TICKS));
         for (Player p : Bukkit.getOnlinePlayers()) {
+            if (p.hasMetadata("NPC")) {
+                continue;
+            }
+
             Cosmetics.Data d = this.plugin.cosmetics() == null ? null : this.plugin.cosmetics().of(p.getUniqueId());
             Model petM = d == null ? null : CosmeticModels.get(d.extra.get("pet"));
             Model shM = d == null ? null : CosmeticModels.get(d.extra.get("shoulder"));

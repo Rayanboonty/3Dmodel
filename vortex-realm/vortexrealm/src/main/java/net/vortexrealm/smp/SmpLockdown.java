@@ -100,6 +100,11 @@ public final class SmpLockdown implements Listener {
 
     /** Makes a player a normal survival player for the SMP (or gives the perks back outside it). */
     public void apply(Player p) {
+        if (p.hasMetadata("NPC") || p.hasMetadata("vortex-keepalive")) {
+            // the keep-online bot and other bots are left alone
+            return;
+        }
+
         boolean lock = this.on() && this.inSmp(p);
         PermissionAttachment a = this.off.get(p.getUniqueId());
         if (a == null) {

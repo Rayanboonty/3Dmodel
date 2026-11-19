@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'PvP HQ capsule start; fixes for logging out in The Bridge and other arcade games, the elevator; 1.8 arcade games in the 1.8 tab; staff /spectate in the SMP; SMP kits by rank (/kit); SMP nether and end; calmer wings that follow your moves; lighter arena building',
-    'PracticePvP': 'PvP HQ capsule start; fixes for logging out in The Bridge and other arcade games, the elevator; 1.8 arcade games in the 1.8 tab; staff /spectate in the SMP; SMP kits by rank (/kit); SMP nether and end; calmer wings that follow your moves; lighter arena building',
+    'VortexRealm': 'Fix: the server no longer shuts itself down when empty to install an update (only with a restart script); the keep-online bot is never touched by the SMP lock or cosmetics',
+    'PracticePvP': 'Fix: the server no longer shuts itself down when empty to install an update (only with a restart script); the keep-online bot is never touched by the SMP lock or cosmetics',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

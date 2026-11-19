@@ -2078,7 +2078,7 @@ public final class Opt<T> {
         "EMPTY_OR_NIGHT",
         Opt.Section.NETWORK,
         "Update Restart",
-        "When to restart for a downloaded update: EMPTY_OR_NIGHT (as soon as nobody is online, or at the restart hour with a 5-minute countdown), NOW (60-second countdown), MANUAL (your next restart). Turn on auto-restart in your host panel.",
+        "When to restart for a downloaded update: EMPTY_OR_NIGHT (when nobody is online or at the restart hour, only if spigot.yml has a restart script so the server comes back; otherwise the update goes in at your next restart), NOW (60-second countdown), MANUAL (your next restart).",
         Material.REPEATER
     );
     public static final Opt<Integer> UPDATE_HOUR = integer(
