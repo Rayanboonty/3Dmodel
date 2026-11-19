@@ -629,6 +629,10 @@ public final class PracticePlugin extends JavaPlugin {
             Tasks.later(40L, this.vexBot::connect);
             Tasks.timer(20L, 20L, this.vexBot::second);
         });
+        this.module("arena view limit", () -> {
+            net.practicepvp.combat.ArenaView view = new net.practicepvp.combat.ArenaView(this);
+            Tasks.timer(20L, 20L, view::tick);
+        });
         this.module("fight extras (auto gg, kill sounds, death recap, fight HUD)", () -> pm.registerEvents(new net.practicepvp.combat.FightExtras(this), this));
         this.module("SMP kits", () -> this.bind("kit", new net.practicepvp.smp.SmpKits(this)));
         this.module("SMP portals", () -> pm.registerEvents(new net.practicepvp.smp.SmpPortals(this), this));

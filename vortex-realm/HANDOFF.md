@@ -177,7 +177,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.13.6 / 2.13.6** — AutoUpdater only restarts by itself when spigot.yml's restart script exists (comesBack()); SmpLockdown/Companions skip NPC players (keep-online bot).
 - **3.13.7 / 2.13.7** — bind() only sets a tab completer when the executor is one; SmpKits/LegacyHall tab completion (fixes their startup ClassCastException).
 - **3.13.8 / 2.13.8** — ArenaSeal.dryAll marks dry.<id> per arena + whenMemoryFree (<70%); BlockJobs.tick skips while heap > 82%.
-- **3.13.9 / 2.13.9** — ArenaManager.verifyAll only marks copies unchecked; ArenaManager.prepare + Match.startRound wait; FfaArena.checked on first join; empty FFA no timed regen; RegionSnapshot.diff serialized (diffChain). **← current release**
+- **3.13.9 / 2.13.9** — ArenaManager.verifyAll only marks copies unchecked; ArenaManager.prepare + Match.startRound wait; FfaArena.checked on first join; empty FFA no timed regen; RegionSnapshot.diff serialized (diffChain).
+- **3.13.10 / 2.13.10** — Arcade.goalAt position-based Bridge scoring + portal particles; combat/ArenaView per-player send view distance while fighting (Opt ARENA_VIEW_LIMIT). **← current release**
 
 ## 8. Open problems / unverified
 

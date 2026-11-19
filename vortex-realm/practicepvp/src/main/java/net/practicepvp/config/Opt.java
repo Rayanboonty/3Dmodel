@@ -2028,6 +2028,9 @@ public final class Opt<T> {
         "cosmetics.view-distance", 40, Opt.Section.VISUALS, "Pet View Distance", "Blocks away at which other players see pets and wings (lower = lighter for clients).", Material.SPYGLASS, 16, 64, 8
     );
     // 3.13.0: 1.8 combat for the legacy kits
+    public static final Opt<Boolean> ARENA_VIEW_LIMIT = bool(
+        "arena.view-limit", true, Opt.Section.ARENA, "Hide Other Arenas", "While fighting, players only see their own arena (their view distance shrinks to it); back to normal in the lobby. Lighter for the server too.", Material.SPYGLASS
+    );
     public static final Opt<Boolean> LEGACY_ENABLED = bool(
         "legacy.enabled", true, Opt.Section.MATCH, "1.8 Combat", "Kits with \"1.8 Combat\" on (the 1.8 legacy kits) play with no attack cooldown, 1.8 knockback, sword blocking, rod knockback and instant soup.", Material.GOLDEN_SWORD
     );

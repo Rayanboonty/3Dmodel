@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.9",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.9.jar",
-    "sha256": "549f770da501feef1765bab3d0399664d645c6d7121e6001764df455168581d7",
-    "notes": "Fix: memory at startup. Arenas are no longer all checked when the server starts: a duel arena is checked the first time it is used (players wait at their spawn), an FFA arena when its first player joins, once per restart, one at a time"
+    "version": "2.13.10",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.10.jar",
+    "sha256": "f4e908bf1809a76a981f462d95c1c90ab0c07351b16c701435e782214552c038",
+    "notes": "Fix: The Bridge goals score when you drop into them (with portal particles); while fighting you only see your own arena, not the maps next to it"
   },
   "VortexRealm": {
-    "version": "3.13.9",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.9.jar",
-    "sha256": "f2dc37cbaecb62f76b9aa0ca334e4f163eb19c1e1da7dcc703c3b86c2e161217",
-    "notes": "Fix: memory at startup. Arenas are no longer all checked when the server starts: a duel arena is checked the first time it is used (players wait at their spawn), an FFA arena when its first player joins, once per restart, one at a time"
+    "version": "3.13.10",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.10.jar",
+    "sha256": "b593630250acca6aaf672f5a52b877b6c1f334ba46a114329dab75966f8285fc",
+    "notes": "Fix: The Bridge goals score when you drop into them (with portal particles); while fighting you only see your own arena, not the maps next to it"
   },
   "VortexSMP": {
     "version": "1.6.0",

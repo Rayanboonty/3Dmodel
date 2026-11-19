@@ -1252,3 +1252,8 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
   - an FFA arena is checked when its first player joins after a restart, and empty FFA arenas are no longer regenerated on the timer;
   - once a copy is checked it is not checked again until the next restart (it is still repaired after each match, as before);
   - checks run one at a time across the whole server.
+
+## 3.13.10 / 2.13.10 — The Bridge scores, no maps in sight
+
+- **The Bridge:** dropping into the other team's goal hole scores right away (it used to count only when you stood on the coloured glass at the bottom, so you could fall and die instead). The goals glow with portal particles in their team colour.
+- **No other maps in view:** while you fight (duel, FFA, bot, arcade) you only get the chunks of your own arena, so the arena copies and arcade plots next to it are out of sight; back in the lobby your view distance returns. Settings → Arenas → "Hide Other Arenas".

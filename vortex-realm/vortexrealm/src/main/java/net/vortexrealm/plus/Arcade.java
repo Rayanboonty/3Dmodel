@@ -435,6 +435,21 @@ public final class Arcade implements Listener {
         }
     }
 
+    /** 3.13.10: +1 inside the blue goal hole (x 20..22 of the plot), -1 inside the red one, 0 elsewhere. */
+    private static int goalAt(Game g, Location l) {
+        double rx = l.getX() - g.c.getBlockX();
+        double rz = l.getZ() - g.c.getBlockZ();
+        if (l.getY() > g.c.getBlockY() - 0.2 || rz < -1.0 || rz > 2.0) {
+            return 0;
+        }
+
+        if (rx >= 20.0 && rx <= 23.0) {
+            return 1;
+        }
+
+        return rx <= -19.0 && rx >= -22.0 ? -1 : 0;
+    }
+
     private void snow(Location c) {
         Grounds.box(c.getWorld(), c.getBlockX() - 12, c.getBlockY() - 1, c.getBlockZ() - 12, c.getBlockX() + 12, c.getBlockY() - 1, c.getBlockZ() + 12, Material.SNOW_BLOCK);
     }
@@ -592,6 +607,16 @@ public final class Arcade implements Listener {
 
             g.ticks += 2;
             int floorY = g.c.getBlockY();
+            if (g.mode == Mode.BRIDGE && g.ticks % 10 == 0) {
+                // the goals glow like portals so everyone sees where to go
+                for (int side = -1; side <= 1; side += 2) {
+                    Location goal = new Location(g.c.getWorld(), g.c.getBlockX() + side * 21.5 + 0.5, floorY - 1.0, g.c.getBlockZ() + 0.5);
+                    g.c.getWorld().spawnParticle(org.bukkit.Particle.PORTAL, goal, 40, 1.0, 0.6, 1.0, 0.4);
+                    g.c.getWorld().spawnParticle(org.bukkit.Particle.DUST, goal.clone().add(0, 1.2, 0), 6, 1.0, 0.2, 1.0, 0,
+                        new org.bukkit.Particle.DustOptions(side < 0 ? org.bukkit.Color.RED : org.bukkit.Color.BLUE, 1.6F));
+                }
+            }
+
             for (Player p : on) {
                 UUID u = p.getUniqueId();
                 if (g.out.contains(u)) {
@@ -622,7 +647,9 @@ public final class Arcade implements Listener {
                     }
                 } else if (g.mode == Mode.BRIDGE) {
                     boolean red = g.team.getOrDefault(u, 0) == 0;
-                    if (red && under == Material.BLUE_STAINED_GLASS || !red && under == Material.RED_STAINED_GLASS) {
+                    // 3.13.10: dropping into the other team's goal hole scores (the blue goal is at +x, the red at -x)
+                    int inGoal = goalAt(g, l);
+                    if (red && (inGoal > 0 || under == Material.BLUE_STAINED_GLASS) || !red && (inGoal < 0 || under == Material.RED_STAINED_GLASS)) {
                         g.score.merge(u, 1, Integer::sum);
                         this.say(g, "<gold>⚑ " + (red ? "<red>" : "<blue>") + Text.esc(p.getName()) + " <white>scored! <gray>(" + this.scoreLine(g) + ")");
                         if (g.score(u) >= 3) {
@@ -636,7 +663,7 @@ public final class Arcade implements Listener {
                             this.kit(g, o);
                             Tp.to(o, sp.get(g.team.getOrDefault(o.getUniqueId(), 0)));
                         }
-                    } else if (red && under == Material.RED_STAINED_GLASS || !red && under == Material.BLUE_STAINED_GLASS) {
+                    } else if (red && (inGoal < 0 || under == Material.RED_STAINED_GLASS) || !red && (inGoal > 0 || under == Material.BLUE_STAINED_GLASS)) {
                         Tp.to(p, this.spawns(g, 2).get(red ? 0 : 1));
                     }
                 }

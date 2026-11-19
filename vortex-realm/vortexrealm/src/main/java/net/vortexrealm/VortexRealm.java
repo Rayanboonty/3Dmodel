@@ -640,6 +640,10 @@ public final class VortexRealm extends JavaPlugin {
             Tasks.later(40L, this.vexBot::connect);
             Tasks.timer(20L, 20L, this.vexBot::second);
         });
+        this.module("arena view limit", () -> {
+            net.vortexrealm.combat.ArenaView view = new net.vortexrealm.combat.ArenaView(this);
+            Tasks.timer(20L, 20L, view::tick);
+        });
         this.module("fight extras (auto gg, kill sounds, death recap, fight HUD)", () -> pm.registerEvents(new net.vortexrealm.combat.FightExtras(this), this));
         this.module("SMP kits", () -> this.bind("kit", new net.vortexrealm.smp.SmpKits(this)));
         this.module("SMP portals", () -> pm.registerEvents(new net.vortexrealm.smp.SmpPortals(this), this));
