@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.6",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.6.jar",
-    "sha256": "5afcbd892448d87f5b15b4350fe8ce57d49c4ba68025b5c7b70b270676840bbb",
-    "notes": "Fix: the server no longer shuts itself down when empty to install an update (only with a restart script); the keep-online bot is never touched by the SMP lock or cosmetics"
+    "version": "2.13.7",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.7.jar",
+    "sha256": "bfe35bce7a74cf1a18445fb5e504c6a1a5e2b888f077a44dd26c48d7062902a6",
+    "notes": "Fix: SMP kits (/kit) and the 1.8 Legacy Hall (/legacyhall) failed to start"
   },
   "VortexRealm": {
-    "version": "3.13.6",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.6.jar",
-    "sha256": "f23c1c8ef8f0ecc386ec4d0a6583ed14e6353883025e0f523c50c7b298d7144d",
-    "notes": "Fix: the server no longer shuts itself down when empty to install an update (only with a restart script); the keep-online bot is never touched by the SMP lock or cosmetics"
+    "version": "3.13.7",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.7.jar",
+    "sha256": "cae8dca31db4ed2421769c1ad3e12da04bc1d4d582c090894dedc120dbe9a3e4",
+    "notes": "Fix: SMP kits (/kit) and the 1.8 Legacy Hall (/legacyhall) failed to start"
   },
   "VortexSMP": {
     "version": "1.6.0",

@@ -28,7 +28,7 @@ import org.bukkit.inventory.ItemStack;
  * Legend enchanted iron, staff and creators diamond, moderators enchanted diamond, owner and admins full netherite).
  * Each kit has its own cooldown. /kit opens the menu: every kit with its item pictures, ready / waiting / locked.
  */
-public final class SmpKits implements CommandExecutor {
+public final class SmpKits implements CommandExecutor, org.bukkit.command.TabCompleter {
     private final PracticePlugin plugin;
     private final File file;
     private final YamlConfiguration data;
@@ -285,6 +285,21 @@ public final class SmpKits implements CommandExecutor {
 
         p.sendMessage(Text.mm("<green>✔ <gradient:" + d.gradient + "><b>" + d.display + " Kit</b></gradient> <green>claimed!"));
         Snd.play(p, "entity.player.levelup", 0.7F, 1.4F);
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
+        List<String> out = new ArrayList<>();
+        if (args.length == 1) {
+            for (Def d : Def.values()) {
+                String n = d.name().toLowerCase(Locale.ROOT);
+                if (n.startsWith(args[0].toLowerCase(Locale.ROOT))) {
+                    out.add(n);
+                }
+            }
+        }
+
+        return out;
     }
 
     @Override

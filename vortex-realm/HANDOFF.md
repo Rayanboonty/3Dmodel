@@ -174,7 +174,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.13.3 / 2.13.3** — wings/shoulder rigs ride the player (CosmeticRig.mountOn; Companions.detach on Tp.to cross-world, portals, death; AuthMe login + 4 s first); pet collars (CosmeticModels.withCollar) and leads (invisible leashed baby chicken, PDC `pet_lead`); Setting OWN_COSMETICS; Opt COSMETICS_ATTACH.
 - **3.13.4 / 2.13.4** — wing models redone with more detail (CosmeticModels.wings/bat/butterfly), pet mouths.
 - **3.13.5 / 2.13.5** — match/Capsule.java (StartMode.CAPSULE, default; one-time switch from ELEVATOR via .capsule-start marker), Elevator snap 1.4, Arcade quit cleanup + rejoin, arcade modes in Dialogs LEGACY tab, HubFun no dummy for 1.8 queues, wings react to movement, SmpLockdown staff spectate, smp/SmpKits.java (/kit), ModeManager.createDimension + smp/SmpPortals.java, BlockJobs.budgetNanos adaptive.
-- **3.13.6 / 2.13.6** — AutoUpdater only restarts by itself when spigot.yml's restart script exists (comesBack()); SmpLockdown/Companions skip NPC players (keep-online bot). **← current release**
+- **3.13.6 / 2.13.6** — AutoUpdater only restarts by itself when spigot.yml's restart script exists (comesBack()); SmpLockdown/Companions skip NPC players (keep-online bot).
+- **3.13.7 / 2.13.7** — bind() only sets a tab completer when the executor is one; SmpKits/LegacyHall tab completion (fixes their startup ClassCastException). **← current release**
 
 ## 8. Open problems / unverified
 

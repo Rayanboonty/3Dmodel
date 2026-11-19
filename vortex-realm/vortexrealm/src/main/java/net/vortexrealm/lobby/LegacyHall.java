@@ -31,7 +31,7 @@ import org.bukkit.entity.Player;
  * /legacyhall teleports to it; /legacyhall build (admin) stamps it into the Club Spawn at the end of the path, or in
  * front of the admin when the lobby is another build.
  */
-public final class LegacyHall implements CommandExecutor {
+public final class LegacyHall implements CommandExecutor, org.bukkit.command.TabCompleter {
     private final VortexRealm plugin;
     private final File file;
 
@@ -138,6 +138,27 @@ public final class LegacyHall implements CommandExecutor {
             this.place(features);
             admin.sendMessage(Text.mm("<green>1.8 Legacy Hall built. <gray>Players get there with <white>/legacyhall</white>."));
         }));
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
+        List<String> out = new ArrayList<>();
+        if (args.length == 1) {
+            out.add("play");
+            if (sender.hasPermission("vortex.admin")) {
+                out.add("build");
+            }
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("play")) {
+            for (Kit k : this.plugin.kits().all()) {
+                if (k.legacy) {
+                    out.add(k.id);
+                }
+            }
+        }
+
+        String last = args.length == 0 ? "" : args[args.length - 1].toLowerCase(Locale.ROOT);
+        out.removeIf(s -> !s.startsWith(last));
+        return out;
     }
 
     @Override

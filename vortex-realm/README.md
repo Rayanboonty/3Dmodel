@@ -1234,3 +1234,7 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 
 - **Fix:** when an update was downloaded, the server "restarted" as soon as nobody (or only the keep-online bot) was online. Without a restart script that only stops the server, and many hosts leave it off. Now it restarts by itself only when `spigot.yml` has a restart script that exists; otherwise the update waits in the update folder and goes in at your next normal restart (or `/pvpadmin update` to do it now).
 - The keep-online bot (`/pvpadmin smp bot on`) is still there; the SMP lock and the cosmetics now leave it alone.
+
+## 3.13.7 / 2.13.7 — fix
+
+- **Fix:** "SMP kits" and "1.8 legacy hall" failed to start (ClassCastException ... TabCompleter): their commands now have tab completion, and a command without it no longer stops its part from starting.

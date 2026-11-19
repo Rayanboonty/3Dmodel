@@ -843,7 +843,10 @@ public final class PracticePlugin extends JavaPlugin {
             this.getLogger().warning("Command '" + name + "' missing from plugin.yml");
         } else {
             cmd.setExecutor((CommandExecutor)executor);
-            cmd.setTabCompleter((TabCompleter)executor);
+            // 3.13.7: a command without its own tab completion just gets none (it used to stop the part from starting)
+            if (executor instanceof TabCompleter tc) {
+                cmd.setTabCompleter(tc);
+            }
         }
     }
 
