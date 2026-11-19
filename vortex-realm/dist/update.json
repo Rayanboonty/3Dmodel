@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.0.jar",
-    "sha256": "10dcb10fdd75dc605772b1f5f578323df34cd385c6ce88d14ac139e847c89a01",
-    "notes": "1.8 legacy kits with 1.8 combat (no cooldown, 1.8 knockback, sword blocking), the 1.8 Legacy Hall in the Club Spawn, new arcade arenas, VexBot bots, sword skins, per-piece trims, auto GG, kill sounds, death recap, fight HUD"
+    "version": "2.13.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.1.jar",
+    "sha256": "582d9f96ba27dc551e78c5fee51cc4f8f7f0a3319952b4075b4af6c9f0391dfe",
+    "notes": "Fix: worlds can be set as Survival, Lifesteal, Strength or Ranked SMP again in the World Manager (plus everything of 3.13.0: 1.8 kits, Legacy Hall, arcade arenas)"
   },
   "VortexRealm": {
-    "version": "3.13.0",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.0.jar",
-    "sha256": "885abe65dd6d0da997bb68a348337f6b636a78e879ed9b8df45454e54dd54244",
-    "notes": "1.8 legacy kits with 1.8 combat (no cooldown, 1.8 knockback, sword blocking), the 1.8 Legacy Hall in the Club Spawn, new arcade arenas, VexBot bots, sword skins, per-piece trims, auto GG, kill sounds, death recap, fight HUD"
+    "version": "3.13.1",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.1.jar",
+    "sha256": "acadcee9b76a934786814f7a479d5567bc791072e9fa5b21b67245f8ef72c9f8",
+    "notes": "Fix: worlds can be set as Survival, Lifesteal, Strength or Ranked SMP again in the World Manager (plus everything of 3.13.0: 1.8 kits, Legacy Hall, arcade arenas)"
   },
   "VortexSMP": {
     "version": "1.6.0",

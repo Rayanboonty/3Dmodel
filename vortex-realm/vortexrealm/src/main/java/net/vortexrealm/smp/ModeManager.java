@@ -417,7 +417,10 @@ public final class ModeManager {
 
     public void setMode(World w, WorldMode mode) {
         if (mode.smp() && !sameServer()) {
-            mode = WorldMode.NONE;
+            // 3.13.1: an admin who makes a world an SMP wants the SMP here: switch "SMP On This Server" on
+            // (it used to quietly turn the world into "Nothing")
+            Cfg.set(Opt.SMP_SAME_SERVER, true);
+            this.plugin.getLogger().info("Settings -> SMP -> SMP On This Server turned on: " + w.getName() + " is now " + mode.display + ".");
         }
 
         this.retired.remove(w.getName());

@@ -829,8 +829,9 @@ public final class AdminDialogs {
     private static List<Dialogs.Choice> modeChoices() {
         List<Dialogs.Choice> c = new ArrayList<>();
 
+        // 3.13.1: the SMP modes (Survival, Lifesteal, Strength, Ranked) can be picked again
         for (WorldMode m : WorldMode.values()) {
-            if (!m.smp()) {
+            if (m != WorldMode.ECO) {
                 c.add(new Dialogs.Choice(m.name(), m.mm()));
             }
         }
@@ -868,7 +869,7 @@ public final class AdminDialogs {
         List<ActionButton> b = new ArrayList<>();
 
         for (WorldMode m : WorldMode.values()) {
-            if (m.smp()) {
+            if (m == WorldMode.ECO && current != WorldMode.ECO) {
                 continue;
             }
 
@@ -878,6 +879,7 @@ public final class AdminDialogs {
                     Msg.error(p, "admin.world-locked");
                 } else if (m != current) {
                     this.plugin.modes().setMode(w, m);
+                    p.sendMessage(Text.mm("<green>" + Text.esc(w.getName()) + " is now " + m.mm() + "<green>."));
                     Snd.click(p);
                 }
 

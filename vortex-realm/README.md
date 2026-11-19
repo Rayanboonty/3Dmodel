@@ -1194,3 +1194,7 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **Cosmetics:** trims per armor piece, sword skins (unlocked by time played), leather armor colour.
 - **Settings:** Auto GG, kill sounds, death recap, fight HUD (combo, reach, CPS), more hit sounds.
 - **For builders:** `schematics/` (.schem for WorldEdit/FAWE), `datapack/vortex_practice` (barrier ceilings, spawns, gamerules), JUnit tests (`mvn test`), `docs/PROJECT-STRUCTURE.md`.
+
+## 3.13.1 / 2.13.1 — SMP worlds can be set again
+
+- **World Manager:** a world's page lists Survival SMP, Lifesteal SMP, Strength SMP and Ranked SMP again (they were hidden), and so does the mode choice when you create or load a world. Picking one turns on Settings → SMP → "SMP On This Server" by itself if it was off (before, the world silently became "Nothing").

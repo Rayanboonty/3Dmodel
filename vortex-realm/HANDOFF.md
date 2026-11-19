@@ -169,7 +169,7 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
   designed arcade arenas (`build/ArcadeArenaDesign.java`, `Arcade.BUILD_VERSION` 2); VexBot bridge (`bot/VexBotBridge.java`, reflection,
   off by default); per-piece trims, sword skins, leather colour (Cosmetics); auto GG, kill sounds, death recap, fight HUD
   (`combat/FightExtras.java`); `schematics/` (tools/schem/SchemExport.java), `datapack/`, JUnit tests in `practicepvp/src/test`.
-  **← current release** (`dist/VortexRealm-3.13.0.jar`)
+- **3.13.1 / 2.13.1** — World Manager offers the SMP modes again (were hidden); setMode turns "SMP On This Server" on instead of making the world "Nothing". **← current release**
 
 ## 8. Open problems / unverified
 

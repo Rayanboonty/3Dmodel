@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': '1.8 legacy kits with 1.8 combat (no cooldown, 1.8 knockback, sword blocking), the 1.8 Legacy Hall in the Club Spawn, new arcade arenas, VexBot bots, sword skins, per-piece trims, auto GG, kill sounds, death recap, fight HUD',
-    'PracticePvP': '1.8 legacy kits with 1.8 combat (no cooldown, 1.8 knockback, sword blocking), the 1.8 Legacy Hall in the Club Spawn, new arcade arenas, VexBot bots, sword skins, per-piece trims, auto GG, kill sounds, death recap, fight HUD',
+    'VortexRealm': 'Fix: worlds can be set as Survival, Lifesteal, Strength or Ranked SMP again in the World Manager (plus everything of 3.13.0: 1.8 kits, Legacy Hall, arcade arenas)',
+    'PracticePvP': 'Fix: worlds can be set as Survival, Lifesteal, Strength or Ranked SMP again in the World Manager (plus everything of 3.13.0: 1.8 kits, Legacy Hall, arcade arenas)',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

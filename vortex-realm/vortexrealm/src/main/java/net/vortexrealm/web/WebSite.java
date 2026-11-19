@@ -809,7 +809,7 @@ public final class WebSite implements TabExecutor {
                 if (w != null && this.plugin.modes() != null) {
                     WorldMode m = WorldMode.parse(str(body, "mode"), null);
                     if (m == null) {
-                        return ok("Modes: PVP, HUB, NONE.");
+                        return ok("Modes: PVP, HUB, SURVIVAL, LIFESTEAL, STRENGTH, RANKED, NONE.");
                     } else {
                         this.plugin.modes().setMode(w, m);
                         this.log(l, "world " + w.getName() + " mode " + m);
