@@ -1216,3 +1216,16 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **Bat and Dragon wings:** a darker inner membrane, claws at the wrist and finger tips; the dragon gets a horn.
 - **Butterfly and Void wings:** veins across both wings.
 - **Pets:** a little ":3" mouth under the nose.
+
+## 3.13.5 / 2.13.5 — capsule start, SMP kits and spectate, fixes
+
+- **Capsule start (PvP HQ style):** each player waits in a glass block above their spawn (red / blue); at GO it splits in two, the halves swing away and you drop onto the map with no fall damage. It is the new start animation (Settings → Matches → Start Animation; servers on the elevator are moved to it once). Per arena too (arena editor).
+- **Elevator:** steadier (puts you back on the platform sooner when lag pulls you off).
+- **Fix:** logging out during The Bridge (or any arcade game) put you back in the game with its items, and the lobby kept them. Now you are cleared and sent to the lobby.
+- **1.8 tab:** The Bridge, Sumo, Boxing, Spleef, OITC and KOTH are listed there too (click to queue).
+- **No "Punch me" dummy** while you queue for a 1.8 kit.
+- **Wings** follow what you do: slow breathing when standing, tucked when walking, swept back when sprinting, real flaps only in the air. Bat and dragon wings sit lower and move half as much.
+- **SMP staff spectate:** `/spectate <player>` in the SMP (helpers and up) puts you in spectator, hidden from everyone who isn't staff, tab list included. `/spectate` again to come back.
+- **SMP kits:** `/kit`: Starter (once, everyone), VIP, MVP/Legend, Diamond (staff, creators, top ranks), Moderator (enchanted diamond), Netherite (owner, admin: full netherite with mending, elytra, totem). 24 h cooldowns, a menu with the items shown as pictures.
+- **SMP nether and end:** World Manager → an SMP world → "Create Nether" / "Create The End". They are linked (same inventory, backed up) and the SMP's portals lead to them.
+- **Lighter arena building:** block work only uses the time a tick has spare (no lag on a busy server), runs faster while nobody is online and pauses when memory is nearly full.

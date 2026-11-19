@@ -53,6 +53,9 @@ public final class Companions implements Listener {
         long authedSince;
         /** The player's own wings and shoulder pet are hidden from them. */
         boolean selfHidden;
+        /** Where the player was at the last update (are they walking?). */
+        double lastX;
+        double lastZ;
         // pet state
         Vector pos;
         float yaw;
@@ -244,12 +247,39 @@ public final class Companions implements Listener {
 
         CosmeticRig.Pose pose = new CosmeticRig.Pose();
         pose.yaw = p.getBodyYaw();
-        pose.offset.set(0, p.isSneaking() ? 1.05f : 1.3f, p.isSneaking() ? -0.32f : -0.14f);
+        // 3.13.5: wings follow what the player does; membrane wings (bat, dragon) sit lower and move half as much
+        boolean membrane = m.id().startsWith("wings_bat") || m.id().startsWith("wings_dragon");
+        float y = membrane ? 1.12f : 1.3f;
+        pose.offset.set(0, p.isSneaking() ? y - 0.25f : y, p.isSneaking() ? -0.32f : (membrane ? -0.18f : -0.14f));
         double t = this.tick * every / 20.0;
-        boolean fast = p.isSprinting() || !((org.bukkit.entity.Entity)p).isOnGround();
-        double speed = fast ? 9.0 : 3.2;
-        double open = 24 + (fast ? 14 : 8) * Math.sin(t * speed);
-        double lift = (fast ? 10 : 4) * Math.sin(t * speed + 0.6);
+        boolean air = !((org.bukkit.entity.Entity)p).isOnGround() && !p.isInsideVehicle();
+        Location now = p.getLocation();
+        boolean moving = Math.abs(now.getX() - w.lastX) + Math.abs(now.getZ() - w.lastZ) > 0.03 * every || p.isSprinting();
+        w.lastX = now.getX();
+        w.lastZ = now.getZ();
+        double k = membrane ? 0.5 : 1.0;
+        double open;
+        double lift;
+        if (air) {
+            // in the air: real flaps
+            open = 30 + 18 * k * Math.sin(t * 9.0);
+            lift = 12 * k * Math.sin(t * 9.0 + 0.6);
+        } else if (p.isSprinting()) {
+            // sprinting: swept back, a small flutter
+            open = 6 + 2 * k * Math.sin(t * 6.0);
+            lift = -8 * k;
+        } else if (moving) {
+            // walking: tucked in, swaying with the steps
+            open = 12 + 3 * k * Math.sin(t * 5.0);
+            lift = 2 * k * Math.sin(t * 5.0);
+        } else if (p.isSneaking()) {
+            open = 8;
+            lift = -4 * k;
+        } else {
+            // standing: slow breathing
+            open = 18 + 3 * k * Math.sin(t * 1.6);
+            lift = 1.5 * k * Math.sin(t * 1.6 + 0.6);
+        }
         pose.group("wingL", new org.joml.Quaternionf().rotateY((float)Math.toRadians(open)).rotateZ((float)Math.toRadians(lift)));
         pose.group("wingR", new org.joml.Quaternionf().rotateY((float)Math.toRadians(-open)).rotateZ((float)Math.toRadians(-lift)));
         Location at = p.getLocation();

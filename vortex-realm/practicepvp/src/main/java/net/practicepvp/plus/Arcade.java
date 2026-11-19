@@ -218,6 +218,12 @@ public final class Arcade implements Listener {
         return any;
     }
 
+    /** Players waiting for a mode. */
+    public int waiting(Mode m) {
+        List<UUID> q = this.queues.get(m);
+        return q == null ? 0 : q.size();
+    }
+
     public boolean inGame(UUID u) {
         return this.byPlayer.containsKey(u);
     }
@@ -1006,10 +1012,41 @@ public final class Arcade implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         this.leaveQueue(e.getPlayer());
-        Game g = this.byPlayer.remove(e.getPlayer().getUniqueId());
+        Player p = e.getPlayer();
+        Game g = this.byPlayer.remove(p.getUniqueId());
         if (g != null) {
-            g.players.remove(e.getPlayer().getUniqueId());
-            this.plugin.sessions().get(e.getPlayer()).state = PlayerState.LOBBY;
+            g.players.remove(p.getUniqueId());
+            this.plugin.sessions().get(p).state = PlayerState.LOBBY;
+            // 3.13.5: never log out inside an arcade game: no game items, back in the lobby (saved with the player)
+            p.getInventory().clear();
+            p.getInventory().setArmorContents(null);
+            p.setItemOnCursor(null);
+            for (org.bukkit.potion.PotionEffect pe : p.getActivePotionEffects()) {
+                p.removePotionEffect(pe.getType());
+            }
+
+            Location lobby = this.plugin.lobby().lobby();
+            if (lobby != null && lobby.getWorld() != null) {
+                p.teleport(lobby);
+            }
+
+            this.rejoin.add(p.getUniqueId());
+        }
+    }
+
+    /** Players who left in a game: sent to the lobby with the lobby items when they come back. */
+    private final Set<UUID> rejoin = new HashSet<>();
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onRejoin(org.bukkit.event.player.PlayerJoinEvent e) {
+        Player p = e.getPlayer();
+        if (this.rejoin.remove(p.getUniqueId())) {
+            net.practicepvp.util.Tasks.later(10L, () -> {
+                if (p.isOnline()) {
+                    p.getInventory().clear();
+                    this.plugin.lobby().sendToLobby(p);
+                }
+            });
         }
     }
 

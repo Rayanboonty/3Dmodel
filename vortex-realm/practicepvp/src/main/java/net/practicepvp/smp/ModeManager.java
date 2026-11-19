@@ -301,6 +301,23 @@ public final class ModeManager {
         }
     }
 
+    /** 3.13.5: makes (or loads) the nether or the end of an SMP world and links it, so it shares the SMP's inventory. */
+    public String createDimension(World smp, boolean end) {
+        String name = smp.getName() + (end ? "_the_end" : "_nether");
+        World w = Bukkit.getWorld(name);
+        if (w == null) {
+            w = this.create(name, end ? "end" : "nether");
+        }
+
+        if (w == null) {
+            return "Could not create " + name + ".";
+        }
+
+        this.setMode(w, WorldMode.NONE);
+        String err = this.link(name, smp.getName());
+        return err == null ? null : err;
+    }
+
     public World create(String name, String type) {
         WorldCreator wc = new WorldCreator(name);
         switch (type.toLowerCase(Locale.ROOT)) {
@@ -314,6 +331,12 @@ public final class ModeManager {
                 break;
             case "void":
                 wc.generator(new VoidGenerator()).generateStructures(false);
+                break;
+            case "nether":
+                wc.environment(World.Environment.NETHER).type(WorldType.NORMAL);
+                break;
+            case "end":
+                wc.environment(World.Environment.THE_END).type(WorldType.NORMAL);
                 break;
             default:
                 wc.type(WorldType.NORMAL);

@@ -423,6 +423,9 @@ commands:
   legacyhall:
     description: "The 1.8 Legacy Hall: old-school kits with 1.8 combat. Admins: /legacyhall build."
     aliases: [legacy, oldkits]
+  kit:
+    description: "SMP kits: a starter kit and better kits for higher ranks."
+    aliases: [smpkit, smpkits]
 
 permissions:
   # ---- PracticePvP add-on permissions ----

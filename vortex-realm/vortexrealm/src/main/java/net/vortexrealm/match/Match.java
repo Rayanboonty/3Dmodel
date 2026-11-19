@@ -564,6 +564,9 @@ public final class Match {
                     || this.forcedStart == null && !this.noGates && Cfg.get(Opt.CAGE_KITS).stream().anyMatch(k -> k.equalsIgnoreCase(this.kit.id)))) {
                 mode = Opt.StartMode.CAGE;
                 seconds = first ? Cfg.i(Opt.CAGE_SECONDS) : Cfg.i(Opt.COUNTDOWN);
+            } else if (configured == Opt.StartMode.CAPSULE && (first || Cfg.bool(Opt.ELEVATOR_EVERY_ROUND))) {
+                mode = Opt.StartMode.CAPSULE;
+                seconds = Math.max(3, Cfg.i(Opt.ELEVATOR_SECONDS));
             } else if (configured != Opt.StartMode.ELEVATOR || !first && !Cfg.bool(Opt.ELEVATOR_EVERY_ROUND)) {
                 if (configured == Opt.StartMode.GATES) {
                     mode = Opt.StartMode.GATES;

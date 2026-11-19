@@ -171,12 +171,13 @@ final class Elevator {
 
         double feetThen = this.history.peekFirst() + 1.0;
         double error = feetThen - this.player.getLocation().getY();
-        double correction = Math.abs(error) > 2.5 ? 0.0 : Math.max(-0.08, Math.min(0.08, error * 0.12));
+        double correction = Math.abs(error) > 1.4 ? 0.0 : Math.max(-0.12, Math.min(0.12, error * 0.2));
         double wantVy = Math.max(-0.3, Math.min(0.6, step + correction));
         double gravity = this.expectedVy - wantVy / 0.98;
         this.setLift(Math.max(-0.9, Math.min(0.9, gravity)));
         this.expectedVy = wantVy;
-        if (Math.abs(error) > 2.5) {
+        // 3.13.5: a player off the platform by more than a block and a half is put back right away
+        if (Math.abs(error) > 1.4) {
             Location l = this.player.getLocation();
             l.setY(g + 1.0);
             Tp.to(this.player, l);

@@ -65,6 +65,10 @@ public final class SmpLockdown implements Listener {
     );
     private final VortexRealm plugin;
     private final Map<UUID, PermissionAttachment> off = new HashMap<>();
+    /** 3.13.5: who is staff (seen before the SMP takes the perms away). */
+    private final Map<UUID, Boolean> staff = new HashMap<>();
+    /** Staff spectating in the SMP: where they were. */
+    private final Map<UUID, org.bukkit.Location> spectating = new HashMap<>();
 
     public SmpLockdown(VortexRealm plugin) {
         this.plugin = plugin;
@@ -98,6 +102,14 @@ public final class SmpLockdown implements Listener {
     public void apply(Player p) {
         boolean lock = this.on() && this.inSmp(p);
         PermissionAttachment a = this.off.get(p.getUniqueId());
+        if (a == null) {
+            this.staff.put(p.getUniqueId(), p.isOp() || p.hasPermission("vortex.staff") || p.hasPermission("vortex.admin") || p.hasPermission("vortexsmp.staff"));
+        }
+
+        if (this.spectating.containsKey(p.getUniqueId())) {
+            return;
+        }
+
         if (lock) {
             if (a == null) {
                 a = p.addAttachment(this.plugin);
@@ -150,6 +162,83 @@ public final class SmpLockdown implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         this.off.remove(e.getPlayer().getUniqueId());
+        org.bukkit.Location back = this.spectating.remove(e.getPlayer().getUniqueId());
+        if (back != null) {
+            e.getPlayer().teleport(back);
+            e.getPlayer().setGameMode(GameMode.SURVIVAL);
+        }
+    }
+
+    // ------------------------------------------------------------------ 3.13.5: staff spectate in the SMP
+
+    private boolean isStaff(Player p) {
+        Boolean b = this.staff.get(p.getUniqueId());
+        return b != null ? b : p.isOp() || p.hasPermission("vortex.staff") || p.hasPermission("vortex.admin");
+    }
+
+    /** Spectator mode, hidden from everyone who isn't staff (also from the tab list); again to come back. */
+    public void spectate(Player p, String targetName) {
+        if (this.spectating.containsKey(p.getUniqueId()) && (targetName == null || targetName.equalsIgnoreCase("stop"))) {
+            this.stopSpectate(p);
+            return;
+        }
+
+        Player t = targetName == null ? null : Bukkit.getPlayerExact(targetName);
+        if (targetName != null && t == null) {
+            p.sendMessage(Text.mm("<red>" + Text.esc(targetName) + " is not online."));
+            return;
+        }
+
+        if (!this.spectating.containsKey(p.getUniqueId())) {
+            this.spectating.put(p.getUniqueId(), p.getLocation());
+            p.setGameMode(GameMode.SPECTATOR);
+            for (Player o : Bukkit.getOnlinePlayers()) {
+                if (!o.equals(p) && !this.isStaff(o)) {
+                    o.hidePlayer(this.plugin, p);
+                }
+            }
+        }
+
+        if (t != null) {
+            p.teleport(t.getLocation());
+            Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
+                if (p.isOnline() && t.isOnline() && p.getGameMode() == GameMode.SPECTATOR) {
+                    p.setSpectatorTarget(t);
+                }
+            }, 2L);
+        }
+
+        p.sendMessage(Text.mm("<aqua>Spectating" + (t == null ? "" : " <white>" + Text.esc(t.getName())) + "<aqua>. Only staff can see you. <gray>Shift to look around freely, <white>/spectate</white> to come back."));
+        Snd.play(p, "block.beacon.activate", 0.5F, 1.8F);
+    }
+
+    private void stopSpectate(Player p) {
+        org.bukkit.Location back = this.spectating.remove(p.getUniqueId());
+        p.setSpectatorTarget(null);
+        if (back != null) {
+            p.teleport(back);
+        }
+
+        p.setGameMode(GameMode.SURVIVAL);
+        for (Player o : Bukkit.getOnlinePlayers()) {
+            o.showPlayer(this.plugin, p);
+        }
+
+        p.sendMessage(Text.mm("<green>Back where you were."));
+    }
+
+    @EventHandler
+    public void onJoinHide(PlayerJoinEvent e) {
+        if (this.isStaff(e.getPlayer())) {
+            return;
+        }
+
+        for (UUID u : this.spectating.keySet()) {
+            Player s = Bukkit.getPlayer(u);
+            if (s != null) {
+                e.getPlayer().hidePlayer(this.plugin, s);
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -163,6 +252,13 @@ public final class SmpLockdown implements Listener {
         int sp = m.indexOf(' ');
         String label = (sp < 0 ? m : m.substring(0, sp)).toLowerCase(Locale.ROOT);
         label = label.substring(label.indexOf(':') + 1);
+        if ((label.equals("spectate") || label.equals("spec") || label.equals("smpspec")) && this.isStaff(p)) {
+            e.setCancelled(true);
+            String[] parts = m.split(" ");
+            this.spectate(p, parts.length > 1 ? parts[1] : null);
+            return;
+        }
+
         // WorldEdit's //wand, //set... start with a second slash
         if (label.startsWith("/") || BLOCKED.contains(label) || this.adminCommands.contains(label)) {
             e.setCancelled(true);
@@ -173,7 +269,7 @@ public final class SmpLockdown implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onGameMode(PlayerGameModeChangeEvent e) {
-        if (this.on() && this.inSmp(e.getPlayer()) && e.getNewGameMode() != GameMode.SURVIVAL
+        if (this.on() && this.inSmp(e.getPlayer()) && e.getNewGameMode() != GameMode.SURVIVAL && !this.spectating.containsKey(e.getPlayer().getUniqueId())
             && e.getCause() != PlayerGameModeChangeEvent.Cause.HARDCORE_DEATH) {
             e.setCancelled(true);
         }

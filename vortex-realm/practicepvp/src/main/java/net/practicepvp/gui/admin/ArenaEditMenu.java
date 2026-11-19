@@ -158,7 +158,7 @@ public final class ArenaEditMenu extends Menu {
                 .lore("<gray>DEFAULT uses the global setting.", "<gray>ELEVATOR, GATES or FREEZE.", "", "<yellow>▶ Click to cycle")
                 .build(),
             c -> {
-                String[] modes = new String[]{"DEFAULT", "ELEVATOR", "GATES", "FREEZE"};
+                String[] modes = new String[]{"DEFAULT", "CAPSULE", "ELEVATOR", "GATES", "FREEZE"};
                 int i = 0;
 
                 for (int j = 0; j < modes.length; j++) {

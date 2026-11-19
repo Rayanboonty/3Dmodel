@@ -887,6 +887,24 @@ public final class AdminDialogs {
             }));
         }
 
+        // 3.13.5: an SMP world can get its own nether and end (linked: same inventory, backed up with it)
+        if (current.smp()) {
+            for (boolean end : new boolean[]{false, true}) {
+                String dim = w.getName() + (end ? "_the_end" : "_nether");
+                boolean has = org.bukkit.Bukkit.getWorld(dim) != null;
+                b.add(this.ui.btn(p, has ? "<dark_gray>" + (end ? "End" : "Nether") + " ✔" : (end ? "<light_purple>Create The End" : "<red>Create Nether"),
+                    "<gray>" + (has ? dim + " is linked to this SMP" : "Makes " + dim + " and links it to this SMP"), () -> {
+                        if (org.bukkit.Bukkit.getWorld(dim) == null) {
+                            p.sendMessage(Text.mm("<yellow>Creating " + dim + "... (the server may pause a moment)"));
+                        }
+
+                        String err = this.plugin.modes().createDimension(w, end);
+                        p.sendMessage(Text.mm(err == null ? "<green>" + dim + " is ready and linked to " + Text.esc(w.getName()) + "." : "<red>" + Text.esc(err)));
+                        this.world(p, w);
+                    }));
+            }
+        }
+
         b.add(this.ui.btn(p, "<aqua>Teleport", null, () -> {
             p.closeDialog();
             Tp.to(p, this.plugin.modes().spawn(w));

@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'More detailed wings (more feather rows, shading, coloured tips; claws and spines on bat and dragon wings; veins on butterfly wings) and pets with little mouths',
-    'PracticePvP': 'More detailed wings (more feather rows, shading, coloured tips; claws and spines on bat and dragon wings; veins on butterfly wings) and pets with little mouths',
+    'VortexRealm': 'PvP HQ capsule start; fixes for logging out in The Bridge and other arcade games, the elevator; 1.8 arcade games in the 1.8 tab; staff /spectate in the SMP; SMP kits by rank (/kit); SMP nether and end; calmer wings that follow your moves; lighter arena building',
+    'PracticePvP': 'PvP HQ capsule start; fixes for logging out in The Bridge and other arcade games, the elevator; 1.8 arcade games in the 1.8 tab; staff /spectate in the SMP; SMP kits by rank (/kit); SMP nether and end; calmer wings that follow your moves; lighter arena building',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

@@ -376,10 +376,10 @@ public final class Opt<T> {
     );
     public static final Opt<String> START_MODE = enumOpt(
         "match.start-mode",
-        Opt.StartMode.ELEVATOR,
+        Opt.StartMode.CAPSULE,
         Opt.Section.MATCH,
         "Start Animation",
-        "ELEVATOR rises players up, GATES opens fences/cages, FREEZE just counts down.",
+        "CAPSULE: a glass block above the spawn splits in two and drops you (PvP HQ style). ELEVATOR rises players up, GATES opens fences/cages, FREEZE just counts down.",
         Material.SCAFFOLDING,
         Opt.StartMode.class
     );
@@ -2276,7 +2276,9 @@ public final class Opt<T> {
         ELEVATOR,
         GATES,
         FREEZE,
-        CAGE;
+        CAGE,
+        /** 3.13.5: PvP HQ style: a glass block above the spawn splits and drops you. */
+        CAPSULE;
     }
 
     public static enum ThrowMode {

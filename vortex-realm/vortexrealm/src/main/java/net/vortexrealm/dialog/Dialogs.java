@@ -173,7 +173,7 @@ public final class Dialogs {
         } else {
             List<Kit> kits = this.kitsFor(tab);
             List<DialogBody> body = new ArrayList<>();
-            if (kits.isEmpty()) {
+            if (kits.isEmpty() && tab != Dialogs.QueueTab.LEGACY) {
                 body.add(DialogBody.plainMessage(Msg.get("queue.menu-empty"), 250));
             }
 
@@ -245,6 +245,36 @@ public final class Dialogs {
                 });
                 rowIcons.add(icon);
                 rowText.add(desc);
+            }
+
+            // 3.13.5: the 1.8 arcade games (The Bridge, Sumo, Boxing...) in the 1.8 tab too
+            if (tab == Dialogs.QueueTab.LEGACY && this.plugin.plus() != null && this.plugin.plus().arcade() != null) {
+                for (net.vortexrealm.plus.Arcade.Mode m : net.vortexrealm.plus.Arcade.Mode.values()) {
+                    if (m == net.vortexrealm.plus.Arcade.Mode.PARKOUR) {
+                        continue;
+                    }
+
+                    int waiting = this.plugin.plus().arcade().waiting(m);
+                    Runnable click = this.safe(p, () -> {
+                        p.closeDialog();
+                        p.performCommand("arcade join " + m.name().toLowerCase(java.util.Locale.ROOT));
+                    });
+                    Component desc = Component.text()
+                        .append(Text.mm("<#FFB547><b>" + m.display + "</b> <dark_gray>1.8"))
+                        .append(Component.newline())
+                        .append(Text.mm("<gray>" + waiting + " waiting <dark_gray>• <white>" + m.min + (m.max > m.min ? "-" + m.max : "") + " players"))
+                        .clickEvent(ClickEvent.callback(a -> click.run(), OPTS))
+                        .hoverEvent(HoverEvent.showText(Text.mm("<gray>" + m.help + "\n<green>▶ Click to queue")))
+                        .build();
+                    ItemStack icon = new ItemStack(m.icon);
+                    icon.editMeta(mm -> {
+                        mm.displayName(Text.noItalic(Text.mm("<#FFB547><b>" + m.display)));
+                        mm.lore(List.of(Text.noItalic(Text.mm("<gray>" + m.help))));
+                        mm.addItemFlags(ItemFlag.values());
+                    });
+                    rowIcons.add(icon);
+                    rowText.add(desc);
+                }
             }
 
             int width = TextWidth.fit(TextWidth.widest(rowText), 70, 260);

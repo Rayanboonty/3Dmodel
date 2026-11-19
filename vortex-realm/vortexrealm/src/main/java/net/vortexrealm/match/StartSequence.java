@@ -34,6 +34,7 @@ final class StartSequence {
     private final List<Elevator> elevators = new ArrayList<>();
     private final List<Block> gateBlocks = new ArrayList<>();
     private final List<Cage> cages = new ArrayList<>();
+    private final List<Capsule> capsules = new ArrayList<>();
     private BukkitTask task;
     private int ticks;
     private int endTick;
@@ -53,7 +54,7 @@ final class StartSequence {
             this.mode = Opt.StartMode.FREEZE;
         }
 
-        if ((this.mode == Opt.StartMode.ELEVATOR || this.mode == Opt.StartMode.CAGE) && !this.match.isOneVsOne()) {
+        if ((this.mode == Opt.StartMode.ELEVATOR || this.mode == Opt.StartMode.CAGE || this.mode == Opt.StartMode.CAPSULE) && !this.match.isOneVsOne()) {
             this.mode = Opt.StartMode.FREEZE;
         }
 
@@ -67,6 +68,25 @@ final class StartSequence {
                     Elevator e = new Elevator(p, s, this.match.spawnOf(p), this.opponentSpawn(p), this.opponent(p), depth, inst.tracker);
                     this.elevators.add(e);
                     e.begin();
+                }
+                break;
+            case CAPSULE:
+                int n = 0;
+                for (Player p : players) {
+                    Capsule c = new Capsule(p, plugin.sessions().get(p), this.match.spawnOf(p), this.opponentSpawn(p),
+                        n++ == 0 ? "red_stained_glass" : "light_blue_stained_glass", inst.tracker);
+                    this.capsules.add(c);
+                    try {
+                        c.begin();
+                    } catch (RuntimeException ex) {
+                        for (Capsule cx : this.capsules) {
+                            cx.remove();
+                        }
+
+                        throw ex;
+                    }
+
+                    PlayerReset.freeze(p, plugin.sessions().get(p));
                 }
                 break;
             case GATES:
@@ -161,6 +181,10 @@ final class StartSequence {
 
             for (Elevator e : this.elevators) {
                 e.tick(progress);
+            }
+
+            for (Capsule c : this.capsules) {
+                c.tick();
             }
 
             if (this.mode == Opt.StartMode.CAGE) {
@@ -258,6 +282,10 @@ final class StartSequence {
                 e.arrive();
             }
 
+            for (Capsule c : this.capsules) {
+                c.open();
+            }
+
             this.openGates();
             if (!this.cages.isEmpty()) {
                 for (Cage c : this.cages) {
@@ -287,6 +315,12 @@ final class StartSequence {
             for (Elevator e : this.elevators) {
                 e.cancel();
             }
+
+            for (Capsule c : this.capsules) {
+                c.remove();
+            }
+
+            this.capsules.clear();
 
             for (Cage c : this.cages) {
                 c.remove();

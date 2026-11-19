@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.4",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.4.jar",
-    "sha256": "ff882a80c72e2160142332cdc6d2ea9e7f0e346b1842f3e2d716d5467ae8e8f8",
-    "notes": "More detailed wings (more feather rows, shading, coloured tips; claws and spines on bat and dragon wings; veins on butterfly wings) and pets with little mouths"
+    "version": "2.13.5",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.5.jar",
+    "sha256": "b428cb8c8e8d586c30ed869819ac21b37abfbd4b7fb8e5323a6bff30184951f6",
+    "notes": "PvP HQ capsule start; fixes for logging out in The Bridge and other arcade games, the elevator; 1.8 arcade games in the 1.8 tab; staff /spectate in the SMP; SMP kits by rank (/kit); SMP nether and end; calmer wings that follow your moves; lighter arena building"
   },
   "VortexRealm": {
-    "version": "3.13.4",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.4.jar",
-    "sha256": "95b35f3476c6cb44e527559875df9343557896846bce28e8d44c7f073dd337c0",
-    "notes": "More detailed wings (more feather rows, shading, coloured tips; claws and spines on bat and dragon wings; veins on butterfly wings) and pets with little mouths"
+    "version": "3.13.5",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.5.jar",
+    "sha256": "6d15e493dc2695b60249e4d55afae69ae4e7558ca371043e578daa56b739ec4a",
+    "notes": "PvP HQ capsule start; fixes for logging out in The Bridge and other arcade games, the elevator; 1.8 arcade games in the 1.8 tab; staff /spectate in the SMP; SMP kits by rank (/kit); SMP nether and end; calmer wings that follow your moves; lighter arena building"
   },
   "VortexSMP": {
     "version": "1.6.0",

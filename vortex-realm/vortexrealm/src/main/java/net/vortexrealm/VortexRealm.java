@@ -612,6 +612,22 @@ public final class VortexRealm extends JavaPlugin {
             pm.registerEvents(lock, this);
             Tasks.timer(100L, 100L, lock::sweep);
         });
+        this.module("capsule start (one time)", () -> {
+            // 3.13.5: the PvP HQ capsule start becomes the start animation once, for servers still on the elevator
+            java.io.File mark = new java.io.File(this.getDataFolder(), ".capsule-start");
+            if (!mark.exists()) {
+                if (Cfg.e(Opt.START_MODE, Opt.StartMode.class) == Opt.StartMode.ELEVATOR) {
+                    Cfg.set(Opt.START_MODE, "CAPSULE");
+                    this.getLogger().info("Start animation is now CAPSULE (PvP HQ style). Settings -> Matches -> Start Animation to change it.");
+                }
+
+                try {
+                    mark.getParentFile().mkdirs();
+                    mark.createNewFile();
+                } catch (java.io.IOException ignored) {
+                }
+            }
+        });
         this.module("1.8 combat", () -> {
             this.legacyCombat = new net.vortexrealm.combat.LegacyCombat(this);
             pm.registerEvents(this.legacyCombat, this);
@@ -625,6 +641,8 @@ public final class VortexRealm extends JavaPlugin {
             Tasks.timer(20L, 20L, this.vexBot::second);
         });
         this.module("fight extras (auto gg, kill sounds, death recap, fight HUD)", () -> pm.registerEvents(new net.vortexrealm.combat.FightExtras(this), this));
+        this.module("SMP kits", () -> this.bind("kit", new net.vortexrealm.smp.SmpKits(this)));
+        this.module("SMP portals", () -> pm.registerEvents(new net.vortexrealm.smp.SmpPortals(this), this));
         this.module("1.8 legacy hall", () -> {
             this.legacyHall = new net.vortexrealm.lobby.LegacyHall(this);
             this.bind("legacyhall", this.legacyHall);
