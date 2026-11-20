@@ -642,7 +642,8 @@ public final class HubFun implements Listener {
     private void queueDummy(Player p) {
         UUID u = p.getUniqueId();
         Mannequin m = this.dummies.get(u);
-        boolean want = this.plus.config().on("queue-dummy") && this.plugin.sessions().state(p) == PlayerState.QUEUE && !this.legacyQueue(p);
+        // 3.13.11: the owner removed the "punch me" dummy for every kit; existing ones are cleaned up here
+        boolean want = false;
         if (!want) {
             if (m != null) {
                 m.remove();

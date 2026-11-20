@@ -1257,3 +1257,10 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 
 - **The Bridge:** dropping into the other team's goal hole scores right away (it used to count only when you stood on the coloured glass at the bottom, so you could fall and die instead). The goals glow with portal particles in their team colour.
 - **No other maps in view:** while you fight (duel, FFA, bot, arcade) you only get the chunks of your own arena, so the arena copies and arcade plots next to it are out of sight; back in the lobby your view distance returns. Settings → Arenas → "Hide Other Arenas".
+
+## 3.13.11 / 2.13.11 — Bridge fix, no queue dummy, SMP spectate for mods, auto nether & end
+
+- **The Bridge:** a drop into a goal now counts as soon as the goal glass is under you, even if the arena sits a little off its saved centre. The goal particles are centred on the holes.
+- **No "punch me" dummy:** the punching dummy no longer appears while you queue, for any kit.
+- **SMP `/spectate` for staff by rank:** helpers, mods, devs, admins and the owner (server rank) and `/staff` members can use `/spectate` in the SMP to watch and report.
+- **SMP nether & end automatically:** every SMP world gets its own `<world>_nether` and `<world>_the_end`, created and linked at startup or when a world is set to an SMP mode.

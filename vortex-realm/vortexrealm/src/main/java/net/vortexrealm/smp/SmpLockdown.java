@@ -108,7 +108,7 @@ public final class SmpLockdown implements Listener {
         boolean lock = this.on() && this.inSmp(p);
         PermissionAttachment a = this.off.get(p.getUniqueId());
         if (a == null) {
-            this.staff.put(p.getUniqueId(), p.isOp() || p.hasPermission("vortex.staff") || p.hasPermission("vortex.admin") || p.hasPermission("vortexsmp.staff"));
+            this.staff.put(p.getUniqueId(), this.staffNow(p));
         }
 
         if (this.spectating.containsKey(p.getUniqueId())) {
@@ -178,7 +178,22 @@ public final class SmpLockdown implements Listener {
 
     private boolean isStaff(Player p) {
         Boolean b = this.staff.get(p.getUniqueId());
-        return b != null ? b : p.isOp() || p.hasPermission("vortex.staff") || p.hasPermission("vortex.admin");
+        return b != null && b || this.staffNow(p);
+    }
+
+    /** 3.13.11: helpers, mods, admins and the owner by server rank, /staff members, or the staff permissions. */
+    private boolean staffNow(Player p) {
+        if (p.isOp() || p.hasPermission("vortex.staff") || p.hasPermission("vortex.admin") || p.hasPermission("vortexsmp.staff")) {
+            return true;
+        }
+
+        if (this.plugin.staff() != null && this.plugin.staff().isStaff(p)) {
+            return true;
+        }
+
+        net.vortexrealm.social.Ranks r = this.plugin.serverRanks();
+        net.vortexrealm.social.Ranks.Rank rank = r == null ? null : r.of(p);
+        return rank != null && java.util.Set.of("owner", "admin", "dev", "mod", "helper").contains(rank.id);
     }
 
     /** Spectator mode, hidden from everyone who isn't staff (also from the tab list); again to come back. */

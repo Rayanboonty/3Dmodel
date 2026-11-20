@@ -457,6 +457,33 @@ public final class ModeManager {
             this.stashLegacy(p);
             this.plugin.modeRules().apply(p);
         }
+
+        if (mode.smp()) {
+            // 3.13.11: an SMP gets its own nether and end automatically
+            Bukkit.getScheduler().runTaskLater(this.plugin, this::ensureDimensions, 20L);
+        }
+    }
+
+    /** 3.13.11: creates the missing nether and end of every SMP overworld (run at startup and when a world becomes an SMP). */
+    public void ensureDimensions() {
+        for (Map.Entry<String, WorldMode> e : new java.util.ArrayList<>(this.modes.entrySet())) {
+            if (!e.getValue().smp() || this.retired.contains(e.getKey())) {
+                continue;
+            }
+
+            World w = Bukkit.getWorld(e.getKey());
+            if (w == null || w.getEnvironment() != World.Environment.NORMAL) {
+                continue;
+            }
+
+            for (boolean end : new boolean[]{false, true}) {
+                String name = w.getName() + (end ? "_the_end" : "_nether");
+                if (Bukkit.getWorld(name) == null || !this.links.containsKey(name)) {
+                    String err = this.createDimension(w, end);
+                    this.plugin.getLogger().info((err == null ? "Created/linked " : "Could not set up ") + name + (err == null ? " for the SMP." : ": " + err));
+                }
+            }
+        }
     }
 
     /** The overworld a nether or end belongs to ("smp_nether" -> "smp"), or the world itself. */

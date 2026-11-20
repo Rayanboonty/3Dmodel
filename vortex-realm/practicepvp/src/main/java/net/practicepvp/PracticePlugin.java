@@ -339,6 +339,8 @@ public final class PracticePlugin extends JavaPlugin {
         this.module("hub / selector / server link", () -> {
             this.modes = new ModeManager(this);
             this.modes.load();
+            // 3.13.11: SMP nether and end are made automatically once the worlds are loaded
+            Bukkit.getScheduler().runTaskLater(this, () -> this.modes.ensureDimensions(), 200L);
             this.modeRules = new ModeRules(this, this.modes);
             pm.registerEvents(this.modeRules, this);
             this.hub = new Hub(this, this.modes);

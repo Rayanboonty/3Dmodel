@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Fix: The Bridge goals score when you drop into them (with portal particles); while fighting you only see your own arena, not the maps next to it',
-    'PracticePvP': 'Fix: The Bridge goals score when you drop into them (with portal particles); while fighting you only see your own arena, not the maps next to it',
+    'VortexRealm': 'Fix: The Bridge goal now counts any drop into the hole; removed the punch-me queue dummy for every kit; SMP /spectate works for helpers, mods and admins by rank; the SMP nether and end are created automatically',
+    'PracticePvP': 'Fix: The Bridge goal now counts any drop into the hole; removed the punch-me queue dummy for every kit; SMP /spectate works for helpers, mods and admins by rank; the SMP nether and end are created automatically',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

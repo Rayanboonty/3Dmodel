@@ -178,7 +178,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.13.7 / 2.13.7** — bind() only sets a tab completer when the executor is one; SmpKits/LegacyHall tab completion (fixes their startup ClassCastException).
 - **3.13.8 / 2.13.8** — ArenaSeal.dryAll marks dry.<id> per arena + whenMemoryFree (<70%); BlockJobs.tick skips while heap > 82%.
 - **3.13.9 / 2.13.9** — ArenaManager.verifyAll only marks copies unchecked; ArenaManager.prepare + Match.startRound wait; FfaArena.checked on first join; empty FFA no timed regen; RegionSnapshot.diff serialized (diffChain).
-- **3.13.10 / 2.13.10** — Arcade.goalAt position-based Bridge scoring + portal particles; combat/ArenaView per-player send view distance while fighting (Opt ARENA_VIEW_LIMIT). **← current release**
+- **3.13.10 / 2.13.10** — Arcade.goalAt position-based Bridge scoring + portal particles; combat/ArenaView per-player send view distance while fighting (Opt ARENA_VIEW_LIMIT).
+- **3.13.11 / 2.13.11** — Arcade.glassBelow fallback for Bridge scoring, goal particle centre fix; HubFun queue dummy disabled; SmpLockdown.staffNow (rank owner/admin/dev/mod/helper + StaffManager); ModeManager.ensureDimensions at startup and on SMP setMode. **← current release**
 
 ## 8. Open problems / unverified
 

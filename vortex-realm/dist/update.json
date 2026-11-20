@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.10",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.10.jar",
-    "sha256": "f4e908bf1809a76a981f462d95c1c90ab0c07351b16c701435e782214552c038",
-    "notes": "Fix: The Bridge goals score when you drop into them (with portal particles); while fighting you only see your own arena, not the maps next to it"
+    "version": "2.13.11",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.11.jar",
+    "sha256": "4c7fcbafed632b4b98a38db0aa4641b46799c7ccecef8285e4039351a828c6e7",
+    "notes": "Fix: The Bridge goal now counts any drop into the hole; removed the punch-me queue dummy for every kit; SMP /spectate works for helpers, mods and admins by rank; the SMP nether and end are created automatically"
   },
   "VortexRealm": {
-    "version": "3.13.10",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.10.jar",
-    "sha256": "b593630250acca6aaf672f5a52b877b6c1f334ba46a114329dab75966f8285fc",
-    "notes": "Fix: The Bridge goals score when you drop into them (with portal particles); while fighting you only see your own arena, not the maps next to it"
+    "version": "3.13.11",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.11.jar",
+    "sha256": "d7ab158f8069b8843a433f96f240cb97a5ebbc4cf3b245d3e27987d4e060ca03",
+    "notes": "Fix: The Bridge goal now counts any drop into the hole; removed the punch-me queue dummy for every kit; SMP /spectate works for helpers, mods and admins by rank; the SMP nether and end are created automatically"
   },
   "VortexSMP": {
     "version": "1.6.0",
