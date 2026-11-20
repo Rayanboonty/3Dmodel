@@ -180,7 +180,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.13.9 / 2.13.9** — ArenaManager.verifyAll only marks copies unchecked; ArenaManager.prepare + Match.startRound wait; FfaArena.checked on first join; empty FFA no timed regen; RegionSnapshot.diff serialized (diffChain).
 - **3.13.10 / 2.13.10** — Arcade.goalAt position-based Bridge scoring + portal particles; combat/ArenaView per-player send view distance while fighting (Opt ARENA_VIEW_LIMIT).
 - **3.13.11 / 2.13.11** — Arcade.glassBelow fallback for Bridge scoring, goal particle centre fix; HubFun queue dummy disabled; SmpLockdown.staffNow (rank owner/admin/dev/mod/helper + StaffManager); ModeManager.ensureDimensions at startup and on SMP setMode.
-- **3.13.12 / 2.13.12** — SmpLockdown: perks restored on any command or every 2s when outside the SMP, spectate state cleared on leaving; CommandGuard lets ops use staff commands in duels. **← current release**
+- **3.13.12 / 2.13.12** — SmpLockdown: perks restored on any command or every 2s when outside the SMP, spectate state cleared on leaving; CommandGuard lets ops use staff commands in duels.
+- **3.13.13 / 2.13.13** — survival/trade/ItemMatcher (aliases + edit distance), Market.parseWant amounts (stacks, x64, and), Confirm screen with want icons, chat capture for the want text (AsyncChatEvent), ItemMatcherTest. **← current release**
 
 ## 8. Open problems / unverified
 

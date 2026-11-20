@@ -83,34 +83,43 @@ public final class Market implements Listener, TabExecutor {
         return out;
     }
 
-    /** "diamond 128, diamond_helmet 1" -> {DIAMOND=128, DIAMOND_HELMET=1}; null when something is not an item. */
+    /**
+     * "diamond 128, diamond_helmet 1" -> {DIAMOND=128, DIAMOND_HELMET=1}; null when something is not an item.
+     * 3.13.13: typos and nicknames work ("dimond", "god apple", "pearls"), and amounts like "2 stacks of pearls",
+     * "x64", "64x", "a stack of obby" or "10 dia and 1 mace".
+     */
     static Map<Material, Integer> parseWant(String s) {
         Map<Material, Integer> out = new LinkedHashMap<>();
-        for (String part : s.split("[,;]")) {
-            String p = part.trim();
+        for (String part : s.split("[,;+&]|\\band\\b")) {
+            String p = part.trim().toLowerCase(Locale.ROOT);
             if (p.isEmpty()) {
                 continue;
             }
 
-            String[] w = p.split("\\s+");
-            int amount = 1;
-            String name = p;
-            if (w.length >= 2) {
-                try {
-                    amount = Integer.parseInt(w[w.length - 1]);
-                    name = String.join("_", java.util.Arrays.copyOf(w, w.length - 1));
-                } catch (NumberFormatException var8) {
-                    try {
-                        amount = Integer.parseInt(w[0]);
-                        name = String.join("_", java.util.Arrays.copyOfRange(w, 1, w.length));
-                    } catch (NumberFormatException var7) {
-                        name = String.join("_", w);
-                    }
+            int amount = -1;
+            boolean stacks = false;
+            List<String> name = new ArrayList<>();
+            for (String w : p.split("[\\s_]+")) {
+                String t = w.replaceAll("^x(\\d+)$", "$1").replaceAll("^(\\d+)x$", "$1");
+                if (t.matches("\\d+")) {
+                    amount = (amount < 0 ? 0 : amount) + Integer.parseInt(t);
+                } else if (t.matches("stacks?|st|stk")) {
+                    stacks = true;
+                } else if (!t.matches("a|an|of|for|the|some|x|pcs|pieces?|please|pls")) {
+                    name.add(t);
                 }
             }
 
-            Material m = Material.matchMaterial(name.toUpperCase(Locale.ROOT));
-            if (m == null || !m.isItem() || m.isAir() || amount <= 0 || amount > 64 * 36) {
+            if (amount < 0) {
+                amount = 1;
+            }
+
+            if (stacks) {
+                amount *= 64;
+            }
+
+            Material m = ItemMatcher.find(String.join(" ", name));
+            if (m == null || amount <= 0 || amount > 64 * 36) {
                 return null;
             }
 
@@ -118,6 +127,17 @@ public final class Market implements Listener, TabExecutor {
         }
 
         return out.isEmpty() ? null : out;
+    }
+
+    /** The first word of the text that is not an item (for the "I couldn't read" message). */
+    static String unknownPart(String s) {
+        for (String part : s.split("[,;+&]|\\band\\b")) {
+            if (!part.isBlank() && parseWant(part) == null) {
+                return part.trim();
+            }
+        }
+
+        return s;
     }
 
     private static String describe(Map<Material, Integer> want) {
@@ -186,6 +206,20 @@ public final class Market implements Listener, TabExecutor {
             return this.inv;
         }
     }
+
+    /** 3.13.13: shows the icons of what the player asked for before the offer goes live. */
+    final class Confirm implements InventoryHolder {
+        final Inventory inv = Bukkit.createInventory(this, 27, Text.mm("<gold><b>Check your offer</b> <dark_gray>» <gray>is this right?"));
+        boolean done;
+
+        @Override
+        public Inventory getInventory() {
+            return this.inv;
+        }
+    }
+
+    /** Offers waiting for the confirm click. */
+    private final Map<UUID, Map<Material, Integer>> pendingWant = new HashMap<>();
 
     final class Post implements InventoryHolder {
         final Inventory inv = Bukkit.createInventory(this, 27, Text.mm("<gold><b>New offer</b> <dark_gray>» <gray>put in what you GIVE"));
@@ -388,8 +422,53 @@ public final class Market implements Listener, TabExecutor {
 
         Map<Material, Integer> want = wantText == null ? null : parseWant(wantText);
         if (want == null) {
-            p.getInventory().addItem(give.toArray(new ItemStack[0])).values().forEach(l -> p.getWorld().dropItemNaturally(p.getLocation(), l));
-            p.sendMessage(Text.mm("<red>I couldn't read that. <gray>Write it like <white>diamond 128</white> or <white>diamond_helmet 1, diamond_chestplate 1</white>. Your items are back."));
+            // keep the items in the draft so the player can just type it again
+            this.drafts.put(p.getUniqueId(), give);
+            p.sendMessage(Text.mm("<red>I don't know the item <white>\"" + Text.esc(wantText == null ? "" : unknownPart(wantText)) + "\"</white>. <gray>Try again in chat, e.g. <white>dia 64</white>, <white>2 stacks of pearls</white>, <white>god apple 5, mace 1</white>. <dark_gray>(type <white>cancel</white> to get your items back)"));
+            Snd.error(p);
+            return;
+        }
+
+        // 3.13.13: show the real icons first; the offer only goes live after "Confirm"
+        this.drafts.put(p.getUniqueId(), give);
+        this.pendingWant.put(p.getUniqueId(), want);
+        Confirm c = new Confirm();
+        ItemStack pane = Items.of(Material.BLACK_STAINED_GLASS_PANE).name(" ").build();
+        for (int i = 0; i < 27; i++) {
+            c.inv.setItem(i, pane);
+        }
+
+        ItemStack gi = give.get(0).clone();
+        c.inv.setItem(10, Items.of(gi).lore("<green>You give:", "<white>" + describe(give)).build());
+        c.inv.setItem(12, Items.of(Material.SPECTRAL_ARROW).name("<gold><b>for</b>").build());
+        int slot = 13;
+        int shown = 0;
+        for (Map.Entry<Material, Integer> e : want.entrySet()) {
+            if (shown == 4) {
+                break;
+            }
+
+            ItemStack icon = new ItemStack(e.getKey(), Math.max(1, Math.min(e.getKey().getMaxStackSize(), e.getValue())));
+            c.inv.setItem(slot++, Items.of(icon).lore("<gold>You want:", "<white>" + e.getValue() + "x " + e.getKey().name().toLowerCase(Locale.ROOT).replace('_', ' ')).build());
+            shown++;
+        }
+
+        if (want.size() > 4) {
+            c.inv.setItem(17, Items.of(Material.PAPER).name("<gold>+ " + (want.size() - 4) + " more").lore("<white>" + describe(want)).build());
+        }
+
+        c.inv.setItem(21, Items.of(Material.LIME_CONCRETE).name("<green><b>✔ Confirm offer</b>").lore("<gray>You give <white>" + describe(give), "<gray>You want <white>" + describe(want)).build());
+        c.inv.setItem(23, Items.of(Material.YELLOW_CONCRETE).name("<yellow><b>✎ Change what I want</b>").lore("<gray>Type it again in chat.").build());
+        c.inv.setItem(25, Items.of(Material.RED_CONCRETE).name("<red><b>✖ Cancel</b>").lore("<gray>Your items come back.").build());
+        p.openInventory(c.inv);
+        Snd.play(p, "block.note_block.pling", 0.7F, 1.4F);
+    }
+
+    /** Puts a confirmed offer on the board. */
+    private void post(Player p) {
+        List<ItemStack> give = this.drafts.remove(p.getUniqueId());
+        Map<Material, Integer> want = this.pendingWant.remove(p.getUniqueId());
+        if (give == null || want == null) {
             return;
         }
 
@@ -413,6 +492,27 @@ public final class Market implements Listener, TabExecutor {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) {
+            return;
+        }
+
+        if (e.getView().getTopInventory().getHolder(false) instanceof Confirm c) {
+            e.setCancelled(true);
+            int raw = e.getRawSlot();
+            if (raw == 21) {
+                c.done = true;
+                p.closeInventory();
+                this.post(p);
+            } else if (raw == 23) {
+                c.done = true;
+                this.pendingWant.remove(p.getUniqueId());
+                p.closeInventory();
+                p.sendMessage(Text.mm("<gold>Type what you want in chat <gray>(e.g. <white>dia 64</white>). <dark_gray>Type <white>cancel</white> to get your items back."));
+            } else if (raw == 25) {
+                c.done = true;
+                p.closeInventory();
+                this.giveBack(p, "<gray>Offer cancelled, your items are back.");
+            }
+
             return;
         }
 
@@ -446,13 +546,50 @@ public final class Market implements Listener, TabExecutor {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDrag(InventoryDragEvent e) {
-        if (e.getView().getTopInventory().getHolder(false) instanceof Board) {
+        if (e.getView().getTopInventory().getHolder(false) instanceof Board || e.getView().getTopInventory().getHolder(false) instanceof Confirm) {
             e.setCancelled(true);
         }
     }
 
+    private void giveBack(Player p, String msg) {
+        this.pendingWant.remove(p.getUniqueId());
+        List<ItemStack> back = this.drafts.remove(p.getUniqueId());
+        if (back != null) {
+            p.getInventory().addItem(back.toArray(new ItemStack[0])).values().forEach(l -> p.getWorld().dropItemNaturally(p.getLocation(), l));
+            p.sendMessage(Text.mm(msg));
+        }
+    }
+
+    /** 3.13.13: while an offer waits for "what do you want", the next chat message is the answer (not sent to chat). */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onChat(io.papermc.paper.event.player.AsyncChatEvent e) {
+        Player p = e.getPlayer();
+        if (!this.drafts.containsKey(p.getUniqueId()) || this.pendingWant.containsKey(p.getUniqueId())) {
+            return;
+        }
+
+        e.setCancelled(true);
+        String msg = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(e.message()).trim();
+        Tasks.sync(() -> {
+            if (msg.equalsIgnoreCase("cancel")) {
+                this.giveBack(p, "<gray>Offer cancelled, your items are back.");
+            } else {
+                this.finishPost(p, msg);
+            }
+        });
+    }
+
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
+        if (e.getInventory().getHolder(false) instanceof Confirm c && e.getPlayer() instanceof Player p && !c.done) {
+            // closed without choosing: nothing is lost, they can confirm by typing it again
+            this.pendingWant.remove(p.getUniqueId());
+            if (this.drafts.containsKey(p.getUniqueId())) {
+                p.sendMessage(Text.mm("<gold>Offer not posted yet. <gray>Type what you want in chat again, or <white>cancel</white>."));
+            }
+
+            return;
+        }
         if (e.getInventory().getHolder(false) instanceof Post post && e.getPlayer() instanceof Player p) {
             List<ItemStack> give = new ArrayList<>();
             for (ItemStack it : post.inv.getContents()) {
@@ -468,7 +605,7 @@ public final class Market implements Listener, TabExecutor {
 
             this.drafts.put(p.getUniqueId(), give);
             p.sendMessage(Text.mm("<gold>What do you want for <white>" + describe(give) + "<gold>?"));
-            p.sendMessage(Text.mm("<gray>Type <yellow>/market want <items></yellow>, e.g. <white>/market want diamond 128</white> or <white>/market want diamond_helmet 1, diamond_chestplate 1, diamond_leggings 1, diamond_boots 1"));
+            p.sendMessage(Text.mm("<gray>Just type it in chat, e.g. <white>dia 64</white>, <white>2 stacks of pearls</white> or <white>netherite sword 1, god apple 3</white> <dark_gray>(typos are fine; <white>cancel</white> gives your items back)"));
             Tasks.later(2L, () -> {
                 if (p.isOnline() && this.drafts.containsKey(p.getUniqueId()) && this.plugin.dialogs() != null && this.plugin.dialogs().useDialog(p)) {
                     this.plugin.dialogs().text(p, Text.mm("<gold><b>What do you want for it?"), "e.g. diamond 128 / diamond_helmet 1, diamond_chestplate 1", "", 200, s -> this.finishPost(p, s));
@@ -487,6 +624,7 @@ public final class Market implements Listener, TabExecutor {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
+        this.pendingWant.remove(e.getPlayer().getUniqueId());
         List<ItemStack> back = this.drafts.remove(e.getPlayer().getUniqueId());
         if (back != null) {
             e.getPlayer().getInventory().addItem(back.toArray(new ItemStack[0])).values().forEach(l -> e.getPlayer().getWorld().dropItemNaturally(e.getPlayer().getLocation(), l));

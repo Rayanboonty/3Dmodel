@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.12",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.12.jar",
-    "sha256": "8f93b2b2ee4fc395539108dc5cfc798cc1cd374118dd7595870ce2e3e5a2f7fe",
-    "notes": "Fix: the owner and admins are never locked out of /pvpadmin after leaving the SMP (perks always come back, spectate ends when you leave); ops can use staff commands in a duel"
+    "version": "2.13.13",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.13.jar",
+    "sha256": "1a46ecc0700e9e87ebda670a9f5b1efd0231d0add75e45415854b1fbb7a547e7",
+    "notes": "Market: type what you want in chat with typos and nicknames (dimond, god apple, 2 stacks of pearls); a confirm screen shows the real item icons before the offer goes live"
   },
   "VortexRealm": {
-    "version": "3.13.12",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.12.jar",
-    "sha256": "25705fa2da0f0906a2761d1420b1b27b3025225a580029dead7f20476b2a87de",
-    "notes": "Fix: the owner and admins are never locked out of /pvpadmin after leaving the SMP (perks always come back, spectate ends when you leave); ops can use staff commands in a duel"
+    "version": "3.13.13",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.13.jar",
+    "sha256": "6569bbe394ecd25663469dab6a3dd3d91bec6684c58ca11fb14dc54275da2944",
+    "notes": "Market: type what you want in chat with typos and nicknames (dimond, god apple, 2 stacks of pearls); a confirm screen shows the real item icons before the offer goes live"
   },
   "VortexSMP": {
     "version": "1.6.0",

@@ -1269,3 +1269,9 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 
 - **Admin commands after the SMP:** the SMP takes admin perks away while you're in it. Sometimes they didn't come back when you left (for example after `/spectate` then `/hub`), so `/pvpadmin` stopped working until you rejoined. Now they come back the moment you type a command outside the SMP, and a check every 2 seconds catches anyone still locked. Leaving the SMP while spectating ends the spectate.
 - **Staff commands in a duel:** ops can always use `/pvpadmin`, `/staff` and the other staff commands during a duel.
+
+## 3.13.13 / 2.13.13 — Smarter market trades
+
+- **Type what you want, typos are fine:** after you put your items in `/market` → *Post an offer*, just type in chat what you want. `dimond 64`, `netherit sword`, `god apple 5`, `2 stacks of pearls`, `a stack of obby`, `10 dia and 1 mace` all work. Nicknames like gapple, pearls, obby, xp, totem, crystal, anchor, elytra and shulker are understood too.
+- **See it before it's posted:** a confirm screen shows the **real item icons** of what you give and what you asked for. *Confirm* posts it, *Change* lets you type again, *Cancel* gives your items back.
+- **Scam-proof as before:** your items stay with the server until someone fills the offer, then both sides get their items.

@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Fix: the owner and admins are never locked out of /pvpadmin after leaving the SMP (perks always come back, spectate ends when you leave); ops can use staff commands in a duel',
-    'PracticePvP': 'Fix: the owner and admins are never locked out of /pvpadmin after leaving the SMP (perks always come back, spectate ends when you leave); ops can use staff commands in a duel',
+    'VortexRealm': 'Market: type what you want in chat with typos and nicknames (dimond, god apple, 2 stacks of pearls); a confirm screen shows the real item icons before the offer goes live',
+    'PracticePvP': 'Market: type what you want in chat with typos and nicknames (dimond, god apple, 2 stacks of pearls); a confirm screen shows the real item icons before the offer goes live',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 
