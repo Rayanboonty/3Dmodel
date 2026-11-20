@@ -182,7 +182,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.13.11 / 2.13.11** — Arcade.glassBelow fallback for Bridge scoring, goal particle centre fix; HubFun queue dummy disabled; SmpLockdown.staffNow (rank owner/admin/dev/mod/helper + StaffManager); ModeManager.ensureDimensions at startup and on SMP setMode.
 - **3.13.12 / 2.13.12** — SmpLockdown: perks restored on any command or every 2s when outside the SMP, spectate state cleared on leaving; CommandGuard lets ops use staff commands in duels.
 - **3.13.13 / 2.13.13** — survival/trade/ItemMatcher (aliases + edit distance), Market.parseWant amounts (stacks, x64, and), Confirm screen with want icons, chat capture for the want text (AsyncChatEvent), ItemMatcherTest.
-- **3.13.14 / 2.13.14** — match/Capsule: 3x3x3 room, Capsule.clearance up to 20 blocks, longer safe fall; smp/SmpKits.hoursFor rank cooldowns + BOOSTER/DEV kits; social/Ranks booster rank (450). **← current release**
+- **3.13.14 / 2.13.14** — match/Capsule: 3x3x3 room, Capsule.clearance up to 20 blocks, longer safe fall; smp/SmpKits.hoursFor rank cooldowns + BOOSTER/DEV kits; social/Ranks booster rank (450).
+- **3.13.15 / 2.13.15** — plus/StatusPanel: webhook message edited every minute (count, names, skin cards via mc-heads, OFFLINE on shutdown); config discord.status-webhook / discord.status-ip. **← current release**
 
 ## 8. Open problems / unverified
 

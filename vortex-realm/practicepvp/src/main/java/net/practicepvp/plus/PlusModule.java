@@ -41,6 +41,7 @@ public final class PlusModule {
     private Clans clans;
     private Analysis analysis;
     private Discord discord;
+    private StatusPanel statusPanel;
     private Replays replays;
     private Drills drills;
     private Arcade arcade;
@@ -76,6 +77,7 @@ public final class PlusModule {
         this.clans = new Clans(this.plugin, this);
         this.analysis = new Analysis(this.plugin, this);
         this.discord = new Discord(this.plugin, this);
+        this.statusPanel = new StatusPanel(this.plugin, this);
         this.replays = new Replays(this.plugin, this);
         this.drills = new Drills(this.plugin, this);
         this.arcade = new Arcade(this.plugin, this);
@@ -216,6 +218,9 @@ public final class PlusModule {
             this.arcade.second();
             this.duo.second();
             this.discord.tick();
+            if (this.ticks % 400 < 20) {
+                this.statusPanel.tick();
+            }
             this.eco.second();
             this.fairness.clicks();
             this.hub.decorations();
@@ -237,6 +242,10 @@ public final class PlusModule {
     }
 
     public void disable() {
+        if (this.statusPanel != null) {
+            this.statusPanel.offline();
+        }
+
         for (BukkitTask t : this.tasks) {
             t.cancel();
         }

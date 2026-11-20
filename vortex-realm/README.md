@@ -1282,3 +1282,8 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **Kit cooldowns depend on rank:** owner/admin every **1h**, dev **2h**, mod **3h**, helper **4h**, support **5h**, booster **6h**, builder/media/partner **8h**, supreme/frost/legend **12h**, everyone else **24h**. The Starter kit stays once-only.
 - **New kits:** **Booster** (enchanted diamond, elytra, rockets, golden apples, a pink shulker) and **Developer** (diamond Prot IV, netherite tools with Mending, elytra, rockets, building blocks).
 - **New rank: Booster** (pink) for Discord server boosters: `/rank set <player> booster`.
+
+## 3.13.15 / 2.13.15 — Live server status on Discord
+
+- **Live status panel:** the server keeps one message in a Discord channel up to date: **🟢 ONLINE • 5 / 100 players**, the IP, who is playing, and a card with each player's **skin** (up to 9). When the server stops, the panel shows **🔴 OFFLINE**. No bot needed.
+- **Setup:** in `plugins/VortexRealm/plus/config.yml` set `discord.status-webhook` to a webhook of the channel (Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL), then `/plus reload` or restart.
