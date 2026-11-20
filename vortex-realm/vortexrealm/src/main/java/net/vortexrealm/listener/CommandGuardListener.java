@@ -64,7 +64,7 @@ public final class CommandGuardListener implements Listener {
                     return;
                 }
 
-                if (STAFF_ALLOWED.contains(label) && p.hasPermission("vortex.staff")) {
+                if (STAFF_ALLOWED.contains(label) && (p.isOp() || p.hasPermission("vortex.staff"))) {
                     return;
                 }
 

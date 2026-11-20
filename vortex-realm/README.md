@@ -1264,3 +1264,8 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **No "punch me" dummy:** the punching dummy no longer appears while you queue, for any kit.
 - **SMP `/spectate` for staff by rank:** helpers, mods, devs, admins and the owner (server rank) and `/staff` members can use `/spectate` in the SMP to watch and report.
 - **SMP nether & end automatically:** every SMP world gets its own `<world>_nether` and `<world>_the_end`, created and linked at startup or when a world is set to an SMP mode.
+
+## 3.13.12 / 2.13.12 — /pvpadmin always works for the owner
+
+- **Admin commands after the SMP:** the SMP takes admin perks away while you're in it. Sometimes they didn't come back when you left (for example after `/spectate` then `/hub`), so `/pvpadmin` stopped working until you rejoined. Now they come back the moment you type a command outside the SMP, and a check every 2 seconds catches anyone still locked. Leaving the SMP while spectating ends the spectate.
+- **Staff commands in a duel:** ops can always use `/pvpadmin`, `/staff` and the other staff commands during a duel.

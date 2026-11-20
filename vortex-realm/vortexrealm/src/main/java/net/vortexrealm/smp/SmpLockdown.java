@@ -71,6 +71,17 @@ public final class SmpLockdown implements Listener {
     private final Map<UUID, org.bukkit.Location> spectating = new HashMap<>();
 
     public SmpLockdown(VortexRealm plugin) {
+        // 3.13.11: every 2 seconds, anyone still locked outside the SMP gets their perks back
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            for (UUID u : new java.util.ArrayList<>(this.off.keySet())) {
+                Player p = Bukkit.getPlayer(u);
+                if (p == null) {
+                    this.off.remove(u);
+                } else if (!this.on() || !this.inSmp(p)) {
+                    this.apply(p);
+                }
+            }
+        }, 40L, 40L);
         this.plugin = plugin;
         // this plugin's admin and staff commands, with their aliases
         for (Map.Entry<String, Map<String, Object>> c : plugin.getDescription().getCommands().entrySet()) {
@@ -109,6 +120,19 @@ public final class SmpLockdown implements Listener {
         PermissionAttachment a = this.off.get(p.getUniqueId());
         if (a == null) {
             this.staff.put(p.getUniqueId(), this.staffNow(p));
+        }
+
+        if (!lock && this.spectating.containsKey(p.getUniqueId())) {
+            // 3.13.11: left the SMP while spectating (/hub, /lobby...): end the spectate so the perks come back
+            this.spectating.remove(p.getUniqueId());
+            p.setSpectatorTarget(null);
+            if (p.getGameMode() == GameMode.SPECTATOR) {
+                p.setGameMode(GameMode.SURVIVAL);
+            }
+
+            for (Player o : Bukkit.getOnlinePlayers()) {
+                o.showPlayer(this.plugin, p);
+            }
         }
 
         if (this.spectating.containsKey(p.getUniqueId())) {
@@ -265,6 +289,11 @@ public final class SmpLockdown implements Listener {
     public void onCommand(PlayerCommandPreprocessEvent e) {
         Player p = e.getPlayer();
         if (!this.on() || !this.inSmp(p)) {
+            // 3.13.11: outside the SMP nobody may stay locked: give the perks back before the command runs
+            if (this.off.containsKey(p.getUniqueId()) || this.spectating.containsKey(p.getUniqueId())) {
+                this.apply(p);
+            }
+
             return;
         }
 

@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'Fix: The Bridge goal now counts any drop into the hole; removed the punch-me queue dummy for every kit; SMP /spectate works for helpers, mods and admins by rank; the SMP nether and end are created automatically',
-    'PracticePvP': 'Fix: The Bridge goal now counts any drop into the hole; removed the punch-me queue dummy for every kit; SMP /spectate works for helpers, mods and admins by rank; the SMP nether and end are created automatically',
+    'VortexRealm': 'Fix: the owner and admins are never locked out of /pvpadmin after leaving the SMP (perks always come back, spectate ends when you leave); ops can use staff commands in a duel',
+    'PracticePvP': 'Fix: the owner and admins are never locked out of /pvpadmin after leaving the SMP (perks always come back, spectate ends when you leave); ops can use staff commands in a duel',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

@@ -64,7 +64,7 @@ public final class CommandGuardListener implements Listener {
                     return;
                 }
 
-                if (STAFF_ALLOWED.contains(label) && p.hasPermission("practice.staff")) {
+                if (STAFF_ALLOWED.contains(label) && (p.isOp() || p.hasPermission("practice.staff"))) {
                     return;
                 }
 
