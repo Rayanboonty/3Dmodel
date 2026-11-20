@@ -39,7 +39,9 @@ public final class SmpKits implements CommandExecutor, org.bukkit.command.TabCom
         VIP("VIP", "#8CFF7A:#2E9B3A", 100, 24, Material.IRON_CHESTPLATE, "Iron armor and tools."),
         MVP("MVP", "#FFC14D:#FF7A00", 200, 24, Material.IRON_SWORD, "Enchanted iron and golden apples."),
         STAFF("Diamond", "#8FD8FF:#3D8BFF", 400, 24, Material.DIAMOND_CHESTPLATE, "Diamond armor and tools (staff, creators, top ranks)."),
+        BOOSTER("Booster", "#FF9BEA:#F47FFF", 450, 24, Material.FIREWORK_ROCKET, "Thank you for boosting: enchanted diamond, rockets and an elytra."),
         MOD("Moderator", "#6BFF8C:#1FAF5A", 800, 24, Material.DIAMOND_SWORD, "Enchanted diamond gear."),
+        DEV("Developer", "#7FF6FF:#2E9BFF", 850, 24, Material.NETHERITE_PICKAXE, "Builder's kit: netherite tools, diamond armor, blocks and rockets."),
         NETHERITE("Netherite", "#FF9A3D:#7A2E00", 900, 24, Material.NETHERITE_CHESTPLATE, "Full netherite: armor, sword, axe, tools, elytra.");
 
         final String display;
@@ -152,6 +154,36 @@ public final class SmpKits implements CommandExecutor, org.bukkit.command.TabCom
                 l.add(it(Material.GOLDEN_APPLE, 6));
                 l.add(it(Material.COOKED_BEEF, 64));
             }
+            case BOOSTER -> {
+                l.add(ench(Material.DIAMOND_HELMET, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 2));
+                l.add(ench(Material.DIAMOND_CHESTPLATE, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 2));
+                l.add(ench(Material.DIAMOND_LEGGINGS, Enchantment.PROTECTION, 2, Enchantment.UNBREAKING, 2));
+                l.add(ench(Material.DIAMOND_BOOTS, Enchantment.PROTECTION, 2, Enchantment.FEATHER_FALLING, 2, Enchantment.UNBREAKING, 2));
+                l.add(ench(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3, Enchantment.UNBREAKING, 2));
+                l.add(ench(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 3, Enchantment.UNBREAKING, 2));
+                l.add(ench(Material.ELYTRA, Enchantment.UNBREAKING, 2));
+                l.add(it(Material.FIREWORK_ROCKET, 32));
+                l.add(it(Material.GOLDEN_APPLE, 5));
+                l.add(it(Material.COOKED_BEEF, 48));
+                l.add(it(Material.PINK_SHULKER_BOX, 1));
+            }
+            case DEV -> {
+                l.add(ench(Material.DIAMOND_HELMET, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3));
+                l.add(ench(Material.DIAMOND_CHESTPLATE, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3));
+                l.add(ench(Material.DIAMOND_LEGGINGS, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3));
+                l.add(ench(Material.DIAMOND_BOOTS, Enchantment.PROTECTION, 4, Enchantment.FEATHER_FALLING, 4, Enchantment.UNBREAKING, 3));
+                l.add(ench(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 4, Enchantment.UNBREAKING, 3));
+                l.add(ench(Material.NETHERITE_PICKAXE, Enchantment.EFFICIENCY, 5, Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1));
+                l.add(ench(Material.NETHERITE_AXE, Enchantment.EFFICIENCY, 5, Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1));
+                l.add(ench(Material.NETHERITE_SHOVEL, Enchantment.EFFICIENCY, 5, Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1));
+                l.add(ench(Material.ELYTRA, Enchantment.UNBREAKING, 3));
+                l.add(it(Material.FIREWORK_ROCKET, 64));
+                l.add(it(Material.SCAFFOLDING, 64));
+                l.add(it(Material.STONE_BRICKS, 64));
+                l.add(it(Material.GLASS, 64));
+                l.add(it(Material.GOLDEN_CARROT, 64));
+                l.add(it(Material.GOLDEN_APPLE, 8));
+            }
             case NETHERITE -> {
                 l.add(ench(Material.NETHERITE_HELMET, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1));
                 l.add(ench(Material.NETHERITE_CHESTPLATE, Enchantment.PROTECTION, 4, Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1));
@@ -178,6 +210,36 @@ public final class SmpKits implements CommandExecutor, org.bukkit.command.TabCom
         return l;
     }
 
+    /**
+     * 3.13.14: how often a kit can be taken depends on the player's rank: owner and admins every hour, devs every 2h,
+     * mods 3h, helpers 4h, support 5h, boosters 6h, builders/media/partners 8h, supreme/frost/legend 12h, others 24h.
+     * The Starter kit stays once-only.
+     */
+    int hoursFor(Player p, Def d) {
+        if (d.hours <= 0) {
+            return d.hours;
+        }
+
+        if (p.isOp()) {
+            return 1;
+        }
+
+        Ranks r = this.plugin.serverRanks();
+        Ranks.Rank rank = r == null ? null : r.of(p);
+        String id = rank == null ? "default" : rank.id;
+        return switch (id) {
+            case "owner", "admin" -> 1;
+            case "dev" -> 2;
+            case "mod" -> 3;
+            case "helper" -> 4;
+            case "support" -> 5;
+            case "booster" -> 6;
+            case "builder", "media", "partner" -> 8;
+            case "supreme", "frost", "legend" -> 12;
+            default -> d.hours;
+        };
+    }
+
     /** Milliseconds until the kit can be taken again; 0 = ready, -1 = taken (once-only). */
     private long wait(Player p, Def d) {
         long last = this.data.getLong(p.getUniqueId() + "." + d.name().toLowerCase(Locale.ROOT), 0L);
@@ -185,11 +247,12 @@ public final class SmpKits implements CommandExecutor, org.bukkit.command.TabCom
             return 0L;
         }
 
-        if (d.hours <= 0) {
+        int hours = this.hoursFor(p, d);
+        if (hours <= 0) {
             return -1L;
         }
 
-        return Math.max(0L, last + d.hours * 3600_000L - System.currentTimeMillis());
+        return Math.max(0L, last + hours * 3600_000L - System.currentTimeMillis());
     }
 
     private static String time(long ms) {
@@ -226,7 +289,7 @@ public final class SmpKits implements CommandExecutor, org.bukkit.command.TabCom
             hover.add(Text.mm("<gradient:" + d.gradient + "><b>" + d.display + " Kit"));
             hover.add(Text.mm("<gray>" + d.about));
             hover.add(row);
-            hover.add(Text.mm(d.hours <= 0 ? "<dark_gray>Once" : "<dark_gray>Every " + d.hours + "h"));
+            hover.add(Text.mm(d.hours <= 0 ? "<dark_gray>Once" : "<dark_gray>Every " + this.hoursFor(p, d) + "h for your rank"));
             tiles.add(new LobbyDialogs.Tile(icon, Text.mm("<gradient:" + d.gradient + "><b>" + d.display), Text.mm(state), hover, () -> {
                 this.claim(p, d);
                 this.open(p);

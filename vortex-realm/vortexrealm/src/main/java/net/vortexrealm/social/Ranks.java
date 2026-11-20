@@ -79,6 +79,7 @@ public final class Ranks implements TabExecutor, Listener {
         this.def("builder", "BUILDER", "#FFC48A", "#E07B00", "item/brick", "#FFB86B", 600);
         this.def("media", "MEDIA", "#FF4D4D", "#D40000", "glyph:play", "#FF6B6B", 550);
         this.def("partner", "PARTNER", "#C9A6FF", "#7C4DFF", "item/amethyst_shard", "#B388FF", 500);
+        this.def("booster", "BOOSTER", "#FF9BEA", "#F47FFF", "item/firework_rocket", "#FF8CF0", 450);
         this.def("supreme", "SUPREME", "#FF5470", "#B3001B", "item/totem_of_undying", "#FF6B81", 400);
         this.def("frost", "FROST", "#9FE8FF", "#7A5CFF", "item/snowball", "#A6C8FF", 350);
         this.def("legend", "LEGEND", "#FFE27A", "#FF6F00", "item/blaze_powder", "#FFCB5C", 300);
@@ -189,6 +190,11 @@ public final class Ranks implements TabExecutor, Listener {
                     k.staff = r.getBoolean("staff", false);
                     this.ranks.put(k.id, k);
                 }
+            }
+
+            if (!this.ranks.containsKey("booster")) {
+                // 3.13.14: Discord server boosters get an in-game rank too (give it with /rank set <player> booster)
+                this.def("booster", "BOOSTER", "#FF9BEA", "#F47FFF", "item/firework_rocket", "#FF8CF0", 450);
             }
 
             if (!this.ranks.containsKey("default")) {

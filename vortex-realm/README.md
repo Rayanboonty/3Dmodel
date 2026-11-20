@@ -1275,3 +1275,10 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 - **Type what you want, typos are fine:** after you put your items in `/market` → *Post an offer*, just type in chat what you want. `dimond 64`, `netherit sword`, `god apple 5`, `2 stacks of pearls`, `a stack of obby`, `10 dia and 1 mace` all work. Nicknames like gapple, pearls, obby, xp, totem, crystal, anchor, elytra and shulker are understood too.
 - **See it before it's posted:** a confirm screen shows the **real item icons** of what you give and what you asked for. *Confirm* posts it, *Change* lets you type again, *Cancel* gives your items back.
 - **Scam-proof as before:** your items stay with the server until someone fills the offer, then both sides get their items.
+
+## 3.13.14 / 2.13.14 — Bigger capsule start, kit cooldowns by rank, Booster & Developer kits
+
+- **Capsule start:** players now wait in a roomy **3×3 glass room** instead of being squeezed into one block. It rises as high as the map allows, **up to 20 blocks** above the spawn (lower under roofs or trees), and the drop is safe (no fall damage).
+- **Kit cooldowns depend on rank:** owner/admin every **1h**, dev **2h**, mod **3h**, helper **4h**, support **5h**, booster **6h**, builder/media/partner **8h**, supreme/frost/legend **12h**, everyone else **24h**. The Starter kit stays once-only.
+- **New kits:** **Booster** (enchanted diamond, elytra, rockets, golden apples, a pink shulker) and **Developer** (diamond Prot IV, netherite tools with Mending, elytra, rockets, building blocks).
+- **New rank: Booster** (pink) for Discord server boosters: `/rank set <player> booster`.

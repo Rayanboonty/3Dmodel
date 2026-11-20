@@ -1,15 +1,15 @@
 {
   "PracticePvP": {
-    "version": "2.13.13",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.13.jar",
-    "sha256": "1a46ecc0700e9e87ebda670a9f5b1efd0231d0add75e45415854b1fbb7a547e7",
-    "notes": "Market: type what you want in chat with typos and nicknames (dimond, god apple, 2 stacks of pearls); a confirm screen shows the real item icons before the offer goes live"
+    "version": "2.13.14",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.14.jar",
+    "sha256": "85fb3d055eaf97e7a7dc4d26f252c2d19161e5d3135be033f9d2094fac0e2dba",
+    "notes": "Bigger match-start capsule (3x3 glass room) that rises up to 20 blocks depending on the map; SMP kit cooldowns by rank (admins 1h, mods 3h...); new Booster and Developer kits; Booster rank"
   },
   "VortexRealm": {
-    "version": "3.13.13",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.13.jar",
-    "sha256": "6569bbe394ecd25663469dab6a3dd3d91bec6684c58ca11fb14dc54275da2944",
-    "notes": "Market: type what you want in chat with typos and nicknames (dimond, god apple, 2 stacks of pearls); a confirm screen shows the real item icons before the offer goes live"
+    "version": "3.13.14",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.14.jar",
+    "sha256": "cb3735b331fead0626bf2e9eb16ec8963eaaf25c8dbba945809a6d4fd841d8d3",
+    "notes": "Bigger match-start capsule (3x3 glass room) that rises up to 20 blocks depending on the map; SMP kit cooldowns by rank (admins 1h, mods 3h...); new Booster and Developer kits; Booster rank"
   },
   "VortexSMP": {
     "version": "1.6.0",
