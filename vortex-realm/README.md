@@ -1300,3 +1300,9 @@ An original story season for the SMP, off until an op types `/realm start`. Eigh
 ### 3.14.1 - SMP safety fixes
 - `/back` after a death now picks the nearest safe spot (never back inside the wall you suffocated in or the lava you burned in).
 - Got stuck inside blocks right after flying with an elytra, or after a lag/anti-cheat pull-back? You're moved to the nearest free spot instead of suffocating.
+
+### 3.14.2 - Capsule for every main kit, spectate fixes
+- Sword, NoDebuff, Pot, NethPot, Combo, Gapple, UHC and BuildUHC duels start in the **capsule** (no more cage). Change the list in `match.capsule-kits`.
+- The capsule animation is rebuilt: it materialises from the centre, has a glowing ring and six orbiting team-coloured shards that speed up, pulses with rising sounds in the last 3 seconds, cracks at 1, then bursts into flying glass with fireworks and a soft landing.
+- `/spectate <player>` works in the nether and the end, and the camera follows the player through portals.
+- Staff spectate can't be abused: staff can't hurt or pick up the drops of anyone they spectated for 30 minutes, only /spectate, messages and moderation commands work while spectating, leaving returns them to where they started, and every spectate is written to `smp-spectate-log.txt` and shown to online ops.

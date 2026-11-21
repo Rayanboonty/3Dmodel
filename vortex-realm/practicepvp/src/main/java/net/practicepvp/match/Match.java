@@ -584,9 +584,12 @@ public final class Match {
 
             Opt.StartMode mode;
             int seconds;
-            if (this.isOneVsOne()
-                && (this.forcedStart == Opt.StartMode.CAGE
-                    || this.forcedStart == null && !this.noGates && Cfg.get(Opt.CAGE_KITS).stream().anyMatch(k -> k.equalsIgnoreCase(this.kit.id)))) {
+            if (this.forcedStart == null && Cfg.get(Opt.CAPSULE_KITS).stream().anyMatch(k -> k.equalsIgnoreCase(this.kit.id))) {
+                // 3.14.2: Sword, NoDebuff, Pot, NethPot, Combo, Gapple and UHC start in the capsule (no more cage)
+                configured = Opt.StartMode.CAPSULE;
+            }
+
+            if (this.isOneVsOne() && this.forcedStart == Opt.StartMode.CAGE) {
                 mode = Opt.StartMode.CAGE;
                 seconds = first ? Cfg.i(Opt.CAGE_SECONDS) : Cfg.i(Opt.COUNTDOWN);
             } else if (configured == Opt.StartMode.CAPSULE && (first || Cfg.bool(Opt.ELEVATOR_EVERY_ROUND))) {

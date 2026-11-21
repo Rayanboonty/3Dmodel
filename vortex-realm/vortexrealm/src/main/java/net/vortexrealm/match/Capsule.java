@@ -39,6 +39,12 @@ final class Capsule {
     private final List<Block> barriers = new ArrayList<>();
     private final List<BlockDisplay> left = new ArrayList<>();
     private final List<BlockDisplay> right = new ArrayList<>();
+    /** 3.14.2: glowing shards orbiting the capsule, a glowing ring under it, and shards that burst out at GO. */
+    private final List<BlockDisplay> orbit = new ArrayList<>();
+    private final List<BlockDisplay> burst = new ArrayList<>();
+    private BlockDisplay ring;
+    private double angle;
+    private int lastPulse = -1;
     /** The halves split along x (true) or z. */
     private boolean splitX;
     private boolean done;
@@ -126,9 +132,78 @@ final class Capsule {
             list.add(this.part(corner, cap, a0, ROOM + 0.05f, half, 0.25f, wide, start));
         }
 
+        // materialise: every piece grows from the centre of the room
+        for (BlockDisplay d : this.all()) {
+            Transformation full = d.getTransformation();
+            Vector3f c = new Vector3f(0.5f, ROOM / 2f, 0.5f);
+            d.setTransformation(new Transformation(c, new AxisAngle4f((float)Math.PI, 0, 1, 0), new Vector3f(0.01f), new AxisAngle4f()));
+            Tasks.later(2L, () -> {
+                if (d.isValid()) {
+                    d.setInterpolationDelay(0);
+                    d.setInterpolationDuration(14);
+                    d.setTransformation(full);
+                }
+            });
+        }
+
+        org.bukkit.Color col = this.color();
+        BlockData shard = data(this.glass);
+        for (int i = 0; i < 6; i++) {
+            this.orbit.add(w.spawn(corner, BlockDisplay.class, d -> {
+                d.setPersistent(false);
+                d.setBlock(shard);
+                d.setShadowRadius(0.0F);
+                d.setGlowing(true);
+                d.setGlowColorOverride(col);
+                d.setBrightness(new org.bukkit.entity.Display.Brightness(15, 15));
+                d.setTeleportDuration(2);
+                d.setTransformation(new Transformation(new Vector3f(0.5f, 1.4f, 0.5f), new AxisAngle4f(), new Vector3f(0.01f), new AxisAngle4f()));
+            }));
+        }
+
+        this.ring = w.spawn(corner, BlockDisplay.class, d -> {
+            d.setPersistent(false);
+            d.setBlock(data("sea_lantern"));
+            d.setShadowRadius(0.0F);
+            d.setGlowing(true);
+            d.setGlowColorOverride(col);
+            d.setTransformation(new Transformation(new Vector3f(0.5f, -0.45f, 0.5f), new AxisAngle4f(), new Vector3f(0.01f, 0.06f, 0.01f), new AxisAngle4f()));
+        });
+        Tasks.later(4L, () -> {
+            if (this.ring != null && this.ring.isValid()) {
+                this.ring.setInterpolationDelay(0);
+                this.ring.setInterpolationDuration(16);
+                this.ring.setTransformation(new Transformation(new Vector3f(0.5f - 2.2f, -0.45f, 0.5f - 2.2f), new AxisAngle4f(), new Vector3f(4.4f, 0.06f, 4.4f), new AxisAngle4f()));
+            }
+        });
+
         Tp.to(this.player, this.top);
         this.player.setFallDistance(0.0F);
-        Snd.play(this.player, "block.beacon.activate", 0.6F, 1.6F);
+        // a beam of light from the ground up to the capsule
+        Location ground = this.top.clone().subtract(0, clearance(this.top.clone().subtract(0, 1, 0)) > 0 ? 0 : 0, 0);
+        for (int y = 0; y < 22; y++) {
+            Location at = ground.clone().subtract(0, y, 0);
+            if (!at.getBlock().getType().isAir() && at.getBlock().getType() != Material.BARRIER) {
+                break;
+            }
+
+            w.spawnParticle(Particle.END_ROD, at, 2, 0.15, 0.3, 0.15, 0.0);
+        }
+
+        w.spawnParticle(Particle.DUST, this.top.clone().add(0, 1.5, 0), 80, 1.6, 1.4, 1.6, 0.0, new Particle.DustOptions(col, 1.4F));
+        Snd.play(this.player, "block.beacon.activate", 0.7F, 1.6F);
+        Snd.play(this.player, "block.amethyst_block.resonate", 1.0F, 1.2F);
+    }
+
+    private List<BlockDisplay> all() {
+        List<BlockDisplay> a = new ArrayList<>(this.left);
+        a.addAll(this.right);
+        return a;
+    }
+
+    private org.bukkit.Color color() {
+        return this.glass.startsWith("red") ? org.bukkit.Color.fromRGB(0xFF4D4D) : this.glass.startsWith("light_blue") ? org.bukkit.Color.fromRGB(0x4DC3FF)
+            : org.bukkit.Color.fromRGB(0xB06BFF);
     }
 
     private static BlockData data(String s) {
@@ -164,10 +239,73 @@ final class Capsule {
         }
     }
 
-    /** Keeps the player inside while the count runs (a lag or a push can't take them out). */
-    void tick() {
+    /** Keeps the player inside while the count runs, and animates: orbiting shards speed up, the last 3 seconds pulse. */
+    void tick(double progress, int ticksLeft) {
         if (this.done || !this.player.isOnline()) {
             return;
+        }
+
+        World w = this.top.getWorld();
+        this.angle += 0.07 + Math.min(1.0, progress) * 0.30;
+        if (ticksLeft % 2 == 0) {
+            float radius = (float)(2.5 - Math.min(1.0, progress) * 0.7);
+            for (int i = 0; i < this.orbit.size(); i++) {
+                BlockDisplay d = this.orbit.get(i);
+                if (!d.isValid()) {
+                    continue;
+                }
+
+                double a = this.angle + i * Math.PI * 2 / this.orbit.size();
+                float y = 1.4f + (float)Math.sin(this.angle * 1.7 + i) * 0.6f;
+                float sc = 0.26f;
+                d.setInterpolationDelay(0);
+                d.setInterpolationDuration(2);
+                d.setTransformation(new Transformation(new Vector3f(0.5f + (float)Math.cos(a) * radius - sc / 2, y, 0.5f + (float)Math.sin(a) * radius - sc / 2),
+                    new AxisAngle4f((float)(this.angle * 3 + i), 1, 1, 0), new Vector3f(sc), new AxisAngle4f()));
+            }
+        }
+
+        if (ticksLeft % 10 == 0) {
+            org.bukkit.Color col = this.color();
+            for (int i = 0; i < 16; i++) {
+                double a = i * Math.PI / 8 + this.angle;
+                w.spawnParticle(Particle.DUST, this.top.clone().add(Math.cos(a) * 2.2, -0.4, Math.sin(a) * 2.2), 1, 0, 0, 0, 0, new Particle.DustOptions(col, 1.0F));
+            }
+
+            w.spawnParticle(Particle.SOUL_FIRE_FLAME, this.top.clone().add(0, -0.7, 0), 6, 0.6, 0.05, 0.6, 0.01);
+        }
+
+        // the last three seconds: the capsule pulses, the sound rises
+        int sec = (ticksLeft + 19) / 20;
+        if (sec <= 3 && sec >= 1 && sec != this.lastPulse) {
+            this.lastPulse = sec;
+            Snd.play(this.player, "block.note_block.pling", 1.0F, sec == 1 ? 2.0F : sec == 2 ? 1.6F : 1.25F);
+            Snd.play(this.player, "block.amethyst_cluster.hit", 1.0F, 0.8F + (3 - sec) * 0.3F);
+            for (BlockDisplay d : this.all()) {
+                if (!d.isValid()) {
+                    continue;
+                }
+
+                Transformation t = d.getTransformation();
+                Vector3f grown = new Vector3f(t.getScale()).mul(1.035f);
+                d.setInterpolationDelay(0);
+                d.setInterpolationDuration(4);
+                d.setTransformation(new Transformation(t.getTranslation(), t.getLeftRotation(), grown, t.getRightRotation()));
+                Tasks.later(5L, () -> {
+                    if (d.isValid() && !this.done) {
+                        d.setInterpolationDelay(0);
+                        d.setInterpolationDuration(5);
+                        d.setTransformation(t);
+                    }
+                });
+            }
+
+            w.spawnParticle(Particle.DUST, this.top.clone().add(0, 1.5, 0), 40, 1.5, 1.4, 1.5, 0, new Particle.DustOptions(this.color(), 1.6F));
+            if (sec == 1) {
+                // cracks appear
+                w.spawnParticle(Particle.BLOCK, this.top.clone().add(0, 1.5, 0), 30, 1.5, 1.4, 1.5, 0.0, data(this.glass));
+                Snd.play(this.player, "block.glass.hit", 1.0F, 0.6F);
+            }
         }
 
         Location l = this.player.getLocation();
@@ -213,6 +351,58 @@ final class Capsule {
         }
 
         World w = this.top.getWorld();
+        org.bukkit.Color col = this.color();
+        // the orbiting shards fly outward and fall
+        for (int i = 0; i < this.orbit.size(); i++) {
+            BlockDisplay d = this.orbit.get(i);
+            if (!d.isValid()) {
+                continue;
+            }
+
+            double a = this.angle + i * Math.PI * 2 / this.orbit.size();
+            Transformation t = d.getTransformation();
+            d.setInterpolationDelay(0);
+            d.setInterpolationDuration(16);
+            d.setTransformation(new Transformation(new Vector3f(t.getTranslation()).add((float)Math.cos(a) * 4f, -5f, (float)Math.sin(a) * 4f),
+                new AxisAngle4f(6f, 1, 0, 1), new Vector3f(0.05f), new AxisAngle4f()));
+        }
+
+        // a burst of glass shards in every direction
+        BlockData g = data(this.glass);
+        Location corner = new Location(w, this.top.getBlockX(), this.top.getBlockY(), this.top.getBlockZ());
+        for (int i = 0; i < 14; i++) {
+            double a = Math.random() * Math.PI * 2;
+            float up = (float)(Math.random() * 2.5 - 0.5);
+            float dist = 3.0f + (float)Math.random() * 3.0f;
+            BlockDisplay b = w.spawn(corner, BlockDisplay.class, d -> {
+                d.setPersistent(false);
+                d.setBlock(g);
+                d.setShadowRadius(0.0F);
+                d.setTransformation(new Transformation(new Vector3f(0.4f, 1.4f, 0.4f), new AxisAngle4f(), new Vector3f(0.3f), new AxisAngle4f()));
+            });
+            this.burst.add(b);
+            Tasks.later(1L, () -> {
+                if (b.isValid()) {
+                    b.setInterpolationDelay(0);
+                    b.setInterpolationDuration(20);
+                    b.setTransformation(new Transformation(new Vector3f(0.4f + (float)Math.cos(a) * dist, 1.4f + up - 3.5f, 0.4f + (float)Math.sin(a) * dist),
+                        new AxisAngle4f((float)(Math.random() * 12), 1, 1, 1), new Vector3f(0.04f), new AxisAngle4f()));
+                }
+            });
+        }
+
+        if (this.ring != null && this.ring.isValid()) {
+            this.ring.setInterpolationDelay(0);
+            this.ring.setInterpolationDuration(10);
+            this.ring.setTransformation(new Transformation(new Vector3f(0.5f - 4f, -0.45f, 0.5f - 4f), new AxisAngle4f(), new Vector3f(8f, 0.01f, 8f), new AxisAngle4f()));
+        }
+
+        w.spawnParticle(Particle.DUST, this.top.clone().add(0, 1.5, 0), 120, 2.2, 1.6, 2.2, 0, new Particle.DustOptions(col, 2.0F));
+        w.spawnParticle(Particle.FIREWORK, this.top.clone().add(0, 1.5, 0), 50, 0.4, 0.4, 0.4, 0.25);
+        w.spawnParticle(Particle.END_ROD, this.top.clone().add(0, 1.5, 0), 30, 0.2, 0.2, 0.2, 0.35);
+        Snd.at(this.top, "entity.firework_rocket.large_blast", 0.9F, 1.0F);
+        Snd.at(this.top, "block.amethyst_block.break", 1.0F, 0.8F);
+        this.player.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOW_FALLING, 12, 0, false, false, false));
         w.spawnParticle(Particle.BLOCK, this.top.clone().add(0, 1.5, 0), 60, 1.4, 1.2, 1.4, 0.0, data(this.glass));
         w.spawnParticle(Particle.CLOUD, this.top.clone().add(0, 0.1, 0), 8, 0.4, 0.05, 0.4, 0.02);
         Snd.at(this.top, "block.glass.break", 0.9F, 0.9F);
@@ -229,7 +419,7 @@ final class Capsule {
 
             this.player.setFallDistance(0.0F);
         }, 1L, 1L);
-        Tasks.later(20L, this::removeDisplays);
+        Tasks.later(24L, this::removeDisplays);
     }
 
     private void removeDisplays() {
@@ -243,6 +433,20 @@ final class Capsule {
 
         this.left.clear();
         this.right.clear();
+        for (BlockDisplay d : this.orbit) {
+            d.remove();
+        }
+
+        for (BlockDisplay d : this.burst) {
+            d.remove();
+        }
+
+        this.orbit.clear();
+        this.burst.clear();
+        if (this.ring != null) {
+            this.ring.remove();
+            this.ring = null;
+        }
     }
 
     void remove() {

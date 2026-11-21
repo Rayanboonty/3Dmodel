@@ -184,7 +184,7 @@ final class StartSequence {
             }
 
             for (Capsule c : this.capsules) {
-                c.tick();
+                c.tick(progress, Math.max(0, this.seconds * 20 - this.ticks));
             }
 
             if (this.mode == Opt.StartMode.CAGE) {

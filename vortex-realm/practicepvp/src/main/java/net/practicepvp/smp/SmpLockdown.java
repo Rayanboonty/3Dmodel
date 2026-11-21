@@ -69,6 +69,11 @@ public final class SmpLockdown implements Listener {
     private final Map<UUID, Boolean> staff = new HashMap<>();
     /** Staff spectating in the SMP: where they were. */
     private final Map<UUID, org.bukkit.Location> spectating = new HashMap<>();
+    /** 3.14.2: who each staff member is watching (the camera follows them through portals). */
+    private final Map<UUID, UUID> watching = new HashMap<>();
+    /** 3.14.2: staff -> (player they spectated -> until when they may not hurt or loot that player). */
+    private final Map<UUID, Map<UUID, Long>> noHarm = new HashMap<>();
+    private static final long NO_HARM_MS = 30L * 60_000L;
 
     public SmpLockdown(PracticePlugin plugin) {
         // 3.13.11: every 2 seconds, anyone still locked outside the SMP gets their perks back
@@ -124,8 +129,14 @@ public final class SmpLockdown implements Listener {
 
         if (!lock && this.spectating.containsKey(p.getUniqueId())) {
             // 3.13.11: left the SMP while spectating (/hub, /lobby...): end the spectate so the perks come back
-            this.spectating.remove(p.getUniqueId());
+            org.bukkit.Location startedAt = this.spectating.remove(p.getUniqueId());
+            this.watching.remove(p.getUniqueId());
             p.setSpectatorTarget(null);
+            if (startedAt != null && this.plugin.modes() != null && this.plugin.modes().smpWorld(startedAt.getWorld())) {
+                // left the SMP while spectating: the spot they were watching is not kept (/back, coming back...)
+                this.plugin.modes().remember(p, startedAt);
+            }
+
             if (p.getGameMode() == GameMode.SPECTATOR) {
                 p.setGameMode(GameMode.SURVIVAL);
             }
@@ -192,7 +203,9 @@ public final class SmpLockdown implements Listener {
     public void onQuit(PlayerQuitEvent e) {
         this.off.remove(e.getPlayer().getUniqueId());
         org.bukkit.Location back = this.spectating.remove(e.getPlayer().getUniqueId());
+        this.watching.remove(e.getPlayer().getUniqueId());
         if (back != null) {
+            e.getPlayer().setSpectatorTarget(null);
             e.getPlayer().teleport(back);
             e.getPlayer().setGameMode(GameMode.SURVIVAL);
         }
@@ -244,20 +257,168 @@ public final class SmpLockdown implements Listener {
         }
 
         if (t != null) {
-            p.teleport(t.getLocation());
-            Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
-                if (p.isOnline() && t.isOnline() && p.getGameMode() == GameMode.SPECTATOR) {
-                    p.setSpectatorTarget(t);
-                }
-            }, 2L);
+            this.watching.put(p.getUniqueId(), t.getUniqueId());
+            this.noHarm.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>()).put(t.getUniqueId(), System.currentTimeMillis() + NO_HARM_MS);
+            this.follow(p, t);
+            this.log(p, "started spectating " + t.getName());
         }
 
         p.sendMessage(Text.mm("<aqua>Spectating" + (t == null ? "" : " <white>" + Text.esc(t.getName())) + "<aqua>. Only staff can see you. <gray>Shift to look around freely, <white>/spectate</white> to come back."));
         Snd.play(p, "block.beacon.activate", 0.5F, 1.8F);
     }
 
+    /** Puts the camera on the target, in any SMP dimension (overworld, nether, end); retries while the chunk loads. */
+    private void follow(Player p, Player t) {
+        // a camera locked on someone blocks the teleport: let go first
+        p.setSpectatorTarget(null);
+        p.teleport(t.getLocation(), org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN);
+        int[] tries = {0};
+        Bukkit.getScheduler().runTaskTimer(this.plugin, task -> {
+            if (!p.isOnline() || !t.isOnline() || !this.spectating.containsKey(p.getUniqueId()) || ++tries[0] > 10) {
+                task.cancel();
+                return;
+            }
+
+            if (p.getGameMode() != GameMode.SPECTATOR) {
+                p.setGameMode(GameMode.SPECTATOR);
+            }
+
+            if (!p.getWorld().equals(t.getWorld()) || p.getLocation().distanceSquared(t.getLocation()) > 64) {
+                p.teleport(t.getLocation(), org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN);
+                return;
+            }
+
+            p.setSpectatorTarget(t);
+            if (p.getSpectatorTarget() != null) {
+                task.cancel();
+            }
+        }, 2L, 2L);
+    }
+
+    /** The watched player went through a portal or teleported to another world: the camera follows. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onTargetWorld(PlayerChangedWorldEvent e) {
+        UUID moved = e.getPlayer().getUniqueId();
+        for (Map.Entry<UUID, UUID> w : new java.util.ArrayList<>(this.watching.entrySet())) {
+            Player staff = Bukkit.getPlayer(w.getKey());
+            if (moved.equals(w.getValue()) && staff != null && this.spectating.containsKey(w.getKey())) {
+                Bukkit.getScheduler().runTaskLater(this.plugin, () -> this.follow(staff, e.getPlayer()), 5L);
+            }
+        }
+    }
+
+    /** Staff can't use what they saw while spectating: no hurting the players they watched for 30 minutes. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onStaffHit(org.bukkit.event.entity.EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Player victim)) {
+            return;
+        }
+
+        org.bukkit.entity.Entity d = e.getDamager();
+        Player a = d instanceof Player pl ? pl : d instanceof org.bukkit.entity.Projectile pr && pr.getShooter() instanceof Player pl ? pl
+            : d instanceof org.bukkit.entity.TNTPrimed tnt && tnt.getSource() instanceof Player pl ? pl : null;
+        if (a == null || a.equals(victim) || !this.inSmp(victim)) {
+            return;
+        }
+
+        Map<UUID, Long> m = this.noHarm.get(a.getUniqueId());
+        Long until = m == null ? null : m.get(victim.getUniqueId());
+        if (until != null && until > System.currentTimeMillis()) {
+            e.setCancelled(true);
+            a.sendActionBar(Text.mm("<red>You spectated " + Text.esc(victim.getName()) + " recently. <gray>Staff can't fight players they watched ("
+                + ((until - System.currentTimeMillis()) / 60_000L + 1) + " min left)."));
+        }
+    }
+
+    /** ...and can't pick up what those players drop. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onStaffLoot(org.bukkit.event.entity.EntityPickupItemEvent e) {
+        if (!(e.getEntity() instanceof Player p) || !this.inSmp(p)) {
+            return;
+        }
+
+        Map<UUID, Long> m = this.noHarm.get(p.getUniqueId());
+        UUID thrower = e.getItem().getThrower();
+        UUID owner = e.getItem().getOwner();
+        if (m == null) {
+            return;
+        }
+
+        for (UUID u : new UUID[] {thrower, owner, this.lastDeathOf(e.getItem())}) {
+            Long until = u == null ? null : m.get(u);
+            if (until != null && until > System.currentTimeMillis()) {
+                e.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    private final Map<UUID, UUID> deathDrops = new HashMap<>();
+
+    private UUID lastDeathOf(org.bukkit.entity.Item it) {
+        return this.deathDrops.get(it.getUniqueId());
+    }
+
+    /** Remember whose death dropped which items, for the loot rule above. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onDeathDrops(org.bukkit.event.entity.PlayerDeathEvent e) {
+        if (!this.inSmp(e.getEntity()) || this.noHarm.isEmpty()) {
+            return;
+        }
+
+        UUID dead = e.getEntity().getUniqueId();
+        org.bukkit.Location l = e.getEntity().getLocation();
+        Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
+            for (org.bukkit.entity.Entity en : l.getWorld().getNearbyEntities(l, 4, 4, 4)) {
+                if (en instanceof org.bukkit.entity.Item it && it.getTicksLived() < 40) {
+                    this.deathDrops.put(it.getUniqueId(), dead);
+                }
+            }
+        }, 1L);
+        if (this.deathDrops.size() > 5000) {
+            this.deathDrops.clear();
+        }
+    }
+
+    /** Only /spectate and chat-type commands work while spectating (no /back, /home, /tpa, /sethome from a camera spot). */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onSpecCommand(PlayerCommandPreprocessEvent e) {
+        if (!this.spectating.containsKey(e.getPlayer().getUniqueId())) {
+            return;
+        }
+
+        String m = e.getMessage().substring(1);
+        String label = (m.indexOf(' ') < 0 ? m : m.substring(0, m.indexOf(' '))).toLowerCase(Locale.ROOT);
+        label = label.substring(label.indexOf(':') + 1);
+        if (!java.util.Set.of("spectate", "spec", "smpspec", "msg", "tell", "w", "r", "reply", "list", "staffchat", "sc", "report", "ban", "kick", "mute",
+            "warn", "tempban", "unmute").contains(label)) {
+            e.setCancelled(true);
+            e.getPlayer().sendMessage(Text.mm("<red>Not while spectating. <gray>Type <white>/spectate</white> to go back first."));
+        }
+    }
+
+    /** Every spectate is written down (plugins/VortexRealm/smp-spectate-log.txt) and shown to online ops. */
+    private void log(Player staff, String what) {
+        String line = java.time.LocalDateTime.now().withNano(0) + "  " + staff.getName() + " " + what;
+        Bukkit.getScheduler().runTaskAsynchronously(this.plugin, () -> {
+            try {
+                java.nio.file.Files.writeString(new java.io.File(this.plugin.getDataFolder(), "smp-spectate-log.txt").toPath(), line + System.lineSeparator(),
+                    java.nio.charset.StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+            } catch (java.io.IOException ignored) {
+                // the log is a nice-to-have
+            }
+        });
+        for (Player o : Bukkit.getOnlinePlayers()) {
+            if (o.isOp() && !o.equals(staff)) {
+                o.sendMessage(Text.mm("<dark_gray>[Spectate] <gray>" + Text.esc(staff.getName()) + " " + Text.esc(what)));
+            }
+        }
+    }
+
     private void stopSpectate(Player p) {
         org.bukkit.Location back = this.spectating.remove(p.getUniqueId());
+        this.watching.remove(p.getUniqueId());
+        this.log(p, "stopped spectating");
         p.setSpectatorTarget(null);
         if (back != null) {
             p.teleport(back);

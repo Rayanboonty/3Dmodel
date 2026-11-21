@@ -411,6 +411,21 @@ public final class Opt<T> {
         null,
         true
     );
+    /** 3.14.2: the old cage kits now start in the capsule (the cage only stays for tournaments that ask for it). */
+    public static final Opt<List<String>> CAPSULE_KITS = new Opt<>(
+        "match.capsule-kits",
+        Opt.Type.STRING_LIST,
+        List.of("sword", "nodebuff", "pot", "nethpot", "combo", "gapple", "uhc", "builduhc"),
+        Opt.Section.MATCH,
+        "Capsule Start Kits",
+        "Duels in these kits always start in the glass capsule above the map, whatever the start mode is.",
+        Material.GLASS,
+        0.0,
+        0.0,
+        1.0,
+        null,
+        true
+    );
     public static final Opt<Integer> CAGE_SECONDS = integer(
         "match.cage-seconds",
         15,
