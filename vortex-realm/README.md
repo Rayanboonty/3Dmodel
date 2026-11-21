@@ -1290,3 +1290,6 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 
 ### 3.13.16 - SMP claims
 `/claim` protects a square base around you (default radius 40 = 81 x 81 blocks, change `settings.radius` in `smp-claims.yml`). Inside, only the owner and trusted players can break, build, open chests, use doors, buckets, frames and animals. Creepers, TNT, crystals, anchors, withers, endermen, fire and lava never break claimed blocks. PvP still works. Commands: `/claim`, `/claim show`, `/claim info`, `/claim trust|untrust <player>`, `/claim list`, `/claim remove`; ops: `/claim bypass`, `/claim delete`. No claims within 150 blocks of spawn.
+
+### 3.13.17 - Coming soon: Unstable Realm
+`/season` and entering the SMP now show the next season as **coming soon**. Admins edit it with `/season soon <name>`, `/season soon theme <text>`, `/season soon rule <text|clear>`, `/season soon off`. Players see it with `/season soon`. The full season plan is in `docs/UNSTABLE-REALM-PLAN.md`.

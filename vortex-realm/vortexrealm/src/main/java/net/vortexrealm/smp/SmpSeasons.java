@@ -68,6 +68,15 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
     private final File file;
     private final List<Season> seasons = new ArrayList<>();
     private int current = -1;
+    /** 3.13.17: the season teased as "coming soon" (shown with /season and when players enter the SMP). */
+    private String soonName = "Unstable Realm";
+    private String soonTheme = "A story-driven chaos season: one-of-a-kind characters, AI fighters and a world that reacts to you";
+    private final List<String> soonRules = new ArrayList<>(List.of(
+        "Pick a one-of-a-kind character: once someone takes it, it's gone",
+        "Each character has its own powers, story and weaknesses",
+        "AI fighters and story characters roam the world and remember what you did",
+        "Your choices change the world: alliances, wars, events and the ending",
+        "In development - follow #announcements for news"));
 
     public static final class Season {
         public int number;
@@ -87,6 +96,12 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
     private void load() {
         YamlConfiguration y = YamlConfiguration.loadConfiguration(this.file);
         this.current = y.getInt("current", -1);
+        if (y.isConfigurationSection("coming-soon")) {
+            this.soonName = y.getString("coming-soon.name", "");
+            this.soonTheme = y.getString("coming-soon.theme", "");
+            this.soonRules.clear();
+            this.soonRules.addAll(y.getStringList("coming-soon.rules"));
+        }
         ConfigurationSection sec = y.getConfigurationSection("seasons");
         if (sec != null) {
             for (String k : sec.getKeys(false)) {
@@ -111,6 +126,9 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
         YamlConfiguration y = new YamlConfiguration();
         y.options().setHeader(List.of("SMP seasons - write them in game with /season (see /season help)."));
         y.set("current", this.current);
+        y.set("coming-soon.name", this.soonName);
+        y.set("coming-soon.theme", this.soonTheme);
+        y.set("coming-soon.rules", this.soonRules);
         for (int i = 0; i < this.seasons.size(); i++) {
             Season s = this.seasons.get(i);
             String b = "seasons.s" + (i + 1) + ".";
@@ -175,6 +193,24 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
         to.sendMessage(Text.mm("<dark_gray><st>                                        </st>"));
     }
 
+    private boolean soon() {
+        return this.soonName != null && !this.soonName.isBlank();
+    }
+
+    private void soonCard(CommandSender to) {
+        to.sendMessage(Text.mm("<dark_gray><st>                                        </st>"));
+        to.sendMessage(Text.mm("<light_purple><b>COMING SOON</b> <dark_gray>» <gradient:#B06BFF:#FF5FA2><b>" + Text.esc(this.soonName)));
+        if (!this.soonTheme.isBlank()) {
+            to.sendMessage(Text.mm("<gray><i>" + Text.esc(this.soonTheme)));
+        }
+
+        for (String r : this.soonRules) {
+            to.sendMessage(Text.mm("<dark_gray>• <white>" + Text.esc(r)));
+        }
+
+        to.sendMessage(Text.mm("<dark_gray><st>                                        </st>"));
+    }
+
     /** Coming into the SMP: a short line about the season. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onWorld(PlayerChangedWorldEvent e) {
@@ -183,6 +219,10 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
         if (s != null && this.plugin.modes() != null && this.plugin.modes().smpWorld(p.getWorld()) && !this.plugin.modes().smpWorld(e.getFrom())) {
             p.sendMessage(Text.mm("<gold>Season " + s.number + ": <yellow><b>" + Text.esc(s.name) + "</b> <dark_gray>• <aqua>" + left(s) + " <dark_gray>• <gray>/season"));
         }
+
+        if (this.soon() && this.plugin.modes() != null && this.plugin.modes().smpWorld(p.getWorld()) && !this.plugin.modes().smpWorld(e.getFrom())) {
+            p.sendMessage(Text.mm("<light_purple>Coming soon: <gradient:#B06BFF:#FF5FA2><b>" + Text.esc(this.soonName) + "</b></gradient> <dark_gray>• <gray>/season soon"));
+        }
     }
 
     @Override
@@ -190,12 +230,26 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
         boolean admin = sender.hasPermission("vortex.admin");
         String sub = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
         String rest = args.length > 1 ? String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length)) : "";
+        if (sub.equals("soon") && (!admin || rest.isBlank())) {
+            if (this.soon()) {
+                this.soonCard(sender);
+            } else {
+                sender.sendMessage(Text.mm("<gray>Nothing announced yet."));
+            }
+
+            return true;
+        }
+
         if (sub.isEmpty() || !admin) {
             Season s = this.current();
             if (s == null) {
                 sender.sendMessage(Text.mm("<gray>No SMP season has started yet."));
             } else {
                 this.card(sender, s);
+            }
+
+            if (this.soon()) {
+                this.soonCard(sender);
             }
 
             return true;
@@ -267,6 +321,31 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
                     sender.sendMessage(Text.mm("<yellow>" + (i + 1) + ". <white>" + IDEAS[i][0] + " <dark_gray>- <gray>" + IDEAS[i][1]));
                 }
             }
+            case "soon" -> {
+                // /season soon <name> | soon theme <text> | soon rule <text|clear> | soon off
+                String[] w = rest.split(" ", 2);
+                String what = w[0].toLowerCase(Locale.ROOT);
+                String val = w.length > 1 ? w[1] : "";
+                switch (what) {
+                    case "off" -> this.soonName = "";
+                    case "theme" -> this.soonTheme = val;
+                    case "rule" -> {
+                        if (val.equalsIgnoreCase("clear")) {
+                            this.soonRules.clear();
+                        } else if (!val.isBlank()) {
+                            this.soonRules.add(val);
+                        }
+                    }
+                    default -> this.soonName = rest;
+                }
+
+                this.save();
+                if (this.soon()) {
+                    this.soonCard(sender);
+                } else {
+                    sender.sendMessage(Text.mm("<yellow>Coming-soon teaser hidden."));
+                }
+            }
             case "preview" -> this.card(sender, this.draft());
             case "list" -> {
                 for (int i = 0; i < this.seasons.size(); i++) {
@@ -290,7 +369,7 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
                 sender.sendMessage(Text.mm("<green>Season " + d.number + " started."));
             }
             default -> {
-                sender.sendMessage(Text.mm("<gold><b>/season</b> <gray>new <name> | theme <text> | rule <text|clear> | days <n> | idea <n> | ideas | preview | start | list"));
+                sender.sendMessage(Text.mm("<gold><b>/season</b> <gray>new <name> | theme <text> | rule <text|clear> | days <n> | idea <n> | ideas | preview | start | list | soon <name|theme|rule|off>"));
                 Season s = this.current();
                 if (s != null) {
                     this.card(sender, s);
@@ -303,8 +382,12 @@ public final class SmpSeasons implements CommandExecutor, TabCompleter, Listener
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
-        if (args.length == 1 && sender.hasPermission("vortex.admin")) {
-            List<String> out = new ArrayList<>(List.of("new", "theme", "rule", "days", "idea", "ideas", "preview", "start", "list"));
+        if (args.length == 1 && !sender.hasPermission("vortex.admin")) {
+            return "soon".startsWith(args[0].toLowerCase(Locale.ROOT)) ? List.of("soon") : List.of();
+        }
+
+        if (args.length == 1) {
+            List<String> out = new ArrayList<>(List.of("new", "theme", "rule", "days", "idea", "ideas", "preview", "start", "list", "soon"));
             out.removeIf(s -> !s.startsWith(args[0].toLowerCase(Locale.ROOT)));
             return out;
         }
