@@ -1306,3 +1306,7 @@ An original story season for the SMP, off until an op types `/realm start`. Eigh
 - The capsule animation is rebuilt: it materialises from the centre, has a glowing ring and six orbiting team-coloured shards that speed up, pulses with rising sounds in the last 3 seconds, cracks at 1, then bursts into flying glass with fireworks and a soft landing.
 - `/spectate <player>` works in the nether and the end, and the camera follows the player through portals.
 - Staff spectate can't be abused: staff can't hurt or pick up the drops of anyone they spectated for 30 minutes, only /spectate, messages and moderation commands work while spectating, leaving returns them to where they started, and every spectate is written to `smp-spectate-log.txt` and shown to online ops.
+
+### 3.14.3 - /back after End deaths
+- `/back` after dying in the End or the nether now takes you back there. The trip to the respawn point no longer overwrites your death spot.
+- Died in the End's void? `/back` takes you to the main island instead of dropping you into the void again.

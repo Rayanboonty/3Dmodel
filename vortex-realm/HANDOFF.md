@@ -188,7 +188,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.13.17** - Unstable Realm season teased as coming soon (/season soon); plan in docs/UNSTABLE-REALM-PLAN.md
 - **3.14.0** - The Unstable Realm season (off until /realm start): characters, story, NPCs, fighters, events, final boss; guide in docs/UNSTABLE-REALM-GUIDE.md
 - **3.14.1** - /back after death goes to a safe spot; elytra wall-suffocation rescue in the SMP
-- **3.14.2** - Cage kits use the capsule; new capsule animation; /spectate in nether/end + follows through portals; anti-abuse rules for staff spectate **← current release**
+- **3.14.2** - Cage kits use the capsule; new capsule animation; /spectate in nether/end + follows through portals; anti-abuse rules for staff spectate
+- **3.14.3** - /back after a death in the End/nether works (respawn no longer overwrites it); void deaths go to the End island **← current release**
 
 ## 8. Open problems / unverified
 

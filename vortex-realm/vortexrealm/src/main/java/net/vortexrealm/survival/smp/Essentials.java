@@ -570,6 +570,12 @@ public final class Essentials implements Listener, TabExecutor {
         ignoreCancelled = true
     )
     public void onTeleport(PlayerTeleportEvent e) {
+        // 3.14.3: the trip to the respawn point after a death must not replace the death spot that /back goes to
+        Long died = this.diedAt.get(e.getPlayer().getUniqueId());
+        if (died != null && System.currentTimeMillis() - died < 15_000L) {
+            return;
+        }
+
         switch (e.getCause()) {
             case COMMAND:
             case PLUGIN:
@@ -593,6 +599,7 @@ public final class Essentials implements Listener, TabExecutor {
     )
     public void onDeath(PlayerDeathEvent e) {
         Player p = e.getEntity();
+        this.diedAt.put(p.getUniqueId(), System.currentTimeMillis());
         if (this.smp(p.getWorld()) && Cfg.bool(Opt.ESSENTIALS) && Cfg.bool(Opt.ESS_BACK)) {
             String mode = this.group(p.getWorld());
             if (modeListed(Cfg.s(Opt.BACK_DEATH_MODES), mode)) {
@@ -606,6 +613,8 @@ public final class Essentials implements Listener, TabExecutor {
     )
     public void onRespawn(PlayerRespawnEvent e) {
         Player p = e.getPlayer();
+        // the death screen can last minutes: the 15 s window starts again at the respawn
+        this.diedAt.put(p.getUniqueId(), System.currentTimeMillis());
         if (this.smp(p.getWorld()) && Cfg.bool(Opt.ESSENTIALS) && Cfg.bool(Opt.ESS_BACK) && modeListed(Cfg.s(Opt.BACK_DEATH_MODES), this.group(p.getWorld()))) {
             Tasks.later(
                 20L,
@@ -836,12 +845,28 @@ public final class Essentials implements Listener, TabExecutor {
         }
     }
 
+    private final Map<UUID, Long> diedAt = new HashMap<>();
+
     private void back(Player p) {
         Map<String, Location> m = this.back.get(p.getUniqueId());
         Location l = m == null ? null : m.get(this.group(this.here(p)));
         if (l != null && l.getWorld() != null) {
             // 3.14.1: never back into the wall you suffocated in (or the lava you burned in)
             Location safe = net.vortexrealm.util.SafeSpot.near(l.clone(), 8);
+            if (safe == null) {
+                // died in the void (the End) or deep in lava: the ground above, or the End's main island
+                World w = l.getWorld();
+                org.bukkit.block.Block top = w.getHighestBlockAt(l);
+                if (top.getType().isSolid() && top.getY() > w.getMinHeight() + 1) {
+                    safe = net.vortexrealm.util.SafeSpot.near(top.getLocation().add(0.5, 1, 0.5), 8);
+                }
+
+                if (safe == null && w.getEnvironment() == World.Environment.THE_END) {
+                    safe = w.getHighestBlockAt(0, 0).getLocation().add(0.5, 1, 0.5);
+                    msg(p, "<gray>You fell into the void, so you're going to the End's main island.");
+                }
+            }
+
             Location target = safe != null ? safe : l.clone();
             this.warmup(p, "your last location", () -> this.arrive(p, target, "Back"));
         } else {
