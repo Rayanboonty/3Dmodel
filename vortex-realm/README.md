@@ -1296,3 +1296,7 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 
 ### 3.14.0 - The Unstable Realm season
 An original story season for the SMP, off until an op types `/realm start`. Eight one-of-a-kind characters (`/character`, Shift+F powers), a five-chapter story that advances by server goals, a personal five-part questline per character with cutscenes and choices, server votes that change the ending, five NPCs that remember each player, AI fighters (with revenge Avengers), Rift Nights, meteors, the Jester's Carnival, capital sieges and the three-phase Unmaker boss. Setup in `docs/UNSTABLE-REALM-GUIDE.md`; all text in `realm-story.yml`.
+
+### 3.14.1 - SMP safety fixes
+- `/back` after a death now picks the nearest safe spot (never back inside the wall you suffocated in or the lava you burned in).
+- Got stuck inside blocks right after flying with an elytra, or after a lag/anti-cheat pull-back? You're moved to the nearest free spot instead of suffocating.

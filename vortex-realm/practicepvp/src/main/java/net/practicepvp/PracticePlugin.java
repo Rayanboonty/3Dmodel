@@ -648,6 +648,7 @@ public final class PracticePlugin extends JavaPlugin {
             this.bind("character", this.realm);
             this.bind("ability", this.realm);
         });
+        this.module("SMP elytra wall rescue", () -> pm.registerEvents(new net.practicepvp.smp.ElytraRescue(this), this));
         this.module("SMP portals", () -> pm.registerEvents(new net.practicepvp.smp.SmpPortals(this), this));
         this.module("1.8 legacy hall", () -> {
             this.legacyHall = new net.practicepvp.lobby.LegacyHall(this);

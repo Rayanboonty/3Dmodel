@@ -840,7 +840,9 @@ public final class Essentials implements Listener, TabExecutor {
         Map<String, Location> m = this.back.get(p.getUniqueId());
         Location l = m == null ? null : m.get(this.group(this.here(p)));
         if (l != null && l.getWorld() != null) {
-            Location target = l.clone();
+            // 3.14.1: never back into the wall you suffocated in (or the lava you burned in)
+            Location safe = net.practicepvp.util.SafeSpot.near(l.clone(), 8);
+            Location target = safe != null ? safe : l.clone();
             this.warmup(p, "your last location", () -> this.arrive(p, target, "Back"));
         } else {
             err(p, "You have nowhere to go back to.");
