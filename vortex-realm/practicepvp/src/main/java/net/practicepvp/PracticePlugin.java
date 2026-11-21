@@ -637,6 +637,11 @@ public final class PracticePlugin extends JavaPlugin {
         });
         this.module("fight extras (auto gg, kill sounds, death recap, fight HUD)", () -> pm.registerEvents(new net.practicepvp.combat.FightExtras(this), this));
         this.module("SMP kits", () -> this.bind("kit", new net.practicepvp.smp.SmpKits(this)));
+        this.module("SMP claims", () -> {
+            net.practicepvp.smp.SmpClaims claims = new net.practicepvp.smp.SmpClaims(this);
+            this.bind("claim", claims);
+            pm.registerEvents(claims, this);
+        });
         this.module("SMP portals", () -> pm.registerEvents(new net.practicepvp.smp.SmpPortals(this), this));
         this.module("1.8 legacy hall", () -> {
             this.legacyHall = new net.practicepvp.lobby.LegacyHall(this);

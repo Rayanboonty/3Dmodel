@@ -1287,3 +1287,6 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 
 - **Live status panel:** the server keeps one message in a Discord channel up to date: **🟢 ONLINE • 5 / 100 players**, the IP, who is playing, and a card with each player's **skin** (up to 9). When the server stops, the panel shows **🔴 OFFLINE**. No bot needed.
 - **Setup:** in `plugins/VortexRealm/plus/config.yml` set `discord.status-webhook` to a webhook of the channel (Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL), then `/plus reload` or restart.
+
+### 3.13.16 - SMP claims
+`/claim` protects a square base around you (default radius 40 = 81 x 81 blocks, change `settings.radius` in `smp-claims.yml`). Inside, only the owner and trusted players can break, build, open chests, use doors, buckets, frames and animals. Creepers, TNT, crystals, anchors, withers, endermen, fire and lava never break claimed blocks. PvP still works. Commands: `/claim`, `/claim show`, `/claim info`, `/claim trust|untrust <player>`, `/claim list`, `/claim remove`; ops: `/claim bypass`, `/claim delete`. No claims within 150 blocks of spawn.

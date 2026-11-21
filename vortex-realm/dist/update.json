@@ -1,14 +1,14 @@
 {
   "PracticePvP": {
-    "version": "2.13.15",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.15.jar",
-    "sha256": "91ba5ad127204ac91f3615ae5ae5bc0d88be2a7d794330b1835b680ef9c39347",
+    "version": "2.13.16",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.13.16.jar",
+    "sha256": "71c0987d99215d4580b7d05ac3dba768c0f8b593657236fc8c067b7eabc8925e",
     "notes": "Live server status panel on Discord: the server itself keeps one message up to date with the online count and each player's skin (set discord.status-webhook)"
   },
   "VortexRealm": {
-    "version": "3.13.15",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.15.jar",
-    "sha256": "f689123cdad61ef99d560b4c8f44ea20d20826ef229a4446bd63c4ae7e023cd9",
+    "version": "3.13.16",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.13.16.jar",
+    "sha256": "952422bb9398f3c8e9594d8b798cda50347dff36208f910c366238c76cea4ea2",
     "notes": "Live server status panel on Discord: the server itself keeps one message up to date with the online count and each player's skin (set discord.status-webhook)"
   },
   "VortexSMP": {
