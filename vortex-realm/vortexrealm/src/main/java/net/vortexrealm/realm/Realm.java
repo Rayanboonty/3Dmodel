@@ -75,6 +75,8 @@ public final class Realm implements CommandExecutor, TabCompleter {
     final Set<UUID> testers = new HashSet<>();
     int chapter = 1;
     Location capital;
+    /** 3.14.5: the world the season runs in (null = every SMP world). */
+    String worldName;
     final Map<String, Integer> counters = new HashMap<>();
     final Map<String, String> globals = new HashMap<>();
     final Map<String, Map<UUID, String>> votes = new HashMap<>();
@@ -152,6 +154,7 @@ public final class Realm implements CommandExecutor, TabCompleter {
         this.finished = y.getBoolean("finished", false);
         this.chapter = Math.max(1, y.getInt("chapter", 1));
         this.capital = y.getLocation("capital");
+        this.worldName = y.getString("world", null);
         sec(y, "counters", (k, s) -> this.counters.put(k, s.getInt(k)));
         sec(y, "globals", (k, s) -> this.globals.put(k, s.getString(k)));
         sec(y, "npcs", (k, s) -> {
@@ -221,6 +224,7 @@ public final class Realm implements CommandExecutor, TabCompleter {
         y.set("finished", this.finished);
         y.set("chapter", this.chapter);
         y.set("capital", this.capital);
+        y.set("world", this.worldName);
         this.counters.forEach((k, v) -> y.set("counters." + k, v));
         this.globals.forEach((k, v) -> y.set("globals." + k, v));
         this.npcSpots.forEach((k, v) -> y.set("npcs." + k, v));
@@ -262,7 +266,26 @@ public final class Realm implements CommandExecutor, TabCompleter {
 
     /** World-level check (spawns, events): callers still filter players with on(Player). */
     public boolean on(World w) {
-        return this.running() && w != null && this.plugin.modes() != null && this.plugin.modes().smpWorld(w);
+        return this.running() && this.realmWorld(w);
+    }
+
+    /** Is this the season's world (or its nether / end)? Without a chosen world: any SMP world. */
+    boolean realmWorld(World w) {
+        if (w == null || this.plugin.modes() == null) {
+            return false;
+        }
+
+        if (this.worldName == null) {
+            return this.plugin.modes().smpWorld(w);
+        }
+
+        if (w.getName().equals(this.worldName)) {
+            return true;
+        }
+
+        World parent = this.plugin.modes().parentOf(w);
+        return parent != null && parent.getName().equals(this.worldName) || w.getName().equals(this.worldName + "_nether")
+            || w.getName().equals(this.worldName + "_the_end");
     }
 
     public boolean on(Player p) {
@@ -276,6 +299,10 @@ public final class Realm implements CommandExecutor, TabCompleter {
 
     /** The SMP overworld, where most of the story happens. */
     World overworld() {
+        if (this.worldName != null && Bukkit.getWorld(this.worldName) != null) {
+            return Bukkit.getWorld(this.worldName);
+        }
+
         return this.plugin.modes() == null ? null : this.plugin.modes().smpWorld();
     }
 
@@ -596,6 +623,7 @@ public final class Realm implements CommandExecutor, TabCompleter {
                     sender.sendMessage(Text.mm("<green>The Rift Shrine is built at the capital."));
                 }
             }
+            case "world" -> this.worldCommand(sender, p, args);
             case "npc" -> this.npcs.admin(sender, p, args);
             case "event" -> this.events.force(sender, a1);
             case "release" -> {
@@ -645,12 +673,85 @@ public final class Realm implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Text.mm("<yellow>The Unstable Realm is reset (NPC spots and the capital are kept)."));
             }
             default -> {
-                sender.sendMessage(Text.mm("<gold><b>/realm</b> <gray>preview [add|remove <player>|off] | start | stop | status | chapter next|<n> | capital | shrine | npc place|remove|list <id>"));
+                sender.sendMessage(Text.mm("<gold><b>/realm</b> <gray>preview [add|remove <player>|off] | world [set <folder>|tp|clear] | start | stop | status | chapter next|<n> | capital | shrine | npc place|remove|list <id>"));
                 sender.sendMessage(Text.mm("<gray>event riftnight|meteor|carnival|siege|finale|stop | release <player> | counter <name> <n> | reload | reset"));
             }
         }
 
         return true;
+    }
+
+    /**
+     * /realm world                    which world the season uses, and the world folders you can pick
+     * /realm world set &lt;folder&gt;       load that world folder (upload it next to your other worlds first), make it the
+     *                                 Unstable Realm world (own inventory, nether and end) and run the season only there
+     * /realm world tp                 go there
+     * /realm world clear              back to the normal SMP
+     */
+    private void worldCommand(CommandSender s, Player p, String[] args) {
+        String what = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+        switch (what) {
+            case "set" -> {
+                if (args.length < 3) {
+                    s.sendMessage(Text.mm("<red>/realm world set <folder name>"));
+                    return;
+                }
+
+                String name = args[2];
+                World w = Bukkit.getWorld(name);
+                if (w == null) {
+                    File dir = new File(Bukkit.getWorldContainer(), name);
+                    if (!new File(dir, "level.dat").exists()) {
+                        s.sendMessage(Text.mm("<red>No world folder called <white>" + Text.esc(name) + "</white>. <gray>Upload the world folder next to your other worlds "
+                            + "(it needs a level.dat inside), then try again."));
+                        return;
+                    }
+
+                    s.sendMessage(Text.mm("<gray>Loading <white>" + Text.esc(name) + "<gray>... (a big map can take a moment)"));
+                    w = new org.bukkit.WorldCreator(name).createWorld();
+                    if (w == null) {
+                        s.sendMessage(Text.mm("<red>That world could not be loaded. Check the console."));
+                        return;
+                    }
+                }
+
+                this.plugin.modes().setMode(w, net.vortexrealm.smp.WorldMode.UNSTABLE);
+                this.plugin.modes().setDisplay(w, "Unstable Realm");
+                this.worldName = w.getName();
+                this.save();
+                s.sendMessage(Text.mm("<green>The Unstable Realm now runs in <white>" + Text.esc(w.getName()) + "<green> (own inventory, its nether and end are made automatically)."));
+                s.sendMessage(Text.mm("<gray>Next: <white>/realm world tp</white>, then /realm capital and /realm npc place ... there. Until /realm start, only testers can enter it."));
+            }
+            case "tp" -> {
+                World w = this.worldName == null ? null : Bukkit.getWorld(this.worldName);
+                if (p == null || w == null) {
+                    s.sendMessage(Text.mm("<red>No Unstable Realm world is set: /realm world set <folder>"));
+                } else {
+                    this.testers.add(p.getUniqueId());
+                    this.plugin.modes().travel(p, w);
+                }
+            }
+            case "clear" -> {
+                this.worldName = null;
+                this.save();
+                s.sendMessage(Text.mm("<yellow>The season runs in the normal SMP again. <gray>(The world itself is kept; change its mode in /pvpadmin -> Worlds if you want.)"));
+            }
+            default -> {
+                s.sendMessage(Text.mm("<gold>Unstable Realm world: <white>" + (this.worldName == null ? "the normal SMP" : Text.esc(this.worldName))));
+                List<String> found = new ArrayList<>();
+                File[] dirs = Bukkit.getWorldContainer().listFiles(File::isDirectory);
+                if (dirs != null) {
+                    for (File d : dirs) {
+                        if (new File(d, "level.dat").exists()) {
+                            found.add(d.getName() + (Bukkit.getWorld(d.getName()) != null ? "" : " (not loaded)"));
+                        }
+                    }
+                }
+
+                s.sendMessage(Text.mm("<gray>World folders: <white>" + Text.esc(String.join(", ", found))));
+                s.sendMessage(Text.mm("<gray>/realm world set <folder> • /realm world tp • /realm world clear"));
+            }
+        }
     }
 
     String testerNames() {
@@ -673,11 +774,12 @@ public final class Realm implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             out.addAll(List.of("journal", "vote", "who", "replay", "buy"));
             if (admin(s)) {
-                out.addAll(List.of("preview", "start", "stop", "status", "chapter", "capital", "shrine", "npc", "event", "release", "counter", "reload", "reset"));
+                out.addAll(List.of("preview", "world", "start", "stop", "status", "chapter", "capital", "shrine", "npc", "event", "release", "counter", "reload", "reset"));
             }
         } else if (args.length == 2 && admin(s)) {
             switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "preview" -> out.addAll(List.of("add", "remove", "off"));
+                case "world" -> out.addAll(List.of("set", "tp", "clear"));
                 case "event" -> out.addAll(List.of("riftnight", "meteor", "carnival", "siege", "finale", "stop"));
                 case "chapter" -> out.addAll(List.of("next", "1", "2", "3", "4", "5"));
                 case "npc" -> out.addAll(List.of("place", "remove", "list"));

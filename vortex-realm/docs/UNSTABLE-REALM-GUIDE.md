@@ -3,6 +3,14 @@
 Everything is **off** until you type `/realm start`. Installing the update changes nothing on the SMP.
 Run the setup commands as an op; ops keep their admin rights inside the SMP.
 
+## World: run the season in its own world (3.14.5)
+1. Upload the world folder to the server, next to your other world folders (it must have a `level.dat` inside).
+2. `/realm world` lists the world folders it can see.
+3. `/realm world set <folder>` loads it and makes it the **Unstable Realm** world. It gets its own inventory, and a nether and End are made for it. The season then runs only there.
+4. `/realm world tp` takes you there. Set the capital and place the NPCs in that world.
+5. Until `/realm start`, only ops and preview testers can enter it. Everyone else gets "opens soon".
+6. `/realm world clear` goes back to running the season in the normal SMP.
+
 ## 0. Test it alone first: preview mode (3.14.4)
 `/realm preview` runs the **whole season only for you**. Everyone else on the SMP sees nothing: no NPCs, no fighters, no bars, no messages or titles, and no powers. Chapters, quests, choices, votes, events and the boss all work for you.
 - `/realm preview add <player>` / `/realm preview remove <player>` adds or removes another tester (staff).

@@ -1313,3 +1313,6 @@ An original story season for the SMP, off until an op types `/realm start`. Eigh
 
 ### 3.14.4 - Unstable Realm preview
 `/realm preview` runs the whole season only for you (`/realm preview add|remove <player>` for more testers, `/realm preview off` to stop). Everyone else sees nothing: NPCs and fighters are hidden from them, fighters ignore them, and messages and titles only go to testers. After testing, `/realm reset confirm` then `/realm start`.
+
+### 3.14.5 - The Unstable Realm world
+Upload a world folder, then `/realm world set <folder>`: it becomes the Unstable Realm world (new world mode with its own inventory, nether and end) and the season runs only there. `/realm world tp` to go there, `/realm world clear` to go back to the normal SMP. Only ops and preview testers can enter it before `/realm start`.

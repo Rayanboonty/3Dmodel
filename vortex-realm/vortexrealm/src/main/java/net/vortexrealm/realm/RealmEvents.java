@@ -384,6 +384,21 @@ public final class RealmEvents implements Listener {
         f.getPersistentDataContainer().set(this.realm.npcKey, PersistentDataType.STRING, "firework");
     }
 
+    /** Before /realm start, only testers (and ops) may enter the Unstable Realm world. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEnter(org.bukkit.event.player.PlayerTeleportEvent e) {
+        if (this.realm.worldName == null || this.realm.active || e.getTo() == null || !this.realm.realmWorld(e.getTo().getWorld())
+            || this.realm.realmWorld(e.getFrom().getWorld())) {
+            return;
+        }
+
+        Player p = e.getPlayer();
+        if (!p.isOp() && !this.realm.testers.contains(p.getUniqueId())) {
+            e.setCancelled(true);
+            p.sendMessage(Text.mm("<light_purple>✦ The Unstable Realm opens soon. <gray>Stay tuned in Discord!"));
+        }
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onFireworkHurt(EntityDamageByEntityEvent e) {
         if (e.getDamager() instanceof Firework f && f.getPersistentDataContainer().has(this.realm.npcKey)) {

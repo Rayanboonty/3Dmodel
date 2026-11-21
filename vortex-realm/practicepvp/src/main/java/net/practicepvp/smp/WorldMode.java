@@ -11,6 +11,7 @@ public enum WorldMode {
     STRENGTH("Strength SMP", "<light_purple>", Material.AMETHYST_SHARD, "Kills give Strength levels, deaths take them. -5 to +5."),
     RANKED("Ranked SMP", "<yellow>", Material.GOLDEN_SWORD, "Kills earn rank points and tiers LT5 → HT1, shown on names."),
     ECO("Eco SMP", "<#3DDC84>", Material.EMERALD, "Survival with money: /sell, /shop, /pay, mob rewards, /baltop."),
+    UNSTABLE("Unstable Realm", "<light_purple>", Material.AMETHYST_CLUSTER, "The Unstable Realm season world: its own inventory, characters, story and events."),
     NONE("Nothing", "<dark_gray>", Material.BARRIER, "Not used: no rules, no own inventory, not in the selector. The plugin leaves this world alone.");
 
     public final String display;
@@ -26,7 +27,7 @@ public enum WorldMode {
     }
 
     public boolean smp() {
-        return this == SURVIVAL || this == LIFESTEAL || this == STRENGTH || this == RANKED || this == ECO;
+        return this == SURVIVAL || this == LIFESTEAL || this == STRENGTH || this == RANKED || this == ECO || this == UNSTABLE;
     }
 
     public String mm() {
