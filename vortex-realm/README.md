@@ -1293,3 +1293,6 @@ Every system of the VortexPvP test build (`README-VortexPvP.md` has the full det
 
 ### 3.13.17 - Coming soon: Unstable Realm
 `/season` and entering the SMP now show the next season as **coming soon**. Admins edit it with `/season soon <name>`, `/season soon theme <text>`, `/season soon rule <text|clear>`, `/season soon off`. Players see it with `/season soon`. The full season plan is in `docs/UNSTABLE-REALM-PLAN.md`.
+
+### 3.14.0 - The Unstable Realm season
+An original story season for the SMP, off until an op types `/realm start`. Eight one-of-a-kind characters (`/character`, Shift+F powers), a five-chapter story that advances by server goals, a personal five-part questline per character with cutscenes and choices, server votes that change the ending, five NPCs that remember each player, AI fighters (with revenge Avengers), Rift Nights, meteors, the Jester's Carnival, capital sieges and the three-phase Unmaker boss. Setup in `docs/UNSTABLE-REALM-GUIDE.md`; all text in `realm-story.yml`.

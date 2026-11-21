@@ -653,6 +653,12 @@ public final class VortexRealm extends JavaPlugin {
             this.bind("claim", claims);
             pm.registerEvents(claims, this);
         });
+        this.module("Unstable Realm season", () -> {
+            this.realm = new net.vortexrealm.realm.Realm(this);
+            this.bind("realm", this.realm);
+            this.bind("character", this.realm);
+            this.bind("ability", this.realm);
+        });
         this.module("SMP portals", () -> pm.registerEvents(new net.vortexrealm.smp.SmpPortals(this), this));
         this.module("1.8 legacy hall", () -> {
             this.legacyHall = new net.vortexrealm.lobby.LegacyHall(this);
@@ -872,6 +878,12 @@ public final class VortexRealm extends JavaPlugin {
         }
     }
 
+    private net.vortexrealm.realm.Realm realm;
+
+    public net.vortexrealm.realm.Realm realm() {
+        return this.realm;
+    }
+
     private net.vortexrealm.plus.PlusModule plus;
 
     public net.vortexrealm.plus.PlusModule plus() {
@@ -880,6 +892,14 @@ public final class VortexRealm extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (this.realm != null) {
+            try {
+                this.realm.save();
+            } catch (Throwable realmError) {
+                this.getLogger().log(java.util.logging.Level.WARNING, "Could not save the Unstable Realm", realmError);
+            }
+        }
+
         if (this.plus != null) {
             try {
                 this.plus.disable();

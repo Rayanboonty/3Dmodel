@@ -185,7 +185,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.13.14 / 2.13.14** — match/Capsule: 3x3x3 room, Capsule.clearance up to 20 blocks, longer safe fall; smp/SmpKits.hoursFor rank cooldowns + BOOSTER/DEV kits; social/Ranks booster rank (450).
 - **3.13.15 / 2.13.15** — plus/StatusPanel: webhook message edited every minute (count, names, skin cards via mc-heads, OFFLINE on shutdown); config discord.status-webhook / discord.status-ip.
 - **3.13.16** - SMP land claims back: /claim, trust, show; no griefing, chest theft or explosions inside a base
-- **3.13.17** - Unstable Realm season teased as coming soon (/season soon); plan in docs/UNSTABLE-REALM-PLAN.md **← current release**
+- **3.13.17** - Unstable Realm season teased as coming soon (/season soon); plan in docs/UNSTABLE-REALM-PLAN.md
+- **3.14.0** - The Unstable Realm season (off until /realm start): characters, story, NPCs, fighters, events, final boss; guide in docs/UNSTABLE-REALM-GUIDE.md **← current release**
 
 ## 8. Open problems / unverified
 

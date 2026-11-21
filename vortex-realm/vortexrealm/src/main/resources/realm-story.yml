@@ -1,0 +1,581 @@
+# ============================================================================================
+#  THE UNSTABLE REALM - season story (Vortex Realm original)
+#  Edit freely, then /realm reload. Line format: "[conditions] Speaker: text"
+#  Conditions: char=<id>, flag:key=value, g:key=value, rep:npc>=n, rep:npc<n, mem:npc:key, chapter>=n, ! to negate
+#  "#Title|Subtitle" shows a title, "!sound:<name>" plays a sound, "..." is a pause, {player} is the player's name.
+#  Objective types: TALK <npc>, KILL rift|player|hostile|<ENTITY>, COLLECT shards|<MATERIAL>, EVENT <key>, CAPITAL, CHOICE
+#  EVENT keys: riftnight, meteor, carnival, siege, boss, ability
+#  Effects: flag:k=v, rep:npc+5, mem:npc:key, shards:n, item:MATERIAL:n, title:Text, counter:key+n, effect:speed:30:1, xp:n
+# ============================================================================================
+
+speakers:
+  Mirel: "#C77DFF"
+  Aldric: "#4EA8DE"
+  Vessa: "#F15BB5"
+  Brann: "#FF9F1C"
+  Pip: "#80ED99"
+  The Voice: "#9D4EDD"
+  The Unmaker: "#E63946"
+
+season-start:
+  - "!sound:block.end_portal.spawn"
+  - "#THE UNSTABLE REALM|The Crown is broken"
+  - "Once, the Crown of Vortex held this world together."
+  - "Then, one night, it shattered."
+  - "Eight shards fell from the sky. A crack opened beneath the capital: the Rift."
+  - "..."
+  - "The shards are looking for bearers. Only eight. Only once."
+  - "Mirel: Wake up, wanderers. The realm is falling apart, and it needs someone to blame. Or to save it."
+
+tale-complete:
+  - "#Your tale is told|...for now"
+  - "Your shard glows quietly. Whatever happens next, the realm will remember {player}."
+
+chapters:
+  "1":
+    name: "Arrival"
+    intro:
+      - "The shards are waking. Strangers wander the land with powers they don't understand."
+      - "Mirel: Find me at the capital. I have answers. Some of them are even true."
+    goal: {counter: bearers, target: 3, text: "Shard-bearers awakened"}
+    outro:
+      - "Three shards burn bright. The Rift notices."
+      - "!sound:entity.warden.emerge"
+  "2":
+    name: "Factions"
+    intro:
+      - "Two powers rise from the chaos."
+      - "Aldric: The Order of the Gate will seal the Rift, whatever it costs."
+      - "Vessa: The Hollow Choir says: why seal a door to infinite power? Open it."
+      - "Rift creatures pour out every night. Choose a side, and survive."
+    goal: {counter: rift_kills, target: 150, text: "Rift creatures slain"}
+    vote:
+      id: path
+      question: "Who should hold the capital?"
+      options:
+        order: "The Order of the Gate (Aldric)"
+        choir: "The Hollow Choir (Vessa)"
+    outro:
+      - "The capital raises a new banner. Not everyone is happy about it."
+  "3":
+    name: "Betrayal"
+    intro:
+      - "[g:path=order] Aldric's knights guard the capital gates. The Choir whispers in the dark."
+      - "[g:path=choir] Purple banners hang over the capital. The Order sharpens its swords in exile."
+      - "Brann: I've kept quiet long enough. Come find me. It's about Mirel."
+    goal: {counter: ch3_quests, target: 4, text: "Bearers who learned the truth"}
+    vote:
+      id: mirel
+      question: "Mirel broke the Crown. What should the realm do with her?"
+      options:
+        forgive: "Forgive her: we need her knowledge"
+        banish: "Banish her from the capital"
+    outro:
+      - "[g:mirel=forgive] Mirel bows her head. 'I will make this right,' she says. Nobody is sure they believe her."
+      - "[g:mirel=banish] Mirel walks out of the capital alone. Behind her, the Rift laughs."
+  "4":
+    name: "War"
+    intro:
+      - "!sound:event.raid.horn"
+      - "The Rift is done waiting. Its armies march on the capital."
+      - "Aldric: Every bearer to the walls! If the capital falls, the realm falls with it."
+      - "Vessa: Or let it fall, and build something better from the pieces."
+    goal: {counter: sieges_won, target: 2, text: "Sieges beaten"}
+    outro:
+      - "The Rift's armies break. But deep below, something much older opens its eyes."
+  "5":
+    name: "The Unmaking"
+    intro:
+      - "!sound:entity.wither.spawn"
+      - "#THE UNMAKER RISES|The last king of the Crown"
+      - "The Voice: Eight little shards... You were never bearers. You were keys."
+      - "The ground beneath the capital splits open. Something wearing a crown of black glass climbs out."
+      - "Mirel: That's him. The king the Crown was made to imprison. When I broke it... I set him free."
+    goal: {counter: boss_slain, target: 1, text: "The Unmaker defeated"}
+    vote:
+      id: fate
+      question: "When the Unmaker falls, what happens to the shards?"
+      options:
+        seal: "Seal the Rift: give the shards back, end the chaos"
+        claim: "Claim the Rift: the strongest bearer is crowned"
+
+endings:
+  seal:
+    - "!sound:ui.toast.challenge_complete"
+    - "#THE RIFT IS SEALED|Peace, at a price"
+    - "The Unmaker falls, and {hero} lands the final blow."
+    - "One by one, the bearers press their shards into the Rift. It closes with a sound like a sigh."
+    - "[g:mirel=forgive] Mirel: Thank you. All of you. I'll spend the rest of my life keeping it closed."
+    - "[g:mirel=banish] Far away, Mirel watches the light go out of the sky, and finally rests."
+    - "[g:path=order] Aldric: The Gate is shut. Go home, bearers. You've earned it."
+    - "[g:path=choir] Vessa: All that power... gone. Well. At least we're alive to argue about it."
+    - "The realm is stable again. But everyone who lived through it will always be a little... unstable."
+  claim:
+    - "!sound:entity.ender_dragon.death"
+    - "#A NEW SOVEREIGN|The Rift has a ruler"
+    - "The Unmaker falls, and {hero} picks up his crown of black glass."
+    - "The shards fly to them like iron to a magnet. The Rift bows."
+    - "[g:path=choir] Vessa: The Choir sings for you, Sovereign. Open the doors wide."
+    - "[g:path=order] Aldric: I'll be watching you, Sovereign. The Order always watches."
+    - "[g:mirel=banish] Somewhere outside the walls, Mirel laughs. She's seen this story before."
+    - "The realm stays unstable. And now it has a crown again."
+
+# --------------------------------------------------------------------------------------------
+#  Story characters (place them with /realm npc place <id>)
+# --------------------------------------------------------------------------------------------
+npcs:
+  mirel:
+    name: "Oracle Mirel"
+    color: "#C77DFF"
+    type: VILLAGER
+    profession: cleric
+    dialogue:
+      - if: "g:mirel=banish"
+        lines: ["Mirel: You banished me, and still you come. Curious little bearer."]
+      - if: "rep:mirel>=15"
+        lines: ["Mirel: You've been kind to an old liar, {player}. Here, take this. Don't tell Aldric."]
+        effects: ["shards:5"]
+        once: true
+      - if: "rep:mirel<-10"
+        lines: ["Mirel: You told them. I know you did. Go away."]
+      - if: "mem:mirel:met"
+        lines: ["Mirel: The Rift grows louder every night. Do you hear it too?", "Mirel: No? Lucky you."]
+      - lines: ["Mirel: Ah. Another shard-bearer. Come closer, I don't bite.", "Mirel: Usually."]
+  aldric:
+    name: "Ser Aldric"
+    color: "#4EA8DE"
+    type: VILLAGER
+    profession: armorer
+    dialogue:
+      - if: "flag:faction=order"
+        lines: ["Aldric: Brother of the Gate. Hold the line.", "[rep:aldric>=20] Aldric: The Order has never had a better knight."]
+      - if: "flag:faction=choir"
+        lines: ["Aldric: Choir filth. Say your piece and leave my sight."]
+      - lines: ["Aldric: The Order of the Gate stands between this world and the Rift. Where do you stand?"]
+  vessa:
+    name: "Vessa the Voice"
+    color: "#F15BB5"
+    type: WITCH
+    dialogue:
+      - if: "flag:faction=choir"
+        lines: ["Vessa: Sister of the Choir. Can you hear the song yet?", "[rep:vessa>=20] Vessa: When the doors open, you'll stand beside me."]
+      - if: "flag:faction=order"
+        lines: ["Vessa: Aldric's little soldier. He'll get you killed, you know."]
+      - lines: ["Vessa: Power is leaking out of that Rift, and Aldric wants to waste it. Silly, isn't it?"]
+  brann:
+    name: "Brann the Smith"
+    color: "#FF9F1C"
+    type: VILLAGER
+    profession: weaponsmith
+    dialogue:
+      - if: "chapter>=3"
+        lines: ["Brann: I forged the Crown's cage, you know. I know exactly who broke it.", "Brann: Mirel. It was always Mirel."]
+      - lines: ["Brann: Need something hit with a hammer? That's what I do.", "Brann: Bring me Rift Shards and Pip will sell you something shiny."]
+  pip:
+    name: "Pip the Peddler"
+    color: "#80ED99"
+    type: WANDERING_TRADER
+    dialogue:
+      - lines: ["Pip: Shards! I take shards! Shiny bits of broken crown, the only money that matters now.", "Pip: Type /realm buy to see my wares."]
+    shop:
+      - {cost: 4, item: GOLDEN_CARROT, amount: 16, name: "Golden carrots"}
+      - {cost: 6, item: ENDER_PEARL, amount: 4, name: "Ender pearls"}
+      - {cost: 10, item: GOLDEN_APPLE, amount: 2, name: "Golden apples"}
+      - {cost: 12, item: EXPERIENCE_BOTTLE, amount: 32, name: "Bottles o' enchanting"}
+      - {cost: 16, item: DIAMOND, amount: 3, name: "Diamonds"}
+      - {cost: 24, item: TOTEM_OF_UNDYING, amount: 1, name: "Totem of undying"}
+      - {cost: 40, item: NETHERITE_SCRAP, amount: 2, name: "Netherite scrap"}
+      - {cost: 64, item: ENCHANTED_GOLDEN_APPLE, amount: 1, name: "Enchanted golden apple"}
+
+# --------------------------------------------------------------------------------------------
+#  Character introductions (right after picking)
+# --------------------------------------------------------------------------------------------
+intros:
+  jester: ["#THE JESTER|Fate is a joke, and you're the punchline", "You wake up laughing in a field of broken glass. You don't know why. You can't stop.", "A shard hums in your chest. It feels like a coin that hasn't landed yet."]
+  warden_born: ["#THE WARDEN-BORN|The deep remembers", "You open your eyes in total darkness, and you can see.", "The sculk under your skin pulses with every heartbeat. The deep dark wants you home."]
+  sky_pirate: ["#THE SKY PIRATE|Your ship sank into the clouds", "You fall through the clouds, the last plank of your ship still in your hand.", "You land without a scratch. The shard caught you. It likes the sky as much as you do."]
+  alchemist: ["#THE ALCHEMIST|Everything is an ingredient", "Your hands smell of sulphur and something sweeter. You were brewing when the Crown broke.", "The shard dissolved into your last potion. You drank it. Obviously."]
+  hollow_king: ["#THE HOLLOW KING|A crown without a kingdom", "You rise from a grave you don't remember being buried in.", "The dead stand up when you pass. They bow. They wait for orders."]
+  stormcaller: ["#THE STORMCALLER|The sky answers", "Lightning struck you the night the Crown broke. It didn't kill you.", "Now, when you raise your hand, the clouds lean in to listen."]
+  trickster: ["#THE TRICKSTER|Nobody knows your real face", "You wake up wearing someone else's face. Then another. Then your own, maybe.", "The shard is a mirror. Every lie you tell it, it believes."]
+  iron_heart: ["#THE IRON HEART|You don't break", "Your heart stopped the night the Crown broke. The shard took its place.", "It beats like a hammer on an anvil. Nothing will ever stop it again."]
+
+# The choice every bearer makes in chapter 2
+x-faction: &faction
+  prompt: "Who will you stand with?"
+  options:
+    order:
+      text: "Join the Order of the Gate (seal the Rift)"
+      effects: ["flag:faction=order", "rep:aldric+15", "rep:vessa-10", "title:Knight of the Gate", "item:SHIELD:1"]
+      lines: ["Aldric: Kneel. Rise, Knight of the Gate.", "Somewhere in the dark, Vessa clicks her tongue."]
+    choir:
+      text: "Join the Hollow Choir (open the Rift)"
+      effects: ["flag:faction=choir", "rep:vessa+15", "rep:aldric-10", "title:Voice of the Choir", "effect:night_vision:600"]
+      lines: ["Vessa: Welcome, little songbird. Listen... can you hear it singing?", "Aldric's knights mark your name in a book."]
+    alone:
+      text: "Stand alone (no faction)"
+      effects: ["flag:faction=none", "title:Lone Bearer", "shards:8"]
+      lines: ["Nobody gives you orders. Nobody watches your back either."]
+
+# --------------------------------------------------------------------------------------------
+#  Personal questlines: one step per chapter (a step waits until its chapter opens)
+# --------------------------------------------------------------------------------------------
+quests:
+  jester:
+    - chapter: 1
+      title: "A Joke Without a Punchline"
+      objective: {type: TALK, target: mirel, text: "Find Oracle Mirel at the capital"}
+      start: ["You keep hearing a laugh that isn't yours. It sounds like it's coming from the capital."]
+      done: ["Mirel: The Crown chose a fool. Perhaps it finally has a sense of humour.", "Mirel: Your shard is fate, Jester. Every roll of the dice is yours now."]
+      reward: ["shards:5", "xp:100"]
+    - chapter: 2
+      title: "Loaded Dice"
+      objective: {type: KILL, target: rift, amount: 12, text: "Slay Rift creatures"}
+      start: ["The Rift's creatures roll in every night. Time to see whose luck is better."]
+      done: ["The last creature crumbles to dust. Somewhere, a die lands on six."]
+      choice: *faction
+      reward: ["shards:8"]
+    - chapter: 3
+      title: "The Last Laugh"
+      objective: {type: TALK, target: brann, text: "Ask Brann about the laugh you keep hearing"}
+      start: ["The laugh is louder now. It's Mirel's laugh. You'd know it anywhere."]
+      done: ["Brann: You hear her laughing? Of course you do. She laughed the night she broke the Crown.", "Brann: Mirel did this. All of it."]
+      choice:
+        prompt: "What do you do with the secret?"
+        options:
+          tell:
+            text: "Tell the whole realm"
+            effects: ["rep:mirel-15", "rep:brann+10", "counter:truth+1"]
+            lines: ["You shout it from the rooftops. The realm hears. Mirel hears too."]
+          keep:
+            text: "Keep it, and make Mirel owe you"
+            effects: ["rep:mirel+15", "mem:mirel:secret", "shards:10"]
+            lines: ["Mirel: You know, don't you? Clever fool. I'll remember this."]
+      reward: ["xp:200"]
+    - chapter: 4
+      title: "Carnival of Swords"
+      objective: {type: EVENT, target: siege, text: "Defend the capital in a siege"}
+      start: ["The Rift's army is coming. A battle is just a carnival with more swords."]
+      done: ["The siege breaks. You laugh, and for once, the whole wall laughs with you."]
+      reward: ["shards:12", "title:Laughing Warlord"]
+    - chapter: 5
+      title: "Fate's Final Roll"
+      objective: {type: EVENT, target: boss, text: "Face the Unmaker"}
+      start: ["The Unmaker doesn't laugh. You'll fix that."]
+      done: ["The dice stop rolling. For the first time since you woke up, you're quiet."]
+      reward: ["shards:20"]
+  warden_born:
+    - chapter: 1
+      title: "Eyes in the Dark"
+      objective: {type: TALK, target: mirel, text: "Find Oracle Mirel at the capital"}
+      start: ["The surface is too bright. Too loud. Someone in the capital might know what you are."]
+      done: ["Mirel: Warden-Born. The deep dark lent you its eyes. It will want them back one day.", "Mirel: Until then, use them. See what others can't."]
+      reward: ["shards:5", "xp:100"]
+    - chapter: 2
+      title: "Hunting by Echo"
+      objective: {type: KILL, target: rift, amount: 12, text: "Hunt Rift creatures"}
+      start: ["You can hear the Rift creatures' heartbeats from a mile away. Go and silence them."]
+      done: ["Silence again. The sculk inside you purrs."]
+      choice: *faction
+      reward: ["shards:8"]
+    - chapter: 3
+      title: "What the Deep Heard"
+      objective: {type: TALK, target: brann, text: "Tell Brann what you heard in the deep"}
+      start: ["Deep underground you heard a voice say the Crown didn't break. It was broken."]
+      done: ["Brann: The deep never lies. Mirel broke it, Warden-Born. I watched her do it.", "Brann: She said she had no choice. Maybe she didn't."]
+      choice:
+        prompt: "The deep offers you a deal: more power, but less of yourself."
+        options:
+          accept:
+            text: "Accept the deep's gift"
+            effects: ["flag:deep=accepted", "effect:strength:600:0", "title:Child of the Deep", "rep:vessa+5"]
+            lines: ["Cold floods through you. You feel stronger. You feel... further away."]
+          refuse:
+            text: "Refuse: you belong to the surface now"
+            effects: ["flag:deep=refused", "rep:aldric+5", "item:GOLDEN_APPLE:3"]
+            lines: ["The sculk goes quiet. For the first time, the sun doesn't hurt as much."]
+      reward: ["xp:200"]
+    - chapter: 4
+      title: "The Silent Wall"
+      objective: {type: EVENT, target: siege, text: "Defend the capital in a siege"}
+      start: ["They're coming. You heard them three days ago."]
+      done: ["The battlefield goes silent. That's how you like it."]
+      reward: ["shards:12", "title:The Silent Wall"]
+    - chapter: 5
+      title: "Back to the Deep"
+      objective: {type: EVENT, target: boss, text: "Face the Unmaker"}
+      start: ["The Unmaker's heartbeat is the loudest thing you've ever heard. Make it stop."]
+      done: ["The deep calls you home. Maybe you'll go. Maybe not yet."]
+      reward: ["shards:20"]
+  sky_pirate:
+    - chapter: 1
+      title: "Lost at Land"
+      objective: {type: TALK, target: mirel, text: "Find Oracle Mirel at the capital"}
+      start: ["No ship, no crew, no sky. Someone in the capital owes you a boat."]
+      done: ["Mirel: A captain without a ship. The Crown has odd taste.", "Mirel: Your shard is the wind, pirate. Don't let it blow you off course."]
+      reward: ["shards:5", "item:FIREWORK_ROCKET:16"]
+    - chapter: 2
+      title: "Wings for the Captain"
+      objective: {type: COLLECT, target: PHANTOM_MEMBRANE, amount: 4, text: "Collect phantom membranes for new sails"}
+      start: ["A pirate without sails is just a person. Phantoms have very nice wings."]
+      done: ["You stitch the membranes into a sail. It's ugly. It's perfect."]
+      choice: *faction
+      reward: ["shards:8", "item:FIREWORK_ROCKET:32"]
+    - chapter: 3
+      title: "The Old Map"
+      objective: {type: TALK, target: brann, text: "Show Brann the burnt map from your ship"}
+      start: ["Your old map shows the capital, with a crown drawn over it and one word: PRISON."]
+      done: ["Brann: Prison, aye. The Crown wasn't a treasure, captain. It was a lock.", "Brann: And Mirel picked it."]
+      choice:
+        prompt: "There's treasure under the capital, marked on the map."
+        options:
+          loot:
+            text: "Dig for the treasure"
+            effects: ["item:DIAMOND:4", "rep:aldric-5", "flag:map=looted"]
+            lines: ["You dig through the night. Diamonds! Aldric's guards are not amused."]
+          share:
+            text: "Give the map to the capital"
+            effects: ["rep:aldric+10", "rep:mirel+5", "shards:10", "flag:map=shared"]
+            lines: ["Aldric: An honest pirate? I didn't think I'd live to see one."]
+      reward: ["xp:200"]
+    - chapter: 4
+      title: "Air Support"
+      objective: {type: EVENT, target: siege, text: "Defend the capital in a siege"}
+      start: ["They're coming by land. Good. You're coming by sky."]
+      done: ["You land on the wall in a shower of sparks. The crowd cheers."]
+      reward: ["shards:12", "title:Admiral of the Clouds"]
+    - chapter: 5
+      title: "Last Voyage"
+      objective: {type: EVENT, target: boss, text: "Face the Unmaker"}
+      start: ["One last voyage, captain. Straight down into the Rift."]
+      done: ["The wind picks you up and sets you gently on the ground. It always will."]
+      reward: ["shards:20"]
+  alchemist:
+    - chapter: 1
+      title: "Bubbling Over"
+      objective: {type: TALK, target: mirel, text: "Find Oracle Mirel at the capital"}
+      start: ["You've been bubbling since you drank the shard. Literally. Maybe the Oracle has a cure."]
+      done: ["Mirel: There's no cure, dear. You ARE the potion now.", "Mirel: Brew wisely. And please stop bubbling on my carpet."]
+      reward: ["shards:5", "item:GLASS_BOTTLE:16"]
+    - chapter: 2
+      title: "The Blaze Recipe"
+      objective: {type: COLLECT, target: BLAZE_ROD, amount: 6, text: "Collect blaze rods"}
+      start: ["Your next brew needs fire. Real fire. The Nether's blazes will do."]
+      done: ["The rods hum in your bag. Something wonderful and dangerous is about to happen."]
+      choice: *faction
+      reward: ["shards:8", "item:BREWING_STAND:1"]
+    - chapter: 3
+      title: "A Poisoned Truth"
+      objective: {type: TALK, target: brann, text: "Ask Brann who ordered your poison"}
+      start: ["Someone asked you for an odd brew the night the Crown broke. A brew that weakens glass."]
+      done: ["Brann: Glass-rot potion? Mirel bought three bottles from you, didn't she?", "Brann: You helped break the Crown, Alchemist. You just didn't know it."]
+      choice:
+        prompt: "Will you brew an antidote for the Rift, or a stronger poison?"
+        options:
+          antidote:
+            text: "Brew the antidote"
+            effects: ["flag:brew=antidote", "rep:aldric+10", "counter:antidotes+1", "item:GOLDEN_CARROT:16"]
+            lines: ["The antidote glows white. Aldric's knights line up for a sip."]
+          poison:
+            text: "Brew the strongest poison ever made"
+            effects: ["flag:brew=poison", "rep:vessa+10", "title:Poisoner"]
+            lines: ["The poison is so strong the bottle cracks. Vessa claps slowly."]
+      reward: ["xp:200"]
+    - chapter: 4
+      title: "Potions on the Wall"
+      objective: {type: EVENT, target: siege, text: "Defend the capital in a siege"}
+      start: ["A siege is just a very big cauldron. Throw everything in."]
+      done: ["The wall smells of smoke and victory. Mostly smoke."]
+      reward: ["shards:12", "title:Master of Mixtures"]
+    - chapter: 5
+      title: "The Final Brew"
+      objective: {type: EVENT, target: boss, text: "Face the Unmaker"}
+      start: ["Every brew you ever made led to this one. Make it count."]
+      done: ["Your last potion fizzles out. Your hands finally stop bubbling."]
+      reward: ["shards:20"]
+  hollow_king:
+    - chapter: 1
+      title: "A King of Nothing"
+      objective: {type: TALK, target: mirel, text: "Find Oracle Mirel at the capital"}
+      start: ["You have a crown, an army of dead, and no idea who you were. The Oracle might."]
+      done: ["Mirel: You were someone important once. The Crown took that from you.", "Mirel: Earn it back, Hollow King. A kingdom doesn't build itself."]
+      reward: ["shards:5", "xp:100"]
+    - chapter: 2
+      title: "Recruiting the Dead"
+      objective: {type: KILL, target: SKELETON, amount: 15, text: "Defeat skeletons (they'll serve you better dead... er)"}
+      start: ["Your guards are weak. Defeat the restless skeletons and their strength becomes yours."]
+      done: ["The bones rattle in approval. Your army grows."]
+      choice: *faction
+      reward: ["shards:8", "item:BONE_BLOCK:16"]
+    - chapter: 3
+      title: "The Name You Lost"
+      objective: {type: TALK, target: brann, text: "Ask Brann if he knew you before"}
+      start: ["A memory: a forge, a hammer, and a smith who called you 'my lord'."]
+      done: ["Brann: My lord? It's you... You were the Crown's guard. Mirel broke it right in front of you.", "Brann: The Crown took your memory so you couldn't tell anyone."]
+      choice:
+        prompt: "Your memory is coming back. Take revenge on Mirel?"
+        options:
+          revenge:
+            text: "Swear revenge"
+            effects: ["rep:mirel-20", "flag:vow=revenge", "effect:strength:300:1"]
+            lines: ["The dead rise around you, whispering her name."]
+          mercy:
+            text: "Show mercy: a king forgives"
+            effects: ["rep:mirel+20", "flag:vow=mercy", "title:The Merciful King"]
+            lines: ["Mirel: You... forgive me? I don't deserve it, my lord."]
+      reward: ["xp:200"]
+    - chapter: 4
+      title: "The Dead Hold the Line"
+      objective: {type: EVENT, target: siege, text: "Defend the capital in a siege"}
+      start: ["The living defend the walls. The dead defend the living. That's how it should be."]
+      done: ["Your skeleton guards salute as the enemy flees."]
+      reward: ["shards:12", "title:King of the Wall"]
+    - chapter: 5
+      title: "Crown Against Crown"
+      objective: {type: EVENT, target: boss, text: "Face the Unmaker"}
+      start: ["The Unmaker wears a crown too. Only one of you gets to keep it."]
+      done: ["Your crown is lighter now. Your kingdom is real."]
+      reward: ["shards:20"]
+  stormcaller:
+    - chapter: 1
+      title: "Struck Twice"
+      objective: {type: TALK, target: mirel, text: "Find Oracle Mirel at the capital"}
+      start: ["Lightning shouldn't strike twice. It struck you four times this week. Time for answers."]
+      done: ["Mirel: The sky is angry, Stormcaller, and you're its voice now.", "Mirel: Try not to shout indoors."]
+      reward: ["shards:5", "xp:100"]
+    - chapter: 2
+      title: "Calling the Storm"
+      objective: {type: EVENT, target: ability, amount: 10, text: "Use your storm power"}
+      start: ["Power you don't practise is power you don't have. Call the lightning."]
+      done: ["The clouds follow you now, like a dog that's happy to see you."]
+      choice: *faction
+      reward: ["shards:8", "item:COPPER_BLOCK:8"]
+    - chapter: 3
+      title: "Thunder Remembers"
+      objective: {type: TALK, target: brann, text: "Ask Brann about the night of the storm"}
+      start: ["The storm the night the Crown broke wasn't natural. Someone called it. Not you."]
+      done: ["Brann: Mirel called that storm to hide the sound of breaking glass.", "Brann: You stood in it. That's why the sky chose you."]
+      choice:
+        prompt: "The sky wants to strike the Rift itself. Let it?"
+        options:
+          strike:
+            text: "Strike the Rift"
+            effects: ["counter:rift_scars+1", "rep:aldric+10", "title:Rift Breaker"]
+            lines: ["A bolt hits the Rift. It shrieks. Something below is very angry now."]
+          spare:
+            text: "Hold the storm back"
+            effects: ["rep:vessa+10", "shards:12"]
+            lines: ["Vessa: Good. The Rift doesn't like being poked, darling."]
+      reward: ["xp:200"]
+    - chapter: 4
+      title: "Eye of the Storm"
+      objective: {type: EVENT, target: siege, text: "Defend the capital in a siege"}
+      start: ["They brought an army. You brought the weather."]
+      done: ["The clouds part over the capital. The sun comes out, just for you."]
+      reward: ["shards:12", "title:Eye of the Storm"]
+    - chapter: 5
+      title: "The Last Thunder"
+      objective: {type: EVENT, target: boss, text: "Face the Unmaker"}
+      start: ["Every storm ends. Make this one the loudest."]
+      done: ["The sky is quiet. It's proud of you."]
+      reward: ["shards:20"]
+  trickster:
+    - chapter: 1
+      title: "A Thousand Faces"
+      objective: {type: TALK, target: mirel, text: "Find Oracle Mirel at the capital"}
+      start: ["Every mirror shows a stranger. The Oracle might know which one is you."]
+      done: ["Mirel: You want to know your real face? So do I, dear. So do I.", "Mirel: Until you find it, borrow everyone else's."]
+      reward: ["shards:5", "item:ENDER_PEARL:4"]
+    - chapter: 2
+      title: "Double Agent"
+      objective: {type: KILL, target: rift, amount: 12, text: "Slay Rift creatures (pretend you're one of them)"}
+      start: ["The Rift creatures can't tell you apart from them. Use that."]
+      done: ["You walk out of the horde wearing a creature's face. Nobody notices."]
+      choice:
+        prompt: "Both factions want a spy. Who do you really work for?"
+        options:
+          order:
+            text: "Spy for the Order (really)"
+            effects: ["flag:faction=order", "rep:aldric+15", "title:Knight of the Gate"]
+            lines: ["Aldric: Good. Tell me everything Vessa says."]
+          choir:
+            text: "Spy for the Choir (really)"
+            effects: ["flag:faction=choir", "rep:vessa+15", "title:Voice of the Choir"]
+            lines: ["Vessa: Tell me everything Aldric says, darling."]
+          both:
+            text: "Spy for both, and lie to everyone"
+            effects: ["flag:faction=both", "rep:aldric+5", "rep:vessa+5", "title:The Two-Faced", "shards:12"]
+            lines: ["You tell Aldric one thing and Vessa the opposite. Both thank you."]
+      reward: ["shards:8"]
+    - chapter: 3
+      title: "The Face in the Glass"
+      objective: {type: TALK, target: brann, text: "Ask Brann about the Crown's last reflection"}
+      start: ["One of your faces keeps coming back. A woman with violet eyes. Mirel's eyes."]
+      done: ["Brann: The Crown was a mirror, Trickster. The last face it saw was Mirel's, breaking it.", "Brann: And now you wear it sometimes."]
+      choice:
+        prompt: "Use Mirel's face to find out what she's hiding?"
+        options:
+          disguise:
+            text: "Become Mirel for a night"
+            effects: ["mem:mirel:impersonated", "rep:mirel-10", "shards:15", "flag:mask=mirel"]
+            lines: ["As Mirel you find her diary: 'He's waking. I'm sorry. I'm so sorry.'"]
+          honest:
+            text: "No more masks. Ask her honestly"
+            effects: ["rep:mirel+15", "title:The Honest Liar"]
+            lines: ["Mirel: Nobody's ever just... asked. Thank you. I'll tell you when I'm ready."]
+      reward: ["xp:200"]
+    - chapter: 4
+      title: "Behind Enemy Lines"
+      objective: {type: EVENT, target: siege, text: "Defend the capital in a siege"}
+      start: ["While they attack the walls, you'll be in their camp, wearing their face."]
+      done: ["The enemy's orders were all wrong. You wonder who wrote them. (You did.)"]
+      reward: ["shards:12", "title:Ghost of the War"]
+    - chapter: 5
+      title: "Unmasked"
+      objective: {type: EVENT, target: boss, text: "Face the Unmaker"}
+      start: ["The Unmaker sees through every face. Time to fight as yourself."]
+      done: ["You look in the mirror. For the first time, you recognise who's looking back."]
+      reward: ["shards:20"]
+  iron_heart:
+    - chapter: 1
+      title: "The Hammer Beat"
+      objective: {type: TALK, target: mirel, text: "Find Oracle Mirel at the capital"}
+      start: ["Your heart beats like a forge. Clang. Clang. Someone in the capital knows why."]
+      done: ["Mirel: An iron heart. The Crown gave you something nothing can break.", "Mirel: Not even you. Remember that."]
+      reward: ["shards:5", "xp:100"]
+    - chapter: 2
+      title: "Forged Anew"
+      objective: {type: COLLECT, target: IRON_BLOCK, amount: 4, text: "Collect iron blocks for new armor"}
+      start: ["Your old armor doesn't fit anymore. Your chest is... heavier. Bring iron."]
+      done: ["You hammer the iron into a breastplate. It fits like a promise."]
+      choice: *faction
+      reward: ["shards:8", "item:IRON_CHESTPLATE:1"]
+    - chapter: 3
+      title: "Who Built My Heart"
+      objective: {type: TALK, target: brann, text: "Ask Brann who forged your heart"}
+      start: ["There's a maker's mark on your heart. Brann's mark."]
+      done: ["Brann: I forged it, aye. For the Crown's guardian. Mirel stole it, and gave it to you.", "Brann: She wanted somebody who'd never break. Somebody who could stop what's coming."]
+      choice:
+        prompt: "Mirel chose you to stop the Unmaker. Accept the burden?"
+        options:
+          accept:
+            text: "Accept: you'll be the realm's shield"
+            effects: ["rep:mirel+10", "rep:aldric+10", "title:The Realm's Shield", "effect:resistance:600:0"]
+            lines: ["Your heart beats harder. Clang. CLANG."]
+          refuse:
+            text: "Refuse: nobody chooses for you"
+            effects: ["rep:vessa+10", "shards:12", "flag:burden=refused"]
+            lines: ["Mirel looks away. 'I understand,' she says. She doesn't."]
+      reward: ["xp:200"]
+    - chapter: 4
+      title: "The Unbreakable Gate"
+      objective: {type: EVENT, target: siege, text: "Defend the capital in a siege"}
+      start: ["They'll break on the wall. And the wall is you."]
+      done: ["The gate is dented. You're not."]
+      reward: ["shards:12", "title:The Unbreakable"]
+    - chapter: 5
+      title: "Heart of the Realm"
+      objective: {type: EVENT, target: boss, text: "Face the Unmaker"}
+      start: ["This is what your heart was forged for."]
+      done: ["Clang. Clang. Clang. Still beating. Always will be."]
+      reward: ["shards:20"]

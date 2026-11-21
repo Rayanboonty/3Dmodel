@@ -642,6 +642,12 @@ public final class PracticePlugin extends JavaPlugin {
             this.bind("claim", claims);
             pm.registerEvents(claims, this);
         });
+        this.module("Unstable Realm season", () -> {
+            this.realm = new net.practicepvp.realm.Realm(this);
+            this.bind("realm", this.realm);
+            this.bind("character", this.realm);
+            this.bind("ability", this.realm);
+        });
         this.module("SMP portals", () -> pm.registerEvents(new net.practicepvp.smp.SmpPortals(this), this));
         this.module("1.8 legacy hall", () -> {
             this.legacyHall = new net.practicepvp.lobby.LegacyHall(this);
@@ -861,6 +867,12 @@ public final class PracticePlugin extends JavaPlugin {
         }
     }
 
+    private net.practicepvp.realm.Realm realm;
+
+    public net.practicepvp.realm.Realm realm() {
+        return this.realm;
+    }
+
     private net.practicepvp.plus.PlusModule plus;
 
     public net.practicepvp.plus.PlusModule plus() {
@@ -869,6 +881,14 @@ public final class PracticePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (this.realm != null) {
+            try {
+                this.realm.save();
+            } catch (Throwable realmError) {
+                this.getLogger().log(java.util.logging.Level.WARNING, "Could not save the Unstable Realm", realmError);
+            }
+        }
+
         if (this.plus != null) {
             try {
                 this.plus.disable();

@@ -423,6 +423,15 @@ commands:
   legacyhall:
     description: "The 1.8 Legacy Hall: old-school kits with 1.8 combat. Admins: /legacyhall build."
     aliases: [legacy, oldkits]
+  realm:
+    description: "The Unstable Realm season: your story, votes, journal (admins: /realm help)."
+    aliases: [unstable, story]
+  character:
+    description: "Choose your one-of-a-kind Unstable Realm character."
+    aliases: [characters, char]
+  ability:
+    description: "Use your character's power (or Shift + F)."
+    aliases: [power]
   claim:
     description: "SMP land claims: protect your base (no griefing, no explosions)."
     aliases: [claims, base, unclaim]
