@@ -192,7 +192,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.14.3** - /back after a death in the End/nether works (respawn no longer overwrites it); void deaths go to the End island
 - **3.14.4** - /realm preview: test the whole Unstable Realm season alone (or with chosen testers)
 - **3.14.5** - /realm world set <folder>: run the season in its own uploaded world (own inventory), closed until launch
-- **3.14.6** - Inventory backup before every SMP death **← current release**
+- **3.14.6** - Inventory backup before every SMP death
+- **3.14.7** - Companions: chat-ordered AI sidekicks (/companion) **← current release**
 
 ## 8. Open problems / unverified
 

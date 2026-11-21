@@ -625,6 +625,41 @@ public final class AiAgent {
     }
 
     /** The model for a provider: ai.model when it suits that provider, else the provider's default. */
+    /**
+     * 3.14.7: one short answer without tools (used by the season's companions). Tries the providers in order; null when
+     * no provider answers (no key, offline...). Call it off the main thread.
+     */
+    public String quick(String system, List<LlmClient.Msg> msgs, int maxTokens) {
+        List<LlmClient.Provider> order = this.candidates();
+        for (int i = 0; i < order.size(); i++) {
+            LlmClient.Provider p = order.get(i);
+            String key = this.key(p);
+            if (!p.local() && key.isEmpty()) {
+                continue;
+            }
+
+            String model = this.model(p, i == 0);
+            if (model.isEmpty()) {
+                continue;
+            }
+
+            try {
+                boolean picked = !"auto".equalsIgnoreCase(Cfg.s(Opt.AI_PROVIDER).trim()) && !Cfg.s(Opt.AI_PROVIDER).isBlank();
+                LlmClient.Result r = this.llm.chat(p, p.local() || picked ? Cfg.s(Opt.AI_BASE_URL) : null, key, model, system, msgs, List.of(), maxTokens);
+                if (r != null && r.text() != null && !r.text().isBlank()) {
+                    return r.text();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            } catch (Exception e) {
+                // next provider
+            }
+        }
+
+        return null;
+    }
+
     private String model(LlmClient.Provider p, boolean first) {
         String m = Cfg.s(Opt.AI_MODEL).trim();
         // ai.model is for the first provider tried (the chosen one); the ones after it use their own default

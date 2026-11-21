@@ -93,6 +93,7 @@ public final class Realm implements CommandExecutor, TabCompleter {
     StoryNpcs npcs;
     Fighters fighters;
     RealmEvents events;
+    Companions companions;
 
     public Realm(PracticePlugin plugin) {
         this.plugin = plugin;
@@ -109,12 +110,14 @@ public final class Realm implements CommandExecutor, TabCompleter {
         this.npcs = new StoryNpcs(this);
         this.fighters = new Fighters(this);
         this.events = new RealmEvents(this);
+        this.companions = new Companions(this);
         org.bukkit.plugin.PluginManager pm = Bukkit.getPluginManager();
         pm.registerEvents(this.characters, plugin);
         pm.registerEvents(this.storyEngine, plugin);
         pm.registerEvents(this.npcs, plugin);
         pm.registerEvents(this.fighters, plugin);
         pm.registerEvents(this.events, plugin);
+        pm.registerEvents(this.companions, plugin);
         Tasks.timer(20L, 20L, this::second);
         Tasks.timer(1200L, 1200L, () -> {
             if (this.dirty) {
@@ -434,6 +437,7 @@ public final class Realm implements CommandExecutor, TabCompleter {
         this.npcs.second();
         this.fighters.second();
         this.events.second();
+        this.companions.second();
     }
 
     // ------------------------------------------------------------------ /realm
@@ -447,6 +451,10 @@ public final class Realm implements CommandExecutor, TabCompleter {
             }
 
             return true;
+        }
+
+        if (cmd.getName().equalsIgnoreCase("companion")) {
+            return this.companions.onCommand(sender, cmd, label, args);
         }
 
         if (cmd.getName().equalsIgnoreCase("ability")) {
@@ -510,7 +518,7 @@ public final class Realm implements CommandExecutor, TabCompleter {
         }
 
         if (!admin(sender)) {
-            sender.sendMessage(Text.mm("<gray>/realm, /realm journal, /realm vote, /realm who, /realm replay, /character, /ability"));
+            sender.sendMessage(Text.mm("<gray>/realm, /realm journal, /realm vote, /realm who, /realm replay, /character, /ability, /companion"));
             return true;
         }
 
@@ -587,6 +595,7 @@ public final class Realm implements CommandExecutor, TabCompleter {
                 this.save();
                 this.fighters.clearAll();
                 this.events.stopAll();
+                this.companions.clearAll();
                 sender.sendMessage(Text.mm("<yellow>The Unstable Realm is paused. Progress is kept; /realm start resumes it."));
             }
             case "status" -> {
@@ -767,6 +776,18 @@ public final class Realm implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender s, Command c, String l, String[] args) {
         List<String> out = new ArrayList<>();
+        if (c.getName().equalsIgnoreCase("companion")) {
+            if (args.length == 1) {
+                for (String x : List.of("summon", "dismiss", "name")) {
+                    if (x.startsWith(args[0].toLowerCase(Locale.ROOT))) {
+                        out.add(x);
+                    }
+                }
+            }
+
+            return out;
+        }
+
         if (c.getName().equalsIgnoreCase("character") || c.getName().equalsIgnoreCase("ability")) {
             return out;
         }

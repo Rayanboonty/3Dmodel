@@ -429,6 +429,9 @@ commands:
   character:
     description: "Choose your one-of-a-kind Unstable Realm character."
     aliases: [characters, char]
+  companion:
+    description: "Your Unstable Realm companion: summon it, then give it orders in chat."
+    aliases: [comp, sidekick]
   ability:
     description: "Use your character's power (or Shift + F)."
     aliases: [power]

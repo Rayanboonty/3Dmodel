@@ -180,7 +180,9 @@ public final class LlmClient {
             ts.add(o);
         }
 
-        body.add("tools", ts);
+        if (!tools.isEmpty()) {
+            body.add("tools", ts);
+        }
         JsonArray out = new JsonArray();
         JsonObject pendingResults = null;
         for (Msg m : msgs) {

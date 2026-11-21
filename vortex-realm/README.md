@@ -1319,3 +1319,6 @@ Upload a world folder, then `/realm world set <folder>`: it becomes the Unstable
 
 ### 3.14.6 - Death backups
 Every SMP death now saves a backup of the inventory first. Restore it in /pvpadmin -> SMP -> Player Inventories.
+
+### 3.14.7 - Companions
+`/companion` summons a sidekick in the Unstable Realm. Give it orders in chat starting with its name ("Bran, follow me", "guard here", "attack that", "defend me", "go there"). With an AI key set in /ai it understands free speech and answers in character, but it can only choose its own actions (never commands).

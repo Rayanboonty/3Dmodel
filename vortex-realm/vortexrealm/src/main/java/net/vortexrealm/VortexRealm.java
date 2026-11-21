@@ -658,6 +658,7 @@ public final class VortexRealm extends JavaPlugin {
             this.bind("realm", this.realm);
             this.bind("character", this.realm);
             this.bind("ability", this.realm);
+            this.bind("companion", this.realm);
         });
         this.module("SMP elytra wall rescue", () -> pm.registerEvents(new net.vortexrealm.smp.ElytraRescue(this), this));
         this.module("SMP portals", () -> pm.registerEvents(new net.vortexrealm.smp.SmpPortals(this), this));

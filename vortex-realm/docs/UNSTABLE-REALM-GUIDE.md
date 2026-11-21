@@ -56,6 +56,14 @@ Small server? Lower the targets in `plugins/VortexRealm/realm-story.yml` (`chapt
 - **The Unmaker**: the final boss, with 3 phases (knights, then enraged with shockwaves). The player who deals the most damage gets the ending title.
 - Force any event with `/realm event riftnight|meteor|carnival|siege|finale`, and stop them with `/realm event stop`.
 
+## Companions (3.14.7)
+- `/companion` summons your sidekick, `/companion name <name>` renames it, `/companion dismiss` sends it home.
+- Give it orders in chat, starting with its name: "Bran, follow me", "guard here", "defend me", "attack that" (what you're looking at), "attack Steve", "go there", "stay", "be peaceful" / "be aggressive", "go home".
+- Talking to your companion is private: only you and players within 24 blocks see it.
+- **With an AI key set in `/ai`** (Claude, OpenAI, Groq, a local Ollama...), it understands anything you say and answers in character. It knows the chapter, your character, its health and what's nearby. The AI can only pick from the companion's actions, never commands.
+- If it dies, you can summon it again after 2 minutes. It never attacks its owner.
+- Voice orders (Simple Voice Chat plus speech-to-text) aren't in yet.
+
 ## 5. AI fighters
 Rift Stalkers, Hollow Archers, Rift Knights, Mercenary Duelists and Rift Brutes come out at night. They get tougher each chapter, match their target's armor, taunt in chat, and call nearby kin when one of them is hit. Kill too many and a **Rift Avenger** hunts that player by name.
 
