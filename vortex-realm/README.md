@@ -1316,3 +1316,6 @@ An original story season for the SMP, off until an op types `/realm start`. Eigh
 
 ### 3.14.5 - The Unstable Realm world
 Upload a world folder, then `/realm world set <folder>`: it becomes the Unstable Realm world (new world mode with its own inventory, nether and end) and the season runs only there. `/realm world tp` to go there, `/realm world clear` to go back to the normal SMP. Only ops and preview testers can enter it before `/realm start`.
+
+### 3.14.6 - Death backups
+Every SMP death now saves a backup of the inventory first. Restore it in /pvpadmin -> SMP -> Player Inventories.

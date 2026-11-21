@@ -71,6 +71,21 @@ public final class ElytraRescue implements Listener {
         p.sendActionBar(Text.mm("<yellow>You got stuck in a wall, so you were moved to a safe spot."));
     }
 
+    /** 3.14.6: a backup of the inventory just before every SMP death (restore it in /pvpadmin -> SMP -> Player Inventories). */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onDeathBackup(org.bukkit.event.entity.PlayerDeathEvent e) {
+        Player p = e.getEntity();
+        ModeManager m = this.plugin.modes();
+        String g = m == null ? null : m.groupOf(p.getWorld());
+        if (g != null && !g.equals("HUB") && m.smpWorld(p.getWorld())) {
+            try {
+                m.backup(p, g, false);
+            } catch (RuntimeException ex) {
+                this.plugin.getLogger().warning("Death backup of " + p.getName() + " failed: " + ex.getMessage());
+            }
+        }
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         this.risky.remove(e.getPlayer().getUniqueId());
