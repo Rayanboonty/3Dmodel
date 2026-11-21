@@ -235,6 +235,10 @@ public final class RealmEvents implements Listener {
 
     private void riftFx(World w) {
         for (Player p : w.getPlayers()) {
+            if (!this.realm.on(p)) {
+                continue;
+            }
+
             if (this.barShown.add(p.getUniqueId())) {
                 p.showBossBar(this.riftBar);
             }
@@ -322,7 +326,7 @@ public final class RealmEvents implements Listener {
         Set<UUID> near = new HashSet<>();
         Tasks.later(20L * 30, () -> {
             for (Player p : w.getPlayers()) {
-                if (p.getLocation().distanceSquared(g) < 50 * 50) {
+                if (this.realm.on(p) && p.getLocation().distanceSquared(g) < 50 * 50) {
                     near.add(p.getUniqueId());
                 }
             }
@@ -426,6 +430,10 @@ public final class RealmEvents implements Listener {
                 Player nearest = null;
                 double best = Double.MAX_VALUE;
                 for (Player p : c.getWorld().getPlayers()) {
+                    if (!this.realm.on(p)) {
+                        continue;
+                    }
+
                     double d = p.getLocation().distanceSquared(c);
                     if (d < best && d < 100 * 100) {
                         best = d;
@@ -547,6 +555,7 @@ public final class RealmEvents implements Listener {
         b.getEquipment().setHelmetDropChance(0);
         b.getEquipment().setChestplateDropChance(0);
         b.getEquipment().setItemInMainHandDropChance(0);
+        this.realm.hideFromOthers(b);
         this.unmaker = b;
         this.phase = 1;
         this.damage.clear();
@@ -586,7 +595,7 @@ public final class RealmEvents implements Listener {
         float pct = (float)(b.getHealth() / max);
         this.bossBar.progress(Math.max(0F, Math.min(1F, pct)));
         for (Player p : b.getWorld().getPlayers()) {
-            if (p.getLocation().distanceSquared(b.getLocation()) < 90 * 90) {
+            if (this.realm.on(p) && p.getLocation().distanceSquared(b.getLocation()) < 90 * 90) {
                 p.showBossBar(this.bossBar);
             } else {
                 p.hideBossBar(this.bossBar);
@@ -619,7 +628,7 @@ public final class RealmEvents implements Listener {
 
         // every few seconds: a shockwave at a random nearby player (phase 3 more often)
         if (this.bossTick % (this.phase == 3 ? 5 : 9) == 0) {
-            List<Player> near = b.getWorld().getPlayers().stream().filter(p -> p.getLocation().distanceSquared(b.getLocation()) < 22 * 22
+            List<Player> near = b.getWorld().getPlayers().stream().filter(p -> this.realm.on(p) && p.getLocation().distanceSquared(b.getLocation()) < 22 * 22
                 && p.getGameMode() == org.bukkit.GameMode.SURVIVAL).toList();
             if (!near.isEmpty()) {
                 Player t = near.get(this.rnd.nextInt(near.size()));

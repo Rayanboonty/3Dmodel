@@ -1310,3 +1310,6 @@ An original story season for the SMP, off until an op types `/realm start`. Eigh
 ### 3.14.3 - /back after End deaths
 - `/back` after dying in the End or the nether now takes you back there. The trip to the respawn point no longer overwrites your death spot.
 - Died in the End's void? `/back` takes you to the main island instead of dropping you into the void again.
+
+### 3.14.4 - Unstable Realm preview
+`/realm preview` runs the whole season only for you (`/realm preview add|remove <player>` for more testers, `/realm preview off` to stop). Everyone else sees nothing: NPCs and fighters are hidden from them, fighters ignore them, and messages and titles only go to testers. After testing, `/realm reset confirm` then `/realm start`.

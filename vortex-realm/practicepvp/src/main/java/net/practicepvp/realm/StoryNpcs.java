@@ -70,8 +70,12 @@ public final class StoryNpcs implements Listener {
             Entity found = this.find(e.getKey(), l);
             if (found == null) {
                 this.spawn(e.getKey(), l);
-            } else if (found.getLocation().distanceSquared(l) > 4) {
-                found.teleport(l);
+            } else {
+                if (found.getLocation().distanceSquared(l) > 4) {
+                    found.teleport(l);
+                }
+
+                this.realm.hideFromOthers(found);
             }
         }
     }
@@ -120,6 +124,19 @@ public final class StoryNpcs implements Listener {
 
         if (en instanceof Mob m) {
             m.setTarget(null);
+        }
+    }
+
+    /** Preview on/off or testers changed: show the NPCs only to whoever sees the season. */
+    void refreshVisibility() {
+        for (Map.Entry<String, Location> e : this.realm.npcSpots.entrySet()) {
+            Location l = e.getValue();
+            if (l.getWorld() != null && l.getWorld().isChunkLoaded(l.getBlockX() >> 4, l.getBlockZ() >> 4)) {
+                Entity found = this.find(e.getKey(), l);
+                if (found != null) {
+                    this.realm.hideFromOthers(found);
+                }
+            }
         }
     }
 
@@ -179,7 +196,7 @@ public final class StoryNpcs implements Listener {
 
         e.setCancelled(true);
         Player p = e.getPlayer();
-        if (!this.realm.active) {
+        if (!this.realm.running() || !this.realm.sees(p)) {
             p.sendMessage(Text.mm("<gray><i>" + Text.esc(this.name(id)) + " is waiting for the season to begin..."));
             return;
         }

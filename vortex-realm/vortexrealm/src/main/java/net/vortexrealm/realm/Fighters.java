@@ -103,6 +103,10 @@ public final class Fighters implements Listener {
         boolean night = w.getTime() > 13000 && w.getTime() < 23000;
         double chance = (night ? 0.30 : 0.04) * this.surge * (1 + (this.realm.chapter - 1) * 0.15);
         for (Player p : w.getPlayers()) {
+            if (!this.realm.on(p)) {
+                continue;
+            }
+
             if (p.getGameMode() == org.bukkit.GameMode.SPECTATOR || p.getGameMode() == org.bukkit.GameMode.CREATIVE || this.rnd.nextDouble() > chance) {
                 continue;
             }
@@ -208,6 +212,7 @@ public final class Fighters implements Listener {
 
         at.getWorld().spawnParticle(Particle.REVERSE_PORTAL, at.clone().add(0, 1, 0), 40, 0.4, 0.8, 0.4, 0.05);
         at.getWorld().playSound(at, "block.respawn_anchor.charge", 0.8F, 0.7F);
+        this.realm.hideFromOthers(e);
         return e;
     }
 
@@ -278,6 +283,12 @@ public final class Fighters implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onTarget(EntityTargetLivingEntityEvent e) {
         if (!(e.getTarget() instanceof Player p) || !e.getEntity().getPersistentDataContainer().has(this.kindKey)) {
+            return;
+        }
+
+        if (!this.realm.sees(p)) {
+            // in preview, the season's fighters leave everyone else alone
+            e.setCancelled(true);
             return;
         }
 

@@ -232,7 +232,7 @@ public final class Characters implements Listener {
                 lore.add(Text.mm("<!i><dark_red>✖ Taken by <white>" + Text.esc(n == null ? "someone" : n)));
             } else if (mine != null) {
                 lore.add(Text.mm("<!i><gray>You already chose your character."));
-            } else if (!this.realm.active) {
+            } else if (!this.realm.sees(p) || !this.realm.running()) {
                 lore.add(Text.mm("<!i><light_purple>Opens when the season starts"));
             } else {
                 lore.add(Text.mm("<!i><yellow>Click to choose. <gray>This can't be undone."));
@@ -278,7 +278,7 @@ public final class Characters implements Listener {
         }
 
         Role r = Role.values()[idx];
-        if (!this.realm.active) {
+        if (!this.realm.running() || !this.realm.sees(p)) {
             p.sendMessage(Text.mm("<light_purple>The Unstable Realm hasn't started yet. Characters open on day one."));
             return;
         }
@@ -528,7 +528,9 @@ public final class Characters implements Listener {
     private boolean fakeDeath(Player p) {
         Component msg = Text.mm("<white>" + Text.esc(p.getName()) + " was slain");
         for (Player o : p.getWorld().getPlayers()) {
-            o.sendMessage(msg);
+            if (this.realm.sees(o)) {
+                o.sendMessage(msg);
+            }
         }
 
         p.getWorld().spawnParticle(Particle.LARGE_SMOKE, p.getLocation().add(0, 1, 0), 60, 0.4, 0.8, 0.4, 0.02);

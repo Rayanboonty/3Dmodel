@@ -3,6 +3,13 @@
 Everything is **off** until you type `/realm start`. Installing the update changes nothing on the SMP.
 Run the setup commands as an op; ops keep their admin rights inside the SMP.
 
+## 0. Test it alone first: preview mode (3.14.4)
+`/realm preview` runs the **whole season only for you**. Everyone else on the SMP sees nothing: no NPCs, no fighters, no bars, no messages or titles, and no powers. Chapters, quests, choices, votes, events and the boss all work for you.
+- `/realm preview add <player>` / `/realm preview remove <player>` adds or removes another tester (staff).
+- Skip ahead while testing with `/realm chapter next`, and force any event with `/realm event riftnight|meteor|carnival|siege|finale`.
+- `/realm preview off` ends the test. Then run **`/realm reset confirm`** to wipe the test characters and progress (NPC spots and the capital are kept), then `/realm start` for the real launch.
+- Blocks are shared: the Rift Shrine (`/realm shrine`) and meteor explosions can be seen by others, so test somewhere quiet.
+
 ## 1. Setup (10 minutes)
 1. Go to the place in the SMP overworld that will be the **capital** and type `/realm capital`.
 2. Optional: `/realm shrine` builds the Rift Shrine (a 15x15 plaza with pillars) at the capital. This is where the final boss rises.

@@ -6,7 +6,7 @@
 
     <groupId>net.vortexrealm</groupId>
     <artifactId>VortexRealm</artifactId>
-    <version>3.14.3</version>
+    <version>3.14.4</version>
     <packaging>jar</packaging>
     <name>VortexRealm</name>
 

@@ -298,7 +298,7 @@ public final class Story implements Listener {
     }
 
     void checkChapter() {
-        if (!this.realm.active || this.realm.finished) {
+        if (!this.realm.running() || this.realm.finished) {
             return;
         }
 
@@ -342,7 +342,7 @@ public final class Story implements Listener {
         for (Player p : Bukkit.getOnlinePlayers()) {
             if (this.realm.on(p)) {
                 this.play(p, all, () -> this.unlock(p));
-            } else {
+            } else if (this.realm.sees(p)) {
                 p.sendMessage(Text.mm("<dark_purple>✦ <light_purple>The Unstable Realm enters <white>Chapter " + n + ": " + Text.esc(this.chapterName(n))));
             }
         }
@@ -377,7 +377,7 @@ public final class Story implements Listener {
 
     void vote(Player p, String option) {
         ConfigurationSection v = this.chapterSec(this.realm.chapter) == null ? null : this.chapterSec(this.realm.chapter).getConfigurationSection("vote");
-        if (v == null || !this.realm.active) {
+        if (v == null || !this.realm.on(p)) {
             p.sendMessage(Text.mm("<gray>There is no vote right now."));
             return;
         }
@@ -752,10 +752,10 @@ public final class Story implements Listener {
 
     void card(Player p) {
         p.sendMessage(Text.mm("<dark_gray><st>                                             </st>"));
-        p.sendMessage(Text.mm("<gradient:#B06BFF:#FF5FA2><b>THE UNSTABLE REALM</b></gradient> <dark_gray>» " + (this.realm.active ? "<white>Chapter " + this.realm.chapter
+        p.sendMessage(Text.mm("<gradient:#B06BFF:#FF5FA2><b>THE UNSTABLE REALM</b></gradient> <dark_gray>» " + (this.realm.running() && this.realm.sees(p) ? "<white>Chapter " + this.realm.chapter
             + ": <yellow>" + Text.esc(this.chapterName(this.realm.chapter)) : "<gray>coming soon")));
         ConfigurationSection c = this.chapterSec(this.realm.chapter);
-        if (this.realm.active && c != null && c.getString("goal.counter") != null) {
+        if (this.realm.running() && this.realm.sees(p) && c != null && c.getString("goal.counter") != null) {
             p.sendMessage(Text.mm("<gray>The realm's goal: <white>" + Text.esc(c.getString("goal.text", "?")) + " <aqua>"
                 + this.realm.counter(c.getString("goal.counter")) + "/" + c.getInt("goal.target", 1)));
         }

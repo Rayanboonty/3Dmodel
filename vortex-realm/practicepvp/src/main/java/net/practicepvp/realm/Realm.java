@@ -70,6 +70,9 @@ public final class Realm implements CommandExecutor, TabCompleter {
     YamlConfiguration story;
     boolean active;
     boolean finished;
+    /** 3.14.4: preview mode: the whole season runs, but only for the testers (everyone else sees and hears nothing). */
+    boolean preview;
+    final Set<UUID> testers = new HashSet<>();
     int chapter = 1;
     Location capital;
     final Map<String, Integer> counters = new HashMap<>();
@@ -137,6 +140,15 @@ public final class Realm implements CommandExecutor, TabCompleter {
     private void load() {
         YamlConfiguration y = YamlConfiguration.loadConfiguration(this.dataFile);
         this.active = y.getBoolean("active", false);
+        this.preview = y.getBoolean("preview", false);
+        for (String u : y.getStringList("testers")) {
+            try {
+                this.testers.add(UUID.fromString(u));
+            } catch (IllegalArgumentException ignored) {
+                // skip
+            }
+        }
+
         this.finished = y.getBoolean("finished", false);
         this.chapter = Math.max(1, y.getInt("chapter", 1));
         this.capital = y.getLocation("capital");
@@ -204,6 +216,8 @@ public final class Realm implements CommandExecutor, TabCompleter {
         YamlConfiguration y = new YamlConfiguration();
         y.options().setHeader(List.of("Unstable Realm progress. Edit with /realm while the server runs, not here."));
         y.set("active", this.active);
+        y.set("preview", this.preview);
+        y.set("testers", this.testers.stream().map(UUID::toString).toList());
         y.set("finished", this.finished);
         y.set("chapter", this.chapter);
         y.set("capital", this.capital);
@@ -241,12 +255,23 @@ public final class Realm implements CommandExecutor, TabCompleter {
     }
 
     /** The season is running and this world is the SMP (overworld, nether or end). */
+    /** Running for everyone, or in preview for the testers. */
+    public boolean running() {
+        return this.active || this.preview;
+    }
+
+    /** World-level check (spawns, events): callers still filter players with on(Player). */
     public boolean on(World w) {
-        return this.active && w != null && this.plugin.modes() != null && this.plugin.modes().smpWorld(w);
+        return this.running() && w != null && this.plugin.modes() != null && this.plugin.modes().smpWorld(w);
     }
 
     public boolean on(Player p) {
-        return this.on(p.getWorld());
+        return this.on(p.getWorld()) && (this.active || this.testers.contains(p.getUniqueId()));
+    }
+
+    /** May this player see season things (NPCs, fighters, messages)? */
+    public boolean sees(Player p) {
+        return this.active || this.preview && this.testers.contains(p.getUniqueId());
     }
 
     /** The SMP overworld, where most of the story happens. */
@@ -286,6 +311,17 @@ public final class Realm implements CommandExecutor, TabCompleter {
 
     int rep(Player p, String npc) {
         return this.state(p).rep.getOrDefault(npc, 0);
+    }
+
+    /** Hides a season entity from everyone who doesn't see the season (preview), shows it to those who do. */
+    void hideFromOthers(org.bukkit.entity.Entity e) {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (this.sees(p)) {
+                p.showEntity(this.plugin, e);
+            } else {
+                p.hideEntity(this.plugin, e);
+            }
+        }
     }
 
     static boolean admin(CommandSender s) {
@@ -355,14 +391,14 @@ public final class Realm implements CommandExecutor, TabCompleter {
                 }
             }
 
-            if (chat != null) {
+            if (chat != null && this.sees(p)) {
                 p.sendMessage(Text.mm(chat));
             }
         }
     }
 
     private void second() {
-        if (!this.active) {
+        if (!this.running()) {
             return;
         }
 
@@ -464,10 +500,60 @@ public final class Realm implements CommandExecutor, TabCompleter {
                 }
 
                 this.active = true;
+                this.preview = false;
                 this.finished = false;
                 this.save();
                 this.storyEngine.seasonStart();
                 sender.sendMessage(Text.mm("<green>The Unstable Realm has begun. <gray>Next: /realm capital, then /realm npc place <id> for each story character."));
+            }
+            case "preview" -> {
+                if (a1.equals("off")) {
+                    this.preview = false;
+                    this.save();
+                    this.fighters.clearAll();
+                    this.events.stopAll();
+                    this.npcs.refreshVisibility();
+                    sender.sendMessage(Text.mm("<yellow>Preview off. <gray>Test progress is kept: /realm reset confirm wipes it before the real launch."));
+                    return true;
+                }
+
+                if (a1.equals("add") || a1.equals("remove")) {
+                    Player t = args.length > 2 ? Bukkit.getPlayerExact(args[2]) : null;
+                    if (t == null) {
+                        sender.sendMessage(Text.mm("<red>/realm preview " + a1 + " <online player>"));
+                        return true;
+                    }
+
+                    if (a1.equals("add")) {
+                        this.testers.add(t.getUniqueId());
+                    } else {
+                        this.testers.remove(t.getUniqueId());
+                    }
+
+                    this.save();
+                    this.npcs.refreshVisibility();
+                    sender.sendMessage(Text.mm("<green>Testers: <white>" + this.testerNames()));
+                    return true;
+                }
+
+                if (this.active) {
+                    sender.sendMessage(Text.mm("<red>The season is already live for everyone. /realm stop first to go back to preview."));
+                    return true;
+                }
+
+                if (p != null) {
+                    this.testers.add(p.getUniqueId());
+                }
+
+                boolean first = !this.preview;
+                this.preview = true;
+                this.save();
+                this.npcs.refreshVisibility();
+                sender.sendMessage(Text.mm("<light_purple><b>PREVIEW ON</b> <gray>The season runs only for: <white>" + this.testerNames()));
+                sender.sendMessage(Text.mm("<gray>Nobody else sees the NPCs, fighters, events or messages. Try <white>/character</white>, <white>/realm chapter next</white>, <white>/realm event riftnight</white>..."));
+                if (first) {
+                    this.storyEngine.seasonStart();
+                }
             }
             case "stop", "pause" -> {
                 this.active = false;
@@ -477,7 +563,7 @@ public final class Realm implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Text.mm("<yellow>The Unstable Realm is paused. Progress is kept; /realm start resumes it."));
             }
             case "status" -> {
-                sender.sendMessage(Text.mm("<gold><b>Unstable Realm</b> <gray>" + (this.active ? "<green>running" : "<red>off") + " <gray>• chapter <white>" + this.chapter
+                sender.sendMessage(Text.mm("<gold><b>Unstable Realm</b> <gray>" + (this.active ? "<green>live for everyone" : this.preview ? "<light_purple>preview (" + Text.esc(this.testerNames()) + ")" : "<red>off") + " <gray>• chapter <white>" + this.chapter
                     + " <gray>• capital <white>" + (this.capital == null ? "not set" : this.capital.getBlockX() + ", " + this.capital.getBlockZ())));
                 sender.sendMessage(Text.mm("<gray>Counters: <white>" + this.counters + " <gray>Globals: <white>" + this.globals));
                 sender.sendMessage(Text.mm("<gray>NPCs placed: <white>" + this.npcSpots.keySet() + " <gray>of <white>" + this.npcs.ids()));
@@ -559,12 +645,22 @@ public final class Realm implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Text.mm("<yellow>The Unstable Realm is reset (NPC spots and the capital are kept)."));
             }
             default -> {
-                sender.sendMessage(Text.mm("<gold><b>/realm</b> <gray>start | stop | status | chapter next|<n> | capital | shrine | npc place|remove|list <id>"));
+                sender.sendMessage(Text.mm("<gold><b>/realm</b> <gray>preview [add|remove <player>|off] | start | stop | status | chapter next|<n> | capital | shrine | npc place|remove|list <id>"));
                 sender.sendMessage(Text.mm("<gray>event riftnight|meteor|carnival|siege|finale|stop | release <player> | counter <name> <n> | reload | reset"));
             }
         }
 
         return true;
+    }
+
+    String testerNames() {
+        List<String> n = new ArrayList<>();
+        for (UUID u : this.testers) {
+            String s = Bukkit.getOfflinePlayer(u).getName();
+            n.add(s == null ? "?" : s);
+        }
+
+        return n.isEmpty() ? "nobody" : String.join(", ", n);
     }
 
     @Override
@@ -577,10 +673,11 @@ public final class Realm implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             out.addAll(List.of("journal", "vote", "who", "replay", "buy"));
             if (admin(s)) {
-                out.addAll(List.of("start", "stop", "status", "chapter", "capital", "shrine", "npc", "event", "release", "counter", "reload", "reset"));
+                out.addAll(List.of("preview", "start", "stop", "status", "chapter", "capital", "shrine", "npc", "event", "release", "counter", "reload", "reset"));
             }
         } else if (args.length == 2 && admin(s)) {
             switch (args[0].toLowerCase(Locale.ROOT)) {
+                case "preview" -> out.addAll(List.of("add", "remove", "off"));
                 case "event" -> out.addAll(List.of("riftnight", "meteor", "carnival", "siege", "finale", "stop"));
                 case "chapter" -> out.addAll(List.of("next", "1", "2", "3", "4", "5"));
                 case "npc" -> out.addAll(List.of("place", "remove", "list"));
