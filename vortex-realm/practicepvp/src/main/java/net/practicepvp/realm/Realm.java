@@ -724,6 +724,15 @@ public final class Realm implements CommandExecutor, TabCompleter {
                     }
                 }
 
+                net.practicepvp.smp.WorldMode was = this.plugin.modes().mode(w);
+                boolean force = args.length > 3 && args[3].equalsIgnoreCase("force");
+                if (was != net.practicepvp.smp.WorldMode.NONE && was != net.practicepvp.smp.WorldMode.UNSTABLE && !force) {
+                    // 3.14.8: never turn the hub, the PvP lobby or the running SMP into the season world by accident
+                    s.sendMessage(Text.mm("<red><white>" + Text.esc(w.getName()) + "</white> is already used as <white>" + was.display
+                        + "</white>. <gray>Pick the folder of the map you uploaded (see /realm world). To really convert this world, add <white>force</white>."));
+                    return;
+                }
+
                 this.plugin.modes().setMode(w, net.practicepvp.smp.WorldMode.UNSTABLE);
                 this.plugin.modes().setDisplay(w, "Unstable Realm");
                 this.worldName = w.getName();

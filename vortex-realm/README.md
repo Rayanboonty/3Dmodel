@@ -1322,3 +1322,7 @@ Every SMP death now saves a backup of the inventory first. Restore it in /pvpadm
 
 ### 3.14.7 - Companions
 `/companion` summons a sidekick in the Unstable Realm. Give it orders in chat starting with its name ("Bran, follow me", "guard here", "attack that", "defend me", "go there"). With an AI key set in /ai it understands free speech and answers in character, but it can only choose its own actions (never commands).
+
+### 3.14.8 - Fixes
+- `/selector` can't crash any more: an entry with a bad icon uses a grass block, and if the dialog fails the plain menu opens.
+- `/realm world set <folder>` refuses to turn a world that is already the hub, PvP or an SMP into the season world (add `force` if you really mean it).

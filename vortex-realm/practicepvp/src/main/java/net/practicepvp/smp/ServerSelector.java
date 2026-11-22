@@ -361,10 +361,20 @@ public final class ServerSelector {
             }
         }
 
-        if (this.plugin.dialogs().useDialog(p)) {
-            this.openDialog(p);
-        } else {
-            new ServerSelector.SelectorMenu(p, shown).open();
+        // 3.14.8: a bad selector entry (icon, text...) can no longer break /selector: fall back to the plain menu
+        try {
+            if (this.plugin.dialogs().useDialog(p)) {
+                this.openDialog(p);
+            } else {
+                new ServerSelector.SelectorMenu(p, shown).open();
+            }
+        } catch (RuntimeException ex) {
+            this.plugin.getLogger().log(java.util.logging.Level.WARNING, "The selector failed for " + p.getName() + ", showing the plain menu", ex);
+            try {
+                new ServerSelector.SelectorMenu(p, shown).open();
+            } catch (RuntimeException again) {
+                p.sendMessage(Text.mm("<red>The selector is broken right now. <gray>Use /smp or /practice."));
+            }
         }
 
         Snd.click(p);
@@ -402,7 +412,7 @@ public final class ServerSelector {
                         }
                     }), Options.builder().uses(-1).lifetime(Duration.ofMinutes(10L)).build()))
                     .build();
-                ItemStack icon = new ItemStack(e.icon);
+                ItemStack icon = new ItemStack(e.icon == null || e.icon.isAir() || !e.icon.isItem() ? Material.GRASS_BLOCK : e.icon);
                 icon.setAmount(Math.max(1, Math.min(64, n)));
                 icon.editMeta(m -> {
                     m.displayName(Text.noItalic(Text.mm(e.name)));
