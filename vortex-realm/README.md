@@ -1329,3 +1329,6 @@ Every SMP death now saves a backup of the inventory first. Restore it in /pvpadm
 
 ### 3.14.9 - New character menu
 `/character` is rebuilt in the MCPVP style: a framed menu with each character as a head, passive / power / weakness in the lore, TAKEN markers, a green/red confirm screen, and buttons for Who is who and your Journal. Paste a head's Value code from minecraft-heads.com into `realm-story.yml -> roles.<id>.head` to give a character any custom head.
+
+### 3.14.10 - Nether and End fixed
+The SMP's nether and end were treated as not part of the SMP (they're saved as 'Nothing' and linked to the SMP, and the 'Nothing' hid the link). Now /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims, kits and the SMP rules work in them like in the overworld.

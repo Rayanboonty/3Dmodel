@@ -355,7 +355,10 @@ public final class ModeManager {
             return WorldMode.NONE;
         } else {
             WorldMode m = this.modes.get(w.getName());
-            if (m != null) {
+            // 3.14.10: a nether / end made for an SMP is saved as "Nothing" and linked to it; that "Nothing" must not
+            // hide the link (it made /rtp, /tpa, /home, claims... refuse to work in the SMP nether and end)
+            if (m != null && (m != WorldMode.NONE || this.links.get(w.getName()) == null
+                && !w.getName().endsWith("_nether") && !w.getName().endsWith("_the_end"))) {
                 return m.smp() && !sameServer() ? WorldMode.NONE : m;
             } else {
                 String n = w.getName();

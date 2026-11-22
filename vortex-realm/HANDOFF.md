@@ -195,7 +195,8 @@ nobody is online. **`/pvpadmin update`** checks and installs right away. So a pu
 - **3.14.6** - Inventory backup before every SMP death
 - **3.14.7** - Companions: chat-ordered AI sidekicks (/companion)
 - **3.14.8** - /selector crash-proof; /realm world set protects existing worlds
-- **3.14.9** - MCPVP-style /character menu with head icons and a confirm screen **← current release**
+- **3.14.9** - MCPVP-style /character menu with head icons and a confirm screen
+- **3.14.10** - SMP nether/end fixed: /rtp, /tpa, /tpahere, homes, /back, spectate and claims work there **← current release**
 
 ## 8. Open problems / unverified
 

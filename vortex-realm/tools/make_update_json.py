@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': 'MCPVP-style character menu: framed 6-row GUI with character heads, taken markers, a confirm screen and quick buttons; custom heads can be set in realm-story.yml (roles.<id>.head)',
-    'PracticePvP': 'MCPVP-style character menu: framed 6-row GUI with character heads, taken markers, a confirm screen and quick buttons; custom heads can be set in realm-story.yml (roles.<id>.head)',
+    'VortexRealm': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
+    'PracticePvP': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 
