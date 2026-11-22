@@ -1326,3 +1326,6 @@ Every SMP death now saves a backup of the inventory first. Restore it in /pvpadm
 ### 3.14.8 - Fixes
 - `/selector` can't crash any more: an entry with a bad icon uses a grass block, and if the dialog fails the plain menu opens.
 - `/realm world set <folder>` refuses to turn a world that is already the hub, PvP or an SMP into the season world (add `force` if you really mean it).
+
+### 3.14.9 - New character menu
+`/character` is rebuilt in the MCPVP style: a framed menu with each character as a head, passive / power / weakness in the lore, TAKEN markers, a green/red confirm screen, and buttons for Who is who and your Journal. Paste a head's Value code from minecraft-heads.com into `realm-story.yml -> roles.<id>.head` to give a character any custom head.

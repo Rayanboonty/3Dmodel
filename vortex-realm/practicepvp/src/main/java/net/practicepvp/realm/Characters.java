@@ -146,7 +146,6 @@ public final class Characters implements Listener {
     private final Realm realm;
     private final Random rnd = new Random();
     private final Map<UUID, Long> ready = new HashMap<>();
-    private final Map<UUID, Long> confirm = new HashMap<>();
     private final Map<UUID, Integer> fate = new HashMap<>();
     private final NamespacedKey heartKey;
     private final NamespacedKey guardKey;
@@ -194,10 +193,12 @@ public final class Characters implements Listener {
         return null;
     }
 
-    // ------------------------------------------------------------------ the picker
+    // ------------------------------------------------------------------ the picker (3.14.9: MCPVP style)
 
+    /** Menu kinds: the character grid, or the confirm screen for one character. */
     private static final class Holder implements InventoryHolder {
         Inventory inv;
+        Role confirming;
 
         @Override
         public Inventory getInventory() {
@@ -205,108 +206,241 @@ public final class Characters implements Listener {
         }
     }
 
-    private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 22};
+    /** The 8 character slots: two rows of four, with the middle column left open. */
+    private static final int[] SLOTS = {20, 21, 23, 24, 29, 30, 32, 33};
+    private static final int INFO = 4;
+    private static final int WHO = 48;
+    private static final int CLOSE = 49;
+    private static final int JOURNAL = 50;
+
+    /** The vanilla head used when no custom head is set in realm-story.yml. */
+    private static Material defaultHead(Role r) {
+        return switch (r) {
+            case JESTER -> Material.PIGLIN_HEAD;
+            case WARDEN_BORN -> Material.WITHER_SKELETON_SKULL;
+            case HOLLOW_KING -> Material.SKELETON_SKULL;
+            case STORMCALLER -> Material.CREEPER_HEAD;
+            case TRICKSTER -> Material.ZOMBIE_HEAD;
+            case SKY_PIRATE -> Material.DRAGON_HEAD;
+            default -> r.icon;
+        };
+    }
+
+    /**
+     * The character's head. Owners can paste a head's "Value" code from minecraft-heads.com into
+     * realm-story.yml -> roles.&lt;id&gt;.head and it becomes that exact custom head.
+     */
+    ItemStack head(Role r) {
+        String tex = this.realm.story.getString("roles." + r.id() + ".head", "").trim();
+        if (!tex.isEmpty()) {
+            try {
+                ItemStack it = new ItemStack(Material.PLAYER_HEAD);
+                org.bukkit.inventory.meta.SkullMeta sm = (org.bukkit.inventory.meta.SkullMeta)it.getItemMeta();
+                com.destroystokyo.paper.profile.PlayerProfile prof = Bukkit.createProfile(UUID.nameUUIDFromBytes(("realm-" + r.id()).getBytes()), "Realm" + r.ordinal());
+                prof.setProperty(new com.destroystokyo.paper.profile.ProfileProperty("textures", tex));
+                sm.setPlayerProfile(prof);
+                it.setItemMeta(sm);
+                return it;
+            } catch (RuntimeException bad) {
+                this.realm.plugin.getLogger().warning("Bad head code for " + r.id() + " in realm-story.yml: " + bad.getMessage());
+            }
+        }
+
+        return new ItemStack(defaultHead(r));
+    }
+
+    private static ItemStack pane(Material m) {
+        ItemStack it = new ItemStack(m);
+        ItemMeta im = it.getItemMeta();
+        im.displayName(Component.empty());
+        im.setHideTooltip(true);
+        it.setItemMeta(im);
+        return it;
+    }
+
+    private static ItemStack button(Material m, String name, List<String> lore) {
+        ItemStack it = new ItemStack(m);
+        ItemMeta im = it.getItemMeta();
+        im.displayName(Text.mm("<!i>" + name));
+        List<Component> l = new ArrayList<>();
+        for (String s : lore) {
+            l.add(Text.mm("<!i>" + s));
+        }
+
+        im.lore(l);
+        im.addItemFlags(ItemFlag.values());
+        it.setItemMeta(im);
+        return it;
+    }
 
     void open(Player p) {
         Holder h = new Holder();
-        h.inv = Bukkit.createInventory(h, 36, Text.mm("<dark_purple><b>Choose your character</b> <dark_gray>(one each)"));
+        h.inv = Bukkit.createInventory(h, 54, Text.mm("<dark_gray>» <dark_purple><b>CHARACTER SELECT</b></dark_purple> <dark_gray>«"));
+        // MCPVP frame: dark glass everywhere, purple glass on the border corners and centre line
+        for (int i = 0; i < 54; i++) {
+            boolean edge = i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8;
+            h.inv.setItem(i, pane(edge ? Material.BLACK_STAINED_GLASS_PANE : Material.GRAY_STAINED_GLASS_PANE));
+        }
+
+        for (int i : new int[] {0, 8, 45, 53, 22, 31}) {
+            h.inv.setItem(i, pane(Material.PURPLE_STAINED_GLASS_PANE));
+        }
+
         Role mine = this.of(p);
         Role[] all = Role.values();
-        for (int i = 0; i < all.length; i++) {
+        int free = 0;
+        for (int i = 0; i < all.length && i < SLOTS.length; i++) {
             Role r = all[i];
             UUID o = this.owner(r);
-            ItemStack it = new ItemStack(r.icon);
+            if (o == null) {
+                free++;
+            }
+
+            ItemStack it = this.head(r);
             ItemMeta m = it.getItemMeta();
-            m.displayName(Text.mm("<!i>" + r.mm()));
+            boolean taken = o != null && r != mine;
+            m.displayName(Text.mm("<!i>" + (taken ? "<dark_gray><st>" + r.display + "</st>" : r.mm())));
             List<Component> lore = new ArrayList<>();
+            lore.add(Text.mm("<!i><dark_gray>" + "▬".repeat(16)));
             lore.add(Text.mm("<!i><gray><i>" + Text.esc(r.about)));
             lore.add(Component.empty());
-            lore.add(Text.mm("<!i><green>Passive: <white>" + Text.esc(r.passive)));
-            lore.add(Text.mm("<!i><aqua>Active <dark_gray>(Shift+F, " + r.cooldown + "s)</dark_gray>: <white>" + Text.esc(r.active)));
-            lore.add(Text.mm("<!i><red>Weakness: <white>" + Text.esc(r.weakness)));
-            lore.add(Component.empty());
+            lore.add(Text.mm("<!i><green>✔ <gray>Passive"));
+            lore.add(Text.mm("<!i>  <white>" + Text.esc(r.passive)));
+            lore.add(Text.mm("<!i><aqua>⚡ <gray>Power <dark_gray>(Shift + F, " + r.cooldown + "s)"));
+            lore.add(Text.mm("<!i>  <white>" + Text.esc(r.active)));
+            lore.add(Text.mm("<!i><red>✖ <gray>Weakness"));
+            lore.add(Text.mm("<!i>  <white>" + Text.esc(r.weakness)));
+            lore.add(Text.mm("<!i><dark_gray>" + "▬".repeat(16)));
             if (r == mine) {
-                lore.add(Text.mm("<!i><gold><b>✔ This is you"));
-            } else if (o != null) {
+                lore.add(Text.mm("<!i><gold><b>★ YOUR CHARACTER"));
+            } else if (taken) {
                 String n = Bukkit.getOfflinePlayer(o).getName();
-                lore.add(Text.mm("<!i><dark_red>✖ Taken by <white>" + Text.esc(n == null ? "someone" : n)));
+                lore.add(Text.mm("<!i><red><b>TAKEN</b> <dark_gray>by <gray>" + Text.esc(n == null ? "someone" : n)));
             } else if (mine != null) {
-                lore.add(Text.mm("<!i><gray>You already chose your character."));
-            } else if (!this.realm.sees(p) || !this.realm.running()) {
+                lore.add(Text.mm("<!i><gray>You already have a character."));
+            } else if (!this.realm.running() || !this.realm.sees(p)) {
                 lore.add(Text.mm("<!i><light_purple>Opens when the season starts"));
             } else {
-                lore.add(Text.mm("<!i><yellow>Click to choose. <gray>This can't be undone."));
+                lore.add(Text.mm("<!i><green><b>▶ CLICK TO SELECT"));
             }
 
             m.lore(lore);
             m.addItemFlags(ItemFlag.values());
-            if (r == mine) {
-                m.setEnchantmentGlintOverride(true);
-            }
-
+            m.setEnchantmentGlintOverride(r == mine);
             it.setItemMeta(m);
             h.inv.setItem(SLOTS[i], it);
         }
 
-        ItemStack info = new ItemStack(Material.BOOK);
-        ItemMeta im = info.getItemMeta();
-        im.displayName(Text.mm("<!i><gold><b>How it works"));
-        im.lore(List.of(Text.mm("<!i><gray>Each character exists only once."), Text.mm("<!i><gray>Once someone takes it, it's gone."),
-            Text.mm("<!i><gray>Your character has its own story: <white>/realm journal")));
-        info.setItemMeta(im);
-        h.inv.setItem(31, info);
+        h.inv.setItem(INFO, button(Material.NETHER_STAR, "<gradient:#B06BFF:#FF5FA2><b>THE UNSTABLE REALM</b>", List.of(
+            "<gray>Every character exists <white>only once</white>.",
+            "<gray>Once someone takes it, it's gone.",
+            "",
+            "<white>" + free + "<gray>/" + all.length + " characters still free",
+            mine == null ? "<yellow>Pick wisely: it can't be undone." : "<gold>You are " + mine.mm())));
+        h.inv.setItem(WHO, button(Material.PLAYER_HEAD, "<aqua><b>WHO IS WHO", List.of("<gray>See every bearer", "<dark_gray>/realm who")));
+        h.inv.setItem(CLOSE, button(Material.BARRIER, "<red><b>CLOSE", List.of()));
+        h.inv.setItem(JOURNAL, button(Material.WRITABLE_BOOK, "<gold><b>YOUR JOURNAL", List.of("<gray>Your story and quests", "<dark_gray>/realm journal")));
         p.openInventory(h.inv);
         Snd.play(p, "block.amethyst_block.chime", 1.0F, 1.0F);
     }
 
+    /** The confirm screen: the head in the middle, green to lock it in, red to go back. */
+    private void confirm(Player p, Role r) {
+        Holder h = new Holder();
+        h.confirming = r;
+        h.inv = Bukkit.createInventory(h, 27, Text.mm("<dark_gray>» <white>Become " + r.display + "<dark_gray>?"));
+        for (int i = 0; i < 27; i++) {
+            h.inv.setItem(i, pane(Material.BLACK_STAINED_GLASS_PANE));
+        }
+
+        ItemStack yes = button(Material.LIME_CONCRETE, "<green><b>✔ CONFIRM", List.of("<gray>Become " + r.mm(), "<red>This can't be undone."));
+        ItemStack no = button(Material.RED_CONCRETE, "<red><b>✖ CANCEL", List.of("<gray>Back to the characters"));
+        for (int i : new int[] {10, 11, 12}) {
+            h.inv.setItem(i, yes);
+        }
+
+        for (int i : new int[] {14, 15, 16}) {
+            h.inv.setItem(i, no);
+        }
+
+        ItemStack head = this.head(r);
+        ItemMeta m = head.getItemMeta();
+        m.displayName(Text.mm("<!i>" + r.mm()));
+        m.lore(List.of(Text.mm("<!i><gray><i>" + Text.esc(r.about))));
+        head.setItemMeta(m);
+        h.inv.setItem(13, head);
+        p.openInventory(h.inv);
+        Snd.play(p, Snd.HAT, 1.0F, 1.2F);
+    }
+
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-        if (!(e.getInventory().getHolder() instanceof Holder) || !(e.getWhoClicked() instanceof Player p)) {
+        if (!(e.getInventory().getHolder() instanceof Holder h) || !(e.getWhoClicked() instanceof Player p)) {
             return;
         }
 
         e.setCancelled(true);
-        int idx = -1;
-        for (int i = 0; i < SLOTS.length; i++) {
-            if (SLOTS[i] == e.getRawSlot()) {
-                idx = i;
+        int slot = e.getRawSlot();
+        if (h.confirming != null) {
+            Role r = h.confirming;
+            if (slot >= 10 && slot <= 12) {
+                p.closeInventory();
+                if (!this.realm.running() || !this.realm.sees(p)) {
+                    p.sendMessage(Text.mm("<light_purple>The Unstable Realm hasn't started yet."));
+                } else if (this.of(p) != null) {
+                    p.sendMessage(Text.mm("<red>You already have a character."));
+                } else if (this.owner(r) != null) {
+                    p.sendMessage(Text.mm("<red>Too slow: someone just took " + r.display + "."));
+                    Snd.error(p);
+                } else {
+                    this.pick(p, r);
+                }
+            } else if (slot >= 14 && slot <= 16) {
+                this.open(p);
+            }
+
+            return;
+        }
+
+        switch (slot) {
+            case CLOSE -> p.closeInventory();
+            case WHO -> {
+                p.closeInventory();
+                this.who(p);
+            }
+            case JOURNAL -> {
+                p.closeInventory();
+                this.realm.storyEngine.journal(p);
+            }
+            default -> {
+                int idx = -1;
+                for (int i = 0; i < SLOTS.length; i++) {
+                    if (SLOTS[i] == slot) {
+                        idx = i;
+                    }
+                }
+
+                if (idx < 0 || idx >= Role.values().length) {
+                    return;
+                }
+
+                Role r = Role.values()[idx];
+                if (!this.realm.running() || !this.realm.sees(p)) {
+                    p.sendMessage(Text.mm("<light_purple>The Unstable Realm hasn't started yet. Characters open on day one."));
+                    Snd.error(p);
+                } else if (this.of(p) != null) {
+                    p.sendMessage(Text.mm("<red>You already are " + this.of(p).mm() + "<red>."));
+                    Snd.error(p);
+                } else if (this.owner(r) != null) {
+                    p.sendMessage(Text.mm("<red>Someone already carries that shard."));
+                    Snd.error(p);
+                } else {
+                    this.confirm(p, r);
+                }
             }
         }
-
-        if (idx < 0 || idx >= Role.values().length) {
-            return;
-        }
-
-        Role r = Role.values()[idx];
-        if (!this.realm.running() || !this.realm.sees(p)) {
-            p.sendMessage(Text.mm("<light_purple>The Unstable Realm hasn't started yet. Characters open on day one."));
-            return;
-        }
-
-        if (this.of(p) != null) {
-            p.sendMessage(Text.mm("<red>You already are " + this.of(p).mm() + "<red>."));
-            return;
-        }
-
-        if (this.owner(r) != null) {
-            p.sendMessage(Text.mm("<red>Someone already carries that shard."));
-            Snd.error(p);
-            return;
-        }
-
-        Long c = this.confirm.get(p.getUniqueId());
-        if (c == null || System.currentTimeMillis() - c > 5000 || !r.id().equals(this.realm.state(p).flags.get("_confirm"))) {
-            this.confirm.put(p.getUniqueId(), System.currentTimeMillis());
-            this.realm.state(p).flags.put("_confirm", r.id());
-            p.sendMessage(Text.mm("<yellow>Click " + r.mm() + " <yellow>again to become them. <gray>There is no going back."));
-            Snd.play(p, Snd.HAT, 1.0F, 1.4F);
-            return;
-        }
-
-        this.realm.state(p).flags.remove("_confirm");
-        p.closeInventory();
-        this.pick(p, r);
     }
+
 
     void pick(Player p, Role r) {
         Realm.PlayerState st = this.realm.state(p);

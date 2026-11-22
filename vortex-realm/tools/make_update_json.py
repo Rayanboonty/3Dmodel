@@ -10,8 +10,8 @@ DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dist')
 BASE = sys.argv[1] if len(sys.argv) > 1 else \
     'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist'
 NOTES = {
-    'VortexRealm': "Live server status panel on Discord: the server itself keeps one message up to date with the online count and each player's skin (set discord.status-webhook)",
-    'PracticePvP': "Live server status panel on Discord: the server itself keeps one message up to date with the online count and each player's skin (set discord.status-webhook)",
+    'VortexRealm': 'MCPVP-style character menu: framed 6-row GUI with character heads, taken markers, a confirm screen and quick buttons; custom heads can be set in realm-story.yml (roles.<id>.head)',
+    'PracticePvP': 'MCPVP-style character menu: framed 6-row GUI with character heads, taken markers, a confirm screen and quick buttons; custom heads can be set in realm-story.yml (roles.<id>.head)',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
 }
 

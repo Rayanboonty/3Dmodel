@@ -8,6 +8,18 @@
 #  Effects: flag:k=v, rep:npc+5, mem:npc:key, shards:n, item:MATERIAL:n, title:Text, counter:key+n, effect:speed:30:1, xp:n
 # ============================================================================================
 
+# Character heads in the /character menu. Leave "" for the default mob head, or paste the "Value" code of any
+# head from minecraft-heads.com (scroll to "Other", copy "Value") to use that exact custom head.
+roles:
+  jester: {head: ""}
+  warden_born: {head: ""}
+  sky_pirate: {head: ""}
+  alchemist: {head: ""}
+  hollow_king: {head: ""}
+  stormcaller: {head: ""}
+  trickster: {head: ""}
+  iron_heart: {head: ""}
+
 speakers:
   Mirel: "#C77DFF"
   Aldric: "#4EA8DE"
