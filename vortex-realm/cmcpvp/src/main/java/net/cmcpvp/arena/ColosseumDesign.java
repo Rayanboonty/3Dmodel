@@ -1337,75 +1337,60 @@ public final class ColosseumDesign {
         return Math.floorMod(sector, 3) == 1 && !(rz < 0 && Math.abs(rx) <= 8) && Math.abs(rz) > this.gateHalf + 4;
     }
 
-    /** The champions' cup: a giant golden trophy on the gallery roof above the royal box. */
+    /**
+     * The champions' cup: a golden trophy on a quartz plinth on top of each main gate, between its two towers (on the
+     * gate's flat roof, never over the stands).
+     */
     private void trophy(int x, int z, int rx, int rz, ColosseumDesign.Sink out) {
-        double zc = -(this.radius + 1 + this.rows + this.galleryD / 2.0);
-        double dx = rx;
-        double dz = rz - zc;
-        if (Math.abs(dx) > 5.5 || Math.abs(dz) > 5.5) {
+        int end = this.straight + this.radius;
+        double dx = Math.abs(rx) - (end + this.outer / 2 + 1);
+        double dz = rz;
+        if (Math.abs(dx) > 4.5 || Math.abs(dz) > 4.5) {
             return;
         }
 
-        int y0 = this.galleryTop + 2 + this.galleryD;
+        int gb = this.galleryTop + 3;
         double r = Math.sqrt(dx * dx + dz * dz);
-        int cheb = (int)Math.max(Math.abs(dx), Math.abs(dz));
-        if (cheb <= 4) {
-            boolean corner = Math.abs(dx) >= 3.5 && Math.abs(dz) >= 3.5;
-            for (int y = this.galleryTop + 2; y <= y0; y++) {
-                String blk;
-                if (cheb < 4) {
-                    blk = "smooth_quartz";
-                } else if (corner) {
-                    blk = y == y0 ? "gold_block" : "chiseled_quartz_block";
-                } else if (y == y0) {
-                    blk = "gold_block";
-                } else if (y == y0 - 2) {
-                    blk = "red_nether_bricks";
-                } else {
-                    blk = "quartz_bricks";
-                }
-
-                out.set(x, y, z, b(blk));
-            }
-        }
-
+        int cheb = (int)Math.round(Math.max(Math.abs(dx), Math.abs(dz)));
         if (cheb <= 3) {
-            out.set(x, y0 + 1, z, b(cheb == 3 ? "quartz_bricks" : "smooth_quartz"));
+            boolean corner = Math.abs(dx) >= 2.5 && Math.abs(dz) >= 2.5;
+            out.set(x, gb, z, b(corner ? "chiseled_quartz_block" : (cheb == 3 ? "quartz_bricks" : "smooth_quartz")));
+            out.set(x, gb + 1, z, b(corner ? "gold_block" : (cheb == 3 ? "red_nether_bricks" : "smooth_quartz")));
         }
 
         if (cheb <= 2) {
-            out.set(x, y0 + 2, z, b("gold_block"));
+            out.set(x, gb + 2, z, b(cheb == 2 ? "quartz_bricks" : "gold_block"));
         }
 
         if (r < 0.8) {
-            for (int y = y0 + 3; y <= y0 + 5; y++) {
+            for (int y = gb + 3; y <= gb + 5; y++) {
                 out.set(x, y, z, b("gold_block"));
             }
         }
 
         for (int k = 0; k < 6; k++) {
-            double rr = 0.8 + k * 0.55;
-            int y = y0 + 6 + k;
+            double rr = 0.8 + k * 0.5;
+            int y = gb + 6 + k;
             if (r <= rr + 0.45 && (r > rr - 0.75 || k == 0)) {
                 out.set(x, y, z, b(k == 5 ? "raw_gold_block" : "gold_block"));
             }
         }
 
         // handles on both sides
-        if (Math.abs(dz) < 0.6 && Math.abs(dx) >= 3.0 && Math.abs(dx) <= 4.0) {
-            out.set(x, y0 + 8, z, b("gold_block"));
-            out.set(x, y0 + 9, z, b("gold_block"));
-            out.set(x, y0 + 10, z, b("gold_block"));
+        if (Math.abs(dx) < 0.6 && Math.abs(dz) >= 3.0 && Math.abs(dz) <= 3.6) {
+            for (int y = gb + 8; y <= gb + 10; y++) {
+                out.set(x, y, z, b("gold_block"));
+            }
         }
 
-        if (Math.abs(dz) < 0.6 && Math.abs(dx) >= 2.0 && Math.abs(dx) < 3.0) {
-            out.set(x, y0 + 8, z, b("gold_block"));
-            out.set(x, y0 + 10, z, b("gold_block"));
+        if (Math.abs(dx) < 0.6 && Math.abs(dz) >= 2.0 && Math.abs(dz) < 3.0) {
+            out.set(x, gb + 8, z, b("gold_block"));
+            out.set(x, gb + 10, z, b("gold_block"));
         }
 
         if (r < 0.8) {
-            out.set(x, y0 + 12, z, b("redstone_block"));
-            out.set(x, y0 + 13, z, b("end_rod[facing=up]"));
+            out.set(x, gb + 12, z, b("redstone_block"));
+            out.set(x, gb + 13, z, b("end_rod[facing=up]"));
         }
     }
 
