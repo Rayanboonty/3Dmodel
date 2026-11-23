@@ -39,6 +39,11 @@ public final class ColosseumDesign {
     private final double[] rockR;
     private final int[] rockH;
     private Map<Long, TreeMap<Integer, String>> statue;
+    /** 3.15.0: the landscape round the mace and tournament colosseums (built the first time a column needs it). */
+    public final int ringOut;
+    private final double ringStart;
+    private final int ringDepth;
+    private net.cmcpvp.build.ArenaLandscape ring;
     private int stX;
     private int stY;
     private int stZ;
@@ -78,8 +83,16 @@ public final class ColosseumDesign {
 
         this.outer = 1 + this.rows + this.galleryD;
         this.gateHalf = this.grand ? 4 : 3;
-        this.halfX = this.straight + this.radius + this.outer + this.landscape + 6 + (style == ColosseumDesign.Style.GLADIATOR ? 20 : 0);
-        this.halfZ = this.radius + this.outer + this.landscape + 6;
+        int hx0 = this.straight + this.radius + this.outer + this.landscape + 6 + (style == ColosseumDesign.Style.GLADIATOR ? 20 : 0);
+        int hz0 = this.radius + this.outer + this.landscape + 6;
+        // the landscape ring, kept inside the arena's 512-block slot
+        boolean ringed = style == ColosseumDesign.Style.GRAND || style == ColosseumDesign.Style.CHAMPIONS;
+        int out = ringed ? Math.max(0, Math.min(56, 255 - Math.max(hx0, hz0))) : 0;
+        this.ringOut = out >= 12 ? out : 0;
+        this.ringStart = this.outer + this.landscape + (this.landscape > 0 ? 2.0 : 1.2);
+        this.ringDepth = Math.max(4, depth);
+        this.halfX = hx0 + this.ringOut;
+        this.halfZ = hz0 + this.ringOut;
         this.lastRowTop = floorY + this.wallH + this.rows - 1;
         this.galleryTop = this.lastRowTop + this.galleryH;
         this.towerTop = this.galleryTop + (this.grand ? 16 : 11);
@@ -96,7 +109,7 @@ public final class ColosseumDesign {
             top = Math.max(top, floorY + 92);
         }
 
-        this.topY = top;
+        this.topY = this.ringOut > 0 ? Math.max(top, floorY + 112) : top;
         this.pal = palette(style);
         if (style == ColosseumDesign.Style.GLADIATOR) {
             this.pal.floor = new String[]{"sand", "sand", "sand", "sand", "smooth_sandstone"};
@@ -618,6 +631,15 @@ public final class ColosseumDesign {
     }
 
     public void column(int x, int z, ColosseumDesign.Sink out) {
+        if (this.ringOut > 0 && this.sd(x - this.cx, z - this.cz) > this.ringStart) {
+            this.ring().column(x, z, out::set);
+            if (this.grand) {
+                this.rocks(x, z, x - this.cx, z - this.cz, out);
+            }
+
+            return;
+        }
+
         this.columnInner(x, z, out);
         if (this.statue != null) {
             TreeMap<Integer, String> col = this.statue.get(statueKey(x - this.cx, z - this.cz));
@@ -627,6 +649,17 @@ public final class ColosseumDesign {
                 }
             }
         }
+    }
+
+    private synchronized net.cmcpvp.build.ArenaLandscape ring() {
+        if (this.ring == null) {
+            this.ring = new net.cmcpvp.build.ArenaLandscape(
+                this.style == ColosseumDesign.Style.CHAMPIONS ? net.cmcpvp.build.ArenaLandscape.Kind.OLYMPUS : net.cmcpvp.build.ArenaLandscape.Kind.ALPINE,
+                this.cx, this.floorY, this.cz, this.halfX, this.halfZ, this::sd, this.ringStart, this.ringOut, this.ringDepth, this.topY - this.floorY, this.seed
+            );
+        }
+
+        return this.ring;
     }
 
     private static long statueKey(int rx, int rz) {
