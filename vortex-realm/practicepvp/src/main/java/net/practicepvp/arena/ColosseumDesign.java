@@ -1204,14 +1204,14 @@ public final class ColosseumDesign {
     }
 
     private boolean inVip(int rx, int rz) {
-        return !this.grand && rz < 0 && Math.abs(rx) <= 4;
+        return !this.grand && rz < 0 && Math.abs(rx) <= 7;
     }
 
     private void stands(int x, int z, int rx, int rz, double d, ColosseumDesign.Sink out) {
         int row = (int)Math.floor(d - 1.0);
         int top = this.floorY + this.wallH + row;
         String outward = this.outward(rx, rz);
-        if (this.inVip(rx, rz) && row >= this.rows - 5) {
+        if (this.inVip(rx, rz) && row >= this.rows - 4) {
             this.vipBox(x, z, rx, rz, row, out);
         } else {
             boolean aisle = this.aisle(rx, rz);
@@ -1269,6 +1269,10 @@ public final class ColosseumDesign {
             }
 
             out.set(x, top, z, seatBlk);
+            if (!this.grand && rz < 0 && row == this.rows - 5 && (Math.abs(rx) == 2 || Math.abs(rx) == 5)) {
+                out.set(x, top + 1, z, "minecraft:" + this.pal.banners[Math.abs(rx) == 2 ? 0 : 1 % this.pal.banners.length] + "[facing=south]");
+            }
+
             if (detailed && walk && !aisle && (sph < 3.0 || sph > sp16 - 1.0)) {
                 // a lantern where each walkway meets an aisle
                 out.set(x, top + 1, z, b(this.pal.light));
@@ -1394,33 +1398,51 @@ public final class ColosseumDesign {
         }
     }
 
+    /**
+     * The royal balcony: an open terrace over the back rows of the stands - a gold and quartz balustrade, a red carpet,
+     * three thrones, flag posts with banners at the corners. Low and roofless, so it never blocks the stands.
+     */
     private void vipBox(int x, int z, int rx, int rz, int row, ColosseumDesign.Sink out) {
-        int base = this.floorY + this.wallH + this.rows - 5;
-
+        int base = this.floorY + this.wallH + this.rows - 4;
+        int ax = Math.abs(rx);
         for (int y = this.floorY + 1; y < base; y++) {
-            out.set(x, y, z, b(this.pal.stand));
+            out.set(x, y, z, b(this.hash(x, y, z) < 140 ? this.pal.stand2 : this.pal.stand));
         }
 
-        boolean front = row == this.rows - 5;
-        boolean side = Math.abs(rx) == 4;
-        out.set(x, base, z, b(this.pal.walkway));
-        if (!side) {
-            out.set(x, base + 1, z, b(front ? this.pal.railing : this.pal.carpet));
-        }
-
-        int roofY = this.galleryTop - 2;
-        if (side && (front || row == this.rows - 1)) {
-            for (int y = base + 1; y < roofY; y++) {
-                out.set(x, y, z, b(this.pal.pillar));
+        boolean front = row == this.rows - 4;
+        boolean side = ax == 7;
+        out.set(x, base, z, b(front || side ? "chiseled_quartz_block" : "smooth_quartz"));
+        if (front && !side) {
+            // the balustrade: gold posts with lanterns, railing between
+            boolean post = ax % 3 == 1;
+            out.set(x, base + 1, z, b(post ? "gold_block" : this.pal.railing));
+            if (post) {
+                out.set(x, base + 2, z, b(this.pal.light));
             }
         } else if (side) {
-            out.set(x, base + 1, z, b(this.pal.railing));
-        }
+            out.set(x, base + 1, z, b("quartz_bricks"));
+            if (front || row == this.rows - 1) {
+                // flag posts at the corners
+                for (int y = base + 2; y <= base + 5; y++) {
+                    out.set(x, y, z, b(this.pal.railing));
+                }
 
-        out.set(x, roofY, z, b(this.pal.gallery2));
-        out.set(x, roofY + 1, z, front ? stairs(this.pal.roofStairs, "north", false) : b(this.pal.roof));
-        if (front && Math.abs(rx) == 2) {
-            out.set(x, roofY - 1, z, this.hanging());
+                out.set(x, base + 6, z, "minecraft:" + this.pal.banners[0].replace("_wall_banner", "_banner") + "[rotation=0]");
+            } else {
+                out.set(x, base + 2, z, b(this.pal.light));
+            }
+        } else {
+            out.set(x, base + 1, z, b(ax == 6 ? "yellow_carpet" : this.pal.carpet));
+            if (row == this.rows - 2 && (ax == 0 || ax == 3)) {
+                // the thrones face the arena, the middle one in gold
+                out.set(x, base + 1, z, stairs(ax == 0 ? "red_nether_brick" : "quartz", "north", false));
+                if (ax == 0) {
+                    out.set(x, base, z, b("gold_block"));
+                }
+            } else if (row == this.rows - 1 && ax == 0) {
+                out.set(x, base + 1, z, b("gold_block"));
+                out.set(x, base + 2, z, b(this.pal.light));
+            }
         }
     }
 
