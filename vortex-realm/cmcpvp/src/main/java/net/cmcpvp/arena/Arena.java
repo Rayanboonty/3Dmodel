@@ -80,6 +80,8 @@ public final class Arena {
             return "ANY";
         } else if (theme == ArenaTheme.FLATLANDS) {
             return "CRYSTAL";
+        } else if (theme.pro != null) {
+            return theme.pro == net.cmcpvp.build.ProArenaDesign.Theme.GRAND ? "MACE" : "DESIGNED";
         } else if (theme.colosseum != null) {
             return theme.colosseum == ColosseumDesign.Style.GRAND ? "MACE" : "DESIGNED";
         } else if (theme == ArenaTheme.MOLE_MINES) {

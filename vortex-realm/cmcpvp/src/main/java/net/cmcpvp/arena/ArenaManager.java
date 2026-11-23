@@ -655,9 +655,9 @@ public final class ArenaManager {
             return 0;
         } else if (theme.isVanilla()) {
             return Cfg.i(Opt.VANILLA_SIZE);
-        } else if (theme == ArenaTheme.GRAND_COLOSSEUM) {
+        } else if (theme == ArenaTheme.GRAND_COLOSSEUM || theme == ArenaTheme.HIGHPEAK_COLOSSEUM) {
             return Cfg.i(Opt.MACE_ARENA_SIZE);
-        } else if (theme == ArenaTheme.CHAMPIONS_COLOSSEUM) {
+        } else if (theme == ArenaTheme.CHAMPIONS_COLOSSEUM || theme == ArenaTheme.IMPERIAL_COLOSSEUM) {
             return 224;
         } else if (theme == ArenaTheme.MOLE_MINES) {
             return net.cmcpvp.build.MoleMinesDesign.radius(ffa) * 2 + 1;
@@ -1077,7 +1077,7 @@ public final class ArenaManager {
 
     /** The size a map of this theme is generated at (what the arena pack uses). */
     public static int packSize(ArenaTheme t) {
-        if (t == ArenaTheme.MOLE_MINES || t.duel != null) {
+        if (t == ArenaTheme.MOLE_MINES || t.duel != null || t == ArenaTheme.IMPERIAL_COLOSSEUM || t == ArenaTheme.HIGHPEAK_COLOSSEUM) {
             return targetSize(t, false);
         } else if (t == ArenaTheme.GRAND_COLOSSEUM) {
             return Cfg.i(Opt.MACE_ARENA_SIZE);

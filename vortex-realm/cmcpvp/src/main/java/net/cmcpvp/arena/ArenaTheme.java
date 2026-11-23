@@ -96,6 +96,23 @@ public enum ArenaTheme {
     VOLCANO_FORGE(net.cmcpvp.build.CourtArenaDesign.Style.VOLCANO_FORGE, Material.MAGMA_BLOCK, Biome.BASALT_DELTAS),
     PIRATE_COVE(net.cmcpvp.build.CourtArenaDesign.Style.PIRATE_COVE, Material.BARREL, Biome.BEACH),
     PHARAOH_TOMB(net.cmcpvp.build.CourtArenaDesign.Style.PHARAOH_TOMB, Material.CHISELED_SANDSTONE, Biome.DESERT),
+    // 3.15.0: the pro arenas, next to the court arenas and colosseums above (those stay). Only the signature arena carries
+    // the server's name.
+    SIGNATURE_ARENA(net.cmcpvp.build.ProArenaDesign.Theme.MEDIEVAL, net.cmcpvp.Edition.NAME + " Arena", Material.RED_BANNER, Biome.PLAINS),
+    FROSTFANG_BASTION(net.cmcpvp.build.ProArenaDesign.Theme.FROST, "Frostfang Bastion", Material.SNOW_BLOCK, Biome.SNOWY_PLAINS),
+    SUNSPIRE_PALACE(net.cmcpvp.build.ProArenaDesign.Theme.DESERT, "Sunspire Palace", Material.LIGHT_BLUE_GLAZED_TERRACOTTA, Biome.DESERT),
+    STONEWATCH_KEEP(net.cmcpvp.build.ProArenaDesign.Theme.HIGHLAND, "Stonewatch Keep", Material.MOSSY_COBBLESTONE, Biome.TAIGA),
+    BLOSSOM_COURT(net.cmcpvp.build.ProArenaDesign.Theme.SAKURA, "Blossom Court", Material.CHERRY_LOG, Biome.CHERRY_GROVE),
+    EMBER_CITADEL(net.cmcpvp.build.ProArenaDesign.Theme.EMBER, "Ember Citadel", Material.CRIMSON_STEM, Biome.BADLANDS),
+    NIGHTSPIRE_ABBEY(net.cmcpvp.build.ProArenaDesign.Theme.GOTHIC, "Nightspire Abbey", Material.DEEPSLATE_BRICKS, Biome.DARK_FOREST),
+    PALMSHORE_COURT(net.cmcpvp.build.ProArenaDesign.Theme.TROPICAL, "Palmshore Court", Material.BAMBOO_MOSAIC, Biome.BEACH),
+    JADE_TEMPLE(net.cmcpvp.build.ProArenaDesign.Theme.JUNGLE, "Jade Temple", Material.OXIDIZED_COPPER, Biome.JUNGLE),
+    OBSIDIAN_FORGE(net.cmcpvp.build.ProArenaDesign.Theme.VOLCANO, "Obsidian Forge", Material.GILDED_BLACKSTONE, Biome.BASALT_DELTAS),
+    CORSAIR_WHARF(net.cmcpvp.build.ProArenaDesign.Theme.HARBOR, "Corsair's Wharf", Material.SPRUCE_PLANKS, Biome.BEACH),
+    GOLDEN_DYNASTY(net.cmcpvp.build.ProArenaDesign.Theme.PHARAOH, "Golden Dynasty", Material.LAPIS_BLOCK, Biome.DESERT),
+    GLADIATOR_PIT(net.cmcpvp.build.ProArenaDesign.Theme.GLADIATOR, "Gladiator Pit", Material.MUD_BRICKS, Biome.PLAINS),
+    IMPERIAL_COLOSSEUM(net.cmcpvp.build.ProArenaDesign.Theme.ROMAN, "Imperial Colosseum", Material.CHISELED_QUARTZ_BLOCK, Biome.PLAINS),
+    HIGHPEAK_COLOSSEUM(net.cmcpvp.build.ProArenaDesign.Theme.GRAND, "Highpeak Colosseum", Material.MACE, Biome.MEADOW),
     CUSTOM("Custom", Material.STONE, null, 0.0, 0);
 
     public final double sizeScale;
@@ -108,6 +125,8 @@ public enum ArenaTheme {
     public final net.cmcpvp.build.DuelArenaDesign.Style duel;
     /** Non-null = a court arena (3.10.0): a flat floor inside a detailed build (castle, palace, colosseum, plaza, town). */
     public final net.cmcpvp.build.CourtArenaDesign.Style court;
+    /** Non-null = a pro arena (3.15.0): a layered build round a flat floor in a whole landscape. */
+    public final net.cmcpvp.build.ProArenaDesign.Theme pro;
     public final String display;
     public final Material icon;
     public final Biome biome;
@@ -122,6 +141,7 @@ public enum ArenaTheme {
 
     private ArenaTheme(net.cmcpvp.build.CourtArenaDesign.Style court, Material icon, Biome biome) {
         this.court = court;
+        this.pro = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -135,8 +155,25 @@ public enum ArenaTheme {
         this.vanilla = null;
     }
 
+    private ArenaTheme(net.cmcpvp.build.ProArenaDesign.Theme pro, String display, Material icon, Biome biome) {
+        this.pro = pro;
+        this.court = null;
+        this.colosseum = null;
+        this.open = null;
+        this.show = null;
+        this.duel = null;
+        this.sizeScale = 1.0;
+        this.display = display;
+        this.icon = icon;
+        this.biome = biome;
+        this.amplitude = 0.0;
+        this.mountains = 0;
+        this.vanilla = null;
+    }
+
     private ArenaTheme(net.cmcpvp.build.DuelArenaDesign.Style duel, Material icon, Biome biome) {
         this.court = null;
+        this.pro = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -152,6 +189,7 @@ public enum ArenaTheme {
 
     private ArenaTheme(net.cmcpvp.build.ShowArenaDesign.Style show, Material icon, Biome biome) {
         this.court = null;
+        this.pro = null;
         this.colosseum = null;
         this.open = null;
         this.show = show;
@@ -167,6 +205,7 @@ public enum ArenaTheme {
 
     private ArenaTheme(OpenArenaDesign.Style open, Material icon) {
         this.court = null;
+        this.pro = null;
         this.colosseum = null;
         this.open = open;
         this.show = null;
@@ -182,6 +221,7 @@ public enum ArenaTheme {
 
     private ArenaTheme(String display, Material icon, Biome biome, double amplitude, int mountains, VanillaTerrain.Spec vanilla) {
         this.court = null;
+        this.pro = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -197,6 +237,7 @@ public enum ArenaTheme {
 
     private ArenaTheme(ColosseumDesign.Style style, Material icon, Biome biome) {
         this.court = null;
+        this.pro = null;
         this.sizeScale = 1.0;
         this.colosseum = style;
         this.open = null;
@@ -212,6 +253,7 @@ public enum ArenaTheme {
 
     private ArenaTheme(String display, Material icon, Biome biome, double amplitude, int mountains, double sizeScale) {
         this.court = null;
+        this.pro = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;

@@ -17,7 +17,7 @@ DST = os.path.join(ROOT, 'cmcpvp')
 NAME = 'C MCPvP'
 FEED = 'https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json'
 # C MCPvP has its own version line (1.0.0 = launch); bump it for every C MCPvP release
-EDITION_VERSION = '1.0.5'
+EDITION_VERSION = '1.0.6'
 PERM = re.compile(r'(?<![\w.])practice\.(?=[a-z])')
 
 
