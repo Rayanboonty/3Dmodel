@@ -394,9 +394,36 @@ public final class HubFun implements Listener {
         }
     }
 
+    /**
+     * Uses a course that is part of a spawn build (The Fracture's Parkour Spire, 3.15.0) as the hub parkour: the lime
+     * block starts the timer, gold blocks are checkpoints, diamond finishes. Its blocks belong to the build, so
+     * removing or rebuilding the parkour later never deletes them.
+     */
+    public void adoptCourse(World w, Location start, List<Location> blocks) {
+        this.removeParkour();
+        List<String> keys = new ArrayList<>();
+        for (Location l : blocks) {
+            keys.add(l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
+        }
+
+        YamlConfiguration y = this.pk();
+        y.set("world", w.getName());
+        y.set("start", start.getBlockX() + "," + (start.getBlockY() + 1) + "," + start.getBlockZ());
+        y.set("start-y", start.getBlockY());
+        y.set("blocks", keys);
+        y.set("adopted", true);
+        this.plus.store().dirty("parkour");
+    }
+
     public void removeParkour() {
         YamlConfiguration y = this.pk();
         World w = Bukkit.getWorld(y.getString("world", ""));
+        if (y.getBoolean("adopted")) {
+            // the course of a spawn build: forget it, keep its blocks
+            w = null;
+            y.set("adopted", null);
+        }
+
         if (w != null) {
             for (String s : y.getStringList("blocks")) {
                 String[] p = s.split(",");
@@ -459,7 +486,7 @@ public final class HubFun implements Listener {
             this.parkourStart.remove(u);
             this.parkourCheckpoint.remove(u);
             this.finishParkour(p, ms);
-        } else if (e.getTo().getY() < this.pk().getInt("start-y") - 6) {
+        } else if (e.getTo().getY() < Math.min(this.pk().getInt("start-y"), this.cpY(u)) - 6) {
             Location cp = this.parkourCheckpoint.get(u);
             if (cp != null) {
                 Tasks.sync(() -> Tp.to(p, cp));
@@ -469,6 +496,12 @@ public final class HubFun implements Listener {
         if (started != null && this.parkourStart.containsKey(u)) {
             p.sendActionBar(Text.mm("<white>⏱ " + time(System.currentTimeMillis() - started)));
         }
+    }
+
+    /** The height of a runner's last checkpoint (a fall well below it sends them back there). */
+    private int cpY(UUID u) {
+        Location cp = this.parkourCheckpoint.get(u);
+        return cp == null ? Integer.MAX_VALUE : cp.getBlockY();
     }
 
     private boolean isCourse(Block b) {

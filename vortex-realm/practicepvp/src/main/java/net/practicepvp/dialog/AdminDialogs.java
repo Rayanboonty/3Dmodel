@@ -1110,6 +1110,7 @@ public final class AdminDialogs {
                 case COLOSSEUM_CITY -> "Colosseum City - 500 blocks, for practice";
                 case SKY_EMPIRE -> "Sky Empire - 500 blocks";
                 case CLUB_SPAWN -> "Club Spawn - the MCPVP.CLUB spawn map (by Xter/SFFredd): plaza, town, river and forest";
+                case FRACTURE -> "The Fracture - a 350-block floating island split by a glowing chasm and joined by three bridges: Crown Plaza with 8 domed pavilions, Hall of Champions, FFA Colosseum, Kit Forge, Cosmetic Spire, training yard, parkour spire, tournament stage, ponds, waterfalls and snowy peaks";
                 case VORTEX_ISLES -> "Vortex Isles - a floating island hub with the Vortex Spire, 8 gamemode shrines, hills, trees and a waterfall (pro-style)";
                 case JUNGLE -> "Jungle Temple";
                 case COLOSSEUM -> "Colosseum lobby - a round arena plaza";
@@ -1125,6 +1126,7 @@ public final class AdminDialogs {
             case ARCHIPELAGO, SKY_EMPIRE -> Material.FEATHER;
             case VORTEX_ISLES -> Material.AMETHYST_CLUSTER;
             case CLUB_SPAWN -> Material.EMERALD_BLOCK;
+            case FRACTURE -> Material.CRYING_OBSIDIAN;
             case NEON -> Material.GLOW_INK_SAC;
             case KEEP, CASTLE_MARKET -> Material.STONE_BRICKS;
             case TOWN_SQUARE, PRACTICE_TOWN -> Material.BELL;
@@ -1144,8 +1146,16 @@ public final class AdminDialogs {
     private void buildPrompt(Player p) {
         List<LobbyDialogs.Tile> tiles = new ArrayList<>();
         List<SpawnBuilder.Style> order = new ArrayList<>(List.of(SpawnBuilder.Style.values()));
-        order.remove(SpawnBuilder.Style.ROYAL_CASTLE);
-        order.add(0, SpawnBuilder.Style.ROYAL_CASTLE);
+        SpawnBuilder.Style featured = net.practicepvp.Edition.PRACTICE_ONLY ? SpawnBuilder.Style.FRACTURE : SpawnBuilder.Style.ROYAL_CASTLE;
+        order.remove(featured);
+        order.add(0, featured);
+        if (net.practicepvp.Edition.PRACTICE_ONLY) {
+            // no SMP / selector plazas in the practice-only build (the old club map stays a choice, after The Fracture)
+            order.remove(SpawnBuilder.Style.CLUB_SPAWN);
+            order.add(1, SpawnBuilder.Style.CLUB_SPAWN);
+            order.removeAll(List.of(SpawnBuilder.Style.SURVIVAL, SpawnBuilder.Style.LIFESTEAL,
+                SpawnBuilder.Style.STRENGTH, SpawnBuilder.Style.ECO, SpawnBuilder.Style.HUB));
+        }
 
         for (SpawnBuilder.Style s : order) {
             String info = styleInfo(s);
@@ -1165,7 +1175,7 @@ public final class AdminDialogs {
             tiles.add(
                 new LobbyDialogs.Tile(
                     new ItemStack(styleIcon(s)),
-                    Text.mm((s == SpawnBuilder.Style.ROYAL_CASTLE ? "<yellow>★ " : "") + "<gold><b>" + name),
+                    Text.mm((s == featured ? "<yellow>★ " : "") + "<gold><b>" + name),
                     Text.mm("<gray>Radius " + s.radius + (s.big() ? "" : " <dark_gray>• small plaza")),
                     hover,
                     () -> this.buildStyle(p, s)

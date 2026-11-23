@@ -196,7 +196,8 @@ public final class ArenaGenerator {
             floorY = minFloorY() + depth;
         }
 
-        int half = Math.max(64, (size - 1) / 2);
+        // the build plus its landscape (3.15.0), kept inside the arena's 512-block slot
+        int half = Math.max(64, (size - 1) / 2) + net.practicepvp.build.CourtArenaDesign.outskirts(size);
         int cx = ox + half;
         int cz = oz + half;
         net.practicepvp.build.CourtArenaDesign d = new net.practicepvp.build.CourtArenaDesign(theme.court, size, seed, cx, floorY, cz, depth, ffa, true);

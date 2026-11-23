@@ -58,17 +58,30 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
     private final double a;
     private final double b;
 
+    /** Extra landscape round the build (3.15.0): mountains, forests and set pieces out to the island's edge. */
+    public static final int OUTSKIRTS = 56;
+
+    /** How many blocks of landscape fit round a court arena of this size inside its 512-block slot. */
+    public static int outskirts(int size) {
+        int r0 = Math.max(64, (size - 1) / 2);
+        return Math.max(0, Math.min(OUTSKIRTS, 255 - r0));
+    }
+
+    /** The radius of the build itself (the old footprint); the landscape reaches out from here to R. */
+    private final int inner;
+
     public CourtArenaDesign(Style style, int size, long seed, int cx, int floorY, int cz, int depth, boolean ffa, boolean barriers) {
-        super(cx, floorY, cz, Math.max(64, (size - 1) / 2), -depth, 84, seed);
+        super(cx, floorY, cz, Math.max(64, (size - 1) / 2) + outskirts(size), -depth, 112, seed);
+        this.inner = Math.max(64, (size - 1) / 2);
         this.style = style;
         this.seed = seed;
         this.depth = depth;
         this.ffa = ffa;
         Layout l = style.layout;
         this.rect = l == Layout.CASTLE || l == Layout.PALACE || l == Layout.GOTHIC || l == Layout.TEMPLE || l == Layout.TOMB;
-        this.hx = (int)Math.round(Math.max(28.0, Math.min(72.0, this.R * 0.5)));
+        this.hx = (int)Math.round(Math.max(28.0, Math.min(72.0, this.inner * 0.5)));
         this.hz = (int)Math.round(this.hx * 0.7);
-        this.a = Math.max(28.0, Math.min(70.0, this.R * 0.53));
+        this.a = Math.max(28.0, Math.min(70.0, this.inner * 0.53));
         this.b = Math.round(this.a * 0.78);
         this.base();
         switch (l) {
@@ -84,6 +97,7 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
             case TOMB -> this.tomb();
         }
 
+        this.outskirts();
         this.barrierRing();
         this.finish();
     }
@@ -491,6 +505,731 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // ================================================================== OUTSKIRTS (3.15.0)
+
+    /**
+     * The landscape of a style round its build: top and under blocks, the height of its peaks, its trees (0 oak and
+     * birch, 1 snowy spruce, 2 palms, 3 cherry, 4 dead, 5 dark oak, 6 jungle, 7 oak and cypress, 8 spruce), flat-topped
+     * mesas or not, and where snow starts.
+     */
+    private record Land(String top, String under, int peak, int trees, boolean mesa, int snowLine) {
+    }
+
+    private Land land() {
+        return switch (this.style) {
+            case ROYAL_COURTYARD -> new Land("grass_block", "dirt", 70, 0, false, 52);
+            case FROSTHOLD -> new Land("snow_block", "dirt", 76, 1, false, 0);
+            case SULTAN_PALACE -> new Land("sand", "sandstone", 48, 2, true, 999);
+            case TITAN_COLOSSEUM -> new Land("grass_block", "dirt", 60, 7, false, 999);
+            case HIGHLAND_PLAZA -> new Land("grass_block", "dirt", 78, 8, false, 54);
+            case SAKURA_TERRACE -> new Land("grass_block", "dirt", 72, 3, false, 62);
+            case EMBER_SANDS -> new Land("red_sand", "red_sandstone", 58, 4, true, 999);
+            case GOTHIC_HARBOR -> new Land("grass_block", "dirt", 64, 5, false, 999);
+            case TROPICAL_BEACH -> new Land("grass_block", "dirt", 54, 2, false, 999);
+            case JUNGLE_TEMPLE -> new Land("grass_block", "dirt", 70, 6, false, 999);
+            case VOLCANO_FORGE -> new Land("blackstone", "basalt[axis=y]", 74, 4, false, 999);
+            case PIRATE_COVE -> new Land("grass_block", "dirt", 58, 2, false, 999);
+            case PHARAOH_TOMB -> new Land("sand", "sandstone", 44, 2, true, 999);
+        };
+    }
+
+    private static double ease(double t) {
+        t = Math.max(0.0, Math.min(1.0, t));
+        return t * t * (3.0 - 2.0 * t);
+    }
+
+    /** A rounded-square distance: the landscape follows the square footprint with soft corners. */
+    private static double sq(double x, double z) {
+        return Math.pow(Math.pow(Math.abs(x), 6.0) + Math.pow(Math.abs(z), 6.0), 1.0 / 6.0);
+    }
+
+    /** Layered rock for the mountains of each style. */
+    private String outRock(int x, int y, int z) {
+        double w = noise(this.seed + 611L, x * 1.4, z * 1.4) * 4.0;
+        int band = Math.floorMod((int)Math.floor((y + w) / 3.0), 6);
+        double r = hash3(this.seed + 613L, x, y, z);
+        return switch (this.style) {
+            case SULTAN_PALACE, PHARAOH_TOMB -> band == 2 ? "smooth_sandstone" : (band == 4 ? "cut_sandstone" : (r < 0.1 ? "smooth_sandstone" : "sandstone"));
+            case EMBER_SANDS -> new String[]{"terracotta", "orange_terracotta", "red_terracotta", "yellow_terracotta", "white_terracotta", "brown_terracotta"}[band];
+            case VOLCANO_FORGE -> band % 3 == 0 ? "blackstone" : (r < 0.3 ? "smooth_basalt" : "basalt[axis=y]");
+            case FROSTHOLD -> band == 3 ? "packed_ice" : (r < 0.2 ? "andesite" : "stone");
+            case JUNGLE_TEMPLE, TROPICAL_BEACH -> r < 0.25 ? "mossy_cobblestone" : (band == 2 ? "andesite" : "stone");
+            case SAKURA_TERRACE -> band == 1 ? "calcite" : (r < 0.2 ? "andesite" : "stone");
+            default -> band == 1 ? "andesite" : (band == 4 ? "tuff" : (r < 0.08 ? "cobblestone" : "stone"));
+        };
+    }
+
+    /** Clearings in the landscape for the set pieces: {x, z, radius}; 0 and 1 off the long sides, 2-5 off the corners. */
+    private int[][] pads = new int[0][];
+
+    private double padDist(int x, int z) {
+        double best = 1.0E9;
+        for (int[] p : this.pads) {
+            best = Math.min(best, Math.hypot(x - p[0], z - p[1]) - p[2]);
+        }
+
+        return best;
+    }
+
+    /**
+     * The landscape round the build (3.15.0): mountains (or mesas, dunes, volcanic peaks) rising out to a floating
+     * island's edge with an eroded underside, forests of the style's trees, clearings with set pieces (villages,
+     * watchtowers, windmills, tents, temples, pyramids...) and small islands floating in the sky. Nothing changes on or
+     * round the fighting floor: all of it is behind the build.
+     */
+    private void outskirts() {
+        int out = this.R - this.inner;
+        if (out < 12) {
+            return;
+        }
+
+        Land land = this.land();
+        boolean flat = this.style.layout != Layout.PLAZA && this.style.layout != Layout.COVE;
+        if (flat) {
+            int d = this.inner + 20;
+            int c = this.inner + 12;
+            this.pads = new int[][]{{0, -d, 11}, {0, d, 11}, {-c, -c, 10}, {c, -c, 10}, {-c, c, 10}, {c, c, 10}};
+        }
+
+        int n = 2 * this.R + 1;
+        int skip = Integer.MIN_VALUE;
+        int none = Integer.MIN_VALUE + 1;
+        int[][] hm = new int[n][n];
+        double[][] edges = new double[n][n];
+        double from = this.inner - 6;
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                double q = sq(x, z);
+                if (q < from) {
+                    hm[x + this.R][z + this.R] = skip;
+                    continue;
+                }
+
+                double ang = Math.atan2(z, x);
+                double edge = this.R - 3 - noise(this.seed + 601L, Math.cos(ang) * 24.0, Math.sin(ang) * 24.0) * 16.0;
+                edges[x + this.R][z + this.R] = edge;
+                if (q > edge) {
+                    hm[x + this.R][z + this.R] = none;
+                    continue;
+                }
+
+                double t = ease((q - from) / (out * 0.62));
+                double ridge = 1.0 - Math.abs(noise(this.seed + 603L, x * 0.9, z * 0.9) * 2.0 - 1.0);
+                double m = t * (land.peak() * 0.85 * (0.4 + 0.6 * ridge) + noise(this.seed + 605L, x * 2.5, z * 2.5) * 7.0);
+                if (land.mesa()) {
+                    m = Math.floor((m + noise(this.seed + 607L, x * 1.2, z * 1.2) * 3.0) / 6.0) * 6.0;
+                }
+
+                m *= 1.0 - 0.8 * ease((q - (edge - 20.0)) / 20.0);
+                m -= Math.max(0.0, q - (edge - 3.0)) * 3.0;
+                if (flat) {
+                    double pd = this.padDist(x, z);
+                    if (pd <= 0.0) {
+                        m = 0.0;
+                    } else if (pd < 9.0) {
+                        m *= ease(pd / 9.0);
+                    }
+                } else if (this.heights != null) {
+                    // the cliffs of a plaza or a cove go on into the mountains
+                    int bx = Math.max(-this.inner, Math.min(this.inner, x));
+                    int bz = Math.max(-this.inner, Math.min(this.inner, z));
+                    double plateau = this.heights[bx + this.R][bz + this.R];
+                    m = Math.max(m + plateau * 0.6, plateau * (1.0 - 0.5 * ease((q - this.inner) / 30.0)));
+                    m -= Math.max(0.0, q - (edge - 3.0)) * 3.0;
+                }
+
+                hm[x + this.R][z + this.R] = Math.max(0, Math.min(this.yHi - 16, (int)Math.round(m)));
+            }
+        }
+
+        // the ground, column by column
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                int h = hm[x + this.R][z + this.R];
+                if (h == skip) {
+                    continue;
+                }
+
+                if (h == none) {
+                    for (int y = this.yLo; y <= this.yHi; y++) {
+                        this.set(x, y, z, null);
+                    }
+
+                    continue;
+                }
+
+                double q = sq(x, z);
+                if (q <= this.inner) {
+                    // still inside the old footprint: only raise the ground, never cut the build
+                    String g = this.get(x, h, z);
+                    if (h <= 3 || g != null) {
+                        continue;
+                    }
+                }
+
+                for (int y = 1; y <= this.yHi; y++) {
+                    this.set(x, y, z, null);
+                }
+
+                int drop = 0;
+                for (int[] o : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                    int ix = x + o[0] + this.R;
+                    int iz = z + o[1] + this.R;
+                    if (ix >= 0 && iz >= 0 && ix < n && iz < n && hm[ix][iz] >= 0) {
+                        drop = Math.max(drop, h - hm[ix][iz]);
+                    }
+                }
+
+                boolean snowy = h >= land.snowLine();
+                for (int y = 0; y <= h; y++) {
+                    String b;
+                    if (y == h) {
+                        b = snowy && drop < 5 ? "snow_block" : (drop >= 5 ? this.outRock(x, y, z) : land.top());
+                    } else if (h - y <= 2 && drop < 5) {
+                        b = snowy ? "snow_block" : land.under();
+                    } else {
+                        b = this.outRock(x, y, z);
+                    }
+
+                    this.set(x, y, z, b);
+                }
+
+                if (snowy && drop < 3 && hash3(this.seed + 615L, x, h, z) < 0.4) {
+                    this.set(x, h + 1, z, "snow[layers=" + (1 + (int)(hash3(this.seed + 617L, x, h, z) * 3)) + "]");
+                }
+
+                // the underside gets shallower toward the edge, with spikes hanging under it
+                double edge = edges[x + this.R][z + this.R];
+                double rim = ease((q - (edge - 22.0)) / 22.0);
+                int bottom = (int)Math.round(4 + (1.0 - rim) * (this.depth - 4) + Math.pow(noise(this.seed + 609L, x * 2.4, z * 2.4), 3.0) * 10.0 * (1.0 - rim));
+                bottom = Math.max(3, Math.min(this.depth, bottom));
+                for (int y = -this.depth; y < -bottom; y++) {
+                    this.set(x, y, z, null);
+                }
+
+                if ("bedrock".equals(this.get(x, -bottom, z))) {
+                    this.set(x, -bottom, z, "deepslate");
+                }
+
+                for (int y = -bottom; y < 0; y++) {
+                    if (this.empty(x, y, z)) {
+                        this.set(x, y, z, this.outRock(x, y, z));
+                    }
+                }
+            }
+        }
+
+        java.util.Random rr = new java.util.Random(this.seed ^ 0x0575L);
+        // forests, rocks, flowers
+        for (int gx = -this.R; gx <= this.R; gx += 5) {
+            for (int gz = -this.R; gz <= this.R; gz += 5) {
+                int x = gx + rr.nextInt(5) - 2;
+                int z = gz + rr.nextInt(5) - 2;
+                double roll = rr.nextDouble();
+                double kind = rr.nextDouble();
+                int size = rr.nextInt(6);
+                if (x < -this.R || x > this.R || z < -this.R || z > this.R || sq(x, z) <= this.inner + 2) {
+                    continue;
+                }
+
+                int h = hm[x + this.R][z + this.R];
+                if (h < 0 || flat && this.padDist(x, z) < 2.0 || !this.empty(x, h + 1, z)) {
+                    continue;
+                }
+
+                String top = this.get(x, h, z);
+                if (top == null || !(top.equals(land.top()) || top.equals("snow_block"))) {
+                    continue;
+                }
+
+                double forest = noise(this.seed + 621L, x * 0.8, z * 0.8);
+                double density = 0.35 + 0.55 * ease((forest - 0.38) / 0.25);
+                if (land.trees() == 2 || land.trees() == 4) {
+                    density *= 0.45;
+                }
+
+                if (roll < density) {
+                    this.outTree(land.trees(), x, h + 1, z, size, kind, h >= land.snowLine());
+                } else if (roll > 0.94) {
+                    this.blob(x, h + 1, z, 1.3 + kind, this.outRock(x, h, z));
+                }
+            }
+        }
+
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                int h = hm[x + this.R][z + this.R];
+                if (h < 0 || sq(x, z) <= this.inner || !"grass_block".equals(this.get(x, h, z)) || !this.empty(x, h + 1, z)) {
+                    continue;
+                }
+
+                double v = hash3(this.seed + 623L, x, h, z);
+                if (v < 0.14) {
+                    this.set(x, h + 1, z, "short_grass");
+                } else if (v < 0.17) {
+                    String[] fl = this.style == Style.SAKURA_TERRACE ? new String[]{"pink_tulip", "allium", "lily_of_the_valley"}
+                        : new String[]{"poppy", "dandelion", "cornflower", "oxeye_daisy", "azure_bluet"};
+                    this.set(x, h + 1, z, fl[(int)(hash3(this.seed + 625L, x, h, z) * fl.length)]);
+                } else if (v < 0.18 && this.style == Style.SAKURA_TERRACE) {
+                    this.set(x, h + 1, z, "pink_petals[flower_amount=3,facing=north]");
+                }
+            }
+        }
+
+        if (flat) {
+            this.padPieces();
+        }
+
+        this.skyIslets(land, rr);
+    }
+
+    private void outTree(int k, int x, int y, int z, int size, double kind, boolean snowy) {
+        if (snowy && k != 2 && k != 4) {
+            this.spruce(x, y, z, 7 + size, true);
+            return;
+        }
+
+        switch (k) {
+            case 0 -> this.broadleaf(x, y, z, kind < 0.3 ? "birch_log" : "oak_log", kind < 0.3 ? "birch" : "oak", 4 + size % 3, 2.6 + size * 0.15);
+            case 1 -> this.spruce(x, y, z, 7 + size, true);
+            case 2 -> this.palmTree(x, y, z);
+            case 3 -> {
+                if (kind < 0.7) {
+                    this.cherryTree(x, y, z);
+                } else {
+                    this.broadleaf(x, y, z, "oak_log", "flowering_azalea", 3, 2.4);
+                }
+            }
+            case 4 -> this.deadTree(x, y, z, kind < 0.5 ? "dark_oak_log" : "oak_log", 5 + size);
+            case 5 -> this.broadleaf(x, y, z, "dark_oak_log", "dark_oak", 4 + size % 2, 3.0 + size * 0.1);
+            case 6 -> {
+                if (kind < 0.18) {
+                    this.jungleGiant(x, y, z, 16 + size * 2);
+                } else {
+                    this.broadleaf(x, y, z, "jungle_log", "jungle", 5 + size % 3, 3.2);
+                }
+            }
+            case 7 -> {
+                if (kind < 0.45) {
+                    this.conifer(x, y, z, "spruce_log", "spruce", 9 + size);
+                } else {
+                    this.broadleaf(x, y, z, "oak_log", "oak", 3 + size % 2, 2.4);
+                }
+            }
+            default -> this.spruce(x, y, z, 7 + size, false);
+        }
+    }
+
+    /** The set pieces in the clearings, by layout. */
+    private void padPieces() {
+        int[][] p = this.pads;
+        switch (this.style.layout) {
+            case CASTLE -> {
+                boolean fr = this.frost();
+                String roofStair = fr ? "spruce" : "dark_oak";
+                String roofBody = fr ? "spruce_planks" : "dark_oak_planks";
+                this.cottage(p[0][0], p[0][1], fr ? "spruce_planks" : "calcite", "stripped_dark_oak_log", roofStair, roofBody);
+                this.cottage(p[1][0], p[1][1], fr ? "spruce_planks" : "calcite", "stripped_dark_oak_log", roofStair, roofBody);
+                this.roundTower(p[2][0], p[2][1], 3.5, 20, 1);
+                this.roundTower(p[5][0], p[5][1], 3.5, 20, 1);
+                if (fr) {
+                    this.iceSpikes(p[3][0], p[3][1]);
+                    this.iceSpikes(p[4][0], p[4][1]);
+                } else {
+                    this.windmill(p[3][0], p[3][1]);
+                    this.cottage(p[4][0], p[4][1], "calcite", "stripped_dark_oak_log", roofStair, roofBody);
+                }
+            }
+            case PALACE -> {
+                this.tents(p[0][0], p[0][1], "red", "white");
+                this.tents(p[1][0], p[1][1], "orange", "white");
+                this.domePavilion(p[2][0], p[2][1], 4, 9, 3.5);
+                this.domePavilion(p[5][0], p[5][1], 4, 9, 3.5);
+                this.obelisk(p[3][0], 1, p[3][1], 12);
+                this.obelisk(p[4][0], 1, p[4][1], 12);
+            }
+            case COLOSSEUM -> {
+                this.templeRuin(p[0][0], p[0][1], false);
+                this.templeRuin(p[1][0], p[1][1], false);
+                this.tents(p[2][0], p[2][1], "red", "white");
+                this.tents(p[5][0], p[5][1], "red", "white");
+                this.obelisk(p[3][0], 1, p[3][1], 11);
+                this.obelisk(p[4][0], 1, p[4][1], 11);
+            }
+            case GOTHIC -> {
+                this.castlePalette();
+                this.roofMat = this.mixOf(105L, "deepslate_tiles", "cobbled_deepslate", 0.2, "polished_deepslate", 0.1);
+                this.cottage(p[0][0], p[0][1], "spruce_planks", "dark_oak_log", "deepslate_tile", "deepslate_tiles");
+                this.cottage(p[1][0], p[1][1], "spruce_planks", "dark_oak_log", "deepslate_tile", "deepslate_tiles");
+                this.graveyard(p[2][0], p[2][1]);
+                this.graveyard(p[5][0], p[5][1]);
+                this.roundTower(p[3][0], p[3][1], 3.5, 22, 1);
+                this.roundTower(p[4][0], p[4][1], 3.5, 22, 1);
+            }
+            case BEACH -> {
+                this.stiltHut(p[0][0], 0, p[0][1], 3, 3, p[0][1] > 0 ? "north" : "south");
+                this.stiltHut(p[1][0], 0, p[1][1], 3, 3, p[1][1] > 0 ? "north" : "south");
+                for (int i = 2; i < 6; i++) {
+                    this.beachCamp(p[i][0], p[i][1]);
+                }
+            }
+            case TEMPLE -> {
+                this.ruins(p[0][0], p[0][1], "mossy_stone_bricks", "cracked_stone_bricks");
+                this.ruins(p[1][0], p[1][1], "mossy_stone_bricks", "cracked_stone_bricks");
+                this.jungleGiant(p[2][0], 1, p[2][1], 22);
+                this.jungleGiant(p[5][0], 1, p[5][1], 22);
+                this.ruins(p[3][0], p[3][1], "mossy_cobblestone", "mossy_stone_bricks");
+                this.ruins(p[4][0], p[4][1], "mossy_cobblestone", "mossy_stone_bricks");
+            }
+            case VOLCANO -> {
+                for (int i = 0; i < 6; i++) {
+                    if (i == 2 || i == 5) {
+                        this.ruins(p[i][0], p[i][1], "polished_blackstone_bricks", "cracked_polished_blackstone_bricks");
+                    } else {
+                        this.spires(p[i][0], p[i][1]);
+                    }
+                }
+            }
+            case TOMB -> {
+                this.tents(p[0][0], p[0][1], "white", "yellow");
+                this.tents(p[1][0], p[1][1], "white", "orange");
+                this.smallPyramid(p[2][0], p[2][1], 9);
+                this.smallPyramid(p[5][0], p[5][1], 9);
+                this.obelisk(p[3][0], 1, p[3][1], 12);
+                this.obelisk(p[4][0], 1, p[4][1], 12);
+            }
+            default -> {
+            }
+        }
+    }
+
+    /** A cottage: a stone footing, timber frame and walls, windows, a door toward the arena, a gable roof, a chimney. */
+    private void cottage(int x, int z, String wall, String frame, String roofStair, String roofBody) {
+        boolean alongX = Math.abs(x) < Math.abs(z);
+        int hw = alongX ? 4 : 3;
+        int hd = alongX ? 3 : 4;
+        for (int dx = -hw - 1; dx <= hw + 1; dx++) {
+            for (int dz = -hd - 1; dz <= hd + 1; dz++) {
+                this.set(x + dx, 0, z + dz, hash3(this.seed + 631L, x + dx, 0, z + dz) < 0.5 ? "coarse_dirt" : "gravel");
+            }
+        }
+
+        for (int dx = -hw; dx <= hw; dx++) {
+            for (int dz = -hd; dz <= hd; dz++) {
+                boolean edge = Math.abs(dx) == hw || Math.abs(dz) == hd;
+                boolean corner = Math.abs(dx) == hw && Math.abs(dz) == hd;
+                this.set(x + dx, 1, z + dz, edge ? "cobblestone" : "spruce_planks");
+                for (int y = 2; y <= 5; y++) {
+                    if (!edge) {
+                        this.set(x + dx, y, z + dz, null);
+                        continue;
+                    }
+
+                    boolean window = !corner && y >= 3 && y <= 4 && (Math.abs(dz) == hd ? Math.floorMod(dx, 3) == 1 : Math.floorMod(dz, 3) == 1);
+                    String b = corner ? frame + "[axis=y]" : (y == 5 ? frame + "[axis=" + (Math.abs(dz) == hd ? "x" : "z") + "]" : wall);
+                    this.set(x + dx, y, z + dz, window ? "glass_pane" : b);
+                }
+            }
+        }
+
+        int ddx = alongX ? 0 : (x > 0 ? -hw : hw);
+        int ddz = alongX ? (z > 0 ? -hd : hd) : 0;
+        this.set(x + ddx, 2, z + ddz, null);
+        this.set(x + ddx, 3, z + ddz, null);
+        this.set(x + ddx + Integer.signum(ddx), 1, z + ddz + Integer.signum(ddz), "cobblestone_slab[type=bottom]");
+        this.set(x + ddx + (alongX ? 1 : Integer.signum(ddx)), 3, z + ddz + (alongX ? Integer.signum(ddz) : 1), "lantern[hanging=false]");
+        this.gableRoof(x - hw - 1, z - hd - 1, x + hw + 1, z + hd + 1, 6, alongX, roofStair, of(roofBody), of(wall));
+        int chx = x + (alongX ? hw - 1 : 0);
+        int chz = z + (alongX ? 0 : hd - 1);
+        for (int y = 2; y <= 12; y++) {
+            this.set(chx, y, chz, y > 9 ? "bricks" : (y > 5 ? "bricks" : this.get(chx, y, chz) == null ? null : "bricks"));
+        }
+
+        this.set(chx, 13, chz, "brick_wall");
+        this.crates2(x + (alongX ? -hw - 2 : 0), z + (alongX ? 0 : -hd - 2));
+    }
+
+    private void crates2(int x, int z) {
+        this.set(x, 1, z, "barrel[facing=up]");
+        this.set(x + 1, 1, z, "hay_block[axis=y]");
+        this.set(x, 2, z, "spruce_slab[type=bottom]");
+    }
+
+    /** A stone windmill with a wooden cap and four sails turned toward the arena. */
+    private void windmill(int x, int z) {
+        Mat st = this.mixOf(633L, "stone_bricks", "cobblestone", 0.3, "mossy_stone_bricks", 0.12);
+        this.cyl(x, z, 3.4, 1, 13, st);
+        this.cyl(x, z, 2.4, 2, 12, of("air"));
+        for (int y = 2; y <= 12; y++) {
+            for (int dx = -3; dx <= 3; dx++) {
+                for (int dz = -3; dz <= 3; dz++) {
+                    if ("air".equals(this.get(x + dx, y, z + dz))) {
+                        this.set(x + dx, y, z + dz, null);
+                    }
+                }
+            }
+        }
+
+        this.coneRoof(x, z, 4.0, 14, 6, of("spruce_planks"));
+        boolean alongX = Math.abs(x) >= Math.abs(z);
+        int f = alongX ? (x > 0 ? -1 : 1) : (z > 0 ? -1 : 1);
+        int hx2 = x + (alongX ? f * 4 : 0);
+        int hz2 = z + (alongX ? 0 : f * 4);
+        int hy = 12;
+        this.set(hx2, hy, hz2, "dark_oak_planks");
+        int[][] arms = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
+        for (int[] a : arms) {
+            for (int k = 1; k <= 7; k++) {
+                int u = a[0] * k;
+                int v = a[1] * k;
+                int sx = alongX ? hx2 : hx2 + u;
+                int sz = alongX ? hz2 + u : hz2;
+                int sy = hy + v;
+                this.set(sx, sy, sz, "spruce_fence");
+                if (k >= 2) {
+                    int px = alongX ? hx2 : hx2 + u + a[1];
+                    int pz = alongX ? hz2 + u + a[1] : hz2;
+                    int py = sy - a[0];
+                    if (this.empty(px, py, pz) && py > 1) {
+                        this.set(px, py, pz, "white_wool");
+                    }
+                }
+            }
+        }
+    }
+
+    /** A camp: three striped tents round a fire, crates beside it. */
+    private void tents(int x, int z, String c1, String c2) {
+        for (int k = 0; k < 3; k++) {
+            double a = k * 2.094 + 0.5;
+            this.tent(x + (int)Math.round(Math.cos(a) * 5.5), z + (int)Math.round(Math.sin(a) * 5.5), k % 2 == 0 ? c1 : c2, c1.equals("white") ? c2 : "white");
+        }
+
+        this.set(x, 1, z, "campfire[lit=true,signal_fire=false]");
+        this.set(x + 1, 1, z + 1, "barrel[facing=up]");
+        this.set(x - 1, 1, z + 1, "spruce_slab[type=bottom]");
+    }
+
+    private void tent(int x, int z, String c, String stripe) {
+        for (int k = 0; k <= 2; k++) {
+            int hw = 2 - k;
+            for (int dx = -hw; dx <= hw; dx++) {
+                for (int dz = -hw - 1; dz <= hw + 1; dz++) {
+                    boolean shell = Math.abs(dx) == hw || k == 2;
+                    if (shell) {
+                        this.set(x + dx, 1 + k, z + dz, Math.floorMod(dz, 2) == 0 ? c + "_wool" : stripe + "_wool");
+                    }
+                }
+            }
+        }
+
+        this.set(x, 1, z - 3, null);
+        this.set(x, 2, z - 3, null);
+        this.set(x, 4, z, "spruce_fence");
+        this.set(x, 5, z, c + "_banner[rotation=0]");
+    }
+
+    /** A temple ruin on a two-step platform: a ring of columns, some broken, a piece of the roof beam still up. */
+    private void templeRuin(int x, int z, boolean mossy) {
+        String base = mossy ? "mossy_stone_bricks" : "smooth_quartz";
+        for (int dx = -7; dx <= 7; dx++) {
+            for (int dz = -5; dz <= 5; dz++) {
+                this.set(x + dx, 1, z + dz, base);
+                if (Math.abs(dx) <= 6 && Math.abs(dz) <= 4) {
+                    this.set(x + dx, 2, z + dz, hash3(this.seed + 641L, x + dx, 2, z + dz) < 0.15 ? "cracked_stone_bricks" : base);
+                }
+            }
+        }
+
+        for (int dx = -6; dx <= 6; dx += 2) {
+            for (int dz : new int[]{-4, 4}) {
+                boolean intact = dz < 0 && Math.abs(dx) <= 4;
+                int h = intact ? 8 : 1 + (int)(hash3(this.seed + 643L, x + dx, 0, z + dz) * 5);
+                for (int y = 3; y < 3 + h; y++) {
+                    this.set(x + dx, y, z + dz, mossy ? "mossy_stone_bricks" : "quartz_pillar[axis=y]");
+                }
+
+                if (intact) {
+                    this.set(x + dx, 3 + h, z + dz, "chiseled_quartz_block");
+                }
+            }
+        }
+
+        for (int dx = -5; dx <= 5; dx++) {
+            this.set(x + dx, 12, z - 4, "smooth_quartz");
+            this.set(x + dx, 13, z - 4, dx == 0 ? "chiseled_quartz_block" : "quartz_slab[type=bottom]");
+        }
+
+        this.set(x + 3, 3, z + 2, "quartz_pillar[axis=x]");
+        this.set(x + 4, 3, z + 2, "quartz_pillar[axis=x]");
+        this.set(x - 9, 1, z + 3, "quartz_pillar[axis=z]");
+    }
+
+    /** A small graveyard: an iron fence, rows of stones, a dead tree and a lantern. */
+    private void graveyard(int x, int z) {
+        for (int dx = -7; dx <= 7; dx++) {
+            for (int dz = -6; dz <= 6; dz++) {
+                boolean edge = Math.abs(dx) == 7 || Math.abs(dz) == 6;
+                this.set(x + dx, 0, z + dz, hash3(this.seed + 651L, x + dx, 0, z + dz) < 0.4 ? "podzol" : "coarse_dirt");
+                if (edge && !(Math.abs(dx) <= 1 && dz == (z > 0 ? -6 : 6))) {
+                    this.set(x + dx, 1, z + dz, "iron_bars");
+                }
+            }
+        }
+
+        for (int dx = -5; dx <= 5; dx += 2) {
+            for (int dz = -4; dz <= 4; dz += 4) {
+                double r = hash3(this.seed + 653L, x + dx, 0, z + dz);
+                this.set(x + dx, 1, z + dz, r < 0.5 ? "cobblestone_wall" : "mossy_cobblestone_wall");
+                if (r < 0.3) {
+                    this.set(x + dx, 2, z + dz, "stone_button[face=floor,facing=north]");
+                }
+            }
+        }
+
+        this.deadTree(x + 5, 1, z + (z > 0 ? 4 : -4), "dark_oak_log", 6);
+        this.lantern(x - 6, 1, z, "dark_oak_fence", 2, "soul_lantern[hanging=false]");
+    }
+
+    /** A beach camp: an umbrella, palms and a sandcastle on a patch of sand. */
+    private void beachCamp(int x, int z) {
+        for (int dx = -6; dx <= 6; dx++) {
+            for (int dz = -6; dz <= 6; dz++) {
+                if (Math.hypot(dx, dz) <= 6.5) {
+                    this.set(x + dx, 0, z + dz, "sand");
+                }
+            }
+        }
+
+        this.umbrella(x, 1, z, (x > 0) == (z > 0) ? "red" : "yellow");
+        this.palmTree(x + 4, 1, z - 3);
+        this.palmTree(x - 4, 1, z + 3);
+        this.set(x - 2, 1, z - 3, "sandstone");
+        this.set(x - 2, 2, z - 3, "sandstone_wall");
+    }
+
+    /** A ruin: a broken square foundation with walls of different heights and two columns. */
+    private void ruins(int x, int z, String a, String b) {
+        for (int dx = -6; dx <= 6; dx++) {
+            for (int dz = -6; dz <= 6; dz++) {
+                boolean edge = Math.abs(dx) == 6 || Math.abs(dz) == 6;
+                if (!edge) {
+                    if (hash3(this.seed + 661L, x + dx, 0, z + dz) < 0.35) {
+                        this.set(x + dx, 0, z + dz, b);
+                    }
+
+                    continue;
+                }
+
+                int h = (int)(noise(this.seed + 663L, (x + dx) * 4.0, (z + dz) * 4.0) * 7.0) - 1;
+                for (int y = 1; y <= h; y++) {
+                    this.set(x + dx, y, z + dz, hash3(this.seed + 665L, x + dx, y, z + dz) < 0.3 ? b : a);
+                }
+            }
+        }
+
+        for (int[] c : new int[][]{{-3, -3}, {3, 3}}) {
+            int h = 4 + (int)(hash3(this.seed + 667L, x + c[0], 0, z + c[1]) * 6);
+            for (int y = 1; y <= h; y++) {
+                this.set(x + c[0], y, z + c[1], a);
+            }
+        }
+    }
+
+    /** Spikes of packed and blue ice standing out of the snow. */
+    private void iceSpikes(int x, int z) {
+        java.util.Random r = new java.util.Random(this.seed ^ (x * 31L + z));
+        for (int k = 0; k < 4; k++) {
+            int sx = x + r.nextInt(9) - 4;
+            int sz = z + r.nextInt(9) - 4;
+            int h = 8 + r.nextInt(10);
+            for (int y = 1; y <= h; y++) {
+                double rad = 1.8 * (1.0 - (double)y / (h + 1));
+                for (int dx = -2; dx <= 2; dx++) {
+                    for (int dz = -2; dz <= 2; dz++) {
+                        if (Math.hypot(dx, dz) <= rad + 0.3) {
+                            this.set(sx + dx, y, sz + dz, y % 5 == 0 ? "blue_ice" : "packed_ice");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** Volcanic spires: basalt columns narrowing to glowing tips. */
+    private void spires(int x, int z) {
+        java.util.Random r = new java.util.Random(this.seed ^ (x * 37L + z));
+        for (int k = 0; k < 5; k++) {
+            int sx = x + r.nextInt(11) - 5;
+            int sz = z + r.nextInt(11) - 5;
+            int h = 9 + r.nextInt(14);
+            double r0 = 1.6 + r.nextDouble();
+            for (int y = 1; y <= h; y++) {
+                double rad = r0 * (1.0 - (double)y / (h + 2));
+                for (int dx = -3; dx <= 3; dx++) {
+                    for (int dz = -3; dz <= 3; dz++) {
+                        if (Math.hypot(dx, dz) <= rad + 0.3) {
+                            this.set(sx + dx, y, sz + dz, y >= h - 1 ? "magma_block" : (y % 6 == 0 ? "blackstone" : "basalt[axis=y]"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** A stepped sandstone pyramid with a gold cap. */
+    private void smallPyramid(int x, int z, int half) {
+        for (int k = 0; k <= half; k++) {
+            int hw = half - k;
+            for (int dx = -hw; dx <= hw; dx++) {
+                for (int dz = -hw; dz <= hw; dz++) {
+                    this.set(x + dx, 1 + k, z + dz, k == half ? "gold_block" : (hash3(this.seed + 671L, x + dx, k, z + dz) < 0.2 ? "cut_sandstone" : "smooth_sandstone"));
+                }
+            }
+        }
+    }
+
+    /** Small islands floating in the sky round the arena, each with a tree or a rock on top. */
+    private void skyIslets(Land land, java.util.Random rr) {
+        for (int i = 0; i < 8; i++) {
+            double a = Math.toRadians(i * 45 + 10 + rr.nextDouble() * 25);
+            double rad = this.inner + 4 + rr.nextDouble() * 14;
+            int ox = (int)Math.round(Math.cos(a) * rad);
+            int oz = (int)Math.round(Math.sin(a) * rad);
+            int oy = 34 + rr.nextInt(16);
+            double r = 2.5 + rr.nextDouble() * 3.0;
+            boolean tree = rr.nextBoolean();
+            int size = rr.nextInt(6);
+            double kind = rr.nextDouble();
+            int n = (int)Math.ceil(r);
+            for (int dx = -n; dx <= n; dx++) {
+                for (int dz = -n; dz <= n; dz++) {
+                    double d = Math.hypot(dx, dz);
+                    if (d > r) {
+                        continue;
+                    }
+
+                    int depthI = (int)Math.round((r - d) * 1.5) + 1;
+                    for (int k = 0; k <= depthI; k++) {
+                        int x = ox + dx;
+                        int z = oz + dz;
+                        this.set(x, oy - k, z, k == 0 ? (land.snowLine() <= oy ? "snow_block" : land.top()) : (k <= 1 ? land.under() : this.outRock(x, oy - k, z)));
+                    }
+
+                    if (hash3(this.seed + 681L, ox + dx, oy, oz + dz) < 0.1) {
+                        this.set(ox + dx, oy - depthI - 1, oz + dz, "hanging_roots");
+                    }
+                }
+            }
+
+            if (tree) {
+                this.outTree(land.trees(), ox, oy + 1, oz, size % 3, kind, land.snowLine() <= oy);
+            } else {
+                this.blob(ox, oy + 1, oz, 1.4, this.outRock(ox, oy, oz));
             }
         }
     }
@@ -2153,7 +2892,7 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
         int z0 = -(int)Math.round(this.b) - 16;
         int topY = 22;
         Mat st = this.mixOf(441L, "smooth_sandstone", "cut_sandstone", 0.3, "calcite", 0.15);
-        for (int x = -this.R + 4; x <= this.R - 4; x++) {
+        for (int x = -this.inner + 4; x <= this.inner - 4; x++) {
             int local = Math.floorMod(x, 7);
             for (int dz = -1; dz <= 1; dz++) {
                 int z = z0 + dz;
@@ -2173,8 +2912,8 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
             }
         }
 
-        this.set(-this.R + 4, topY + 1, z0, "smooth_sandstone");
-        this.set(this.R - 4, topY + 1, z0, "smooth_sandstone");
+        this.set(-this.inner + 4, topY + 1, z0, "smooth_sandstone");
+        this.set(this.inner - 4, topY + 1, z0, "smooth_sandstone");
     }
 
     // ================================================================== GOTHIC (harbour town)
@@ -3137,7 +3876,7 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
         this.terrain(34);
         // the east end opens onto the beach and the sea, where the ship lies
         int sx = (int)Math.round(this.a + 22);
-        for (int x = (int)Math.round(this.a + 4); x <= this.R; x++) {
+        for (int x = (int)Math.round(this.a + 4); x <= this.inner; x++) {
             for (int z = -22; z <= 22; z++) {
                 double open = Math.abs(z) / 22.0;
                 if (open > 1.0 - (x - this.a - 4) * 0.0 && Math.abs(z) > 20 - (x - this.a) * 0.2) {

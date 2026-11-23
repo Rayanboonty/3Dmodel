@@ -651,6 +651,10 @@ public final class PracticePlugin extends JavaPlugin {
         });
         this.module("SMP elytra wall rescue", () -> pm.registerEvents(new net.practicepvp.smp.ElytraRescue(this), this));
         this.module("SMP portals", () -> pm.registerEvents(new net.practicepvp.smp.SmpPortals(this), this));
+        this.module("lobby extras (launch pads, ambience, spawn parkour)", () -> {
+            this.lobbyFx = new net.practicepvp.lobby.LobbyFx(this);
+            pm.registerEvents(this.lobbyFx, this);
+        });
         this.module("1.8 legacy hall", () -> {
             this.legacyHall = new net.practicepvp.lobby.LegacyHall(this);
             this.bind("legacyhall", this.legacyHall);
@@ -779,6 +783,7 @@ public final class PracticePlugin extends JavaPlugin {
             }
         }
 
+        Tasks.later(40L, () -> Edition.hideUnusedCommands(this));
         Tasks.timer(10L, 4L, this.queues::tick);
         Tasks.timer(20L, 20L, this.matches::tickAll);
         Tasks.timer(5L, 10L, this.boards::tick);
@@ -848,6 +853,11 @@ public final class PracticePlugin extends JavaPlugin {
     }
 
     private void module(String name, Runnable start) {
+        if (!Edition.starts(name)) {
+            // practice-only build (C MCPvP): no SMP, seasons or hub parts
+            return;
+        }
+
         try {
             start.run();
         } catch (Throwable var4) {
@@ -2005,6 +2015,11 @@ public final class PracticePlugin extends JavaPlugin {
 
     private net.practicepvp.combat.LegacyCombat legacyCombat;
     private net.practicepvp.lobby.LegacyHall legacyHall;
+    private net.practicepvp.lobby.LobbyFx lobbyFx;
+
+    public net.practicepvp.lobby.LobbyFx lobbyFx() {
+        return this.lobbyFx;
+    }
     private net.practicepvp.bot.VexBotBridge vexBot;
 
     public net.practicepvp.bot.VexBotBridge vexBot() {

@@ -683,7 +683,8 @@ public final class ModeManager {
     // ------------------------------------------------------------------ the SMP on this server
 
     public static boolean sameServer() {
-        return Cfg.bool(Opt.SMP_SAME_SERVER);
+        // the practice-only build (C MCPvP) never has an SMP
+        return !net.practicepvp.Edition.PRACTICE_ONLY && Cfg.bool(Opt.SMP_SAME_SERVER);
     }
 
     /** True for a world the SMP plays in (any SMP mode, with its nether and end). */
@@ -1435,6 +1436,10 @@ public final class ModeManager {
         if (this.plugin.legacyHall() != null) {
             this.plugin.legacyHall().place(r.features());
         }
+
+        if (this.plugin.lobbyFx() != null) {
+            this.plugin.lobbyFx().install(spawn.getWorld(), r.features());
+        }
         if (style == SpawnBuilder.Style.CASTLE_MARKET && this.plugin.decos() != null && DecoModels.get("crown") != null) {
             // a slowly spinning crown floats over the fountain, like the big items of the MCPVP lobby
             this.plugin.decos().placeAt(new Location(at.getWorld(), at.getBlockX() + 0.5, at.getBlockY() + 10.0, at.getBlockZ() + 0.5), "crown", 0.0F);
@@ -1742,6 +1747,15 @@ public final class ModeManager {
                         Material.ENDER_EYE
                     )
                 );
+                // big lobbies (The Fracture) have a spot for each of these too; smaller ones stop at the eight above
+                plans.add(new Plan(w + "_bots", List.of("<b><gradient:#B8FF8A:#2FB52F:{phase}>BOT PRACTICE</gradient></b>", "<gray>Train against bots", "{blink}▶ Click"), Npc.Action.COMMAND, "bot", Material.ZOMBIE_HEAD));
+                plans.add(new Plan(w + "_events", List.of("<b><gradient:#FFE08A:#FF6A00:{phase}>TOURNAMENTS</gradient></b>", "<gray>Events and brackets", "{blink}▶ Click"), Npc.Action.MENU, "events", Material.GOLDEN_HELMET));
+                plans.add(new Plan(w + "_cosmetics", List.of("<b><gradient:#FF9CF0:#A64DFF:{phase}>COSMETICS</gradient></b>", "<gray>Trims, shields and more", "{blink}▶ Click"), Npc.Action.COMMAND, "cosmetics", Material.AMETHYST_SHARD));
+                plans.add(new Plan(w + "_stats", List.of("<b><gradient:#9AD8FF:#3A7BFF:{phase}>YOUR STATS</gradient></b>", "<gray>Elo, wins and streaks", "{blink}▶ Click"), Npc.Action.MENU, "stats", Material.PAPER));
+                plans.add(new Plan(w + "_welcome", List.of("<b><gradient:#FFFFFF:#FFD54A:{phase}>NEW HERE?</gradient></b>", "<gray>How everything works", "{blink}▶ Click"), Npc.Action.MENU, "welcome", Material.WRITABLE_BOOK));
+                plans.add(new Plan(w + "_parkour", List.of("<b><gradient:#FFB0B0:#FF3B3B:{phase}>PARKOUR SPIRE</gradient></b>", "<gray>Step on the gold plate", "<gray>to start the timer"), Npc.Action.MESSAGE,
+                    "<gold>Parkour Spire: <gray>step on the <yellow>gold plate</yellow> to start, the gold blocks are checkpoints, reach the flag at the top!", Material.FEATHER));
+                plans.add(new Plan(w + "_academy", List.of("<b><gradient:#C8A8FF:#6A3DFF:{phase}>ACADEMY</gradient></b>", "<gray>Lessons for every mode", "{blink}▶ Click"), Npc.Action.COMMAND, "learn", Material.ENCHANTED_BOOK));
                 break;
             default:
                 if (this.hubWorld() != null) {

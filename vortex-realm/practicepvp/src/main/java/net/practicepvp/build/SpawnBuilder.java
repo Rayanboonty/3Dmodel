@@ -23,7 +23,7 @@ import org.bukkit.block.data.type.Stairs;
 public final class SpawnBuilder {
     private static SpawnBuilder.Palette palette(SpawnBuilder.Style s) {
         return switch (s) {
-            case TOWN, DESERT, SAKURA, NETHER, WINTER, CELESTIAL, COLOSSEUM, CITADEL, ARCHIPELAGO, NEON, KEEP, JUNGLE, GRAND_HUB, TOWN_SQUARE, CASTLE_MARKET, PRACTICE_TOWN, ROYAL_CASTLE, COLOSSEUM_CITY, SKY_EMPIRE, VORTEX_ISLES, CLUB_SPAWN, HUB -> new SpawnBuilder.Palette(
+            case TOWN, DESERT, SAKURA, NETHER, WINTER, CELESTIAL, COLOSSEUM, CITADEL, ARCHIPELAGO, NEON, KEEP, JUNGLE, GRAND_HUB, TOWN_SQUARE, CASTLE_MARKET, PRACTICE_TOWN, ROYAL_CASTLE, COLOSSEUM_CITY, SKY_EMPIRE, VORTEX_ISLES, CLUB_SPAWN, FRACTURE, HUB -> new SpawnBuilder.Palette(
                 Material.SMOOTH_STONE,
                 Material.POLISHED_ANDESITE,
                 Material.STONE_BRICKS,
@@ -246,6 +246,7 @@ public final class SpawnBuilder {
             case SKY_EMPIRE -> new SkyEmpireDesign(x, floorY, z, Math.max(200, Math.min(250, radius)), seed);
             case VORTEX_ISLES -> new VortexIslesDesign(x, floorY, z, Math.max(80, Math.min(110, radius)), seed);
             case CLUB_SPAWN -> new ClubSpawnDesign(x, floorY, z, seed);
+            case FRACTURE -> new FractureSpawnDesign(x, floorY, z, 176, seed);
         });
     }
 
@@ -846,6 +847,7 @@ public final class SpawnBuilder {
         SKY_EMPIRE(240, 9, null),
         VORTEX_ISLES(90, 8, null),
         CLUB_SPAWN(176, 8, null),
+        FRACTURE(176, 15, null),
         HUB(40, 9, null),
         PVP(36, 7, null),
         SURVIVAL(14, 2, null),
@@ -882,7 +884,8 @@ public final class SpawnBuilder {
                 || this == PRACTICE_TOWN
                 || this == ROYAL_CASTLE
                 || this == VORTEX_ISLES
-                || this == CLUB_SPAWN;
+                || this == CLUB_SPAWN
+                || this == FRACTURE;
         }
 
         public int minRadius() {
@@ -896,7 +899,7 @@ public final class SpawnBuilder {
                 case ROYAL_CASTLE -> 110;
                 case COLOSSEUM_CITY, SKY_EMPIRE -> 200;
                 case VORTEX_ISLES -> 80;
-                case CLUB_SPAWN -> 176;
+                case CLUB_SPAWN, FRACTURE -> 176;
             };
         }
 
@@ -911,7 +914,7 @@ public final class SpawnBuilder {
                 case ROYAL_CASTLE -> 140;
                 case COLOSSEUM_CITY, SKY_EMPIRE -> 250;
                 case VORTEX_ISLES -> 110;
-                case CLUB_SPAWN -> 176;
+                case CLUB_SPAWN, FRACTURE -> 176;
             };
         }
 

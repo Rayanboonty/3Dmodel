@@ -376,6 +376,8 @@ public final class ArenaPreview {
         c(0xA97DA9, "purpur_block", "purpur_pillar");
         c(0x0F0B19, "obsidian", "crying_obsidian");
         c(0x553A5F, "amethyst_block");
+        c(0x8A62C9, "amethyst_cluster", "budding_amethyst");
+        c(0xF3D27A, "ochre_froglight");
         c(0x63A096, "prismarine");
         c(0x63AB9E, "prismarine_bricks");
         c(0x335B4B, "dark_prismarine");
@@ -393,7 +395,7 @@ public final class ArenaPreview {
         c(0x7BA85E, "waxed_oxidized_copper");
         c(0xE6E9EA, "white_wool");
         c(0xC0D8D8, "glass", "glass_pane");
-        c(0x6A6A6A, "iron_bars", "chain", "anvil");
+        c(0x6A6A6A, "iron_bars", "chain", "iron_chain", "anvil");
         c(0x5D5D5D, "cauldron", "hopper");
         c(0xF5E0B0, "end_rod");
         c(0xB06A4A, "lightning_rod");
