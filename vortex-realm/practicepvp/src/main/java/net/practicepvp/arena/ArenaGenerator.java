@@ -71,7 +71,12 @@ public final class ArenaGenerator {
     }
 
     public static boolean onFloor(ArenaTheme theme, int size, Cuboid bounds, int x, int z) {
-        if (theme != null && theme.colosseum != null && bounds != null && size > 0) {
+        if (theme != null && theme.pro != null && bounds != null && size > 0) {
+            // the pro arenas (3.15.0): only the fighting floor
+            int cx = Math.floorDiv(bounds.minX() + bounds.maxX(), 2);
+            int cz = Math.floorDiv(bounds.minZ() + bounds.maxZ(), 2);
+            return net.practicepvp.build.ProArenaDesign.floorDistance(theme.pro, size, x - cx, z - cz) < -0.5;
+        } else if (theme != null && theme.colosseum != null && bounds != null && size > 0) {
             ColosseumDesign d = FLOOR_SHAPES.computeIfAbsent(
                 theme.name() + ":" + size, k -> new ColosseumDesign(theme.colosseum, size, 0L, 0, 64, 0, 4, true, false)
             );
@@ -221,6 +226,42 @@ public final class ArenaGenerator {
         return new ArenaGenerator.Plan(theme, size, seed, ox, oz, null, d.bottomY(), bounds, s1, s2, center, ffaSpawns, false, false, null, null, d);
     }
 
+    /**
+     * A pro arena (3.15.0): a layered build round a flat floor with its landscape round it, built column by column like
+     * a show arena inside the arena's 512-block slot. Its floor is always closed with barriers. Only the signature arena
+     * carries the server's name.
+     */
+    private static ArenaGenerator.Plan proPlan(ArenaTheme theme, net.practicepvp.build.ProArenaDesign.Theme pro, int size, long seed, int ox, int oz, boolean ffa) {
+        int depth = depthFor(theme, ffa, false);
+        int floorY = 64;
+        if (floorY - depth < minFloorY()) {
+            floorY = minFloorY() + depth;
+        }
+
+        int half = net.practicepvp.build.ProArenaDesign.half(pro, size);
+        int cx = ox + half;
+        int cz = oz + half;
+        net.practicepvp.build.ProArenaDesign d = new net.practicepvp.build.ProArenaDesign(pro, size, seed, cx, floorY, cz, depth, ffa, true, theme == ArenaTheme.SIGNATURE_ARENA);
+        int[] a1 = d.spawn(0);
+        int[] a2 = d.spawn(1);
+        Pos s1 = new Pos(cx + a1[0] + 0.5, floorY + a1[1], cz + a1[2] + 0.5, -90.0F, 0.0F);
+        Pos s2 = new Pos(cx + a2[0] + 0.5, floorY + a2[1], cz + a2[2] + 0.5, 90.0F, 0.0F);
+        Pos center = new Pos(cx + 0.5, floorY + 3, cz + 0.5, 0.0F, 20.0F);
+        List<Pos> ffaSpawns = new ArrayList<>();
+        if (ffa) {
+            int n = 12;
+
+            for (int i = 0; i < n; i++) {
+                int[] o = d.ffaSpot(i, n);
+                double yaw = Math.toDegrees(Math.atan2(o[0], -o[2]));
+                ffaSpawns.add(new Pos(cx + o[0] + 0.5, floorY + o[1], cz + o[2] + 0.5, (float)yaw, 0.0F));
+            }
+        }
+
+        Cuboid bounds = new Cuboid(d.minX(), d.bottomY(), d.minZ(), d.maxX(), d.topY(), d.maxZ());
+        return new ArenaGenerator.Plan(theme, size, seed, ox, oz, null, d.bottomY(), bounds, s1, s2, center, ffaSpawns, false, false, null, null, d);
+    }
+
     /** A compact duel arena (sword maps and the UHC maps): built like a show arena. */
     private static ArenaGenerator.Plan duelPlan(ArenaTheme theme, int size, long seed, int ox, int oz, boolean ffa) {
         net.practicepvp.build.DuelArenaDesign.Style st = theme.duel;
@@ -341,7 +382,9 @@ public final class ArenaGenerator {
     }
 
     public static ArenaGenerator.Plan plan(ArenaTheme theme, int size, long seed, int ox, int oz, boolean ffa, int buildHeight, boolean crystal) {
-        if (theme.colosseum != null) {
+        if (theme.pro != null) {
+            return proPlan(theme, theme.pro, size, seed, ox, oz, ffa);
+        } else if (theme.colosseum != null) {
             return colosseumPlan(theme, size, seed, ox, oz, ffa);
         } else if (theme.open != null) {
             return openPlan(theme, size, seed, ox, oz, ffa);

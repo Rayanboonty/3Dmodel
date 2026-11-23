@@ -1364,6 +1364,22 @@ public final class PracticePlugin extends JavaPlugin {
                 maps.add(new PracticePlugin.PackMap("volcanoforge", ArenaTheme.VOLCANO_FORGE, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("piratecove", ArenaTheme.PIRATE_COVE, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("pharaohtomb", ArenaTheme.PHARAOH_TOMB, duelSize, dCopies, false));
+                // 3.15.0: the pro arenas, next to the court arenas above (only the signature arena has the server's name)
+                maps.add(new PracticePlugin.PackMap("pro_signature", ArenaTheme.SIGNATURE_ARENA, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_frostfang", ArenaTheme.FROSTFANG_BASTION, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_sunspire", ArenaTheme.SUNSPIRE_PALACE, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_stonewatch", ArenaTheme.STONEWATCH_KEEP, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_blossom", ArenaTheme.BLOSSOM_COURT, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_ember", ArenaTheme.EMBER_CITADEL, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_nightspire", ArenaTheme.NIGHTSPIRE_ABBEY, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_palmshore", ArenaTheme.PALMSHORE_COURT, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_jade", ArenaTheme.JADE_TEMPLE, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_obsidian", ArenaTheme.OBSIDIAN_FORGE, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_corsair", ArenaTheme.CORSAIR_WHARF, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_dynasty", ArenaTheme.GOLDEN_DYNASTY, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_gladiator", ArenaTheme.GLADIATOR_PIT, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_imperial", ArenaTheme.IMPERIAL_COLOSSEUM, 224, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_highpeak", ArenaTheme.HIGHPEAK_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
                 // 1.4.0: the show arenas and every biome that was only made on request before
                 maps.add(new PracticePlugin.PackMap("champions", ArenaTheme.CHAMPIONS_COLOSSEUM, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("cherry", ArenaTheme.CHERRY, vanillaSize, vCopies, false));
