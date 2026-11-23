@@ -695,6 +695,16 @@ public final class ColosseumDesign {
         return this.ring;
     }
 
+    /** A standing banner's rotation (0 = facing south) for a facing name. */
+    private static int bannerRotation(String facing) {
+        return switch (facing) {
+            case "west" -> 4;
+            case "north" -> 8;
+            case "east" -> 12;
+            default -> 0;
+        };
+    }
+
     private static long statueKey(int rx, int rz) {
         return (long)rx << 32 ^ rz & 4294967295L;
     }
@@ -1340,13 +1350,27 @@ public final class ColosseumDesign {
         double r = Math.sqrt(dx * dx + dz * dz);
         int cheb = (int)Math.max(Math.abs(dx), Math.abs(dz));
         if (cheb <= 4) {
+            boolean corner = Math.abs(dx) >= 3.5 && Math.abs(dz) >= 3.5;
             for (int y = this.galleryTop + 2; y <= y0; y++) {
-                out.set(x, y, z, b(cheb == 4 ? this.pal.gallery2 : this.pal.stand));
+                String blk;
+                if (cheb < 4) {
+                    blk = "smooth_quartz";
+                } else if (corner) {
+                    blk = y == y0 ? "gold_block" : "chiseled_quartz_block";
+                } else if (y == y0) {
+                    blk = "gold_block";
+                } else if (y == y0 - 2) {
+                    blk = "red_nether_bricks";
+                } else {
+                    blk = "quartz_bricks";
+                }
+
+                out.set(x, y, z, b(blk));
             }
         }
 
         if (cheb <= 3) {
-            out.set(x, y0 + 1, z, b(cheb == 3 ? this.pal.gallery2 : this.pal.stand));
+            out.set(x, y0 + 1, z, b(cheb == 3 ? "quartz_bricks" : "smooth_quartz"));
         }
 
         if (cheb <= 2) {
@@ -1565,13 +1589,14 @@ public final class ColosseumDesign {
             if (inner) {
                 out.set(x, roofY, z, stairs(this.pal.cornice, outward, true));
                 if (pillar && detailed && Math.floorMod(bayIdx, 3) == 0) {
-                    // a flagpole on every third pillar
+                    // a flagpole on every third pillar, its banner on top facing the arena
                     out.set(x, roofY + 1, z, b(this.pal.pillar));
-                    for (int y = roofY + 2; y <= roofY + 7; y++) {
+                    for (int y = roofY + 2; y <= roofY + 5; y++) {
                         out.set(x, y, z, b(this.pal.railing));
                     }
 
-                    out.set(x, roofY + 8, z, b(this.pal.light));
+                    String banner = this.pal.banners[Math.floorMod(bayIdx / 3, this.pal.banners.length)].replace("_wall_banner", "_banner");
+                    out.set(x, roofY + 6, z, "minecraft:" + banner + "[rotation=" + bannerRotation(opposite(outward)) + "]");
                 } else if (pillar) {
                     out.set(x, roofY + 1, z, b(this.pal.pillar));
                     out.set(x, roofY + 2, z, b(this.pal.light));
@@ -1579,11 +1604,6 @@ public final class ColosseumDesign {
                     // battlements, and the flag flying from the pole before it
                     if (Math.floorMod((int)Math.floor(this.along(rx, rz, ring)), 2) == 0) {
                         out.set(x, roofY + 1, z, b(this.pal.gallery));
-                    }
-
-                    if (Math.floorMod(bayIdx, 3) == 0 && ph >= 1.2 && ph < 3.4) {
-                        out.set(x, roofY + 6, z, b(this.pal.flag));
-                        out.set(x, roofY + 7, z, b(this.pal.flag));
                     }
                 } else if (this.style == ColosseumDesign.Style.FROST) {
                     out.set(x, roofY + 1, z, "minecraft:snow[layers=3]");
@@ -2000,7 +2020,7 @@ public final class ColosseumDesign {
             double dd = dist(rx, rz, this.rockX[i], this.rockZ[i]);
             double rr = this.rockR[i];
             if (!(dd > rr + 4.0)) {
-                int baseY = this.floorY + 6;
+                int baseY = this.floorY - 2;
                 int topY2 = this.floorY + this.rockH[i];
 
                 for (int y = baseY; y <= topY2; y++) {

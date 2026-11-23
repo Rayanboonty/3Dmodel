@@ -66,9 +66,13 @@ public final class EventManager implements TabExecutor {
     private EventManager.Event current;
     private long lastAuto = System.currentTimeMillis();
 
+    /** 3.15.0: where tournament matches are played (road, champion's choice, roulette, colosseum). */
+    private final TournamentArenas arenaPicks;
+
     public EventManager(PracticePlugin plugin) {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "events.yml");
+        this.arenaPicks = new TournamentArenas(plugin);
     }
 
     public void load() {
@@ -560,6 +564,16 @@ public final class EventManager implements TabExecutor {
             }
 
             e.rounds.add(first);
+            if (e.arenaMode == TournamentArenas.Mode.ROAD) {
+                List<String> stages = new ArrayList<>();
+                int total = this.roundsTotal(e);
+                for (int r = 0; r < total; r++) {
+                    stages.add(this.roundName(e, r));
+                }
+
+                this.arenaPicks.planRoad(e, total, stages, e.colosseum && this.colosseumBuilt(), this::announce);
+            }
+
             this.announce(
                 Text.mm(
                     "<gold><b>⚔ "
@@ -611,6 +625,19 @@ public final class EventManager implements TabExecutor {
         return st == PlayerState.LOBBY || st == PlayerState.QUEUE;
     }
 
+    /** Everyone still in the tournament who is online (for the road's reveals). */
+    private List<Player> audience(EventManager.Event e) {
+        List<Player> out = new ArrayList<>();
+        for (UUID u : e.players) {
+            Player p = Bukkit.getPlayer(u);
+            if (p != null && !e.withdrawn.contains(u)) {
+                out.add(p);
+            }
+        }
+
+        return out;
+    }
+
     private Arena colosseum(EventManager.Event e) {
         if (!e.colosseum) {
             return null;
@@ -635,9 +662,46 @@ public final class EventManager implements TabExecutor {
                 boolean aOk = a != null && this.available(a);
                 boolean bOk = b != null && this.available(b);
                 if (aOk && bOk) {
+                    Arena forced;
+                    Arena col = this.colosseum(e);
+                    if ("Final".equals(stage) && col != null) {
+                        // the final is always fought in the Champions Colosseum
+                        if (!p.finalShown) {
+                            p.finalShown = true;
+                            TournamentArenas.reveal(List.of(a, b), stage, col, "<gray>the final is fought in");
+                        }
+
+                        forced = col;
+                    } else if (e.arenaMode == TournamentArenas.Mode.COLOSSEUM) {
+                        forced = col;
+                    } else if (e.arenaMode == TournamentArenas.Mode.ROAD) {
+                        forced = e.state == EventManager.State.RUNNING
+                            ? this.arenaPicks.road(e, e.rounds.size() - 1, stage, this.audience(e))
+                            : this.arenaPicks.freeOr(null, e.kit);
+                    } else if (p.chosen == null && !p.noPick) {
+                        if (!p.choosing) {
+                            p.choosing = true;
+                            EventManager.Pair pp = p;
+                            Player pa = a;
+                            Player pb = b;
+                            this.arenaPicks.pick(e, e.arenaMode, a, b, stage, this.points(p.a, e.kit), this.points(p.b, e.kit), this::announce, arena -> {
+                                pp.choosing = false;
+                                if (arena != null) {
+                                    pp.chosen = arena;
+                                } else if (this.available(pa) && this.available(pb)) {
+                                    pp.noPick = true;
+                                }
+                            });
+                        }
+
+                        continue;
+                    } else {
+                        forced = p.chosen != null ? this.arenaPicks.freeOr(p.chosen, e.kit) : col;
+                    }
+
                     this.plugin.queues().leaveAll(a, true);
                     this.plugin.queues().leaveAll(b, true);
-                    Match m = this.plugin.matches().startDuel(a, b, e.kit, false, this.colosseum(e), firstTo, false);
+                    Match m = this.plugin.matches().startDuel(a, b, e.kit, false, forced, firstTo, false);
                     if (m != null) {
                         m.forcedStart = e.start;
                         m.noGates = !e.gates;
@@ -1217,7 +1281,21 @@ public final class EventManager implements TabExecutor {
                 .build()
         );
         in.add(
-            DialogInput.bool("colosseum", Text.mm("<gold>Play in the Champions Colosseum" + (this.colosseumBuilt() ? "" : " <gray>(not built yet)")))
+            DialogInput.singleOption(
+                    "arenas",
+                    Text.mm("<gold>Arenas"),
+                    List.of(
+                        OptionEntry.create("ROAD", Text.mm(TournamentArenas.Mode.ROAD.display + " <gray>- a new arena every round"), true),
+                        OptionEntry.create("CHOICE", Text.mm(TournamentArenas.Mode.CHOICE.display + " <gray>- the higher rank picks"), false),
+                        OptionEntry.create("ROULETTE", Text.mm(TournamentArenas.Mode.ROULETTE.display + " <gray>- a spin picks"), false),
+                        OptionEntry.create("COLOSSEUM", Text.mm(TournamentArenas.Mode.COLOSSEUM.display), false)
+                    )
+                )
+                .width(300)
+                .build()
+        );
+        in.add(
+            DialogInput.bool("colosseum", Text.mm("<gold>Final in the Champions Colosseum" + (this.colosseumBuilt() ? "" : " <gray>(not built yet)")))
                 .initial(this.colosseumBuilt())
                 .build()
         );
@@ -1266,6 +1344,7 @@ public final class EventManager implements TabExecutor {
             e.joinSeconds = Math.round(view.getFloat("join"));
             e.seeding = "RANK".equals(view.getText("seed")) ? EventManager.Seeding.RANK : EventManager.Seeding.RANDOM;
             e.colosseum = Boolean.TRUE.equals(view.getBoolean("colosseum"));
+            e.arenaMode = TournamentArenas.Mode.parse(view.getText("arenas"));
             try {
                 e.start = Opt.StartMode.valueOf(String.valueOf(view.getText("start")));
             } catch (IllegalArgumentException var8x) {
@@ -1738,6 +1817,11 @@ public final class EventManager implements TabExecutor {
         public int joinSeconds = 60;
         public EventManager.Seeding seeding = EventManager.Seeding.RANDOM;
         public boolean colosseum = true;
+        /** 3.15.0: how the arena of each match is chosen (no vote). */
+        public TournamentArenas.Mode arenaMode = TournamentArenas.Mode.ROAD;
+        /** Road to the Colosseum: round index -> arena id, and the rounds already revealed. */
+        final Map<Integer, String> road = new HashMap<>();
+        final Set<Integer> revealed = new HashSet<>();
         /** How tournament duels start (Opt.TOURNAMENT_START_MODE by default). */
         public Opt.StartMode start = Cfg.e(Opt.TOURNAMENT_START_MODE, Opt.StartMode.class);
         /** False = no cages, fences or gates at all. */
@@ -1780,6 +1864,11 @@ public final class EventManager implements TabExecutor {
         boolean started;
         int scoreA;
         int scoreB;
+        /** 3.15.0: the arena picked for this match (champion's choice, roulette), a pick running, no pick possible. */
+        Arena chosen;
+        boolean choosing;
+        boolean noPick;
+        boolean finalShown;
 
         Pair(UUID a, UUID b) {
             this.a = a;
