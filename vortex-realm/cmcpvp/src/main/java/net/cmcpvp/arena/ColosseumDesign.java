@@ -316,6 +316,8 @@ public final class ColosseumDesign {
         p.carpet = "red_carpet";
         p.flag = "red_wool";
         p.gate = "dark_oak_planks";
+        p.cloth = "red";
+        p.clothTrim = "yellow";
         switch (s) {
             case DESERT:
             case GLADIATOR:
@@ -606,6 +608,33 @@ public final class ColosseumDesign {
                 p.gate = "crimson_planks";
         }
 
+        switch (s) {
+            case GRAND -> {
+                p.keystone = "chiseled_red_sandstone";
+                p.frieze = "red_terracotta";
+                p.cloth = "blue";
+                p.clothTrim = "white";
+                p.emblem = "chiseled_red_sandstone";
+            }
+            case CHAMPIONS -> {
+                p.keystone = "gold_block";
+                p.frieze = "gold_block";
+                p.cloth = "red";
+                p.clothTrim = "orange";
+                p.emblem = "gold_block";
+            }
+            default -> {
+            }
+        }
+
+        if (p.keystone == null) {
+            p.keystone = p.pillar;
+        }
+
+        if (p.frieze == null) {
+            p.frieze = p.gallery2;
+        }
+
         return p;
     }
 
@@ -641,6 +670,10 @@ public final class ColosseumDesign {
         }
 
         this.columnInner(x, z, out);
+        if (this.style == ColosseumDesign.Style.CHAMPIONS) {
+            this.trophy(x, z, x - this.cx, z - this.cz, out);
+        }
+
         if (this.statue != null) {
             TreeMap<Integer, String> col = this.statue.get(statueKey(x - this.cx, z - this.cz));
             if (col != null) {
@@ -852,6 +885,18 @@ public final class ColosseumDesign {
             out.set(x, this.floorY, z, b(this.floorBlock(x, z, rx, rz, d)));
             if (this.style == ColosseumDesign.Style.LOBBY) {
                 this.lobbyCentre(x, z, rx, rz, out);
+            }
+
+            if (this.style == ColosseumDesign.Style.CHAMPIONS && d > -1.0) {
+                // team banners hanging on the arena wall, one in every other bay (flat, nothing to bump into)
+                double ring = this.radius + 0.5;
+                double sp = this.spacingOn(ring, 6.0);
+                double ph = this.phase(rx, rz, ring, 6.0);
+                int bay = this.index(rx, rz, ring, 6.0);
+                if (Math.abs(ph - sp / 2.0) < 0.6 && Math.floorMod(bay, 2) == 0) {
+                    String banner = this.pal.banners[Math.floorMod(bay / 2, this.pal.banners.length)];
+                    out.set(x, this.floorY + this.wallH, z, "minecraft:" + banner + "[facing=" + opposite(this.outward(rx, rz)) + "]");
+                }
             }
         } else {
             int top = this.surface(rx, rz);
@@ -1071,6 +1116,8 @@ public final class ColosseumDesign {
             double ph = this.phase(rx, rz, ring, 6.0);
             double sp = this.spacingOn(ring, 6.0);
             boolean pillar = ph < 1.0;
+            boolean framed = this.style == ColosseumDesign.Style.GRAND || this.style == ColosseumDesign.Style.CHAMPIONS;
+            double bayMid = Math.abs(ph - sp / 2.0);
 
             for (int y = this.floorY + 1; y <= this.floorY + this.wallH; y++) {
                 int h = y - this.floorY;
@@ -1079,9 +1126,16 @@ public final class ColosseumDesign {
                     // a base course along the foot of the wall, framing the arched panels with the top band
                     blk = this.pal.wallBand;
                 } else if (pillar) {
-                    blk = this.pal.wallPillar;
+                    // pilasters with a carved capital under the top band
+                    blk = framed && h == this.wallH ? this.pal.keystone : this.pal.wallPillar;
                 } else if (h == this.wallH) {
                     blk = this.pal.wallBand;
+                } else if (framed) {
+                    // a framed panel: stone next to the pilasters, the panel inside, the emblem in the middle
+                    blk = bayMid > sp / 2.0 - 1.6 ? this.pal.wall : this.pal.wallPanel;
+                    if (this.pal.emblem != null && bayMid < 0.6) {
+                        blk = this.pal.emblem;
+                    }
                 } else {
                     double mid = Math.abs(ph - sp / 2.0) / (sp / 2.0);
                     double archTop = this.wallH - 1.2 - mid * mid * 1.4;
@@ -1152,9 +1206,44 @@ public final class ColosseumDesign {
         } else {
             boolean aisle = this.aisle(rx, rz);
             boolean walk = row % 4 == 3;
+            boolean detailed = this.style == ColosseumDesign.Style.GRAND || this.style == ColosseumDesign.Style.CHAMPIONS;
+            double midR = this.radius + 1 + this.rows / 2.0;
+            double sp16 = this.spacingOn(midR, 16.0);
+            double sph = this.phase(rx, rz, midR, 16.0);
+            int sector = this.index(rx, rz, midR, 16.0);
+            int v0 = this.vomRow();
+            int yt = this.vomFloor();
+            double vo = Math.abs(sph - sp16 / 2.0);
+            boolean vSector = detailed && this.vomSector(rx, rz);
+            boolean vIn = vSector && vo <= 1.5;
+            boolean vFrame = vSector && vo > 1.5 && vo <= 2.5;
+            if (vIn && row < v0 && row >= v0 - 2) {
+                // the sunken landing in front of a tunnel entrance
+                for (int y = this.floorY + 1; y < yt; y++) {
+                    out.set(x, y, z, b(this.pal.stand));
+                }
+
+                out.set(x, yt, z, b(this.pal.walkway));
+                return;
+            }
 
             for (int y = this.floorY + 1; y < top; y++) {
-                out.set(x, y, z, b(this.hash(x, y, z) < 140 ? this.pal.stand2 : this.pal.stand));
+                if (vIn && row >= v0 && y > yt && y <= yt + 3) {
+                    continue;
+                }
+
+                String blk = this.hash(x, y, z) < 140 ? this.pal.stand2 : this.pal.stand;
+                if (vFrame && row >= v0 - 2 && row <= v0 && y > yt) {
+                    blk = this.pal.pillar;
+                }
+
+                out.set(x, y, z, b(blk));
+            }
+
+            if (vIn && row == v0) {
+                // the entrance's lintel with a keystone
+                out.set(x, top, z, b(vo < 0.6 ? this.pal.keystone : this.pal.pillar));
+                return;
             }
 
             String seatBlk;
@@ -1162,11 +1251,18 @@ public final class ColosseumDesign {
                 seatBlk = stairs(this.pal.aisle, outward, false);
             } else if (walk) {
                 seatBlk = b(this.pal.walkway);
+            } else if (detailed) {
+                // seating blocks in two colours, sector by sector
+                seatBlk = stairs(Math.floorMod(sector, 2) == 0 ? this.pal.seat : this.pal.seat2, outward, false);
             } else {
                 seatBlk = stairs(row % 3 == 1 ? this.pal.seat2 : this.pal.seat, outward, false);
             }
 
             out.set(x, top, z, seatBlk);
+            if (detailed && walk && !aisle && (sph < 3.0 || sph > sp16 - 1.0)) {
+                // a lantern where each walkway meets an aisle
+                out.set(x, top + 1, z, b(this.pal.light));
+            }
             if (this.style == ColosseumDesign.Style.GRAND && row == 0 && this.hash(x, 1, z) < 750) {
                 out.set(x, top + 1, z, leaves("spruce_leaves"));
             }
@@ -1190,8 +1286,102 @@ public final class ColosseumDesign {
                         String banner = this.pal.banners[Math.floorMod(idx, this.pal.banners.length)];
                         out.set(x, this.galleryTop - 1, z, "minecraft:" + banner + "[facing=" + opposite(outward) + "]");
                     }
+
+                    if (detailed) {
+                        // corbels under the cornice
+                        if (Math.floorMod((int)Math.floor(this.along(bx, bz, gRing)), 2) == 0) {
+                            out.set(x, this.galleryTop, z, stairs(this.pal.cornice, outward, true));
+                        }
+
+                        // a balcony under the upper window of every other bay
+                        double gsp = this.spacingOn(gRing, this.pillarSpacing());
+                        double gmid = Math.abs(gp - gsp / 2.0) / Math.max(0.5, gsp / 2.0 - 0.6);
+                        int gIdx = this.index(bx, bz, gRing, this.pillarSpacing());
+                        if (Math.floorMod(gIdx, 2) == 1 && gp >= 1.2 && gmid < 0.62) {
+                            int by = this.lastRowTop + this.archH + 2;
+                            out.set(x, by, z, "minecraft:" + this.pal.wallTrim + "[type=top]");
+                            out.set(x, by + 1, z, b(this.pal.railing));
+                        }
+                    }
                 }
             }
+        }
+    }
+
+    /** The row of the stands where the tunnel entrances open, and the floor of the tunnels. */
+    private int vomRow() {
+        return this.rows / 2 - 1;
+    }
+
+    private int vomFloor() {
+        return this.floorY + this.wallH + this.vomRow() - 4;
+    }
+
+    /** Every third sector of the stands has a tunnel entrance in its middle (not at the gates or the royal box). */
+    private boolean vomSector(int rx, int rz) {
+        if (this.vomRow() < 4) {
+            return false;
+        }
+
+        int sector = this.index(rx, rz, this.radius + 1 + this.rows / 2.0, 16.0);
+        return Math.floorMod(sector, 3) == 1 && !(rz < 0 && Math.abs(rx) <= 8) && Math.abs(rz) > this.gateHalf + 4;
+    }
+
+    /** The champions' cup: a giant golden trophy on the gallery roof above the royal box. */
+    private void trophy(int x, int z, int rx, int rz, ColosseumDesign.Sink out) {
+        double zc = -(this.radius + 1 + this.rows + this.galleryD / 2.0);
+        double dx = rx;
+        double dz = rz - zc;
+        if (Math.abs(dx) > 5.5 || Math.abs(dz) > 5.5) {
+            return;
+        }
+
+        int y0 = this.galleryTop + 2 + this.galleryD;
+        double r = Math.sqrt(dx * dx + dz * dz);
+        int cheb = (int)Math.max(Math.abs(dx), Math.abs(dz));
+        if (cheb <= 4) {
+            for (int y = this.galleryTop + 2; y <= y0; y++) {
+                out.set(x, y, z, b(cheb == 4 ? this.pal.gallery2 : this.pal.stand));
+            }
+        }
+
+        if (cheb <= 3) {
+            out.set(x, y0 + 1, z, b(cheb == 3 ? this.pal.gallery2 : this.pal.stand));
+        }
+
+        if (cheb <= 2) {
+            out.set(x, y0 + 2, z, b("gold_block"));
+        }
+
+        if (r < 0.8) {
+            for (int y = y0 + 3; y <= y0 + 5; y++) {
+                out.set(x, y, z, b("gold_block"));
+            }
+        }
+
+        for (int k = 0; k < 6; k++) {
+            double rr = 0.8 + k * 0.55;
+            int y = y0 + 6 + k;
+            if (r <= rr + 0.45 && (r > rr - 0.75 || k == 0)) {
+                out.set(x, y, z, b(k == 5 ? "raw_gold_block" : "gold_block"));
+            }
+        }
+
+        // handles on both sides
+        if (Math.abs(dz) < 0.6 && Math.abs(dx) >= 3.0 && Math.abs(dx) <= 4.0) {
+            out.set(x, y0 + 8, z, b("gold_block"));
+            out.set(x, y0 + 9, z, b("gold_block"));
+            out.set(x, y0 + 10, z, b("gold_block"));
+        }
+
+        if (Math.abs(dz) < 0.6 && Math.abs(dx) >= 2.0 && Math.abs(dx) < 3.0) {
+            out.set(x, y0 + 8, z, b("gold_block"));
+            out.set(x, y0 + 10, z, b("gold_block"));
+        }
+
+        if (r < 0.8) {
+            out.set(x, y0 + 12, z, b("redstone_block"));
+            out.set(x, y0 + 13, z, b("end_rod[facing=up]"));
         }
     }
 
@@ -1287,8 +1477,23 @@ public final class ColosseumDesign {
 
             this.plants(x, z, this.galleryTop + 2, out, 950);
         } else {
+            boolean detailed = this.style == ColosseumDesign.Style.GRAND || this.style == ColosseumDesign.Style.CHAMPIONS;
+            int bayIdx = this.index(rx, rz, ring, this.pillarSpacing());
+            int yt = this.vomFloor();
+            double vo = Math.abs(this.phase(rx, rz, this.radius + 1 + this.rows / 2.0, 16.0) - this.spacingOn(this.radius + 1 + this.rows / 2.0, 16.0) / 2.0);
+            boolean vSector = detailed && this.vomSector(rx, rz);
             for (int y = this.floorY + 1; y <= floorG; y++) {
-                out.set(x, y, z, b(this.hash(x, y, z) < 150 ? this.pal.stand2 : this.pal.stand));
+                if (vSector && vo <= 1.5 && y > yt && y <= yt + 3) {
+                    // the tunnel runs on through the base of the gallery to the outside
+                    continue;
+                }
+
+                String blk = this.hash(x, y, z) < 150 ? this.pal.stand2 : this.pal.stand;
+                if (vSector && outerFace && y > yt && y <= yt + 4 && (vo > 1.5 && vo <= 2.5 || y == yt + 4)) {
+                    blk = y == yt + 4 && vo < 0.6 ? this.pal.keystone : this.pal.pillar;
+                }
+
+                out.set(x, y, z, b(blk));
             }
 
             double mid = Math.abs(ph - sp / 2.0) / Math.max(0.5, sp / 2.0 - 0.6);
@@ -1300,19 +1505,40 @@ public final class ColosseumDesign {
                     int h = y - floorG;
                     boolean band = h == this.archH + 1 || h == this.galleryH;
                     String blk = band ? this.pal.gallery2 : this.pal.gallery;
+                    if (detailed && band && Math.floorMod((int)Math.floor(this.along(rx, rz, ring)), 2) == 1) {
+                        // a patterned frieze: two colours block by block
+                        blk = this.pal.frieze;
+                    }
+
                     boolean opening = false;
+                    int upper = this.archH + 3;
                     if (pillar) {
                         blk = band ? this.pal.gallery2 : this.pal.pillar;
+                        if (detailed && (h == 1 || h == upper - 1)) {
+                            blk = this.pal.gallery2;
+                        } else if (detailed && (h == this.archH || h == this.galleryH - 1)) {
+                            blk = this.pal.keystone;
+                        }
                     } else {
                         double archTop = this.archH - mid * mid * 1.6;
                         if (h >= 1 && h <= archTop) {
                             opening = true;
                         }
 
-                        int upper = this.archH + 3;
                         if (h >= upper && h <= upper + (this.grand ? 3 : 2) - (mid > 0.5 ? 1 : 0) && mid < 0.62) {
                             opening = true;
                         }
+
+                        if (detailed && !opening && mid < 0.2 && h == this.archH + 1) {
+                            // the keystone over the arch
+                            blk = this.pal.keystone;
+                        }
+                    }
+
+                    if (opening && detailed && inner && h >= upper && Math.floorMod(bayIdx, 2) == 0) {
+                        // every other upper window of the inner face is hung with a cloth in the arena's colours
+                        out.set(x, y, z, b((mid > 0.4 ? this.pal.clothTrim : this.pal.cloth) + "_wool"));
+                        continue;
                     }
 
                     if (opening) {
@@ -1338,9 +1564,27 @@ public final class ColosseumDesign {
             int roofY = this.galleryTop + 1;
             if (inner) {
                 out.set(x, roofY, z, stairs(this.pal.cornice, outward, true));
-                if (pillar) {
+                if (pillar && detailed && Math.floorMod(bayIdx, 3) == 0) {
+                    // a flagpole on every third pillar
+                    out.set(x, roofY + 1, z, b(this.pal.pillar));
+                    for (int y = roofY + 2; y <= roofY + 7; y++) {
+                        out.set(x, y, z, b(this.pal.railing));
+                    }
+
+                    out.set(x, roofY + 8, z, b(this.pal.light));
+                } else if (pillar) {
                     out.set(x, roofY + 1, z, b(this.pal.pillar));
                     out.set(x, roofY + 2, z, b(this.pal.light));
+                } else if (detailed) {
+                    // battlements, and the flag flying from the pole before it
+                    if (Math.floorMod((int)Math.floor(this.along(rx, rz, ring)), 2) == 0) {
+                        out.set(x, roofY + 1, z, b(this.pal.gallery));
+                    }
+
+                    if (Math.floorMod(bayIdx, 3) == 0 && ph >= 1.2 && ph < 3.4) {
+                        out.set(x, roofY + 6, z, b(this.pal.flag));
+                        out.set(x, roofY + 7, z, b(this.pal.flag));
+                    }
                 } else if (this.style == ColosseumDesign.Style.FROST) {
                     out.set(x, roofY + 1, z, "minecraft:snow[layers=3]");
                 }
@@ -1819,6 +2063,12 @@ public final class ColosseumDesign {
         String ground;
         String gate;
         String carpet;
+        /** 3.15.0 accents: keystones and capitals, the frieze pattern, the cloth hangings, the panel emblems. */
+        String keystone;
+        String frieze;
+        String cloth;
+        String clothTrim;
+        String emblem;
     }
 
     public interface Sink {
