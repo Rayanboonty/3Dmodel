@@ -520,7 +520,7 @@ public final class ArenaLandscape extends CourtParts {
     private void skyIslets(java.util.Random rr) {
         for (int i = 0; i < 8; i++) {
             double deg = i * 45 + 10 + rr.nextDouble() * 25;
-            int[] p = this.along(deg, 4 + rr.nextDouble() * 14);
+            int[] p = this.along(deg, 14 + rr.nextDouble() * 16);
             int ox = p[0];
             int oz = p[1];
             int oy = 40 + rr.nextInt(16);
