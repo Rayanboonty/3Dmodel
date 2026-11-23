@@ -785,6 +785,20 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
         }
 
         this.skyIslets(land, rr);
+        // the landscape is only to look at: an invisible wall where the arena ended before keeps every fight (mace and
+        // pearl jumps too) inside the old area
+        int wall = this.inner + 1;
+        for (int x = -wall; x <= wall; x++) {
+            for (int z = -wall; z <= wall; z++) {
+                if (Math.max(Math.abs(x), Math.abs(z)) == wall) {
+                    for (int y = 1; y <= this.yHi; y++) {
+                        if (this.empty(x, y, z)) {
+                            this.set(x, y, z, "barrier");
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void outTree(int k, int x, int y, int z, int size, double kind, boolean snowy) {
