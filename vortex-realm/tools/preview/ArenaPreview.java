@@ -377,6 +377,9 @@ public final class ArenaPreview {
         c(0x0F0B19, "obsidian", "crying_obsidian");
         c(0x553A5F, "amethyst_block");
         c(0x8A62C9, "amethyst_cluster", "budding_amethyst");
+        c(0xE0A93A, "raw_gold_block");
+        c(0x8F8A6E, "gold_ore");
+        c(0x5C8C3A, "sugar_cane");
         c(0xF3D27A, "ochre_froglight");
         c(0x63A096, "prismarine");
         c(0x63AB9E, "prismarine_bricks");

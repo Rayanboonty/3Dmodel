@@ -40,6 +40,9 @@ public final class ColosseumPreview extends Voxels {
         ImageIO.write(p.render(r * 0.55, fy + r * 0.42, r * 0.62, 138, 30, 62, W, H), "png", new File(out, name + "-air.png"));
         ImageIO.write(p.render(sp + 2, d.surface(sp, 0) + 2.6, 0, 90, -8, 80, W, H), "png", new File(out, name + "-floor.png"));
         ImageIO.write(p.render(0, fy + 2.6, d.radius * 0.5, 180, -12, 85, W, H), "png", new File(out, name + "-north.png"));
+        ImageIO.write(p.render(d.straight * 0.4, fy + 3.5, -d.radius * 0.62, 180, -14, 70, W, H), "png", new File(out, name + "-close.png"));
+        ImageIO.write(p.render(d.straight * 0.4 + 6, fy + 4.5, d.radius * 0.7, 20, -10, 75, W, H), "png", new File(out, name + "-close2.png"));
+        ImageIO.write(p.render(-1, fy + 10, d.radius * 0.55, 0, 12, 60, W, H), "png", new File(out, name + "-vom.png"));
         System.out.println(name + ": " + (d.maxX() - d.minX() + 1) + "x" + (d.maxZ() - d.minZ() + 1) + ", ring " + d.ringOut + ", " + (System.currentTimeMillis() - t0) + " ms");
     }
 }

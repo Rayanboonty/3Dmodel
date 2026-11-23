@@ -2147,13 +2147,36 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
                 double s = this.along(x, z);
                 String out = this.outward(x, z);
                 if (d < 2.0) {
-                    // the podium wall with pale pilasters
-                    boolean pil = Math.floorMod((int)Math.round(s), 6) == 0;
+                    // the podium wall: a base course, quartz pilasters with carved capitals, framed red panels with a
+                    // carved emblem in each bay, a coping on top
+                    int bay = Math.floorMod((int)Math.round(s), 6);
+                    boolean pil = bay == 0;
+                    double mid = Math.abs(bay - 3.0);
                     for (int y = 1; y <= wallH; y++) {
-                        this.set(x, y, z, pil ? (y == 2 ? "chiseled_stone_bricks" : "polished_andesite") : podium.at(x, y, z));
+                        String blk;
+                        if (d >= 1.0) {
+                            blk = podium.at(x, y, z);
+                        } else if (y == 1) {
+                            blk = "polished_andesite";
+                        } else if (pil) {
+                            blk = y == wallH ? "chiseled_quartz_block" : "quartz_pillar[axis=y]";
+                        } else if (y == wallH) {
+                            blk = "polished_andesite";
+                        } else if (mid > 1.6) {
+                            blk = "stone_bricks";
+                        } else {
+                            blk = mid < 0.6 ? "chiseled_red_sandstone" : "smooth_red_sandstone";
+                        }
+
+                        this.set(x, y, z, blk);
                     }
 
-                    this.set(x, wallH, z, d < 1.0 ? "polished_andesite" : podium.at(x, wallH, z));
+                    if (d < 1.0 && pil) {
+                        this.set(x, wallH + 1, z, "chiseled_quartz_block");
+                        this.set(x, wallH + 2, z, "lantern[hanging=false]");
+                    } else if (d < 1.0) {
+                        this.set(x, wallH + 1, z, "smooth_stone_slab[type=bottom]");
+                    }
                 } else if (d < 2.0 + TIERS) {
                     int t = (int)(d - 2.0);
                     int seat = wallH + 1 + t;
@@ -2191,6 +2214,19 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        for (int x = -reach; x <= reach; x++) {
+            for (int z = -reach; z <= reach; z++) {
+                double d = this.sd(x, z);
+                if (d >= -1.0 && d < 0.0) {
+                    double s = this.along(x, z);
+                    int k = (int)Math.round(s);
+                    if (Math.floorMod(k, 6) == 3 && Math.floorMod(Math.floorDiv(k, 6), 2) == 0) {
+                        this.set(x, wallH, z, "red_wall_banner[facing=" + opposite(this.outward(x, z)) + "]");
                     }
                 }
             }
