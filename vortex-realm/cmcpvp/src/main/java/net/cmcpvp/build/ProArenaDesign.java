@@ -18,8 +18,9 @@ import java.util.Locale;
  * openings, buildings with windows, tiled roofs with rafters and chimneys, round towers on the corners (cones, onion
  * domes, pyramids or spires by theme) and a fortified gatehouse on each short side.
  *
- * <p>The floors are flat (nothing to bump into): a texture of the theme's blocks, an inlaid border, a line along the
- * fight and a mosaic crest in the middle (crossed swords on a shield; a mace in the mace arena). Behind everything, the
+ * <p>The floors are flat (nothing to bump into) and plain: natural (sand with sandstone, red sand, snow) or tonal
+ * (shades of one colour), with no decoration. Only the signature arena has a small sword inlaid in the middle of its
+ * floor. No ice or magma on a floor. Behind everything, the
  * landscape ring of {@link ArenaLandscape} with a giant statue and a giant sword monument. An invisible wall over the
  * floor's edge keeps every fight on the floor.
  *
@@ -41,14 +42,13 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
 
     /** The blocks of a theme. */
     static final class Pal {
-        String floorA;
-        String floorB;
-        String floorC;
-        String floorLine;
-        String floorEdge;
+        /** The floor's blocks, the main one first. */
+        String[] floorMix;
+        /** Their shares (tonal floors), or null for a natural floor of patches. */
+        double[] floorW;
+        /** A giant weapon inlaid in the floor, or null. */
+        Motif motif;
         String emDark = "polished_blackstone";
-        String emLight = "smooth_stone";
-        String emAccent = "red_concrete";
         String emGold = "gold_block";
         String wall;
         String wallAlt;
@@ -112,7 +112,6 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
     private final int yColBase;
     private final int yColTop;
     private final int storey;
-    private final int crestScale;
     private final ArenaLandscape ring;
 
     private static final int ARC = 7;
@@ -156,7 +155,6 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         this.yColBase = this.yArcTop + this.n2;
         this.yColTop = this.yColBase + COL;
         this.storey = Math.max(6, this.yColBase / 3);
-        this.crestScale = theme == Theme.GRAND ? 3 : (theme == Theme.ROMAN ? 2 : 1);
         this.gateW = theme == Theme.GLADIATOR ? 9 : 16;
         this.pal = palette(theme);
         this.ground();
@@ -401,6 +399,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
     // ------------------------------------------------------------------ ground and floor
 
     private void ground() {
+        this.buildMosaic();
         int lim = this.dOut + 2;
         for (int x = -this.R; x <= this.R; x++) {
             for (int z = -this.R; z <= this.R; z++) {
@@ -424,136 +423,163 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         }
     }
 
-    /** The floor: the theme's texture, an inlaid border, a line along the fight, a mosaic crest in the middle. */
-    private String floorBlock(int x, int z, double d) {
-        Pal p = this.pal;
-        if (d > -1.0) {
-            return p.floorEdge;
+    /**
+     * A small sword inlaid in the signature arena's floor, drawn like pixel art: a dark outline, a lit rim on the side the light comes
+     * from and a shaded rim on the other, a stone texture inside, a bright cutting edge and a drop shadow on the floor.
+     * {@code metal} = outline, shaded rim, inside, inside (texture), lit rim, cutting edge, fuller; {@code wood} = shaded,
+     * inside, lit, grip wrap, grip wrap; {@code gold} = shaded, gold, gem.
+     */
+    static final class Motif {
+        final String shape;
+        final String[] metal;
+        final String[] wood;
+        final String[] gold;
+        final String shadow;
+
+        Motif(String shape, String[] metal, String[] wood, String[] gold, String shadow) {
+            this.shape = shape;
+            this.metal = metal;
+            this.wood = wood;
+            this.gold = gold;
+            this.shadow = shadow;
         }
 
-        if (d > -3.0 && d <= -2.0) {
-            return p.floorLine;
+        static Motif ironSword() {
+            return new Motif("SWORD", new String[]{"polished_blackstone", "polished_andesite", "smooth_stone", "stone", "polished_diorite", "iron_block", "andesite"},
+                new String[]{"dark_oak_planks", "spruce_planks", "oak_planks", "red_terracotta", "red_nether_bricks"},
+                new String[]{"raw_gold_block", "gold_block", "redstone_block"}, "deepslate_bricks");
         }
-
-        int s = this.crestScale;
-        String crest = this.crest(Math.floorDiv(x + s / 2, s), Math.floorDiv(z + s / 2, s));
-        if (crest != null) {
-            return crest;
-        }
-
-        if (Math.abs(z) < Math.max(1, s - 1)) {
-            return p.floorLine;
-        }
-
-        if (this.theme.stadium && Math.abs(d + 6.0) < 0.5) {
-            return p.floorLine;
-        }
-
-        if (this.theme == Theme.ROMAN) {
-            // a sunburst of inlaid lines out from the crest, and a ring round it
-            double r = Math.hypot(x, z);
-            double cr = 10.5 * s;
-            if (Math.abs(r - cr - 3.0) < 0.6) {
-                return p.floorLine;
-            }
-
-            if (r > cr + 4.0 && d < -9.0) {
-                double a = Math.atan2(z, x);
-                double step = Math.PI / 8.0;
-                if (Math.abs(r * Math.sin(a - Math.round(a / step) * step)) < 0.5) {
-                    return p.floorLine;
-                }
-            }
-        }
-
-        if (this.theme == Theme.GRAND) {
-            // eight paths out from the crest like the spokes of a wheel
-            double a = Math.atan2(z, x);
-            double r = Math.hypot(x, z);
-            double off = Math.abs(r * Math.sin(a - Math.round(a / (Math.PI / 4.0)) * (Math.PI / 4.0)));
-            if (off < 1.0) {
-                return p.floorLine;
-            }
-        }
-
-        double n = noise(this.seed + 11L, x * 1.6, z * 1.6);
-        double h = hash3(this.seed + 13L, x, 0, z);
-        return n > 0.74 ? p.floorB : (n < 0.22 && h < 0.5 ? p.floorC : (h < 0.06 ? p.floorB : p.floorA));
     }
 
-    /** The crest inlaid in the floor (in units of the crest's scale): a gold ring round crossed swords on a shield, or a mace. */
-    private String crest(int x, int z) {
+    /** The floor's mosaic: the block of each column of the floor that is part of it (or its shadow), else null. */
+    private String[][] mosaic;
+
+    /** The floor: one texture of the theme's blocks; only the signature arena has a small sword inlaid in it. */
+    private String floorBlock(int x, int z, double d) {
         Pal p = this.pal;
-        double r = Math.sqrt(x * x + z * z);
-        if (r > 10.5) {
+        if (this.mosaic != null) {
+            String m = this.mosaic[x + this.R][z + this.R];
+            if (m != null) {
+                return m;
+            }
+        }
+
+        String[] mix = p.floorMix;
+        double h = hash3(this.seed + 13L, x, 0, z);
+        if (p.floorW != null) {
+            // a tonal floor: shades of one colour, block by block
+            double acc = 0.0;
+            for (int i = 0; i < mix.length; i++) {
+                acc += p.floorW[i];
+                if (h < acc) {
+                    return mix[i];
+                }
+            }
+
+            return mix[0];
+        }
+
+        // a natural floor: the main block with patches and specks of the others
+        double n = noise(this.seed + 11L, x * 1.25, z * 1.25);
+        double n2 = noise(this.seed + 17L, x * 2.2 + 50.0, z * 2.2);
+        if (mix.length > 1 && n > 0.7) {
+            return mix[1];
+        }
+
+        if (mix.length > 2 && n2 > 0.78) {
+            return mix[2];
+        }
+
+        if (mix.length > 1 && h > 0.965) {
+            return mix[mix.length > 2 ? 2 : 1];
+        }
+
+        return mix[0];
+    }
+
+    /**
+     * One pixel of the small sword, in diagonal coordinates: p runs along it (the tip toward the north-east), q across
+     * it (negative toward the north-west, where the light comes from). Null outside it.
+     */
+    private static String swordPixel(Motif m, int p, int q) {
+        int aq = Math.abs(q);
+        if (p >= -4 && p <= 14) {
+            // the blade: a bright edge on the lit side, a lighter tip
+            int hw = p >= 13 ? 0 : 1;
+            if (aq <= hw) {
+                return p >= 13 ? m.metal[4] : (q < 0 ? m.metal[5] : (q == 0 ? m.metal[2] : m.metal[1]));
+            }
+
             return null;
         }
 
-        if (r > 9.5) {
-            return p.emGold;
+        if (p == -6 || p == -5) {
+            // the guard, a gem in its middle
+            if (aq <= 6) {
+                return p == -6 && q == 0 ? m.gold[2] : (q > 0 ? m.gold[0] : m.gold[1]);
+            }
+
+            return null;
         }
 
-        if (r > 8.5) {
-            return p.emDark;
+        if (p >= -13 && p <= -7) {
+            // the grip, wrapped
+            if (aq <= 1) {
+                return Math.floorMod(p, 4) < 2 ? m.wood[3] : (q < 0 ? m.wood[2] : (q == 0 ? m.wood[1] : m.wood[0]));
+            }
+
+            return null;
         }
 
-        int ax = Math.abs(x);
-        if (this.theme == Theme.GRAND) {
-            // a mace pointing up: a spiked head, a banded grip, a gold pommel
-            double hr = Math.hypot(x, z + 3);
-            if (hr <= 2.2) {
-                return "iron_block";
-            }
-
-            if (hr <= 3.2) {
-                return "polished_andesite";
-            }
-
-            if (ax == 0 && z == -7 || ax == 4 && z == -3 || ax == 3 && (z == -6 || z == 0)) {
-                return p.emDark;
-            }
-
-            if (ax == 0 && z >= 1 && z <= 6) {
-                return z == 4 ? p.emGold : p.emDark;
-            }
-
-            if (ax == 0 && z == 7) {
-                return p.emGold;
-            }
-
-            return p.emLight;
+        if (p >= -17 && p <= -14 && Math.abs(2 * p + 31) + 2 * aq <= 5) {
+            // the pommel
+            return p == -16 && q == 0 ? m.gold[2] : (q > 0 ? m.gold[0] : m.gold[1]);
         }
 
-        // the shield in the middle with a cross on it
-        boolean shield = ax <= 2 && z >= -3 && z <= 2 || ax <= 1 && z == 3 || ax == 0 && z == 4;
-        if (shield) {
-            boolean rim = ax == 2 || z == -3 || ax == 1 && z == 3 || ax == 0 && z == 4;
-            return rim ? p.emGold : (x == 0 || z == -1 ? p.emLight : p.emAccent);
+        return null;
+    }
+
+    /** The signature arena's small sword in the middle of the floor: pixel art with an outline and a drop shadow. */
+    private void buildMosaic() {
+        Motif m = this.pal.motif;
+        if (m == null) {
+            return;
         }
 
-        // two swords crossed behind it, points up
-        for (int sg = -1; sg <= 1; sg += 2) {
-            int xs = x * sg;
-            if (xs == -z) {
-                if (z >= -6 && z <= 2) {
-                    return "iron_block";
-                }
-
-                if (z == 4 || z == 5) {
-                    return p.emDark;
-                }
-
-                if (z == 6) {
-                    return p.emGold;
+        int n = 2 * this.R + 1;
+        int e = 14;
+        this.mosaic = new String[n][n];
+        boolean[][] in = new boolean[n][n];
+        for (int x = -e; x <= e; x++) {
+            for (int z = -e; z <= e; z++) {
+                String b = swordPixel(m, x - z, x + z);
+                if (b != null) {
+                    this.mosaic[x + this.R][z + this.R] = b;
+                    in[x + this.R][z + this.R] = true;
                 }
             }
+        }
 
-            if (xs - z == -6 && z >= 2 && z <= 4) {
-                return p.emGold;
+        boolean[][] line = new boolean[n][n];
+        for (int x = -e; x <= e; x++) {
+            for (int z = -e; z <= e; z++) {
+                if (!in[x + this.R][z + this.R] && (in[x + 1 + this.R][z + this.R] || in[x - 1 + this.R][z + this.R] || in[x + this.R][z + 1 + this.R] || in[x + this.R][z - 1 + this.R])) {
+                    this.mosaic[x + this.R][z + this.R] = m.metal[0];
+                    line[x + this.R][z + this.R] = true;
+                }
             }
         }
 
-        return p.emLight;
+        // the drop shadow, cast away from the light
+        for (int x = -e; x <= e; x++) {
+            for (int z = -e; z <= e; z++) {
+                int ix = x + this.R;
+                int iz = z + this.R;
+                if (this.mosaic[ix][iz] == null && (in[ix - 1][iz - 1] || line[ix - 1][iz - 1])) {
+                    this.mosaic[ix][iz] = m.shadow;
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ the perimeter, column by column
@@ -1469,7 +1495,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         Pal p = new Pal();
         switch (t) {
             case ROMAN -> {
-                floor(p, "smooth_sandstone", "sand", "sandstone", "cut_red_sandstone", "smooth_sandstone");
+                natural(p, "sand", "smooth_sandstone", "sandstone");
                 stadium(p, "quartz_bricks", "smooth_quartz", "calcite", "quartz_pillar[axis=y]", "chiseled_quartz_block", "polished_diorite");
                 p.trim = "smooth_quartz";
                 p.panel = "granite";
@@ -1478,11 +1504,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.column = "quartz_pillar[axis=y]";
                 roof(p, "red_sandstone", "smooth_red_sandstone", "cut_red_sandstone");
                 seats(p, "quartz", "polished_granite", "polished_diorite", "smooth_quartz", "quartz");
-                p.emLight = "smooth_sandstone";
                 p.land = ArenaLandscape.Kind.OLYMPUS;
             }
             case GRAND -> {
-                floor(p, "grass_block", "moss_block", "grass_block", "dirt_path", "coarse_dirt");
+                natural(p, "grass_block", "moss_block");
                 stadium(p, "stone_bricks", "andesite", "cracked_stone_bricks", "stripped_spruce_log[axis=y]", "chiseled_stone_bricks", "polished_andesite");
                 p.trim = "smooth_sandstone";
                 p.panel = "spruce_planks";
@@ -1493,11 +1518,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 roof(p, "brick", "bricks", "granite");
                 seats(p, "spruce", "dark_oak", "stone_bricks", "smooth_sandstone", "stone_brick");
                 p.banners = new String[]{"red", "blue"};
-                p.emLight = "smooth_sandstone";
                 p.land = ArenaLandscape.Kind.ALPINE;
             }
             case GLADIATOR -> {
-                floor(p, "terracotta", "brown_terracotta", "orange_terracotta", "packed_mud", "mud_bricks");
+                tonal(p, new String[]{"terracotta", "packed_mud", "mud_bricks", "granite"}, 0.55, 0.2, 0.13, 0.12);
                 stadium(p, "stone_bricks", "polished_andesite", "cracked_stone_bricks", "polished_andesite", "chiseled_stone_bricks", "polished_andesite");
                 p.trim = "smooth_stone";
                 p.band = "gold_block";
@@ -1511,33 +1535,30 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.clothBg = "orange";
                 p.clothFg = "black";
                 p.clothTrim = "white";
-                p.emLight = "white_terracotta";
                 p.land = ArenaLandscape.Kind.OLYMPUS;
             }
             case MEDIEVAL -> {
-                floor(p, "grass_block", "moss_block", "grass_block", "dirt_path", "coarse_dirt");
+                tonal(p, new String[]{"stone_bricks", "cracked_stone_bricks", "mossy_stone_bricks", "polished_andesite", "andesite"}, 0.5, 0.15, 0.1, 0.15, 0.1);
+                p.motif = Motif.ironSword();
                 court(p, "stone_bricks", "andesite", "cobblestone", "birch_planks", "smooth_sandstone");
                 roof(p, "brick", "bricks", "granite");
                 p.banners = new String[]{"red", "blue"};
-                p.emLight = "smooth_sandstone";
                 p.leaves = "flowering_azalea";
                 p.land = ArenaLandscape.Kind.ALPINE;
             }
             case FROST -> {
-                floor(p, "snow_block", "white_concrete_powder", "snow_block", "packed_ice", "packed_ice");
+                natural(p, "snow_block", "white_concrete_powder", "calcite");
                 court(p, "stone_bricks", "polished_diorite", "cobblestone", "light_blue_terracotta", "calcite");
                 roof(p, "dark_prismarine", "dark_prismarine", "prismarine_bricks");
                 p.banners = new String[]{"blue", "white"};
                 p.clothBg = "blue";
                 p.clothTrim = "light_blue";
                 p.flowers = new String[]{"snow[layers=2]"};
-                p.emLight = "snow_block";
-                p.emAccent = "blue_concrete";
                 p.light = "soul_lantern";
                 p.land = ArenaLandscape.Kind.FROST;
             }
             case DESERT -> {
-                floor(p, "sand", "smooth_sandstone", "sandstone", "cut_sandstone", "smooth_sandstone");
+                natural(p, "sand", "sandstone", "smooth_sandstone");
                 p.log = "stripped_jungle_log";
                 p.planks = "jungle_planks";
                 p.fence = "jungle_fence";
@@ -1547,25 +1568,21 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.banners = new String[]{"red", "light_blue"};
                 p.clothTrim = "light_blue";
                 p.capital = "chiseled_sandstone";
-                p.emAccent = "lapis_block";
-                p.emLight = "smooth_sandstone";
                 p.leaves = "jungle";
                 p.towerTop = "ONION";
                 p.land = ArenaLandscape.Kind.DESERT;
             }
             case HIGHLAND -> {
-                floor(p, "smooth_stone", "stone", "andesite", "cobblestone", "polished_andesite");
+                tonal(p, new String[]{"coarse_dirt", "packed_mud", "rooted_dirt", "podzol"}, 0.5, 0.2, 0.15, 0.15);
                 p.log = "stripped_spruce_log";
                 court(p, "cobblestone", "stone", "mossy_cobblestone", "spruce_planks", "spruce_planks");
                 roof(p, "deepslate_tile", "deepslate_tiles", "cobbled_deepslate");
                 p.banners = new String[]{"green", "white"};
                 p.clothBg = "green";
-                p.emAccent = "green_concrete";
-                p.emLight = "smooth_stone";
                 p.land = ArenaLandscape.Kind.ALPINE;
             }
             case SAKURA -> {
-                floor(p, "calcite", "polished_diorite", "white_terracotta", "pink_terracotta", "smooth_quartz");
+                tonal(p, new String[]{"calcite", "polished_diorite", "smooth_quartz", "diorite"}, 0.45, 0.2, 0.2, 0.15);
                 p.log = "stripped_cherry_log";
                 p.planks = "cherry_planks";
                 p.fence = "cherry_fence";
@@ -1577,13 +1594,11 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.clothFg = "black";
                 p.leaves = "cherry";
                 p.flowers = new String[]{"pink_tulip", "allium", "lily_of_the_valley"};
-                p.emAccent = "pink_concrete";
-                p.emLight = "calcite";
                 p.towerTop = "PYRAMID";
                 p.land = ArenaLandscape.Kind.SAKURA;
             }
             case EMBER -> {
-                floor(p, "red_sand", "smooth_red_sandstone", "red_sandstone", "polished_blackstone", "polished_blackstone_bricks");
+                natural(p, "red_sand", "red_sandstone", "smooth_red_sandstone");
                 p.log = "stripped_crimson_stem";
                 p.planks = "crimson_planks";
                 p.fence = "crimson_fence";
@@ -1595,12 +1610,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.clothTrim = "red";
                 p.light = "soul_lantern";
                 p.leaves = "dark_oak";
-                p.emAccent = "orange_concrete";
-                p.emLight = "smooth_red_sandstone";
                 p.land = ArenaLandscape.Kind.MESA;
             }
             case GOTHIC -> {
-                floor(p, "polished_deepslate", "deepslate_tiles", "cobbled_deepslate", "polished_blackstone_bricks", "deepslate_bricks");
+                tonal(p, new String[]{"polished_tuff", "tuff_bricks", "tuff", "chiseled_tuff"}, 0.45, 0.3, 0.15, 0.1);
                 p.planks = "dark_oak_planks";
                 p.fence = "dark_oak_fence";
                 court(p, "deepslate_bricks", "cracked_deepslate_bricks", "deepslate_tiles", "purple_stained_glass", "polished_blackstone");
@@ -1612,12 +1625,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.light = "soul_lantern";
                 p.leaves = "dark_oak";
                 p.towerTop = "SPIRE";
-                p.emAccent = "purple_concrete";
-                p.emLight = "polished_deepslate";
                 p.land = ArenaLandscape.Kind.DARK;
             }
             case TROPICAL -> {
-                floor(p, "sand", "smooth_sandstone", "sand", "sandstone", "smooth_sandstone");
+                natural(p, "sand", "smooth_sandstone", "sandstone");
                 p.log = "stripped_jungle_log";
                 p.planks = "bamboo_planks";
                 p.fence = "bamboo_fence";
@@ -1628,12 +1639,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.clothFg = "white";
                 p.leaves = "jungle";
                 p.flowers = new String[]{"blue_orchid", "allium", "orange_tulip"};
-                p.emAccent = "cyan_concrete";
-                p.emLight = "smooth_sandstone";
                 p.land = ArenaLandscape.Kind.TROPICAL;
             }
             case JUNGLE -> {
-                floor(p, "mossy_stone_bricks", "moss_block", "stone_bricks", "mossy_cobblestone", "mossy_stone_bricks");
+                tonal(p, new String[]{"mossy_stone_bricks", "mossy_cobblestone", "stone_bricks", "moss_block", "cracked_stone_bricks"}, 0.45, 0.2, 0.15, 0.1, 0.1);
                 p.log = "stripped_jungle_log";
                 p.planks = "jungle_planks";
                 p.fence = "jungle_fence";
@@ -1643,13 +1652,11 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.clothBg = "green";
                 p.clothTrim = "lime";
                 p.leaves = "jungle";
-                p.emAccent = "lime_concrete";
-                p.emLight = "mossy_stone_bricks";
                 p.towerTop = "PYRAMID";
                 p.land = ArenaLandscape.Kind.JUNGLE;
             }
             case VOLCANO -> {
-                floor(p, "polished_blackstone", "basalt[axis=y]", "blackstone", "polished_blackstone_bricks", "polished_blackstone_bricks");
+                tonal(p, new String[]{"polished_blackstone", "blackstone", "polished_blackstone_bricks", "cracked_polished_blackstone_bricks"}, 0.4, 0.25, 0.25, 0.1);
                 p.log = "polished_basalt";
                 p.planks = "crimson_planks";
                 p.fence = "nether_brick_fence";
@@ -1660,12 +1667,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.clothFg = "red";
                 p.clothTrim = "orange";
                 p.leaves = "dark_oak";
-                p.emAccent = "red_nether_bricks";
-                p.emLight = "polished_blackstone";
                 p.land = ArenaLandscape.Kind.VOLCANIC;
             }
             case HARBOR -> {
-                floor(p, "oak_planks", "spruce_planks", "stripped_oak_log[axis=x]", "dark_oak_planks", "dark_oak_planks");
+                tonal(p, new String[]{"spruce_planks", "stripped_spruce_wood[axis=y]", "dark_oak_planks", "oak_planks"}, 0.6, 0.2, 0.1, 0.1);
                 court(p, "stone_bricks", "mossy_stone_bricks", "cobblestone", "oak_planks", "spruce_planks");
                 roof(p, "spruce", "spruce_planks", "dark_oak_planks");
                 p.banners = new String[]{"black", "white"};
@@ -1673,12 +1678,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.clothFg = "white";
                 p.clothTrim = "red";
                 p.leaves = "oak";
-                p.emAccent = "black_concrete";
-                p.emLight = "birch_planks";
                 p.land = ArenaLandscape.Kind.TROPICAL;
             }
             case PHARAOH -> {
-                floor(p, "smooth_sandstone", "sandstone", "cut_sandstone", "chiseled_sandstone", "cut_sandstone");
+                tonal(p, new String[]{"smooth_sandstone", "cut_sandstone", "sandstone", "chiseled_sandstone"}, 0.45, 0.25, 0.2, 0.1);
                 p.log = "stripped_birch_log";
                 p.planks = "birch_planks";
                 p.fence = "birch_fence";
@@ -1690,8 +1693,6 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.clothTrim = "yellow";
                 p.leaves = "jungle";
                 p.towerTop = "PYRAMID";
-                p.emAccent = "lapis_block";
-                p.emLight = "smooth_sandstone";
                 p.land = ArenaLandscape.Kind.DESERT;
             }
         }
@@ -1715,12 +1716,16 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         return p;
     }
 
-    private static void floor(Pal p, String a, String b, String c, String line, String edge) {
-        p.floorA = a;
-        p.floorB = b;
-        p.floorC = c;
-        p.floorLine = line;
-        p.floorEdge = edge;
+    /** A natural floor: the main block with patches and specks of the others. */
+    private static void natural(Pal p, String... blocks) {
+        p.floorMix = blocks;
+        p.floorW = null;
+    }
+
+    /** A tonal floor: shades of one colour mixed block by block in these shares. */
+    private static void tonal(Pal p, String[] blocks, double... shares) {
+        p.floorMix = blocks;
+        p.floorW = shares;
     }
 
     private static void stadium(Pal p, String wall, String alt, String alt2, String pillar, String capital, String base) {
