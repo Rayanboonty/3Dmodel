@@ -1386,6 +1386,8 @@ public final class CMCPvP extends JavaPlugin {
                 maps.add(new CMCPvP.PackMap("pro_corsair", ArenaTheme.CORSAIR_WHARF, duelSize, dCopies, false));
                 maps.add(new CMCPvP.PackMap("pro_dynasty", ArenaTheme.GOLDEN_DYNASTY, duelSize, dCopies, false));
                 maps.add(new CMCPvP.PackMap("pro_gladiator", ArenaTheme.GLADIATOR_PIT, duelSize, dCopies, false));
+                maps.add(new CMCPvP.PackMap("pro_atlantis", ArenaTheme.SUNKEN_ATLANTIS, duelSize, dCopies, false));
+                maps.add(new CMCPvP.PackMap("pro_starfall", ArenaTheme.STARFALL_CITADEL, duelSize, dCopies, false));
                 maps.add(new CMCPvP.PackMap("pro_imperial", ArenaTheme.IMPERIAL_COLOSSEUM, 224, dCopies, false));
                 maps.add(new CMCPvP.PackMap("pro_highpeak", ArenaTheme.HIGHPEAK_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
                 // 1.4.0: the show arenas and every biome that was only made on request before

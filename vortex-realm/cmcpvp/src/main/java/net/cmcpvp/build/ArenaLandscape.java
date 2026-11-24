@@ -36,7 +36,9 @@ public final class ArenaLandscape extends CourtParts {
         /** Mossy jungle hills with giant trees and vines; temple ruins and stilt huts. */
         JUNGLE("Jungle hills", "grass_block", "dirt", 68, 999, false, 1.0),
         /** Blackstone and basalt peaks with glowing vents and smoke; basalt spires and ruins. */
-        VOLCANIC("Volcanic peaks", "blackstone", "basalt[axis=y]", 78, 999, false, 0.4);
+        VOLCANIC("Volcanic peaks", "blackstone", "basalt[axis=y]", 78, 999, false, 0.4),
+        /** End stone highlands with chorus trees; obsidian pillars crowned with light and purpur ruins. */
+        END("End highlands", "end_stone", "end_stone", 64, 999, false, 0.5);
 
         public final String display;
         final String top;
@@ -137,6 +139,7 @@ public final class ArenaLandscape extends CourtParts {
             case DARK -> band == 1 ? "deepslate" : (band == 4 ? "tuff" : (r < 0.15 ? "cobbled_deepslate" : (r < 0.3 ? "andesite" : "stone")));
             case TROPICAL, JUNGLE -> r < 0.25 ? "mossy_cobblestone" : (band == 2 ? "andesite" : (band == 5 && r < 0.5 ? "moss_block" : "stone"));
             case VOLCANIC -> r < 0.01 ? "magma_block" : (band % 3 == 0 ? "blackstone" : (r < 0.3 ? "smooth_basalt" : "basalt[axis=y]"));
+            case END -> r < 0.02 ? "obsidian" : (band == 1 || band == 4 ? "end_stone_bricks" : "end_stone");
             default -> band == 1 ? "andesite" : (band == 4 ? "tuff" : (r < 0.08 ? "cobblestone" : "stone"));
         };
     }
@@ -522,7 +525,61 @@ public final class ArenaLandscape extends CourtParts {
                 }
             }
             case VOLCANIC -> this.deadTree(x, y, z, k < 0.6 ? "dark_oak_log" : "mangrove_log", 5 + size);
+            case END -> this.chorus(x, y, z, size, k);
         }
+    }
+
+    /** A chorus tree: a stalk with branches stepping out and up, flowers on the tips. */
+    private void chorus(int x, int y, int z, int size, double k) {
+        int h = 4 + size;
+        for (int i = 0; i < h; i++) {
+            this.set(x, y + i, z, "chorus_plant");
+        }
+
+        this.set(x, y + h, z, "chorus_flower[age=5]");
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int b = 0; b < 2 + size / 2; b++) {
+            int[] d = dirs[(int)((k * 7 + b * 1.7) * 4) % 4];
+            int by = y + 1 + (int)((h - 2) * ((b + 1.0) / (3 + size / 2)));
+            int bx = x + d[0];
+            int bz = z + d[1];
+            this.set(bx, by, bz, "chorus_plant");
+            this.set(bx + d[0], by, bz + d[1], "chorus_plant");
+            for (int j = 1; j <= 2; j++) {
+                this.set(bx + d[0], by + j, bz + d[1], "chorus_plant");
+            }
+
+            this.set(bx + d[0], by + 3, bz + d[1], "chorus_flower[age=5]");
+        }
+    }
+
+    /** An obsidian pillar crowned with light in an iron cage. */
+    private void obsidianPillar(int x, int z, int h) {
+        for (int y = 1; y <= h; y++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (Math.abs(dx) + Math.abs(dz) < 2 || y < h - 2) {
+                        this.set(x + dx, y, z + dz, y % 7 == 0 ? "crying_obsidian" : "obsidian");
+                    }
+                }
+            }
+        }
+
+        this.set(x, h + 1, z, "bedrock");
+        this.set(x, h + 2, z, "sea_lantern");
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                for (int y = h + 1; y <= h + 3; y++) {
+                    if (dx != 0 || dz != 0) {
+                        this.set(x + dx, y, z + dz, "iron_bars");
+                    }
+                }
+
+                this.set(x + dx, h + 4, z + dz, "iron_bars");
+            }
+        }
+
+        this.set(x, h + 5, z, "end_rod[facing=up]");
     }
 
     // ------------------------------------------------------------------ set pieces
@@ -602,6 +659,14 @@ public final class ArenaLandscape extends CourtParts {
                         case 0, 3 -> this.ruins(x, z, "mossy_stone_bricks", "cracked_stone_bricks");
                         case 1, 4 -> this.smallPyramid(x, z, 8, "mossy_stone_bricks", "mossy_cobblestone");
                         default -> this.stiltHut(x, 0, z, 3, 3, facingAway(x, z));
+                    }
+                }
+                case END -> {
+                    if (i == 2 || i == 5) {
+                        this.ruins(x, z, "purpur_block", "purpur_pillar[axis=y]");
+                    } else {
+                        this.obsidianPillar(x, z, 14 + i * 3);
+                        this.obsidianPillar(x + 5, z - 4, 9 + i * 2);
                     }
                 }
                 case VOLCANIC -> {
@@ -1201,6 +1266,7 @@ public final class ArenaLandscape extends CourtParts {
             case DARK -> new String[]{"polished_deepslate", "deepslate_tiles", "cobbled_deepslate"};
             case JUNGLE -> new String[]{"mossy_stone_bricks", "stone_bricks", "mossy_cobblestone"};
             case VOLCANIC -> new String[]{"polished_blackstone", "blackstone", "polished_basalt[axis=y]"};
+            case END -> new String[]{"purpur_block", "purpur_pillar[axis=y]", "end_stone_bricks"};
             default -> new String[]{"polished_andesite", "stone_bricks", "andesite"};
         };
         String eyes = switch (this.kind) {
@@ -1461,6 +1527,7 @@ public final class ArenaLandscape extends CourtParts {
             case DARK -> new String[]{"cobbled_deepslate", "deepslate"};
             case JUNGLE -> new String[]{"mossy_cobblestone", "moss_block"};
             case VOLCANIC -> new String[]{"blackstone", "magma_block"};
+            case END -> new String[]{"end_stone", "obsidian"};
             case OLYMPUS -> new String[]{"calcite", "diorite"};
             default -> new String[]{"stone", "cobblestone"};
         };
@@ -1578,7 +1645,7 @@ public final class ArenaLandscape extends CourtParts {
                         this.set(x, oy - k, z, k == 0 ? (oy >= this.kind.snowLine ? "snow_block" : this.kind.top) : (k <= 1 ? this.kind.under : this.rock(x, oy - k, z)));
                     }
 
-                    if (hash3(this.seed + 681L, ox + dx, oy, oz + dz) < 0.1 && this.kind != Kind.VOLCANIC && this.kind != Kind.DESERT) {
+                    if (hash3(this.seed + 681L, ox + dx, oy, oz + dz) < 0.1 && this.kind != Kind.VOLCANIC && this.kind != Kind.DESERT && this.kind != Kind.END) {
                         this.set(ox + dx, oy - deep - 1, oz + dz, "hanging_roots");
                     }
                 }

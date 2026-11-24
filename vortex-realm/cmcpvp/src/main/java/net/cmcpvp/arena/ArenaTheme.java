@@ -113,6 +113,8 @@ public enum ArenaTheme {
     GLADIATOR_PIT(net.cmcpvp.build.ProArenaDesign.Theme.GLADIATOR, "Gladiator Pit", Material.MUD_BRICKS, Biome.PLAINS),
     IMPERIAL_COLOSSEUM(net.cmcpvp.build.ProArenaDesign.Theme.ROMAN, "Imperial Colosseum", Material.CHISELED_QUARTZ_BLOCK, Biome.PLAINS),
     HIGHPEAK_COLOSSEUM(net.cmcpvp.build.ProArenaDesign.Theme.GRAND, "Highpeak Colosseum", Material.MACE, Biome.MEADOW),
+    SUNKEN_ATLANTIS(net.cmcpvp.build.ProArenaDesign.Theme.ATLANTIS, "Sunken Atlantis", Material.PRISMARINE_BRICKS, Biome.WARM_OCEAN),
+    STARFALL_CITADEL(net.cmcpvp.build.ProArenaDesign.Theme.STARFALL, "Starfall Citadel", Material.PURPUR_PILLAR, Biome.END_HIGHLANDS),
     CUSTOM("Custom", Material.STONE, null, 0.0, 0);
 
     public final double sizeScale;

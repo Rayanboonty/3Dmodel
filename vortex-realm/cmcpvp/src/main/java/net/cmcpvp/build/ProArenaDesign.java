@@ -31,12 +31,18 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
     public enum Theme {
         ROMAN(true), GRAND(true), GLADIATOR(true),
         MEDIEVAL(false), FROST(false), DESERT(false), HIGHLAND(false), SAKURA(false), EMBER(false),
-        GOTHIC(false), TROPICAL(false), JUNGLE(false), VOLCANO(false), HARBOR(false), PHARAOH(false);
+        GOTHIC(false), TROPICAL(false), JUNGLE(false), VOLCANO(false), HARBOR(false), PHARAOH(false),
+        ATLANTIS(false), STARFALL(false);
 
         public final boolean stadium;
 
         Theme(boolean stadium) {
             this.stadium = stadium;
+        }
+
+        /** A court of the ring design: walls with an arcade, roofs and towers all round the floor. */
+        public boolean walled() {
+            return this == ATLANTIS || this == STARFALL;
         }
     }
 
@@ -87,9 +93,23 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         ArenaLandscape.Kind land = ArenaLandscape.Kind.ALPINE;
         /** Tower tops: CONE, ONION, PYRAMID, SPIRE. */
         String towerTop = "CONE";
+        /** Courts: the main building (CASTLE, PALACE, CATHEDRAL, PAGODA, ZIGGURAT, PYRAMID). */
+        String court = "CASTLE";
+        /** Courts: what faces it (STAND, LOGGIA, PAVILION). */
+        String south = "STAND";
+        /** Courts: the garden trees (OAK, SPRUCE, SNOWY, PALM, CHERRY, DARK, DEAD, JUNGLE). */
+        String tree = "OAK";
+        /** Courts: the gardens' ground, the walk round the floor, the hedges (null for none). */
+        String[] plaza = {"grass_block", "moss_block", "coarse_dirt"};
+        String paving = "polished_andesite";
+        String hedge = "oak";
+        /** Courts: the castle stands on a rock; a lighthouse in place of its keep. */
+        boolean rock;
+        boolean lighthouse;
     }
 
     public final Theme theme;
+    private final boolean named;
     private final long seed;
     private final int depth;
     private final Pal pal;
@@ -156,18 +176,21 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         this.yColTop = this.yColBase + COL;
         this.storey = Math.max(6, this.yColBase / 3);
         this.gateW = theme == Theme.GLADIATOR ? 9 : 16;
+        this.named = named;
         this.pal = palette(theme);
         this.ground();
-        this.perimeter();
         if (theme.stadium) {
+            this.perimeter();
             this.stadiumGates();
-        } else {
+            if (named) {
+                this.cloth();
+            }
+        } else if (theme.walled()) {
+            this.perimeter();
             this.courtTowers();
             this.courtGates();
-        }
-
-        if (named) {
-            this.cloth();
+        } else {
+            this.court();
         }
 
         if (barriers) {
@@ -181,7 +204,8 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
             ArenaLandscape.Marks marks = theme.stadium
                 ? new ArenaLandscape.Marks(named ? PixelFont.serverName() : null, theme == Theme.GLADIATOR ? 1 : 2, this.yColTop + this.gateW * 6 / 11 + 3.0,
                     this.straight + this.radius, sp, this.pal.clothBg)
-                : new ArenaLandscape.Marks(named ? PixelFont.serverName() : null, 1, this.pH + 1 + AH + 3 + 6 + 5.0, this.hx + 2.0, sp, this.pal.clothBg);
+                : new ArenaLandscape.Marks(named ? PixelFont.serverName() : null, 1, theme.walled() ? this.pH + 1 + AH + 14.0 : 24.0,
+                    theme.walled() ? this.hx + 2.0 : this.hx + 6.0, sp, this.pal.clothBg);
             this.ring = new ArenaLandscape(this.pal.land, cx, floorY, cz, this.full, this.full, this::sd, this.dOut + 2.0, this.out, Math.max(6, depth), 112, seed, marks);
         } else {
             this.ring = null;
@@ -226,7 +250,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
             dOut = 8 + r1 + r2 + 3;
             own = (int)Math.ceil(straight + radius) + dOut + 4;
         } else {
-            dOut = 16;
+            dOut = t.walled() ? 16 : 44;
             own = Math.max(hx, hz) + dOut + 6;
         }
 
@@ -418,7 +442,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                     this.set(x, y, z, y >= -3 ? "dirt" : (v > 0.74 ? "andesite" : (v < 0.2 ? "tuff" : "stone")));
                 }
 
-                this.set(x, 0, z, d < 0.0 ? this.floorBlock(x, z, d) : this.pal.base);
+                this.set(x, 0, z, d < 0.0 ? this.floorBlock(x, z, d) : (this.theme.stadium || this.theme.walled() ? this.pal.base : this.plazaBlock(x, z, d)));
             }
         }
     }
@@ -595,11 +619,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 double t = this.along(x, z) / this.bayLen;
                 int bi = (int)Math.floor(t);
                 double u = (t - bi) * this.bay;
-                String out = this.outward(x, z);
                 if (this.theme.stadium) {
-                    this.stadiumColumn(x, z, d, u, bi, out);
+                    this.stadiumColumn(x, z, d, u, bi, this.outward(x, z));
                 } else {
-                    this.courtColumn(x, z, d, u, bi, out);
+                    this.courtColumn(x, z, d, u, bi, this.outward(x, z));
                 }
             }
         }
@@ -1044,6 +1067,1149 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
 
     // ---------------------------------------------------------------- courts
 
+    /** A tower's top by theme: a cone with a flag, an onion dome, a stepped pyramid or a tall spire. */
+    private void towerTop(int tx, int y, int tz, double r) {
+        Pal p = this.pal;
+        switch (p.towerTop) {
+            case "ONION" -> this.onion(tx, y, tz, r - 0.6, of(p.dome), p.emGold);
+            case "PYRAMID" -> {
+                int w = (int)Math.round(r) - 1;
+                for (int k = 0; k <= w; k++) {
+                    this.fill(tx - (w - k), y + k, tz - (w - k), tx + (w - k), y + k, tz + (w - k), of(p.roofBlock));
+                }
+
+                this.set(tx, y + w + 1, tz, "gold_block");
+            }
+            case "SPIRE" -> {
+                this.coneRoof(tx, tz, r + 0.6, y, 18, (x, yy, z) -> this.tex(373L, x, yy, z, p.roofBlock, p.roofAlt, p.roofBlock));
+                this.set(tx, y + 19, tz, "lightning_rod[facing=up]");
+            }
+            default -> {
+                this.coneRoof(tx, tz, r + 1.2, y, 11, (x, yy, z) -> this.tex(375L, x, yy, z, p.roofBlock, p.roofAlt, p.roofBlock));
+                for (int k = y + 11; k <= y + 14; k++) {
+                    this.set(tx, k, tz, p.fence);
+                }
+
+                this.set(tx + 1, y + 14, tz, p.banners[0] + "_wool");
+                this.set(tx + 2, y + 14, tz, p.banners[0] + "_wool");
+                this.set(tx + 1, y + 13, tz, p.banners[0] + "_wool");
+            }
+        }
+    }
+
+    /** The stairs block that goes with a wall block. */
+    private static String stairOf(String wall) {
+        return switch (wall) {
+            case "stone_bricks", "cracked_stone_bricks" -> "stone_brick";
+            case "mossy_stone_bricks" -> "mossy_stone_brick";
+            case "deepslate_bricks", "cracked_deepslate_bricks" -> "deepslate_brick";
+            case "polished_blackstone_bricks", "cracked_polished_blackstone_bricks" -> "polished_blackstone_brick";
+            case "quartz_bricks", "calcite", "smooth_quartz" -> "smooth_quartz";
+            case "cut_sandstone", "sandstone", "smooth_sandstone" -> "smooth_sandstone";
+            case "red_sandstone", "cut_red_sandstone", "smooth_red_sandstone" -> "smooth_red_sandstone";
+            case "cobblestone", "mossy_cobblestone" -> "cobblestone";
+            default -> "stone_brick";
+        };
+    }
+
+    // ================================================================== courts: a composition, not a ring (3.15.0)
+
+    private Mat wallM() {
+        Pal p = this.pal;
+        return (x, y, z) -> this.tex(401L, x, y, z, p.wall, p.wallAlt, p.wallAlt2);
+    }
+
+    private Mat roofM() {
+        Pal p = this.pal;
+        return (x, y, z) -> this.tex(403L, x, y, z, p.roofBlock, p.roofAlt, p.roofBlock);
+    }
+
+    private static String woodStair(String planks) {
+        return planks.replace("_planks", "");
+    }
+
+    /** The ground of the gardens round the floor. */
+    private String plazaBlock(int x, int z, double d) {
+        Pal p = this.pal;
+        if (d < 3.0) {
+            return p.paving;
+        }
+
+        double n = noise(this.seed + 23L, x * 1.4, z * 1.4);
+        double h = hash3(this.seed + 29L, x, 0, z);
+        String[] m = p.plaza;
+        if (m.length > 1 && n > 0.68) {
+            return m[1];
+        }
+
+        if (m.length > 2 && h < 0.06) {
+            return m[2];
+        }
+
+        return m[0];
+    }
+
+    /**
+     * The court: a giant main building on the north long side, something low facing it on the south side, a gateway at
+     * each end, and gardens everywhere else - the corners are open, with trees, fountains and statues.
+     */
+    private void court() {
+        Pal p = this.pal;
+        int zf = -(this.hz + 5);
+        int w = Math.max(16, this.hx - this.rc - 4);
+        switch (p.court) {
+            case "PALACE" -> this.palace(w, zf);
+            case "CATHEDRAL" -> this.cathedral(w, zf);
+            case "PAGODA" -> this.pagodaTemple(w, zf);
+            case "ZIGGURAT" -> this.ziggurat(w, zf);
+            case "PYRAMID" -> this.pharaohPyramid(w, zf);
+            default -> this.castle(w, zf);
+        }
+
+        int zs = this.hz + 4;
+        switch (p.south) {
+            case "LOGGIA" -> this.loggia(zs);
+            case "PAVILION" -> this.pavilions(zs);
+            default -> this.grandstand(zs);
+        }
+
+        for (int side = -1; side <= 1; side += 2) {
+            this.gateway(side);
+        }
+
+        this.edge();
+        this.gardens();
+    }
+
+    // ---------------------------------------------------------------- main buildings
+
+    /** A round tower: a plinth, bands with windows, a corbelled crown with merlons and the theme's top. */
+    private void bigTower(int cx, int cz, double r, int base, int h) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        this.cyl(cx, cz, r + 1.0, base + 1, base + 3, of(p.base));
+        this.cyl(cx, cz, r, base + 1, h, wm);
+        int n = 0;
+        for (int y = base + 9; y < h - 3; y += 8) {
+            this.ringAt(cx, cz, r - 0.3, r + 0.6, y, of(p.trim));
+            for (int k = 0; k < 4; k++) {
+                double a = k * Math.PI / 2.0 + Math.PI / 4.0 + n * 0.5;
+                int wx = cx + (int)Math.round(Math.cos(a) * r);
+                int wz = cz + (int)Math.round(Math.sin(a) * r);
+                this.set(wx, y + 2, wz, p.glass);
+                this.set(wx, y + 3, wz, p.glass);
+            }
+
+            n++;
+        }
+
+        this.ringAt(cx, cz, r - 0.4, r + 1.3, h, of(p.capital));
+        int m = (int)Math.max(8L, Math.round((r + 1.0) * Math.PI));
+        for (int k = 0; k < 2 * m; k += 2) {
+            double a = k * Math.PI / m;
+            this.set(cx + (int)Math.round(Math.cos(a) * (r + 0.9)), h + 1, cz + (int)Math.round(Math.sin(a) * (r + 0.9)), p.wall);
+        }
+
+        this.towerTop(cx, h + 1, cz, r + 0.4);
+    }
+
+    private void slit(Face f, int u, int y) {
+        f.set(u, y, 0, null);
+        f.set(u, y + 1, 0, null);
+        f.set(u, y, 1, "polished_blackstone");
+        f.set(u, y + 1, 1, "polished_blackstone");
+    }
+
+    private String wool(int i) {
+        return this.pal.banners[Math.floorMod(i, this.pal.banners.length)] + "_wool";
+    }
+
+    /**
+     * A castle: a battlemented curtain wall with banners and a gatehouse between two great round towers, palace wings
+     * behind it and a massive keep with corner turrets and a tall roof (or a lighthouse), on a rock when the theme asks.
+     */
+    private void castle(int w, int zf) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        String st = stairOf(p.wall);
+        int lift = p.rock ? 7 : 0;
+        Face f = new Face(0, zf, 0, -1);
+        if (lift > 0) {
+            // the rock it stands on, its edges broken
+            for (int u = -w - 9; u <= w + 9; u++) {
+                for (int ww = -3; ww <= 34; ww++) {
+                    double out = Math.max(Math.max(-ww - 0.5, Math.abs(u) - w - 2.0), ww - 31.0);
+                    int h = (int)Math.round(lift - Math.max(0.0, out) * 1.5 + noise(this.seed + 31L, u * 3.0, ww * 3.0) * 3.0 - 1.0);
+                    for (int y = 1; y <= Math.min(lift, h); y++) {
+                        f.set(u, y, ww, this.tex(33L, f.x(u, ww), y, f.z(u, ww), "stone", "andesite", "mossy_cobblestone"));
+                    }
+
+                    if (h >= 1 && h < lift && out > 0.0) {
+                        f.set(u, Math.min(lift, h) + 1, ww, hash3(this.seed + 35L, u, h, ww) < 0.5 ? "moss_carpet" : null);
+                    }
+                }
+            }
+        }
+
+        int hw = lift + 15;
+        f.box(-w, lift + 1, 0, w, hw, 3, wm);
+        for (int u = -w; u <= w; u++) {
+            f.set(u, lift + 1, -1, stairs(st, f.back(), false));
+        }
+
+        this.cornice(f, -w, w, hw - 1, st, 1);
+        this.merlons(f, -w, w, hw + 1, wm, 0);
+        for (int u = -w + 4; u <= w - 4; u += 6) {
+            if (Math.abs(u) > 10) {
+                this.slit(f, u, lift + 9);
+            }
+        }
+
+        int bi = 0;
+        for (int u = -w + 7; u <= w - 7; u += 9) {
+            if (Math.abs(u) > 11) {
+                this.cloth(f, u, hw - 2, 3, 8, this.wool(bi++), p.clothTrim + "_wool", p.emGold);
+            }
+        }
+
+        // the gatehouse: a deep arch with a portcullis and doors, machicolations, turrets
+        int hg = hw + 9;
+        Face g = f.moved(0, -2);
+        g.box(-8, lift + 1, 0, 8, hg, 8, wm);
+        this.arch(g, 0, lift + 1, 7, 11, false, 6, "dark_oak_planks", p.capital);
+        for (int u = -3; u <= 3; u++) {
+            for (int y = lift + 1; y <= lift + 11; y++) {
+                if (inArch(u, y, 0, 3.0, lift + 1, lift + 11, false)) {
+                    g.set(u, y, 1, y > lift + 6 ? "iron_bars" : null);
+                }
+            }
+        }
+
+        this.cornice(g, -8, 8, hg - 3, st, 1);
+        this.merlons(g, -8, 8, hg + 1, wm, 1);
+        this.window(g, -4, hg - 9, 2, 3, false, p.glass, "glowstone", p.trim, st, 1);
+        this.window(g, 4, hg - 9, 2, 3, false, p.glass, "glowstone", p.trim, st, 1);
+        this.cloth(g, 0, hg - 5, 5, 4, this.wool(0), p.clothTrim + "_wool", p.emGold);
+        g.set(0, lift + 12, -1, p.emGold);
+        for (int s = -1; s <= 1; s += 2) {
+            int tx = g.x(s * 8, 1);
+            int tz = g.z(s * 8, 1);
+            this.cyl(tx, tz, 2.2, hg - 6, hg + 5, wm);
+            this.ringAt(tx, tz, 1.8, 3.0, hg + 5, of(p.capital));
+            this.coneRoof(tx, tz, 3.2, hg + 6, 7, this.roofM());
+        }
+
+        // the two great towers on the ends of the wall
+        for (int s = -1; s <= 1; s += 2) {
+            this.bigTower(f.x(s * w, 1), f.z(s * w, 1), 6.5, lift, hw + 16);
+        }
+
+        // palace wings behind the wall
+        for (int s = -1; s <= 1; s += 2) {
+            int u0 = s * 10;
+            int u1 = s * (w - 8);
+            int top = hw + 6;
+            f.box(u0, lift + 1, 6, u1, top, 15, wm);
+            Face wf = f.moved(0, 6);
+            for (int u = Math.min(u0, u1) + 2; u <= Math.max(u0, u1) - 2; u += 4) {
+                this.window(wf, u, hw + 1, 2, 3, true, p.glass, "glowstone", p.trim, st, 1);
+            }
+
+            int x0 = f.x(Math.min(u0, u1) - 1, 0);
+            int x1 = f.x(Math.max(u0, u1) + 1, 0);
+            this.gableRoof(Math.min(x0, x1), f.z(0, 16), Math.max(x0, x1), f.z(0, 5), top + 1, true, p.roofStair, this.roofM(), wm);
+        }
+
+        if (p.lighthouse) {
+            // a striped lighthouse in place of the keep
+            int lx = f.x(0, 20);
+            int lz = f.z(0, 20);
+            this.cyl(lx, lz, 9.0, lift + 1, hw + 4, wm);
+            int top = lift + 58;
+            for (int y = hw + 5; y <= top; y++) {
+                double r = 6.0 - (y - hw) * 0.04;
+                this.cyl(lx, lz, r, y, y, of((y - hw) / 5 % 2 == 0 ? p.clothBg + "_concrete" : "white_concrete"));
+            }
+
+            this.ringAt(lx, lz, 0, 6.5, top + 1, of(p.capital));
+            this.ringAt(lx, lz, 5.6, 6.5, top + 2, of("iron_bars"));
+            this.cyl(lx, lz, 3.4, top + 2, top + 5, of("glass"));
+            this.cyl(lx, lz, 2.0, top + 2, top + 5, of("sea_lantern"));
+            this.coneRoof(lx, lz, 4.5, top + 6, 5, this.roofM());
+            this.set(lx, top + 12, lz, "lightning_rod[facing=up]");
+            return;
+        }
+
+        // the keep: massive, with rows of lit windows, long banners, corner turrets and a tall roof
+        int hk = lift + 46;
+        f.box(-10, lift + 1, 14, 10, hk, 30, wm);
+        Face k = f.moved(0, 14);
+        for (int y = lift + 20; y < hk - 6; y += 8) {
+            for (int u = -6; u <= 6; u += 6) {
+                this.window(k, u, y, 3, 5, true, p.glass, "glowstone", p.trim, st, 1);
+            }
+        }
+
+        this.cloth(k, -3, hk - 6, 3, 14, this.wool(0), p.clothTrim + "_wool", p.emGold);
+        this.cloth(k, 3, hk - 6, 3, 14, this.wool(1), p.clothTrim + "_wool", p.emGold);
+        this.cornice(k, -10, 10, hk - 1, st, 1);
+        for (int su = -1; su <= 1; su += 2) {
+            for (int sw = 0; sw <= 1; sw++) {
+                int tx = f.x(su * 10, 14 + sw * 16);
+                int tz = f.z(su * 10, 14 + sw * 16);
+                this.cyl(tx, tz, 3.4, hk - 14, hk + 8, wm);
+                this.ringAt(tx, tz, 3.0, 4.4, hk + 8, of(p.capital));
+                this.coneRoof(tx, tz, 4.6, hk + 9, 10, this.roofM());
+                this.set(tx, hk + 20, tz, "lightning_rod[facing=up]");
+            }
+        }
+
+        int kx0 = Math.min(f.x(-9, 0), f.x(9, 0));
+        int kx1 = Math.max(f.x(-9, 0), f.x(9, 0));
+        int top = this.pyramidRoof(kx0, f.z(0, 29), kx1, f.z(0, 15), hk + 1, p.roofStair, this.roofM());
+        for (int y = top + 1; y <= top + 8; y++) {
+            this.set(0, y, f.z(0, 22), p.fence);
+        }
+
+        for (int y = top + 5; y <= top + 7; y++) {
+            for (int kk = 1; kk <= 4; kk++) {
+                this.set(kk, y, f.z(0, 22), this.wool(y));
+            }
+        }
+    }
+
+    /**
+     * A palace: a two-storey arcade front with cresting, a towering portal with a deep pointed arch, a great onion dome
+     * on a windowed drum, smaller domes on the wings and minarets with balconies.
+     */
+    private void palace(int w, int zf) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        String st = stairOf(p.wall);
+        Face f = new Face(0, zf, 0, -1);
+        int h1 = 9;
+        int h2 = 17;
+        f.box(-w, 1, 0, w, h2, 8, wm);
+        for (int u = -w + 4; u <= w - 4; u += 5) {
+            if (Math.abs(u) <= 12) {
+                continue;
+            }
+
+            this.arch(f, u, 1, 3, 7, true, 3, p.window, p.trim);
+            this.window(f, u, h1 + 2, 3, 4, true, p.glass, "glowstone", p.trim, null, 1);
+        }
+
+        for (int u = -w; u <= w; u++) {
+            f.set(u, h1, -1, p.trim);
+            f.set(u, h2 + 1, 0, Math.floorMod(u, 3) == 0 ? p.capital : (Math.floorMod(u, 3) == 1 ? stairs(st, "east", false) : stairs(st, "west", false)));
+        }
+
+        // the portal
+        Face g = f.moved(0, -2);
+        g.box(-11, 1, 0, 11, 30, 10, wm);
+        this.arch(g, 0, 1, 15, 24, true, 6, p.window, p.trim);
+        for (int u = -2; u <= 2; u++) {
+            for (int y = 1; y <= 6; y++) {
+                g.set(u, y, 6, "dark_oak_planks");
+            }
+        }
+
+        for (int u = -11; u <= 11; u++) {
+            g.set(u, 29, -1, p.trim);
+            g.set(u, 31, 0, Math.floorMod(u, 2) == 0 ? p.capital : null);
+        }
+
+        for (int y = 2; y <= 28; y++) {
+            g.set(-12, y, 0, p.trim);
+            g.set(12, y, 0, p.trim);
+        }
+
+        for (int s = -1; s <= 1; s += 2) {
+            this.minaret(g.x(s * 12, 1), g.z(s * 12, 1), 1.8, 34);
+            this.minaret(f.x(s * (w + 1), 2), f.z(s * (w + 1), 2), 2.6, 40);
+            this.minaret(f.x(s * (w - 3), 32), f.z(s * (w - 3), 32), 2.2, 48);
+        }
+
+        // the great dome
+        int dz = f.z(0, 22);
+        this.cyl(0, dz, 10.0, 1, 31, wm);
+        for (int k = 0; k < 16; k++) {
+            double a = k * Math.PI / 8.0;
+            for (int y = 23; y <= 27; y++) {
+                this.set((int)Math.round(Math.cos(a) * 10.0), y, dz + (int)Math.round(Math.sin(a) * 10.0), y == 23 || y == 27 ? p.trim : p.glass);
+            }
+        }
+
+        this.ringAt(0, dz, 9.5, 11.4, 31, of(p.trim));
+        this.onion(0, 32, dz, 10.0, of(p.dome), p.emGold);
+        for (int s = -1; s <= 1; s += 2) {
+            int sx = s * (w / 2 + 3);
+            int sz = f.z(0, 12);
+            this.cyl(sx, sz, 5.0, 1, 21, wm);
+            this.ringAt(sx, sz, 4.6, 6.2, 21, of(p.trim));
+            this.onion(sx, 22, sz, 5.4, of(p.dome), p.emGold);
+        }
+    }
+
+    private void minaret(int x, int z, double r, int h) {
+        Pal p = this.pal;
+        this.cyl(x, z, r + 0.9, 1, 3, of(p.base));
+        this.cyl(x, z, r, 1, h, this.wallM());
+        for (int y = 8; y < h - 4; y += 7) {
+            this.ringAt(x, z, r - 0.3, r + 0.4, y, of(p.window));
+        }
+
+        for (int y : new int[]{(int)(h * 0.62), h - 5}) {
+            this.ringAt(x, z, r - 0.2, r + 1.5, y, of(p.trim));
+            this.ringAt(x, z, r + 1.0, r + 1.5, y + 1, of(p.fence));
+        }
+
+        this.onion(x, h + 1, z, r + 0.5, of(p.dome), p.emGold);
+    }
+
+    /**
+     * A cathedral: a west front of two tall towers with lancet windows, belfries and spires with pinnacles, a portal and a
+     * rose window under a steep gable, a long nave with flying buttresses, a spire over the crossing and side chapels.
+     */
+    private void cathedral(int w, int zf) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        String st = stairOf(p.wall);
+        Face f = new Face(0, zf, 0, -1);
+        int hn = 30;
+        f.box(-6, 1, 2, 6, hn, 34, wm);
+        // a steep roof over the nave, its gable over the front
+        for (int k = 0; k <= 7; k++) {
+            for (int dy = 0; dy < 2; dy++) {
+                int y = hn + 1 + 2 * k + dy;
+                for (int ww = 2; ww <= 34; ww++) {
+                    for (int u = -7 + k; u <= 7 - k; u++) {
+                        boolean edge = Math.abs(u) == 7 - k;
+                        String b = ww == 2 ? (edge ? p.trim : this.tex(405L, u, y, ww, p.wall, p.wallAlt, p.wallAlt2))
+                            : (edge && dy == 1 ? stairs(p.roofStair, u < 0 ? "east" : "west", false) : this.tex(407L, u, y, ww, p.roofBlock, p.roofAlt, p.roofBlock));
+                        f.set(u, y, ww, b);
+                    }
+                }
+            }
+        }
+
+        // the rose window with its tracery, the portal
+        int ry = 21;
+        for (int u = -6; u <= 6; u++) {
+            for (int y = ry - 6; y <= ry + 6; y++) {
+                double d = Math.hypot(u, y - ry);
+                if (d <= 4.3) {
+                    boolean tracery = u == 0 || y == ry || Math.abs(u) == Math.abs(y - ry) || d < 1.2;
+                    f.set(u, y, 2, tracery ? p.trim : p.window);
+                    f.set(u, y, 3, "glowstone");
+                } else if (d <= 5.3) {
+                    f.set(u, y, 1, p.trim);
+                }
+            }
+        }
+
+        this.arch(f.moved(0, 2), 0, 1, 7, 13, true, 2, "dark_oak_planks", p.trim);
+        // the towers of the front
+        for (int s = -1; s <= 1; s += 2) {
+            f.box(s * 7, 1, 0, s * 17, 42, 10, wm);
+            for (int y : new int[]{8, 21}) {
+                this.window(f, s * 12, y, 3, 9, true, p.window, "glowstone", p.trim, st, 1);
+            }
+
+            this.arch(f, s * 12, 33, 5, 7, true, 2, null, p.trim);
+            this.cornice(f, s * 7, s * 17, 41, st, 1);
+            for (int u : new int[]{s * 7, s * 17}) {
+                for (int ww : new int[]{0, 10}) {
+                    this.spire(f.x(u, ww), 43, f.z(u, ww), 5, p.wall, "lightning_rod[facing=up]");
+                }
+
+                for (int y = 1; y <= 38; y++) {
+                    f.set(u, y, -1, y % 9 == 0 ? stairs(st, f.back(), false) : p.capital);
+                }
+            }
+
+            int cx = f.x(s * 12, 5);
+            int cz = f.z(s * 12, 5);
+            this.ringAt(cx, cz, 0, 5.6, 42, of(p.trim));
+            this.coneRoof(cx, cz, 5.2, 43, 26, this.roofM());
+            this.set(cx, 70, cz, p.emGold);
+            this.set(cx, 71, cz, "lightning_rod[facing=up]");
+        }
+
+        // aisles with flying buttresses
+        for (int s = -1; s <= 1; s += 2) {
+            f.box(s * 7, 1, 11, s * 13, 16, 34, wm);
+            for (int ww = 13; ww <= 33; ww += 5) {
+                Face side = new Face(f.x(s * 13, ww), f.z(s * 13, ww), -s, 0);
+                this.window(side, 0, 5, 2, 7, true, p.window, "glowstone", p.trim, null, 1);
+                int px = f.x(s * 17, ww);
+                int pz = f.z(s * 17, ww);
+                for (int y = 1; y <= 22; y++) {
+                    this.set(px, y, pz, y >= 21 ? p.capital : p.wall);
+                    this.set(px + s, y, pz, y <= 14 ? p.wall : null);
+                }
+
+                this.spire(px, 23, pz, 3, p.wall, "lightning_rod[facing=up]");
+                this.line(px - s, 21, pz, f.x(s * 7, ww), 28, pz, p.wall);
+            }
+
+            this.pyramidRoof(Math.min(f.x(s * 7, 0), f.x(s * 13, 0)), f.z(0, 34), Math.max(f.x(s * 7, 0), f.x(s * 13, 0)), f.z(0, 11), 17, null, this.roofM());
+            // side chapels out to the ends of the front
+            int u0 = s * 18;
+            int u1 = s * w;
+            if (Math.abs(u1) > Math.abs(u0) + 3) {
+                f.box(u0, 1, 2, u1, 13, 14, wm);
+                for (int u = Math.min(u0, u1) + 2; u <= Math.max(u0, u1) - 2; u += 4) {
+                    this.window(f.moved(0, 2), u, 4, 2, 6, true, p.window, "glowstone", p.trim, st, 1);
+                }
+
+                int x0 = Math.min(f.x(u0, 0), f.x(u1, 0));
+                int x1 = Math.max(f.x(u0, 0), f.x(u1, 0));
+                this.gableRoof(x0 - 1, f.z(0, 15), x1 + 1, f.z(0, 1), 14, true, p.roofStair, this.roofM(), wm);
+            }
+        }
+
+        // the spire over the crossing
+        int cz = f.z(0, 22);
+        this.cyl(0, cz, 3.0, hn + 10, hn + 18, wm);
+        this.coneRoof(0, cz, 3.6, hn + 19, 24, this.roofM());
+        this.set(0, hn + 44, cz, p.emGold);
+    }
+
+    /** A pagoda temple: a long hall on a stone platform with wide curved eaves, a five-tier pagoda behind, two smaller ones. */
+    private void pagodaTemple(int w, int zf) {
+        Pal p = this.pal;
+        Face f = new Face(0, zf, 0, -1);
+        f.box(-w, 1, 0, w, 2, 30, of(p.base));
+        for (int u = -w; u <= w; u++) {
+            f.set(u, 1, -1, stairs(stairOf(p.base), f.back(), false));
+        }
+
+        // the hall
+        int u0 = -w + 3;
+        int u1 = w - 3;
+        for (int u = u0; u <= u1; u++) {
+            for (int ww = 2; ww <= 10; ww++) {
+                boolean edge = u == u0 || u == u1 || ww == 2 || ww == 10;
+                boolean post = Math.floorMod(u - u0, 4) == 0 && (ww == 2 || ww == 10) || (u == u0 || u == u1) && ww % 4 == 2;
+                for (int y = 3; y <= 10; y++) {
+                    String b;
+                    if (!edge) {
+                        b = y == 3 ? p.planks : null;
+                    } else if (post) {
+                        b = p.log + "[axis=y]";
+                    } else if (y == 10) {
+                        b = p.log + "[axis=" + (ww == 2 || ww == 10 ? "x" : "z") + "]";
+                    } else if (ww == 2 && Math.abs(u) <= 3 && y <= 8) {
+                        b = null;
+                    } else {
+                        b = y >= 5 && y <= 8 && ww == 2 ? p.window : p.wall;
+                    }
+
+                    f.set(u, y, ww, b);
+                }
+            }
+        }
+
+        int x0 = Math.min(f.x(u0, 0), f.x(u1, 0));
+        int x1 = Math.max(f.x(u0, 0), f.x(u1, 0));
+        this.eaves(x0, f.z(0, 10), x1, f.z(0, 2), 11, 3);
+        for (int u = u0; u <= u1; u += 6) {
+            f.set(u, 9, 0, p.light + "[hanging=true]");
+        }
+
+        // the pagodas
+        this.tieredPagoda(0, f.z(0, 21), 5, 7, 3);
+        for (int s = -1; s <= 1; s += 2) {
+            this.tieredPagoda(f.x(s * (w - 7), 0), f.z(0, 22), 3, 4, 3);
+        }
+    }
+
+    /** Wide eaves over a rectangle: tiers of tiles stepping in, their corners turned up. */
+    private void eaves(int x0, int z0, int x1, int z1, int y0, int over) {
+        Pal p = this.pal;
+        int k = 0;
+        while (x0 - over + k <= x1 + over - k && z0 - over + k <= z1 + over - k) {
+            int ax = x0 - over + k;
+            int bx = x1 + over - k;
+            int az = z0 - over + k;
+            int bz = z1 + over - k;
+            int y = y0 + k;
+            for (int x = ax; x <= bx; x++) {
+                for (int z = az; z <= bz; z++) {
+                    boolean ex = x == ax || x == bx;
+                    boolean ez = z == az || z == bz;
+                    if (ex && ez) {
+                        this.set(x, y + (k == 0 ? 1 : 0), z, k == 0 ? slab(p.roofStair, false) : p.roofBlock);
+                    } else if (ex) {
+                        this.set(x, y, z, stairs(p.roofStair, x == ax ? "east" : "west", false));
+                    } else if (ez) {
+                        this.set(x, y, z, stairs(p.roofStair, z == az ? "south" : "north", false));
+                    } else {
+                        this.set(x, y, z, p.roofBlock);
+                    }
+                }
+            }
+
+            if (k == 0) {
+                for (int[] c : new int[][]{{ax + 1, az + 1}, {bx - 1, az + 1}, {ax + 1, bz - 1}, {bx - 1, bz - 1}}) {
+                    this.set(c[0], y - 1, c[1], p.light + "[hanging=true]");
+                }
+            }
+
+            k++;
+        }
+    }
+
+    /** A pagoda: tiers of walls between dark posts, each under wide eaves, a finial of rings and gold on top. */
+    private void tieredPagoda(int cx, int cz, int tiers, int half, int y0) {
+        Pal p = this.pal;
+        int y = y0;
+        for (int t = 0; t < tiers; t++) {
+            int w = Math.max(2, half - t);
+            int h = t == 0 ? 6 : 5;
+            for (int dx = -w; dx <= w; dx++) {
+                for (int dz = -w; dz <= w; dz++) {
+                    boolean edge = Math.abs(dx) == w || Math.abs(dz) == w;
+                    boolean post = Math.abs(dx) == w && Math.abs(dz) == w;
+                    for (int k = 0; k < h; k++) {
+                        String b;
+                        if (!edge) {
+                            b = k == 0 ? p.planks : null;
+                        } else if (post) {
+                            b = p.log + "[axis=y]";
+                        } else if (k == h - 1) {
+                            b = p.log + "[axis=" + (Math.abs(dz) == w ? "x" : "z") + "]";
+                        } else {
+                            b = k >= 1 && k <= h - 2 && Math.floorMod(dx + dz, 2) == 0 ? p.window : p.wall;
+                        }
+
+                        this.set(cx + dx, y + k, cz + dz, b);
+                    }
+                }
+            }
+
+            this.eaves(cx - w, cz - w, cx + w, cz + w, y + h, 2);
+            y += h + 2;
+        }
+
+        for (int k = 0; k < 6; k++) {
+            this.set(cx, y + k, cz, k % 2 == 0 ? "gold_block" : "iron_chain[axis=y]");
+        }
+
+        this.set(cx, y + 6, cz, "lightning_rod[facing=up]");
+    }
+
+    /** A jungle ziggurat: steps of mossy stone hung with vines, braziers on the corners, a shrine with a copper roof on top. */
+    private void ziggurat(int w, int zf) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        Face f = new Face(0, zf, 0, -1);
+        int steps = 7;
+        int sh = 5;
+        for (int k = 0; k < steps; k++) {
+            int u0 = -w + 3 * k;
+            int u1 = w - 3 * k;
+            int w0 = 2 * k;
+            int w1 = 34 - 2 * k;
+            f.box(u0, 1 + k * sh, w0, u1, (k + 1) * sh, w1, wm);
+            for (int u = u0; u <= u1; u++) {
+                f.set(u, (k + 1) * sh, w0, p.trim);
+                if (hash3(this.seed + 41L, u, k, 0) < 0.35) {
+                    int len = 1 + (int)(hash3(this.seed + 43L, u, k, 1) * 4);
+                    for (int y = (k + 1) * sh - 1; y > (k + 1) * sh - 1 - len && y > k * sh; y--) {
+                        f.set(u, y, w0 - 1, "vine[north=true]");
+                    }
+                }
+            }
+
+            for (int u : new int[]{u0, u1}) {
+                f.set(u, (k + 1) * sh + 1, w0, "campfire[lit=true,signal_fire=false]");
+            }
+        }
+
+        // a carved band up the middle with gold eyes
+        for (int k = 0; k < steps; k++) {
+            for (int y = 1 + k * sh; y < (k + 1) * sh; y++) {
+                for (int u = -2; u <= 2; u++) {
+                    f.set(u, y, 2 * k, Math.abs(u) == 2 ? p.capital : (y == k * sh + 3 && Math.abs(u) == 1 ? p.emGold : p.window));
+                }
+            }
+        }
+
+        int top = steps * sh;
+        f.box(-6, top + 1, 15, 6, top + 7, 20, wm);
+        this.arch(f.moved(0, 15), 0, top + 1, 3, 5, false, 2, null, p.capital);
+        int x0 = Math.min(f.x(-7, 0), f.x(7, 0));
+        int x1 = Math.max(f.x(-7, 0), f.x(7, 0));
+        this.pyramidRoof(x0, f.z(0, 21), x1, f.z(0, 14), top + 8, p.roofStair, this.roofM());
+    }
+
+    /** A pharaoh's steep pyramid behind a pylon gate: tapering towers with bands and banners, a sun disk, a gold capstone. */
+    private void pharaohPyramid(int w, int zf) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        Face f = new Face(0, zf, 0, -1);
+        int half = 17;
+        int pz = f.z(0, 21);
+        for (int y = 1; y <= 2 * half + 1; y++) {
+            int hh = half - (y - 1) / 2;
+            boolean upper = (y - 1) % 2 == 1;
+            for (int dx = -hh; dx <= hh; dx++) {
+                for (int dz = -hh; dz <= hh; dz++) {
+                    boolean ex = Math.abs(dx) == hh;
+                    boolean ez = Math.abs(dz) == hh;
+                    String b = y >= 2 * half - 2 ? "gold_block" : (ex || ez ? "smooth_sandstone" : "sandstone");
+                    if (upper && ex && !ez) {
+                        b = stairs("smooth_sandstone", dx > 0 ? "west" : "east", false);
+                    } else if (upper && ez && !ex) {
+                        b = stairs("smooth_sandstone", dz > 0 ? "north" : "south", false);
+                    }
+
+                    this.set(dx, y, pz + dz, b);
+                }
+            }
+        }
+
+        // the pylons
+        int hp = 20;
+        for (int s = -1; s <= 1; s += 2) {
+            for (int y = 1; y <= hp; y++) {
+                int inset = y / 6;
+                int ua = s * 6;
+                int ub = s * (w - inset);
+                for (int u = Math.min(ua, ub); u <= Math.max(ua, ub); u++) {
+                    for (int ww = inset / 2; ww <= 8 - inset / 2; ww++) {
+                        String b = y == hp - 4 || y == hp - 6 ? p.window : (y == hp ? p.capital : wm.at(f.x(u, ww), y, f.z(u, ww)));
+                        f.set(u, y, ww, b);
+                    }
+                }
+            }
+
+            this.cloth(f, s * (w + 6) / 2 - s * 2, hp - 8, 5, 12, this.wool(s > 0 ? 0 : 1), p.clothTrim + "_wool", p.emGold);
+        }
+
+        // the gate between them with a winged sun disk
+        f.box(-5, 1, 1, 5, 16, 7, wm);
+        this.arch(f.moved(0, 1), 0, 1, 5, 10, false, 3, "dark_oak_planks", p.capital);
+        for (int u = -5; u <= 5; u++) {
+            f.set(u, 14, 0, Math.abs(u) <= 1 ? "gold_block" : p.window);
+        }
+
+        f.set(0, 15, 0, "gold_block");
+        f.set(0, 13, 0, "gold_block");
+    }
+
+    // ---------------------------------------------------------------- the south side
+
+    /** Covered stands facing the floor: rows of wooden seats with aisles, a canopy on posts, banners under it. */
+    private void grandstand(int zs) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        int ws = Math.max(14, (int)Math.round(this.hx * 0.6));
+        Face f = new Face(0, zs, 0, 1);
+        String seat = woodStair(p.planks);
+        for (int k = 0; k < 7; k++) {
+            for (int u = -ws; u <= ws; u++) {
+                for (int y = 1; y <= k; y++) {
+                    f.set(u, y, k, wm.at(f.x(u, k), y, f.z(u, k)));
+                }
+
+                boolean aisle = u == 0 || Math.abs(u) == ws / 2;
+                f.set(u, k + 1, k, aisle ? stairs(stairOf(p.wall), f.back(), false) : stairs(seat, f.back(), false));
+            }
+        }
+
+        f.box(-ws - 1, 1, 7, ws + 1, 13, 8, wm);
+        for (int s = -1; s <= 1; s += 2) {
+            for (int ww = 0; ww <= 7; ww++) {
+                for (int y = 1; y <= 4 + ww; y++) {
+                    f.set(s * (ws + 1), y, ww, wm.at(f.x(s * (ws + 1), ww), y, f.z(s * (ws + 1), ww)));
+                }
+            }
+        }
+
+        for (int ww = -1; ww <= 8; ww++) {
+            int y = 12 + (ww + 1) / 4;
+            for (int u = -ws - 2; u <= ws + 2; u++) {
+                f.set(u, y, ww, stairs(p.roofStair, f.back(), false));
+                f.set(u, y - 1, ww, ww >= 7 ? wm.at(f.x(u, ww), y - 1, f.z(u, ww)) : null);
+            }
+        }
+
+        for (int u = -ws; u <= ws; u += 6) {
+            for (int y = 1; y <= 11; y++) {
+                f.set(u, y, 0, p.log + "[axis=y]");
+            }
+
+            f.set(u, 10, -1, p.light + "[hanging=true]");
+        }
+
+        int bi = 0;
+        for (int u = -ws + 3; u <= ws - 3; u += 6) {
+            this.cloth(f, u, 11, 3, 4, this.wool(bi++), p.clothTrim + "_wool", null);
+        }
+
+        if (this.named) {
+            this.nameBoard(f, 15);
+        }
+    }
+
+    /** The server's name on a big board standing on the stands, facing the floor (the signature arena only). */
+    private void nameBoard(Face f, int y0) {
+        Pal p = this.pal;
+        String text = PixelFont.fit(PixelFont.serverName(), 60);
+        if (text.isEmpty()) {
+            return;
+        }
+
+        int w = PixelFont.width(text) + 4;
+        int h = PixelFont.ROWS + 2;
+        int left = -w / 2;
+        for (int i = 0; i < w; i++) {
+            for (int j = 0; j < h; j++) {
+                boolean edge = i == 0 || i == w - 1 || j == 0 || j == h - 1;
+                String b = edge ? p.clothTrim : p.clothBg;
+                if (!edge && PixelFont.textOn(text, i - 2, h - 2 - j)) {
+                    b = p.clothFg;
+                }
+
+                f.set(left + i, y0 + j, 6, b + "_wool");
+            }
+        }
+
+        for (int u : new int[]{left + 3, -left - 3}) {
+            for (int y = 14; y < y0; y++) {
+                f.set(u, y, 7, p.log + "[axis=y]");
+            }
+        }
+    }
+
+    /** An arcade facing the floor: open arches under a terrace with a parapet and palms in planters. */
+    private void loggia(int zs) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        int ws = Math.max(14, (int)Math.round(this.hx * 0.6));
+        Face f = new Face(0, zs, 0, 1);
+        boolean pointed = !p.court.equals("PYRAMID");
+        f.box(-ws, 1, 0, ws, 11, 6, wm);
+        for (int u = -ws + 3; u <= ws - 3; u += 5) {
+            this.arch(f, u, 1, 3, 7, pointed, 4, null, p.trim);
+            this.window(f, u, 9, 1, 1, false, p.glass, "glowstone", null, null, 1);
+            f.set(u, 7, 2, p.light + "[hanging=true]");
+        }
+
+        for (int u = -ws; u <= ws; u++) {
+            f.set(u, 8, -1, p.trim);
+            f.set(u, 12, 0, Math.floorMod(u, 2) == 0 ? p.capital : null);
+        }
+
+        for (int u = -ws + 4; u <= ws - 4; u += 8) {
+            int x = f.x(u, 4);
+            int z = f.z(u, 4);
+            this.set(x, 12, z, "moss_block");
+            this.palmTree(x, 13, z);
+        }
+    }
+
+    /** Two round garden pavilions with tiled roofs and a great tree between them. */
+    private void pavilions(int zs) {
+        Pal p = this.pal;
+        int ox = (int)Math.round(this.hx * 0.42);
+        int cz = zs + 6;
+        for (int s = -1; s <= 1; s += 2) {
+            int cx = s * ox;
+            this.cyl(cx, cz, 4.6, 1, 1, of(p.base));
+            for (int k = 0; k < 6; k++) {
+                double a = k * Math.PI / 3.0;
+                int px = cx + (int)Math.round(Math.cos(a) * 3.6);
+                int pz = cz + (int)Math.round(Math.sin(a) * 3.6);
+                for (int y = 2; y <= 6; y++) {
+                    this.set(px, y, pz, p.log + "[axis=y]");
+                }
+            }
+
+            this.ringAt(cx, cz, 3.6, 5.4, 7, this.roofM());
+            this.ringAt(cx, cz, 2.4, 4.0, 8, this.roofM());
+            this.ringAt(cx, cz, 0, 2.6, 9, this.roofM());
+            this.set(cx, 10, cz, p.roofBlock);
+            this.set(cx, 11, cz, "gold_block");
+            this.set(cx, 6, cz, p.light + "[hanging=true]");
+        }
+
+        this.cyl(0, cz, 3.5, 1, 1, of(p.base));
+        this.featureTree(0, 2, cz, 3);
+    }
+
+    // ---------------------------------------------------------------- the ends
+
+    /** A freestanding gateway at one end of the floor, in the theme's style. */
+    private void gateway(int side) {
+        Pal p = this.pal;
+        Mat wm = this.wallM();
+        Face g = new Face(side * (this.hx + 4), 0, side, 0);
+        String st = stairOf(p.wall);
+        switch (p.court) {
+            case "PALACE" -> {
+                g.box(-7, 1, 0, 7, 19, 3, wm);
+                this.arch(g, 0, 1, 7, 13, true, 4, null, p.trim);
+                for (int u = -7; u <= 7; u++) {
+                    g.set(u, 20, 0, Math.floorMod(u, 2) == 0 ? p.capital : null);
+                    g.set(u, 15, -1, p.trim);
+                }
+
+                for (int s = -1; s <= 1; s += 2) {
+                    this.minaret(g.x(s * 8, 1), g.z(s * 8, 1), 1.3, 22);
+                }
+            }
+            case "CATHEDRAL" -> {
+                g.box(-6, 1, 0, 6, 16, 2, wm);
+                this.arch(g, 0, 1, 7, 12, true, 3, null, p.trim);
+                for (int k = 0; k <= 6; k++) {
+                    for (int u = -6 + k; u <= 6 - k; u++) {
+                        g.set(u, 17 + k, 1, Math.abs(u) == 6 - k ? stairs(st, u < 0 ? g.right() : g.left(), false) : p.wall);
+                    }
+                }
+
+                for (int s = -1; s <= 1; s += 2) {
+                    for (int y = 1; y <= 20; y++) {
+                        g.set(s * 7, y, 1, p.capital);
+                    }
+
+                    this.spire(g.x(s * 7, 1), 21, g.z(s * 7, 1), 4, p.wall, "lightning_rod[facing=up]");
+                }
+            }
+            case "PAGODA" -> {
+                for (int s = -1; s <= 1; s += 2) {
+                    for (int y = 1; y <= 12; y++) {
+                        g.set(s * 5, y, 1, y == 1 ? p.base : "red_concrete");
+                    }
+                }
+
+                for (int u = -7; u <= 7; u++) {
+                    if (Math.abs(u) <= 6) {
+                        g.set(u, 10, 1, "red_concrete");
+                    }
+
+                    g.set(u, 13, 1, Math.abs(u) >= 7 ? "blackstone_slab[type=bottom]" : "polished_blackstone");
+                    if (Math.abs(u) >= 6) {
+                        g.set(u, 14, 1, "polished_blackstone_slab[type=bottom]");
+                    }
+                }
+
+                g.set(0, 11, 1, "gold_block");
+                g.set(0, 12, 1, "gold_block");
+            }
+            case "ZIGGURAT", "PYRAMID" -> {
+                for (int s = -1; s <= 1; s += 2) {
+                    for (int y = 1; y <= 15; y++) {
+                        int inset = y / 6;
+                        for (int u = s * 3; Math.abs(u) <= 8 - inset; u += s) {
+                            for (int ww = inset / 2; ww <= 3 - inset / 2; ww++) {
+                                g.set(u, y, ww, y == 12 ? p.window : (y == 15 ? p.capital : wm.at(g.x(u, ww), y, g.z(u, ww))));
+                            }
+                        }
+                    }
+
+                    g.set(s * 6, 16, 1, "campfire[lit=true,signal_fire=false]");
+                }
+
+                for (int u = -3; u <= 3; u++) {
+                    for (int y = 11; y <= 13; y++) {
+                        g.set(u, y, 1, wm.at(g.x(u, 1), y, g.z(u, 1)));
+                    }
+
+                    g.set(u, 12, 0, Math.abs(u) <= 1 ? "gold_block" : p.window);
+                }
+            }
+            default -> {
+                // a small castle gate: two square towers and a battlemented arch between them
+                for (int s = -1; s <= 1; s += 2) {
+                    g.box(s * 5, 1, 0, s * 9, 17, 4, wm);
+                    this.slit(g, s * 7, 10);
+                    int x0 = Math.min(g.x(s * 5, 0), g.x(s * 9, 4));
+                    int x1 = Math.max(g.x(s * 5, 0), g.x(s * 9, 4));
+                    int z0 = Math.min(g.z(s * 5, 0), g.z(s * 9, 4));
+                    int z1 = Math.max(g.z(s * 5, 0), g.z(s * 9, 4));
+                    int top = this.pyramidRoof(x0 - 1, z0 - 1, x1 + 1, z1 + 1, 18, p.roofStair, this.roofM());
+                    this.set((x0 + x1) / 2, top + 1, (z0 + z1) / 2, p.fence);
+                    this.set((x0 + x1) / 2, top + 2, (z0 + z1) / 2, p.banners[0] + "_banner[rotation=0]");
+                }
+
+                g.box(-4, 9, 1, 4, 13, 3, wm);
+                this.merlons(g.moved(0, 1), -4, 4, 14, wm, 0);
+                for (int u = -4; u <= 4; u++) {
+                    g.set(u, 9, 1, p.trim);
+                }
+
+                this.cloth(g.moved(0, 1), 0, 12, 3, 4, this.wool(0), p.clothTrim + "_wool", p.emGold);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- the edge and the gardens
+
+    /** A low curb round the floor with lamp posts, a paved walk, and hedges with gaps beyond it. */
+    private void edge() {
+        Pal p = this.pal;
+        for (int x = -this.R; x <= this.R; x++) {
+            for (int z = -this.R; z <= this.R; z++) {
+                double d = this.sd(x, z);
+                if (d < 0.0 || d >= 4.0 || !this.empty(x, 1, z)) {
+                    continue;
+                }
+
+                double s = this.along(x, z);
+                if (d < 1.0) {
+                    this.set(x, 1, z, p.trim);
+                    if (Math.floorMod((int)Math.round(s), 12) == 0) {
+                        this.set(x, 2, z, p.fence);
+                        this.set(x, 3, z, p.fence);
+                        this.set(x, 4, z, p.light + "[hanging=false]");
+                    }
+                } else if (d >= 3.0 && p.hedge != null && Math.floorMod((int)Math.round(s), 10) >= 2 && this.empty(x, 3, z)) {
+                    this.set(x, 1, z, leaves(p.hedge));
+                    if (hash3(this.seed + 51L, x, 1, z) < 0.3) {
+                        this.set(x, 2, z, p.flowers[(int)(hash3(this.seed + 53L, x, 2, z) * p.flowers.length)]);
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean clear(int x, int z, int r, int h) {
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dz = -r; dz <= r; dz++) {
+                for (int y = 1; y <= h; y++) {
+                    if (!this.empty(x + dx, y, z + dz)) {
+                        return false;
+                    }
+                }
+
+                if (this.sd(x + dx, z + dz) < 4.0 || this.sd(x + dx, z + dz) > this.dOut) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /** A tree of the theme. */
+    private void featureTree(int x, int y, int z, int size) {
+        switch (this.pal.tree) {
+            case "SPRUCE" -> this.spruce(x, y, z, 8 + size * 2, false);
+            case "SNOWY" -> this.spruce(x, y, z, 8 + size * 2, true);
+            case "PALM" -> this.palmTree(x, y, z);
+            case "CHERRY" -> this.cherryTree(x, y, z);
+            case "DARK" -> this.broadleaf(x, y, z, "dark_oak_log", "dark_oak", 4 + size, 3.0 + size * 0.4);
+            case "DEAD" -> this.deadTree(x, y, z, "dark_oak_log", 6 + size * 2);
+            case "JUNGLE" -> this.broadleaf(x, y, z, "jungle_log", "jungle", 5 + size, 2.8 + size * 0.3);
+            default -> this.broadleaf(x, y, z, size % 2 == 0 ? "oak_log" : "birch_log", size % 2 == 0 ? "oak" : "birch", 4 + size, 2.8 + size * 0.4);
+        }
+    }
+
+    /** A fountain basin (glass for water: no water in arenas) with a tiered column. */
+    private void dryFountain(int x, int z) {
+        Pal p = this.pal;
+        this.ringAt(x, z, 4.0, 5.0, 1, of(p.trim));
+        this.ringAt(x, z, 0, 4.0, 1, of("light_blue_stained_glass"));
+        for (int y = 1; y <= 4; y++) {
+            this.set(x, y, z, p.capital);
+        }
+
+        this.ringAt(x, z, 0, 2.0, 4, of(p.trim));
+        this.set(x, 4, z, p.capital);
+        this.ringAt(x, z, 0, 1.2, 5, of("light_blue_stained_glass"));
+        this.set(x, 5, z, p.capital);
+        this.set(x, 6, z, p.emGold);
+        for (int k = 0; k < 4; k++) {
+            double a = k * Math.PI / 2.0 + Math.PI / 4.0;
+            int lx = x + (int)Math.round(Math.cos(a) * 6.0);
+            int lz = z + (int)Math.round(Math.sin(a) * 6.0);
+            this.lantern(lx, 1, lz, p.fence, 3, p.light + "[hanging=false]");
+        }
+    }
+
+    /** A statue of a knight with a sword on a plinth, or an obelisk for the desert themes. */
+    private void gardenStatue(int x, int z) {
+        Pal p = this.pal;
+        this.fill(x - 2, 1, z - 2, x + 2, 1, z + 2, of(p.base));
+        this.fill(x - 1, 2, z - 1, x + 1, 3, z + 1, of(p.trim));
+        if (p.court.equals("PALACE") || p.court.equals("PYRAMID")) {
+            for (int y = 4; y <= 16; y++) {
+                this.set(x, y, z, y % 4 == 0 ? p.capital : p.wall);
+            }
+
+            this.set(x, 17, z, "gold_block");
+            return;
+        }
+
+        String s = p.wallAlt;
+        this.set(x, 4, z, s);
+        this.set(x, 5, z, s);
+        this.set(x, 6, z, s);
+        this.set(x, 7, z, s);
+        this.set(x - 1, 7, z, s);
+        this.set(x + 1, 7, z, s);
+        this.set(x, 8, z, p.capital);
+        this.set(x + 1, 6, z, "iron_block");
+        this.set(x + 1, 5, z, "gold_block");
+        this.set(x + 1, 4, z, "iron_block");
+        this.set(x + 1, 8, z, "iron_block");
+        this.set(x + 1, 9, z, "iron_block");
+        for (int[] o : new int[][]{{2, 2}, {-2, 2}, {2, -2}, {-2, -2}}) {
+            this.set(x + o[0], 2, z + o[1], p.light + "[hanging=false]");
+        }
+    }
+
+    /** The gardens: a fountain or a statue in each open corner, then trees and flowers on the free ground. */
+    private void gardens() {
+        Pal p = this.pal;
+        int k = 0;
+        for (int sz = 1; sz >= -1; sz -= 2) {
+            for (int sx = -1; sx <= 1; sx += 2) {
+                int cx = (int)Math.round(sx * (this.hx - this.rc + (this.rc + 12) * 0.7071));
+                int cz = (int)Math.round(sz * (this.hz - this.rc + (this.rc + 12) * 0.7071));
+                if (this.clear(cx, cz, 5, 9)) {
+                    if (k++ % 2 == 0) {
+                        this.dryFountain(cx, cz);
+                    } else {
+                        this.gardenStatue(cx, cz);
+                    }
+                }
+            }
+        }
+
+        java.util.Random r = new java.util.Random(this.seed ^ 0x6A7DL);
+        for (int x = -this.R + 2; x <= this.R - 2; x += 10) {
+            for (int z = -this.R + 2; z <= this.R - 2; z += 10) {
+                int tx = x + r.nextInt(5) - 2;
+                int tz = z + r.nextInt(5) - 2;
+                int size = r.nextInt(3);
+                double d = this.sd(tx, tz);
+                boolean skip = r.nextDouble() < 0.35;
+                if (skip || d < 10.0 || d > this.dOut - 2 || Math.abs(tx) > this.hx && Math.abs(tz) < 13 || !this.clear(tx, tz, 2, 10)) {
+                    continue;
+                }
+
+                this.set(tx, 0, tz, p.plaza[0].contains("sand") ? "coarse_dirt" : "grass_block");
+                this.featureTree(tx, 1, tz, size);
+                for (int[] o : new int[][]{{1, 1}, {-1, 1}, {1, -1}, {-1, -1}}) {
+                    if (r.nextDouble() < 0.5 && this.empty(tx + o[0], 1, tz + o[1])) {
+                        this.set(tx + o[0], 1, tz + o[1], p.flowers[r.nextInt(p.flowers.length)]);
+                    }
+                }
+            }
+        }
+    }
+
+    // ================================================================== walled courts: the ring design (3.15.0)
+
+    /**
+     * One column of a walled court's ring: wooden pilasters and arched niches round the floor, light panels, a balcony
+     * with flower boxes, an arcade, buildings behind it and a tiled roof with rafters and chimneys.
+     */
     private void courtColumn(int x, int z, double d, double u, int bi, String out) {
         Pal p = this.pal;
         String in = opposite(out);
@@ -1227,50 +2393,6 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         }
     }
 
-    /** A tower's top by theme: a cone with a flag, an onion dome, a stepped pyramid or a tall spire. */
-    private void towerTop(int tx, int y, int tz, double r) {
-        Pal p = this.pal;
-        switch (p.towerTop) {
-            case "ONION" -> this.onion(tx, y, tz, r - 0.6, of(p.dome), p.emGold);
-            case "PYRAMID" -> {
-                int w = (int)Math.round(r) - 1;
-                for (int k = 0; k <= w; k++) {
-                    this.fill(tx - (w - k), y + k, tz - (w - k), tx + (w - k), y + k, tz + (w - k), of(p.roofBlock));
-                }
-
-                this.set(tx, y + w + 1, tz, "gold_block");
-            }
-            case "SPIRE" -> {
-                this.coneRoof(tx, tz, r + 0.6, y, 18, (x, yy, z) -> this.tex(373L, x, yy, z, p.roofBlock, p.roofAlt, p.roofBlock));
-                this.set(tx, y + 19, tz, "lightning_rod[facing=up]");
-            }
-            default -> {
-                this.coneRoof(tx, tz, r + 1.2, y, 11, (x, yy, z) -> this.tex(375L, x, yy, z, p.roofBlock, p.roofAlt, p.roofBlock));
-                for (int k = y + 11; k <= y + 14; k++) {
-                    this.set(tx, k, tz, p.fence);
-                }
-
-                this.set(tx + 1, y + 14, tz, p.banners[0] + "_wool");
-                this.set(tx + 2, y + 14, tz, p.banners[0] + "_wool");
-                this.set(tx + 1, y + 13, tz, p.banners[0] + "_wool");
-            }
-        }
-    }
-
-    /** The stairs block that goes with a wall block. */
-    private static String stairOf(String wall) {
-        return switch (wall) {
-            case "stone_bricks", "cracked_stone_bricks" -> "stone_brick";
-            case "mossy_stone_bricks" -> "mossy_stone_brick";
-            case "deepslate_bricks", "cracked_deepslate_bricks" -> "deepslate_brick";
-            case "polished_blackstone_bricks", "cracked_polished_blackstone_bricks" -> "polished_blackstone_brick";
-            case "quartz_bricks", "calcite", "smooth_quartz" -> "smooth_quartz";
-            case "cut_sandstone", "sandstone", "smooth_sandstone" -> "smooth_sandstone";
-            case "red_sandstone", "cut_red_sandstone", "smooth_red_sandstone" -> "smooth_red_sandstone";
-            case "cobblestone", "mossy_cobblestone" -> "cobblestone";
-            default -> "stone_brick";
-        };
-    }
 
     /**
      * A fortified gatehouse in the middle of each short side: two square towers standing forward with roofs and flags,
@@ -1427,6 +2549,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
 
         return stone;
     }
+
 
     // ------------------------------------------------------------------ the giant cloth with the server's name
 
@@ -1680,6 +2803,42 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.leaves = "oak";
                 p.land = ArenaLandscape.Kind.TROPICAL;
             }
+            case ATLANTIS -> {
+                tonal(p, new String[]{"prismarine_bricks", "prismarine", "dark_prismarine", "prismarine_bricks"}, 0.45, 0.25, 0.15, 0.15);
+                p.log = "stripped_warped_stem";
+                p.planks = "warped_planks";
+                p.fence = "warped_fence";
+                court(p, "prismarine_bricks", "prismarine", "dark_prismarine", "sea_lantern", "dark_prismarine");
+                roof(p, "dark_prismarine", "dark_prismarine", "prismarine_bricks");
+                p.capital = "chiseled_quartz_block";
+                p.dome = "dark_prismarine";
+                p.towerTop = "ONION";
+                p.banners = new String[]{"cyan", "light_blue"};
+                p.clothBg = "cyan";
+                p.clothTrim = "light_blue";
+                p.light = "soul_lantern";
+                p.leaves = "azalea";
+                p.flowers = new String[]{"sea_pickle[pickles=3,waterlogged=false]", "blue_orchid"};
+                p.glass = "light_blue_stained_glass_pane";
+                p.land = ArenaLandscape.Kind.TROPICAL;
+            }
+            case STARFALL -> {
+                natural(p, "end_stone_bricks", "end_stone");
+                p.log = "purpur_pillar";
+                p.planks = "purpur_block";
+                p.fence = "end_rod";
+                court(p, "end_stone_bricks", "purpur_block", "end_stone", "magenta_stained_glass", "purpur_block");
+                roof(p, "purpur", "purpur_block", "end_stone_bricks");
+                p.capital = "purpur_pillar[axis=y]";
+                p.banners = new String[]{"magenta", "black"};
+                p.clothBg = "magenta";
+                p.clothTrim = "black";
+                p.light = "soul_lantern";
+                p.leaves = "azalea";
+                p.flowers = new String[]{"chorus_flower"};
+                p.glass = "magenta_stained_glass_pane";
+                p.land = ArenaLandscape.Kind.END;
+            }
             case PHARAOH -> {
                 tonal(p, new String[]{"smooth_sandstone", "cut_sandstone", "sandstone", "chiseled_sandstone"}, 0.45, 0.25, 0.2, 0.1);
                 p.log = "stripped_birch_log";
@@ -1695,6 +2854,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.towerTop = "PYRAMID";
                 p.land = ArenaLandscape.Kind.DESERT;
             }
+        }
+
+        if (!t.stadium && !t.walled()) {
+            layout(p, t);
         }
 
         if (p.dome == null) {
@@ -1717,6 +2880,96 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
     }
 
     /** A natural floor: the main block with patches and specks of the others. */
+    /** How a court is composed: its main building, what faces it, its trees and its gardens' ground. */
+    private static void layout(Pal p, Theme t) {
+        switch (t) {
+            case FROST -> {
+                p.towerTop = "SPIRE";
+                p.tree = "SNOWY";
+                p.plaza = new String[]{"snow_block", "white_concrete_powder", "packed_ice"};
+                p.paving = "polished_diorite";
+                p.hedge = "spruce";
+            }
+            case DESERT -> {
+                p.court = "PALACE";
+                p.south = "LOGGIA";
+                p.tree = "PALM";
+                p.plaza = new String[]{"sand", "smooth_sandstone", "sandstone"};
+                p.paving = "smooth_sandstone";
+                p.hedge = "jungle";
+            }
+            case HIGHLAND -> {
+                p.rock = true;
+                p.tree = "SPRUCE";
+                p.plaza = new String[]{"grass_block", "coarse_dirt", "podzol"};
+                p.paving = "cobblestone";
+                p.hedge = "spruce";
+            }
+            case SAKURA -> {
+                p.court = "PAGODA";
+                p.south = "PAVILION";
+                p.tree = "CHERRY";
+                p.plaza = new String[]{"grass_block", "moss_block", "pink_petals"};
+                p.paving = "polished_diorite";
+                p.hedge = "flowering_azalea";
+            }
+            case EMBER -> {
+                p.court = "PALACE";
+                p.south = "LOGGIA";
+                p.tree = "DEAD";
+                p.plaza = new String[]{"red_sand", "terracotta", "red_sandstone"};
+                p.paving = "smooth_red_sandstone";
+                p.hedge = null;
+            }
+            case GOTHIC -> {
+                p.court = "CATHEDRAL";
+                p.tree = "DARK";
+                p.plaza = new String[]{"grass_block", "podzol", "coarse_dirt"};
+                p.paving = "polished_deepslate";
+                p.hedge = "dark_oak";
+            }
+            case TROPICAL -> {
+                p.court = "PAGODA";
+                p.south = "PAVILION";
+                p.tree = "PALM";
+                p.plaza = new String[]{"sand", "grass_block", "smooth_sandstone"};
+                p.paving = "smooth_sandstone";
+                p.hedge = "jungle";
+            }
+            case JUNGLE -> {
+                p.court = "ZIGGURAT";
+                p.south = "PAVILION";
+                p.tree = "JUNGLE";
+                p.plaza = new String[]{"grass_block", "moss_block", "podzol"};
+                p.paving = "mossy_stone_bricks";
+                p.hedge = "jungle";
+            }
+            case VOLCANO -> {
+                p.court = "CATHEDRAL";
+                p.tree = "DEAD";
+                p.plaza = new String[]{"blackstone", "smooth_basalt", "tuff"};
+                p.paving = "polished_blackstone_bricks";
+                p.hedge = null;
+                p.window = "red_stained_glass";
+            }
+            case HARBOR -> {
+                p.lighthouse = true;
+                p.plaza = new String[]{"grass_block", "sand", "gravel"};
+                p.paving = "spruce_planks";
+            }
+            case PHARAOH -> {
+                p.court = "PYRAMID";
+                p.south = "LOGGIA";
+                p.tree = "PALM";
+                p.plaza = new String[]{"sand", "sandstone", "smooth_sandstone"};
+                p.paving = "cut_sandstone";
+                p.hedge = null;
+            }
+            default -> {
+            }
+        }
+    }
+
     private static void natural(Pal p, String... blocks) {
         p.floorMix = blocks;
         p.floorW = null;
