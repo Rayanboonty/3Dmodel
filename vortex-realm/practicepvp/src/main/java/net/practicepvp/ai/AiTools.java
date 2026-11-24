@@ -60,7 +60,7 @@ final class AiTools {
         t.add(AiAgent.tool("kit_info", "Everything about one kit: all settings, every item by slot (0-35 inventory, 36 boots, 37 leggings, 38 chestplate, 39 helmet, 40 offhand), votes and effects.", Map.of("id", AiAgent.str("Kit id")), List.of("id")));
         t.add(AiAgent.tool(
             "edit_kit",
-            "Change any field of a kit. Fields: name, color (MiniMessage like <gold>), category (" + String.join("/", names(KitCategory.values())) + "), order, enabled, ranked, unranked, ffa, build, regen, hunger, rounds (first to N, 0 = default), build_height, pearl_cooldown (ticks, -1 default), wind_cooldown (ticks), hit_delay (ticks, -1 default), knockback (percent, 100 = vanilla), maps (AUTO, VANILLA, DESIGNED, CRYSTAL, MACE, MOLE, ANY or a comma list), round_throw (AUTO/ON/OFF), rounds_vote (true/false), legacy_combat (true/false: 1.8 combat), description (lines split by \\n), effects (comma list type:amplifier:ticks, e.g. speed:0:1000000, empty clears).",
+            "Change any field of a kit. Fields: name, color (MiniMessage like <gold>), category (" + String.join("/", names(KitCategory.values())) + "), order, enabled, ranked, unranked, ffa, build, regen, hunger, rounds (first to N, 0 = default), build_height, pearl_cooldown (ticks, -1 default), wind_cooldown (ticks), hit_delay (ticks, -1 default), knockback (percent, 100 = vanilla), maps (AUTO, VANILLA, DESIGNED, CRYSTAL, MACE, MOLE, ANY or a comma list), round_throw (AUTO/ON/OFF), rounds_vote (true/false), description (lines split by \\n), effects (comma list type:amplifier:ticks, e.g. speed:0:1000000, empty clears).",
             Map.of("id", AiAgent.str("Kit id"), "field", AiAgent.str("Field name"), "value", AiAgent.str("New value")),
             List.of("id", "field", "value")
         ));
@@ -223,7 +223,6 @@ final class AiTools {
         o.addProperty("maps", k.arenaType + " (now " + k.arenaKind() + ")");
         o.addProperty("round_throw", k.throwMode);
         o.addProperty("rounds_vote", k.roundsVote);
-        o.addProperty("legacy_combat", k.legacy);
         o.add("description", GSON.toJsonTree(k.description));
         JsonArray items = new JsonArray();
         for (int i = 0; i < k.contents.length; i++) {
@@ -300,7 +299,6 @@ final class AiTools {
                 case "maps", "arena_type", "arenas" -> k.arenaType = v.isBlank() ? "AUTO" : v.toUpperCase(Locale.ROOT).replace(' ', ',');
                 case "round_throw", "throw" -> k.throwMode = v.toUpperCase(Locale.ROOT);
                 case "rounds_vote" -> k.roundsVote = b;
-                case "legacy_combat" -> k.legacy = b;
                 case "description" -> {
                     k.description.clear();
                     k.description.addAll(Arrays.asList(v.split("\\\\n|\n")));

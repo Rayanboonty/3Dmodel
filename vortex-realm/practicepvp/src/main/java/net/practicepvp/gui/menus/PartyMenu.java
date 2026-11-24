@@ -132,7 +132,7 @@ public final class PartyMenu extends Menu {
                         plugin,
                         p,
                         Text.mm("<gold><b>Party Games</b></gold> <dark_gray>» <gray>Pick a kit"),
-                        k -> k.enabled && k.hasContents() && !plugin.arenas().forKit(k).isEmpty(),
+                        k -> k.enabled && k.hasContents() && plugin.arenas().canPlay(k),
                         k -> plugin.parties().startGame(p, k, "ffa".equals(mode) ? Match.Type.PARTY_FFA : Match.Type.PARTY_SPLIT),
                         null,
                         false

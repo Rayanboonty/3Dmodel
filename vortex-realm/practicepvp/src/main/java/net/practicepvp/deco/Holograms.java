@@ -237,6 +237,18 @@ public final class Holograms implements TabExecutor, Listener {
         }
     }
 
+    /** Where the text holograms of a world stand. */
+    public List<Location> spots(World w) {
+        List<Location> out = new ArrayList<>();
+        for (Holograms.Holo h : this.holos.values()) {
+            if (w.getName().equals(h.world)) {
+                out.add(new Location(w, h.x, h.y, h.z));
+            }
+        }
+
+        return out;
+    }
+
     public int count() {
         return this.holos.size();
     }

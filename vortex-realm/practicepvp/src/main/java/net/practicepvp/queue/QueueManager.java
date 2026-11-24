@@ -135,7 +135,7 @@ public final class QueueManager {
                         }
 
                         return false;
-                    } else if (this.plugin.arenas().forKit(kit).isEmpty()) {
+                    } else if (!this.plugin.arenas().canPlay(kit)) {
                         if (!quiet) {
                             Msg.error(p, "queue.no-arena", "kit", kit.label());
                         }
@@ -264,7 +264,7 @@ public final class QueueManager {
                     }
                 }
             } else if (q.size() >= 2) {
-                int capacity = this.plugin.arenas().freeCount(kit) - this.plugin.matches().pending(kit);
+                int capacity = this.plugin.arenas().freeCount(kit) - this.plugin.matches().pending(kit) + this.plugin.arenas().onDemand().spare();
                 if (capacity > 0) {
                     boolean ranked = qe.getKey().ranked();
                     List<Matchmaker.Candidate> cands = new ArrayList<>();

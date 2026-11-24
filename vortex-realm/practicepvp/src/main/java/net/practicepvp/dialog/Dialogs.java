@@ -173,7 +173,7 @@ public final class Dialogs {
         } else {
             List<Kit> kits = this.kitsFor(tab);
             List<DialogBody> body = new ArrayList<>();
-            if (kits.isEmpty() && tab != Dialogs.QueueTab.LEGACY) {
+            if (kits.isEmpty()) {
                 body.add(DialogBody.plainMessage(Msg.get("queue.menu-empty"), 250));
             }
 
@@ -247,36 +247,6 @@ public final class Dialogs {
                 rowText.add(desc);
             }
 
-            // 3.13.5: the 1.8 arcade games (The Bridge, Sumo, Boxing...) in the 1.8 tab too
-            if (tab == Dialogs.QueueTab.LEGACY && this.plugin.plus() != null && this.plugin.plus().arcade() != null) {
-                for (net.practicepvp.plus.Arcade.Mode m : net.practicepvp.plus.Arcade.Mode.values()) {
-                    if (m == net.practicepvp.plus.Arcade.Mode.PARKOUR) {
-                        continue;
-                    }
-
-                    int waiting = this.plugin.plus().arcade().waiting(m);
-                    Runnable click = this.safe(p, () -> {
-                        p.closeDialog();
-                        p.performCommand("arcade join " + m.name().toLowerCase(java.util.Locale.ROOT));
-                    });
-                    Component desc = Component.text()
-                        .append(Text.mm("<#FFB547><b>" + m.display + "</b> <dark_gray>1.8"))
-                        .append(Component.newline())
-                        .append(Text.mm("<gray>" + waiting + " waiting <dark_gray>• <white>" + m.min + (m.max > m.min ? "-" + m.max : "") + " players"))
-                        .clickEvent(ClickEvent.callback(a -> click.run(), OPTS))
-                        .hoverEvent(HoverEvent.showText(Text.mm("<gray>" + m.help + "\n<green>▶ Click to queue")))
-                        .build();
-                    ItemStack icon = new ItemStack(m.icon);
-                    icon.editMeta(mm -> {
-                        mm.displayName(Text.noItalic(Text.mm("<#FFB547><b>" + m.display)));
-                        mm.lore(List.of(Text.noItalic(Text.mm("<gray>" + m.help))));
-                        mm.addItemFlags(ItemFlag.values());
-                    });
-                    rowIcons.add(icon);
-                    rowText.add(desc);
-                }
-            }
-
             int width = TextWidth.fit(TextWidth.widest(rowText), 70, 260);
 
             for (int i = 0; i < rowIcons.size(); i++) {
@@ -296,10 +266,6 @@ public final class Dialogs {
             buttons.add(this.tabButton(p, Dialogs.QueueTab.SKILL, tab));
             buttons.add(this.tabButton(p, Dialogs.QueueTab.VANILLA, tab));
             buttons.add(this.tabButton(p, Dialogs.QueueTab.OTHER, tab));
-            if (this.plugin.kits().sorted().stream().anyMatch(kx -> kx.category == KitCategory.LEGACY && kx.enabled)) {
-                buttons.add(this.tabButton(p, Dialogs.QueueTab.LEGACY, tab));
-            }
-
             buttons.add(this.tabButton(p, Dialogs.QueueTab.MOST_PLAYED, tab));
             Kit ready = null;
 
@@ -346,10 +312,6 @@ public final class Dialogs {
                 label = "<light_purple>Other Kits";
                 icon = Text.mm("<green>✦");
                 break;
-            case LEGACY:
-                label = "<#FFB547>1.8 Kits";
-                icon = Icons.spriteOr(KitCategory.LEGACY.sprite, "<#FFB547>⚔");
-                break;
             default:
                 label = "<white>Most Played Kits";
         }
@@ -373,7 +335,7 @@ public final class Dialogs {
 
         for (Kit k : this.plugin.kits().sorted()) {
             boolean queueable = rankedQueue(k) || k.unranked && Cfg.bool(Opt.UNRANKED_ENABLED);
-            if (k.enabled && queueable && !this.plugin.arenas().forKit(k).isEmpty()) {
+            if (k.enabled && queueable && this.plugin.arenas().canPlay(k)) {
                 pool.add(k);
             }
         }
@@ -381,7 +343,6 @@ public final class Dialogs {
             case SKILL -> pool.stream().filter(kx -> kx.category == KitCategory.SKILL).toList();
             case VANILLA -> pool.stream().filter(kx -> kx.category == KitCategory.VANILLA).toList();
             case OTHER -> pool.stream().filter(kx -> kx.category == KitCategory.OTHER).toList();
-            case LEGACY -> pool.stream().filter(kx -> kx.category == KitCategory.LEGACY).toList();
             default -> pool.stream()
                 .sorted(
                     Comparator.<Kit>comparingInt(kx -> -(this.plugin.queues().size(kx) + this.plugin.matches().playing(kx)))
@@ -1043,7 +1004,6 @@ public final class Dialogs {
         MOST_PLAYED,
         SKILL,
         VANILLA,
-        OTHER,
-        LEGACY;
+        OTHER;
     }
 }

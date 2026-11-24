@@ -316,6 +316,22 @@ public final class Match {
                     maps.addAll(this.plugin.arenas().forKit(this.kit));
                 }
 
+                // 1.0.9: maps are built on demand. A kit with few maps gets a new one built in the background now and
+                // then; a kit with none waits in the waiting room while its first one is built.
+                net.practicepvp.arena.OnDemand od = this.plugin.arenas().onDemand();
+                if (this.forcedArena == null && od.enabled() && !od.candidates(this.kit).isEmpty()
+                    && (maps.size() < 3 || ThreadLocalRandom.current().nextDouble() < 0.12)) {
+                    od.buildFor(this.kit);
+                }
+
+                if (maps.isEmpty() && this.forcedArena == null && od.enabled()) {
+                    Arena building = od.buildFor(this.kit);
+                    if (building != null) {
+                        this.waitForArena(building);
+                        return;
+                    }
+                }
+
                 if (maps.isEmpty()) {
                     this.cancel("match.no-arena", false);
                 } else {
@@ -386,6 +402,10 @@ public final class Match {
             if (this.instance == null) {
                 this.waitForArena(arena);
             } else {
+                if (this.room != null) {
+                    this.room.ready(this.instance.arena);
+                }
+
                 this.state = Match.State.STARTING;
                 this.startedAt = System.currentTimeMillis();
                 ArenaInstance inst = this.instance;
@@ -398,13 +418,40 @@ public final class Match {
         }
     }
 
+    /** 1.0.9: the waiting room the players stand in while their map (or a copy of it) is built. */
+    private WaitingRoom room;
+
+    private void closeRoom() {
+        if (this.room != null) {
+            this.room.close();
+            this.room = null;
+        }
+    }
+
     private void waitForArena(Arena preferred) {
         this.state = Match.State.PREMATCH;
-        if (this.arenaWaitAttempts++ >= 30) {
+        net.practicepvp.arena.OnDemand od = this.plugin.arenas().onDemand();
+        if (od.enabled() && preferred != null && preferred.ready() && preferred.freeInstances() == 0L) {
+            // every copy of the map is in use: paste one more
+            od.requestCopy(preferred);
+        }
+
+        boolean building = od.enabled() && od.busy(preferred);
+        if (this.arenaWaitAttempts++ >= (building ? 600 : 45)) {
+            this.closeRoom();
             this.cancel("match.no-free-arena", true);
         } else {
-            for (Player p : this.participantsOnline()) {
-                p.sendActionBar(Msg.get("match.waiting-arena"));
+            if (od.enabled()) {
+                if (this.room == null) {
+                    this.room = new WaitingRoom(this.plugin, this, preferred, this.participantsOnline());
+                    this.room.open();
+                } else {
+                    this.room.tick(preferred);
+                }
+            } else {
+                for (Player p : this.participantsOnline()) {
+                    p.sendActionBar(Msg.get("match.waiting-arena"));
+                }
             }
 
             Tasks.later(20L, () -> {
@@ -424,6 +471,7 @@ public final class Match {
 
     private void enterArena() {
         this.releasePreMatchSlot();
+        Tasks.later(10L, this::closeRoom);
 
         for (Player p : this.participantsOnline()) {
             Session s = this.plugin.sessions().get(p);
@@ -1139,6 +1187,7 @@ public final class Match {
             }
 
             this.releasePreMatchSlot();
+            this.closeRoom();
             if (before == Match.State.WAITING || before == Match.State.PREMATCH) {
                 reason = Match.EndReason.CANCELLED;
             }
@@ -1428,10 +1477,12 @@ public final class Match {
 
         if (wp != null && !rankUp) {
             Tasks.later(30L, () -> PointsFx.show(wp, outcomes[0].delta(), lp == null ? null : lp.getLocation()));
+            Tasks.later(62L, () -> Fx.ticker(wp, "<gray>Rating ", outcomes[0].delta(), " <gray>ELO", 18));
         }
 
         if (lp != null) {
             Tasks.later(36L, () -> PointsFx.show(lp, outcomes[1].delta(), wp == null ? null : wp.getLocation()));
+            Tasks.later(62L, () -> Fx.ticker(lp, "<gray>Rating ", outcomes[1].delta(), " <gray>ELO", 18));
         }
 
         if (wp == null) {

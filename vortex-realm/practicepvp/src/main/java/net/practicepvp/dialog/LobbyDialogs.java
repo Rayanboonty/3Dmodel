@@ -544,7 +544,7 @@ public final class LobbyDialogs {
 
             for (KitCategory cat : KitCategory.values()) {
                 for (Kit k : this.plugin.kits().sorted()) {
-                    if (k.category == cat && k.enabled && k.hasContents() && !this.plugin.arenas().forKit(k).isEmpty()) {
+                    if (k.category == cat && k.enabled && k.hasContents() && this.plugin.arenas().canPlay(k)) {
                         boolean mapOk = map == null || map.allows(k);
                         List<Component> hover = new ArrayList<>();
                         hover.add(Text.mm(k.color + "<b>" + Text.esc(k.displayName)));
@@ -697,7 +697,7 @@ public final class LobbyDialogs {
 
                 for (KitCategory cat : KitCategory.values()) {
                     for (Kit k : this.plugin.kits().sorted()) {
-                        if (k.category == cat && k.enabled && k.hasContents() && !this.plugin.arenas().forKit(k).isEmpty()) {
+                        if (k.category == cat && k.enabled && k.hasContents() && this.plugin.arenas().canPlay(k)) {
                             tiles.add(
                                 new LobbyDialogs.Tile(
                                     k.iconStack(),

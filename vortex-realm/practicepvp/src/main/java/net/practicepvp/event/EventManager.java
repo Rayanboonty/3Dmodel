@@ -1028,7 +1028,7 @@ public final class EventManager implements TabExecutor {
         List<Kit> kits = new ArrayList<>();
 
         for (Kit k : this.plugin.kits().sorted()) {
-            if (k.enabled && k.hasContents() && !this.plugin.arenas().forKit(k).isEmpty()) {
+            if (k.enabled && k.hasContents() && this.plugin.arenas().canPlay(k)) {
                 kits.add(k);
             }
         }

@@ -264,6 +264,36 @@ public final class ArenaManager {
         return false;
     }
 
+    private OnDemand onDemand;
+    /** Arenas whose design is being worked out on the planner thread (not registered yet). */
+    private final Map<String, Arena> planning = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ExecutorService PLANNER = java.util.concurrent.Executors.newFixedThreadPool(2, r -> {
+        Thread t = new Thread(r, "arena-planner");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
+    });
+
+    /** An arena by id, also while its design is still being worked out. */
+    public Arena pendingOrGet(String id) {
+        Arena a = this.planning.get(id.toLowerCase(Locale.ROOT));
+        return a != null ? a : this.get(id.toLowerCase(Locale.ROOT));
+    }
+
+    /** 1.0.9: maps built when a match needs them. */
+    public OnDemand onDemand() {
+        if (this.onDemand == null) {
+            this.onDemand = new OnDemand(this.plugin);
+        }
+
+        return this.onDemand;
+    }
+
+    /** True when the kit can be played now: a map is ready, or one can be built on demand. */
+    public boolean canPlay(Kit kit) {
+        return !this.forKit(kit).isEmpty() || this.onDemand().canPlay(kit);
+    }
+
     public List<Arena> forKit(Kit kit) {
         List<Arena> out = new ArrayList<>();
 
@@ -692,15 +722,12 @@ public final class ArenaManager {
             int ox = origin[0];
             int oz = origin[1];
             long seed = ThreadLocalRandom.current().nextLong();
-            ArenaGenerator.Plan plan = ArenaGenerator.plan(theme, size, seed, ox, oz, false, Cfg.i(Opt.BUILD_HEIGHT));
+            int buildHeight = Cfg.i(Opt.BUILD_HEIGHT);
+            ArenaGenerator.warm();
             Arena a = new Arena(id.toLowerCase(Locale.ROOT), name);
             a.theme = theme;
             a.iconBlock = theme.icon;
             a.worldName = w.getName();
-            a.bounds = plan.bounds();
-            a.spawn1 = plan.spawn1();
-            a.spawn2 = plan.spawn2();
-            a.center = plan.center();
             a.generated = true;
             a.seed = seed;
             a.size = size;
@@ -711,12 +738,23 @@ public final class ArenaManager {
             ArenaInstance template = new ArenaInstance(a, 0, a.worldName, 0, 0);
             template.state = ArenaInstance.State.BUILDING;
             a.instances.add(template);
-            this.arenas.put(a.id, a);
-            this.save();
+            // 1.0.9: the design is worked out on a planner thread (it takes a second or so for the big maps): the
+            // server keeps ticking; the arena is registered once its bounds are known
+            this.planning.put(a.id, a);
             this.busyEnter(a.id);
             CompletableFuture<Arena> result = new CompletableFuture<>();
-            preload(w, plan.bounds())
-                .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaGenerator.buildJob(w, plan)), Tasks.MAIN)
+            final int fsize = size;
+            CompletableFuture.supplyAsync(() -> ArenaGenerator.plan(theme, fsize, seed, ox, oz, false, buildHeight), PLANNER)
+                .thenComposeAsync(plan -> {
+                    a.bounds = plan.bounds();
+                    a.spawn1 = plan.spawn1();
+                    a.spawn2 = plan.spawn2();
+                    a.center = plan.center();
+                    this.planning.remove(a.id);
+                    this.arenas.put(a.id, a);
+                    this.save();
+                    return preload(w, plan.bounds()).thenComposeAsync(v -> this.plugin.jobs().submit(ArenaGenerator.buildJob(w, plan)), Tasks.MAIN);
+                }, Tasks.MAIN)
                 .thenComposeAsync(v -> this.captureSnapshot(a), Tasks.MAIN)
                 .thenComposeAsync(v -> {
                     // the map itself is there: it is played on right away, copies join as each one is ready
@@ -728,6 +766,7 @@ public final class ArenaManager {
                 }, Tasks.MAIN)
                 .whenComplete((v, err) -> Tasks.ensureSync(() -> {
                     this.busyExit(a.id);
+                    this.planning.remove(a.id);
                     if (err != null) {
                         this.plugin.getLogger().log(Level.SEVERE, "Generating arena " + id + " failed", err);
                         result.completeExceptionally(err);
@@ -1311,6 +1350,30 @@ public final class ArenaManager {
     }
 
     public CompletableFuture<Integer> updateOutdated() {
+        if (this.onDemand().enabled() && !this.updating) {
+            // 1.0.9: nothing is rebuilt at start-up. An outdated pack map that isn't in use is dropped: the next match
+            // that needs it builds it again on demand, with the current design. FFA arenas are made once and kept.
+            java.util.Set<String> pack = new java.util.HashSet<>();
+            for (PracticePlugin.PackMap m : this.plugin.packMaps()) {
+                pack.add(m.id().toLowerCase(Locale.ROOT));
+            }
+
+            int dropped = 0;
+            for (Arena a : new ArrayList<>(this.arenas.values())) {
+                boolean inUse = a.instances.stream().anyMatch(i -> i.state == ArenaInstance.State.IN_USE);
+                if (pack.contains(a.id) && !inUse && !this.isBusy(a) && this.isOutdated(a)) {
+                    this.delete(a);
+                    dropped++;
+                }
+            }
+
+            if (dropped > 0) {
+                this.plugin.getLogger().info(dropped + " outdated map(s) will be built again on demand, with the current design.");
+            }
+
+            return CompletableFuture.completedFuture(dropped);
+        }
+
         if (this.updating) {
             return CompletableFuture.completedFuture(0);
         } else if (this.plugin.packRunning()) {

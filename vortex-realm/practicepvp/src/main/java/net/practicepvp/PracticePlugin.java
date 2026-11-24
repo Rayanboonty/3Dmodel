@@ -619,11 +619,6 @@ public final class PracticePlugin extends JavaPlugin {
                 }
             }
         });
-        this.module("1.8 combat", () -> {
-            this.legacyCombat = new net.practicepvp.combat.LegacyCombat(this);
-            pm.registerEvents(this.legacyCombat, this);
-            Tasks.timer(10L, 10L, this.legacyCombat::sweep);
-        });
         this.module("VexBot bridge", () -> {
             this.vexBot = new net.practicepvp.bot.VexBotBridge(this);
             pm.registerEvents(this.vexBot, this);
@@ -654,10 +649,6 @@ public final class PracticePlugin extends JavaPlugin {
         this.module("lobby extras (launch pads, ambience, spawn parkour)", () -> {
             this.lobbyFx = new net.practicepvp.lobby.LobbyFx(this);
             pm.registerEvents(this.lobbyFx, this);
-        });
-        this.module("1.8 legacy hall", () -> {
-            this.legacyHall = new net.practicepvp.lobby.LegacyHall(this);
-            this.bind("legacyhall", this.legacyHall);
         });
         this.module("pets, shoulder pets and wings", () -> {
             this.companions = new net.practicepvp.cosmetics.Companions(this);
@@ -809,6 +800,8 @@ public final class PracticePlugin extends JavaPlugin {
         CompletableFuture.allOf(this.arenas.snapshotsReady(), this.ffa.snapshotsReady()).whenComplete((v, err) -> Tasks.ensureSync(() -> {
             this.arenasReady = true;
             Tasks.later(40L, this::firstRunSetup);
+            // NPC booths and holograms for what the lobby had no spot for (once per lobby)
+            Tasks.later(400L, () -> net.practicepvp.lobby.AutoPlacer.startup(this));
             Tasks.later(100L, this.arenas::verifyAll);
             // invisible walls around every arena (new copies get theirs within two minutes)
             this.arenaSeal = new net.practicepvp.arena.ArenaSeal(this);
@@ -915,10 +908,6 @@ public final class PracticePlugin extends JavaPlugin {
 
         if (this.companions != null) {
             this.companions.stop();
-        }
-
-        if (this.legacyCombat != null) {
-            this.legacyCombat.shutdown();
         }
 
         if (this.vexBot != null) {
@@ -1225,8 +1214,90 @@ public final class PracticePlugin extends JavaPlugin {
         this.profiles.saveAllNow();
     }
 
+    /** 1.0.9: the default arena pack: every duel map the server can have (made at start-up, or on demand). */
+    public List<PracticePlugin.PackMap> packMaps() {
+        int duelSize = Cfg.i(Opt.DUEL_ARENA_SIZE);
+        int vanillaSize = Cfg.i(Opt.VANILLA_SIZE);
+        int copies = Cfg.i(Opt.DEFAULT_COPIES);
+        int vCopies = Cfg.i(Opt.VANILLA_COPIES);
+        int dCopies = Math.max(1, copies - 1);
+        List<PracticePlugin.PackMap> maps = new ArrayList<>();
+        // one map of every family first, so every kit can play as soon as possible
+        maps.add(new PracticePlugin.PackMap("plains", ArenaTheme.PLAINS, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("c_plains", ArenaTheme.PLAINS, vanillaSize, vCopies, true));
+        maps.add(new PracticePlugin.PackMap("royalcourt", ArenaTheme.ROYAL_COURTYARD, duelSize, dCopies, false));
+        // 2.1.0: the compact detailed duel maps of the sword kits, and the UHC maps with hills and cover
+        for (ArenaTheme t : ArenaTheme.values()) {
+            if (t == ArenaTheme.TRAINING_GROUNDS) {
+                maps.add(new PracticePlugin.PackMap((t.duel.build ? "uhc_" : "duel_") + t.duel.name().toLowerCase(java.util.Locale.ROOT).replace("uhc_", ""),
+                    t, net.practicepvp.arena.ArenaManager.targetSize(t, false), t == ArenaTheme.TRAINING_GROUNDS ? Math.max(4, copies) : Math.max(2, copies), false));
+            }
+        }
+
+        maps.add(new PracticePlugin.PackMap("grand", ArenaTheme.GRAND_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
+        // MCPVP's natural maps, all real vanilla terrain
+        maps.add(new PracticePlugin.PackMap("snowy", ArenaTheme.SNOWY, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("desert", ArenaTheme.DESERT, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("redbadlands", ArenaTheme.BADLANDS_DESERT, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("badlands", ArenaTheme.BADLANDS, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("end", ArenaTheme.END, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("outerend", ArenaTheme.END_OUTER, vanillaSize, vCopies, false));
+        // deep crystal maps
+        maps.add(new PracticePlugin.PackMap("c_snowy", ArenaTheme.SNOWY, vanillaSize, vCopies, true));
+        maps.add(new PracticePlugin.PackMap("c_desert", ArenaTheme.DESERT, vanillaSize, vCopies, true));
+        maps.add(new PracticePlugin.PackMap("c_redbadlands", ArenaTheme.BADLANDS_DESERT, vanillaSize, vCopies, true));
+        maps.add(new PracticePlugin.PackMap("crystalflats", ArenaTheme.FLATLANDS, duelSize, vCopies, false));
+        // designed arenas for the sword kits
+        // 3.10.0: the court arenas (they replace the old colosseums and show arenas)
+        maps.add(new PracticePlugin.PackMap("sultanpalace", ArenaTheme.SULTAN_PALACE, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("titancolosseum", ArenaTheme.TITAN_COLOSSEUM, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("highlandplaza", ArenaTheme.HIGHLAND_PLAZA, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("gothicharbor", ArenaTheme.GOTHIC_HARBOR, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("sakuraterrace", ArenaTheme.SAKURA_TERRACE, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("embersands", ArenaTheme.EMBER_SANDS, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("frosthold", ArenaTheme.FROSTHOLD, duelSize, dCopies, false));
+        // 3.11.0
+        maps.add(new PracticePlugin.PackMap("tropicalbeach", ArenaTheme.TROPICAL_BEACH, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("jungletemple", ArenaTheme.JUNGLE_TEMPLE, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("volcanoforge", ArenaTheme.VOLCANO_FORGE, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("piratecove", ArenaTheme.PIRATE_COVE, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pharaohtomb", ArenaTheme.PHARAOH_TOMB, duelSize, dCopies, false));
+        // 3.15.0: the pro arenas, next to the court arenas above (only the signature arena has the server's name)
+        maps.add(new PracticePlugin.PackMap("pro_signature", ArenaTheme.SIGNATURE_ARENA, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_frostfang", ArenaTheme.FROSTFANG_BASTION, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_sunspire", ArenaTheme.SUNSPIRE_PALACE, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_stonewatch", ArenaTheme.STONEWATCH_KEEP, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_blossom", ArenaTheme.BLOSSOM_COURT, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_ember", ArenaTheme.EMBER_CITADEL, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_nightspire", ArenaTheme.NIGHTSPIRE_ABBEY, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_palmshore", ArenaTheme.PALMSHORE_COURT, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_jade", ArenaTheme.JADE_TEMPLE, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_obsidian", ArenaTheme.OBSIDIAN_FORGE, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_corsair", ArenaTheme.CORSAIR_WHARF, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_dynasty", ArenaTheme.GOLDEN_DYNASTY, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_gladiator", ArenaTheme.GLADIATOR_PIT, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_atlantis", ArenaTheme.SUNKEN_ATLANTIS, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_starfall", ArenaTheme.STARFALL_CITADEL, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_imperial", ArenaTheme.IMPERIAL_COLOSSEUM, 224, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("pro_highpeak", ArenaTheme.HIGHPEAK_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
+        // 1.4.0: the show arenas and every biome that was only made on request before
+        maps.add(new PracticePlugin.PackMap("champions", ArenaTheme.CHAMPIONS_COLOSSEUM, duelSize, dCopies, false));
+        maps.add(new PracticePlugin.PackMap("cherry", ArenaTheme.CHERRY, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("palegarden", ArenaTheme.PALE, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("crimson", ArenaTheme.CRIMSON, vanillaSize, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("mushroomfields", ArenaTheme.MUSHROOM, vanillaSize, vCopies, false));
+        // 2.3.0: big vanilla maps for the mace kits (MACE pool, next to the grand colosseum)
+        int maceVanilla = Cfg.i(Opt.MACE_VANILLA_SIZE);
+        maps.add(new PracticePlugin.PackMap("m_plains", ArenaTheme.PLAINS, maceVanilla, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("m_badlands", ArenaTheme.BADLANDS, maceVanilla, vCopies, false));
+        maps.add(new PracticePlugin.PackMap("m_snowy", ArenaTheme.SNOWY, maceVanilla, vCopies, false));
+        // 1.5.0: Mole PvP's underground map, the biggest one
+        maps.add(new PracticePlugin.PackMap("molemines", ArenaTheme.MOLE_MINES, net.practicepvp.build.MoleMinesDesign.RADIUS * 2 + 1, Math.max(2, copies), false));
+        return maps;
+    }
+
     /** One map of the default arena pack: id, theme, size, copies, deep (crystal variant of a vanilla map). */
-    private record PackMap(String id, ArenaTheme theme, int size, int copies, boolean deep) {
+    public record PackMap(String id, ArenaTheme theme, int size, int copies, boolean deep) {
     }
 
     private void firstRunSetup() {
@@ -1323,78 +1394,14 @@ public final class PracticePlugin extends JavaPlugin {
                 int copies = Cfg.i(Opt.DEFAULT_COPIES);
                 int vCopies = Cfg.i(Opt.VANILLA_COPIES);
                 int dCopies = Math.max(1, copies - 1);
-                List<PracticePlugin.PackMap> maps = new ArrayList<>();
-                // one map of every family first, so every kit can play as soon as possible
-                maps.add(new PracticePlugin.PackMap("plains", ArenaTheme.PLAINS, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("c_plains", ArenaTheme.PLAINS, vanillaSize, vCopies, true));
-                maps.add(new PracticePlugin.PackMap("royalcourt", ArenaTheme.ROYAL_COURTYARD, duelSize, dCopies, false));
-                // 2.1.0: the compact detailed duel maps of the sword kits, and the UHC maps with hills and cover
-                for (ArenaTheme t : ArenaTheme.values()) {
-                    if (t == ArenaTheme.TRAINING_GROUNDS) {
-                        maps.add(new PracticePlugin.PackMap((t.duel.build ? "uhc_" : "duel_") + t.duel.name().toLowerCase(java.util.Locale.ROOT).replace("uhc_", ""),
-                            t, net.practicepvp.arena.ArenaManager.targetSize(t, false), t == ArenaTheme.TRAINING_GROUNDS ? Math.max(4, copies) : Math.max(2, copies), false));
-                    }
+                List<PracticePlugin.PackMap> maps = this.packMaps();
+                if (Cfg.bool(Opt.ARENA_ON_DEMAND)) {
+                    // 1.0.9: duel maps are made when a match needs them (OnDemand); only the bot training ground
+                    // is made now. FFA arenas below are still made once, on the first start.
+                    maps.removeIf(m -> m.theme() != ArenaTheme.TRAINING_GROUNDS);
+                    remake.clear();
                 }
 
-                maps.add(new PracticePlugin.PackMap("grand", ArenaTheme.GRAND_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
-                // MCPVP's natural maps, all real vanilla terrain
-                maps.add(new PracticePlugin.PackMap("snowy", ArenaTheme.SNOWY, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("desert", ArenaTheme.DESERT, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("redbadlands", ArenaTheme.BADLANDS_DESERT, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("badlands", ArenaTheme.BADLANDS, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("end", ArenaTheme.END, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("outerend", ArenaTheme.END_OUTER, vanillaSize, vCopies, false));
-                // deep crystal maps
-                maps.add(new PracticePlugin.PackMap("c_snowy", ArenaTheme.SNOWY, vanillaSize, vCopies, true));
-                maps.add(new PracticePlugin.PackMap("c_desert", ArenaTheme.DESERT, vanillaSize, vCopies, true));
-                maps.add(new PracticePlugin.PackMap("c_redbadlands", ArenaTheme.BADLANDS_DESERT, vanillaSize, vCopies, true));
-                maps.add(new PracticePlugin.PackMap("crystalflats", ArenaTheme.FLATLANDS, duelSize, vCopies, false));
-                // designed arenas for the sword kits
-                // 3.10.0: the court arenas (they replace the old colosseums and show arenas)
-                maps.add(new PracticePlugin.PackMap("sultanpalace", ArenaTheme.SULTAN_PALACE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("titancolosseum", ArenaTheme.TITAN_COLOSSEUM, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("highlandplaza", ArenaTheme.HIGHLAND_PLAZA, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("gothicharbor", ArenaTheme.GOTHIC_HARBOR, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("sakuraterrace", ArenaTheme.SAKURA_TERRACE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("embersands", ArenaTheme.EMBER_SANDS, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("frosthold", ArenaTheme.FROSTHOLD, duelSize, dCopies, false));
-                // 3.11.0
-                maps.add(new PracticePlugin.PackMap("tropicalbeach", ArenaTheme.TROPICAL_BEACH, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("jungletemple", ArenaTheme.JUNGLE_TEMPLE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("volcanoforge", ArenaTheme.VOLCANO_FORGE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("piratecove", ArenaTheme.PIRATE_COVE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pharaohtomb", ArenaTheme.PHARAOH_TOMB, duelSize, dCopies, false));
-                // 3.15.0: the pro arenas, next to the court arenas above (only the signature arena has the server's name)
-                maps.add(new PracticePlugin.PackMap("pro_signature", ArenaTheme.SIGNATURE_ARENA, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_frostfang", ArenaTheme.FROSTFANG_BASTION, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_sunspire", ArenaTheme.SUNSPIRE_PALACE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_stonewatch", ArenaTheme.STONEWATCH_KEEP, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_blossom", ArenaTheme.BLOSSOM_COURT, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_ember", ArenaTheme.EMBER_CITADEL, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_nightspire", ArenaTheme.NIGHTSPIRE_ABBEY, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_palmshore", ArenaTheme.PALMSHORE_COURT, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_jade", ArenaTheme.JADE_TEMPLE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_obsidian", ArenaTheme.OBSIDIAN_FORGE, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_corsair", ArenaTheme.CORSAIR_WHARF, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_dynasty", ArenaTheme.GOLDEN_DYNASTY, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_gladiator", ArenaTheme.GLADIATOR_PIT, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_atlantis", ArenaTheme.SUNKEN_ATLANTIS, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_starfall", ArenaTheme.STARFALL_CITADEL, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_imperial", ArenaTheme.IMPERIAL_COLOSSEUM, 224, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("pro_highpeak", ArenaTheme.HIGHPEAK_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
-                // 1.4.0: the show arenas and every biome that was only made on request before
-                maps.add(new PracticePlugin.PackMap("champions", ArenaTheme.CHAMPIONS_COLOSSEUM, duelSize, dCopies, false));
-                maps.add(new PracticePlugin.PackMap("cherry", ArenaTheme.CHERRY, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("palegarden", ArenaTheme.PALE, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("crimson", ArenaTheme.CRIMSON, vanillaSize, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("mushroomfields", ArenaTheme.MUSHROOM, vanillaSize, vCopies, false));
-                // 2.3.0: big vanilla maps for the mace kits (MACE pool, next to the grand colosseum)
-                int maceVanilla = Cfg.i(Opt.MACE_VANILLA_SIZE);
-                maps.add(new PracticePlugin.PackMap("m_plains", ArenaTheme.PLAINS, maceVanilla, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("m_badlands", ArenaTheme.BADLANDS, maceVanilla, vCopies, false));
-                maps.add(new PracticePlugin.PackMap("m_snowy", ArenaTheme.SNOWY, maceVanilla, vCopies, false));
-                // 1.5.0: Mole PvP's underground map, the biggest one
-                maps.add(new PracticePlugin.PackMap("molemines", ArenaTheme.MOLE_MINES, net.practicepvp.build.MoleMinesDesign.RADIUS * 2 + 1, Math.max(2, copies), false));
                 for (PracticePlugin.PackMap r : remake) {
                     if (maps.stream().noneMatch(m -> m.id().equals(r.id()))) {
                         maps.add(r);
@@ -2031,8 +2038,6 @@ public final class PracticePlugin extends JavaPlugin {
         return this.bots;
     }
 
-    private net.practicepvp.combat.LegacyCombat legacyCombat;
-    private net.practicepvp.lobby.LegacyHall legacyHall;
     private net.practicepvp.lobby.LobbyFx lobbyFx;
 
     public net.practicepvp.lobby.LobbyFx lobbyFx() {
@@ -2042,15 +2047,6 @@ public final class PracticePlugin extends JavaPlugin {
 
     public net.practicepvp.bot.VexBotBridge vexBot() {
         return this.vexBot;
-    }
-
-    public net.practicepvp.lobby.LegacyHall legacyHall() {
-        return this.legacyHall;
-    }
-
-    /** 3.13.0: 1.8 combat for the legacy kits (null if it failed to start). */
-    public net.practicepvp.combat.LegacyCombat legacy() {
-        return this.legacyCombat;
     }
 
     public net.practicepvp.cosmetics.Companions companions() {

@@ -1,6 +1,8 @@
 package net.practicepvp.fx;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -159,6 +161,159 @@ public final class Fx {
         p.showTitle(Title.title(title, sub, Times.times(Duration.ofMillis(fadeIn * 50L), Duration.ofMillis(stay * 50L), Duration.ofMillis(fadeOut * 50L))));
     }
 
+    // ================================================================== cinematic text engine (1.0.9)
+
+    /** Shows title frames one after the other ({@code every} ticks apart), the last one held then faded. */
+    private static void play(Player p, List<Component[]> frames, int every, int hold, int fadeOut) {
+        int token = nextToken(p);
+        for (int i = 0; i < frames.size(); i++) {
+            int f = i;
+            boolean last = f == frames.size() - 1;
+            Runnable show = () -> {
+                if (current(p, token)) {
+                    Component[] fr = frames.get(f);
+                    rawTitle(p, fr[0], fr[1], 0, last ? hold : every + 8, last ? fadeOut : 0);
+                }
+            };
+            if (f == 0) {
+                show.run();
+            } else {
+                Tasks.later((long)f * every, show);
+            }
+        }
+    }
+
+    private static Component colored(String text, int rgb, int shadow, boolean bold) {
+        Builder b = Component.text();
+        b.append(Component.text(text, TextColor.color(rgb)).shadowColor(ShadowColor.shadowColor(0xFF000000 | shadow)));
+        Component c = b.build();
+        return bold ? c.decoration(TextDecoration.BOLD, true) : c;
+    }
+
+    private static String spaced(String text, int gap) {
+        if (gap <= 0) {
+            return text;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        String g = " ".repeat(gap);
+        for (int i = 0; i < text.length(); i++) {
+            if (i > 0) {
+                sb.append(g);
+            }
+
+            sb.append(text.charAt(i));
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Slam: the word arrives wide and white, snaps together (a zoom), flashes, then takes its colour and a light band
+     * sweeps through it.
+     */
+    private static List<Component[]> slam(Component prefix, String text, Component suffix, Fx.Palette pal, Component sub) {
+        List<Component[]> out = new ArrayList<>();
+        int[] gaps = {5, 3, 2, 1, 0};
+        for (int i = 0; i < gaps.length; i++) {
+            double t = (double)i / (gaps.length - 1);
+            int c = lerp(0xFFFFFF, pal.base(), Math.max(0.0, t - 0.5) * 2.0);
+            out.add(new Component[]{prefix.append(colored(spaced(text, gaps[i]), c, pal.shadow(), true)).append(suffix), Component.empty()});
+        }
+
+        out.add(new Component[]{prefix.append(colored(text, 0xFFFFFF, pal.shadowLight(), true)).append(suffix), sub});
+        for (double pos = -2.0; pos <= text.length() + 2; pos += 1.5) {
+            out.add(new Component[]{prefix.append(shineFrame(text, pal, pos)).append(suffix), sub});
+        }
+
+        out.add(new Component[]{prefix.append(shineFrame(text, pal, -9.0)).append(suffix), sub});
+        return out;
+    }
+
+    /** Type-in: the letters appear one by one behind a glowing cursor, then the line settles and shines. */
+    private static List<Component[]> typeIn(Component prefix, String text, Fx.Palette pal, Component sub) {
+        List<Component[]> out = new ArrayList<>();
+        for (int k = 1; k <= text.length(); k++) {
+            Component typed = colored(text.substring(0, k), pal.base(), pal.shadow(), true);
+            Component cursor = colored("▌", pal.light(), pal.shadowLight(), true);
+            out.add(new Component[]{prefix.append(typed).append(cursor), Component.empty()});
+        }
+
+        for (double pos = -2.0; pos <= text.length() + 2; pos += 2.0) {
+            out.add(new Component[]{prefix.append(shineFrame(text, pal, pos)), sub});
+        }
+
+        out.add(new Component[]{prefix.append(shineFrame(text, pal, -9.0)), sub});
+        return out;
+    }
+
+    /** Split: the word opens from its middle outward, letters still unrevealed shown scrambled and dark. */
+    private static List<Component[]> split(String text, Fx.Palette pal, Component sub) {
+        List<Component[]> out = new ArrayList<>();
+        double mid = (text.length() - 1) / 2.0;
+        int steps = (int)Math.ceil(mid) + 2;
+        for (int k = 0; k <= steps; k++) {
+            Builder b = Component.text().decoration(TextDecoration.BOLD, true);
+            for (int i = 0; i < text.length(); i++) {
+                char ch = text.charAt(i);
+                double d = Math.abs(i - mid);
+                if (ch == ' ') {
+                    b.append(Component.text(' '));
+                } else if (d <= k - 1) {
+                    b.append(Component.text(ch, TextColor.color(d >= k - 2 ? pal.light() : pal.base())).shadowColor(ShadowColor.shadowColor(0xFF000000 | pal.shadow())));
+                } else {
+                    b.append(Component.text(ch, TextColor.color(pal.shadow())).decoration(TextDecoration.OBFUSCATED, true));
+                }
+            }
+
+            out.add(new Component[]{b.build(), k >= steps - 1 ? sub : Component.empty()});
+        }
+
+        out.add(new Component[]{shineFrame(text, pal, -9.0), sub});
+        return out;
+    }
+
+    /** Shatter: the word breaks apart, its letters drifting wide and fading to dark grey. */
+    private static List<Component[]> shatter(String text, Fx.Palette pal, Component sub) {
+        List<Component[]> out = new ArrayList<>();
+        out.add(new Component[]{colored(text, 0xFFFFFF, pal.shadow(), true), sub});
+        out.add(new Component[]{colored(text, pal.base(), pal.shadow(), true), sub});
+        int[] gaps = {0, 1, 1, 2, 3};
+        for (int i = 0; i < gaps.length; i++) {
+            double t = (double)i / (gaps.length - 1);
+            int c = lerp(pal.base(), 0x3A3A3A, t);
+            out.add(new Component[]{colored(spaced(text, gaps[i]), c, 0x111111, true), sub});
+        }
+
+        out.add(new Component[]{colored(spaced(text, 1), lerp(pal.base(), 0x555555, 0.5), 0x111111, true), sub});
+        return out;
+    }
+
+    /** A number counting up (or down) in the action bar, ticking as it goes: "+0 ... +17 ELO". */
+    public static void ticker(Player p, String prefix, int to, String suffix, int ticks) {
+        int steps = Math.max(1, Math.min(Math.abs(to), ticks));
+        for (int i = 1; i <= steps; i++) {
+            int k = i;
+            Tasks.later(k * (long)Math.max(1, ticks / steps), () -> {
+                if (!p.isOnline()) {
+                    return;
+                }
+
+                double t = 1.0 - Math.pow(1.0 - (double)k / steps, 3.0);
+                int v = (int)Math.round(to * t);
+                String c = to >= 0 ? "<green>" : "<red>";
+                p.sendActionBar(Text.mm(prefix + c + "<b>" + (v >= 0 ? "+" : "") + v + "</b>" + suffix));
+                if (k % 2 == 0 || k == steps) {
+                    sound(p, "block.note_block.hat", 0.5F, 1.0F + (float)t);
+                }
+
+                if (k == steps) {
+                    sound(p, to >= 0 ? "entity.experience_orb.pickup" : "block.note_block.bass", 0.7F, to >= 0 ? 1.3F : 0.7F);
+                }
+            });
+        }
+    }
+
     public static void matchFound(Player p, Component subtitle) {
         if (sounds(p) || PracticePlugin.get().profiles().get(p).on(Setting.QUEUE_SOUNDS)) {
             Snd.play(p, "block.note_block.bell", 1.0F, 0.8F);
@@ -169,7 +324,7 @@ public final class Fx {
         if (!titles(p)) {
             p.sendActionBar(Text.mm("<gold><b>MATCH FOUND</b></gold> <dark_gray>»</dark_gray> ").append(subtitle));
         } else {
-            shine(p, "MATCH FOUND", GOLD, subtitle, 30);
+            play(p, typeIn(Text.mm("<gold>⚔</gold> "), "MATCH FOUND", GOLD, subtitle), 1, 34, 10);
         }
     }
 
@@ -179,21 +334,30 @@ public final class Fx {
         sound(p, "block.note_block.hat", 1.0F, pitch);
         sound(p, "block.note_block.pling", 0.6F, pitch);
         sound(p, "block.amethyst_block.chime", 0.7F, pitch);
+        if (secondsLeft <= 3) {
+            sound(p, "block.note_block.basedrum", 0.8F, 0.8F + (3 - secondsLeft) * 0.1F);
+        }
+
         // 3.11.0: a ring of light closes in round you on every count
         ring(p, secondsLeft >= 4 ? 0x55FF55 : (secondsLeft == 3 ? 0xFFEE55 : (secondsLeft == 2 ? 0xFFAA00 : 0xFF5555)), false);
         if (!titles(p)) {
             p.sendActionBar(Text.mm("<gray>Starting in " + color + "<b>" + secondsLeft + "</b>"));
         } else {
+            // 1.0.9: the badges close in on the number like a zoom, it flashes white, then takes its colour and shines
             Fx.Palette pal = secondsLeft >= 4 ? GREEN : (secondsLeft == 3 ? YELLOW : (secondsLeft == 2 ? GOLD : RED));
-            int token = nextToken(p);
             String n = String.valueOf(secondsLeft);
             Component star = star(p);
-            rawTitle(p, star.append(Component.space()).append(shineFrame(n, pal, 0.0)).append(Component.space()).append(star), sub, 0, 22, 0);
-            Tasks.later(4L, () -> {
-                if (current(p, token)) {
-                    rawTitle(p, star.append(Component.space()).append(shineFrame(n, pal, 9.0)).append(Component.space()).append(star), sub, 0, 18, 0);
-                }
-            });
+            List<Component[]> frames = new ArrayList<>();
+            int[] gaps = {6, 4, 2, 1};
+            for (int i = 0; i < gaps.length; i++) {
+                Component g = Component.text(" ".repeat(gaps[i]));
+                int c = i < gaps.length - 1 ? 0xFFFFFF : pal.base();
+                frames.add(new Component[]{star.append(g).append(colored(n, c, pal.shadow(), true)).append(g).append(star), sub});
+            }
+
+            frames.add(new Component[]{star.append(Component.space()).append(shineFrame(n, pal, 0.0)).append(Component.space()).append(star), sub});
+            frames.add(new Component[]{star.append(Component.space()).append(shineFrame(n, pal, 9.0)).append(Component.space()).append(star), sub});
+            play(p, frames, 1, 14, 0);
         }
     }
 
@@ -238,7 +402,7 @@ public final class Fx {
             p.sendActionBar(Text.mm("<green><b>FIGHT!</b>"));
         } else {
             Component star = star(p);
-            shine(p, star.append(Component.space()), "FIGHT!", Component.space().append(star), GREEN, Text.mm("<gold>Good luck!"), 14);
+            play(p, slam(star.append(Component.space()), "FIGHT!", Component.space().append(star), GREEN, Text.mm("<gold>Good luck!")), 1, 16, 8);
         }
     }
 
@@ -249,7 +413,7 @@ public final class Fx {
         if (!titles(p)) {
             p.sendActionBar(Text.mm("<red><b>⚔ DEATHMATCH ⚔</b> <gray>Next kill wins!"));
         } else {
-            shine(p, Text.mm("<gold>⚔</gold> "), "DEATHMATCH", Text.mm(" <gold>⚔"), RED, Text.mm("<yellow>Next kill wins!"), 30);
+            play(p, slam(Text.mm("<gold>⚔</gold> "), "DEATHMATCH", Text.mm(" <gold>⚔"), RED, Text.mm("<yellow>Next kill wins!")), 1, 30, 10);
         }
     }
 
@@ -270,7 +434,7 @@ public final class Fx {
                 Text.mm(won ? "<gold><b>ROUND WON</b>" : "<red><b>ROUND LOST</b>").append(Text.mm(" <dark_gray>|</dark_gray> ")).append(score(mine, theirs))
             );
         } else {
-            shine(p, won ? "ROUND WON" : "ROUND LOST", won ? GOLD : RED, score(mine, theirs), 30);
+            play(p, won ? split("ROUND WON", GOLD, score(mine, theirs)) : shatter("ROUND LOST", RED, score(mine, theirs)), 1, 30, 10);
         }
     }
 
@@ -281,7 +445,21 @@ public final class Fx {
             p.sendActionBar(Text.mm("<green><b>VICTORY</b></green> ").append(score(mine, theirs)));
         } else {
             String trophy = Text.esc(Cfg.s(Opt.TROPHY));
-            shine(p, Text.mm("<gold>" + trophy + "</gold> "), "VICTORY", Text.mm(" <gold>" + trophy), GREEN, score(mine, theirs), 50);
+            play(p, slam(Text.mm("<gold>" + trophy + "</gold> "), "VICTORY", Text.mm(" <gold>" + trophy), GREEN, score(mine, theirs)), 1, 50, 14);
+            // a crown of light over the winner
+            for (int k = 0; k < 3; k++) {
+                int kk = k;
+                Tasks.later(6L + k * 5L, () -> {
+                    if (p.isOnline()) {
+                        org.bukkit.Location top = p.getLocation().add(0, 2.4 + kk * 0.15, 0);
+                        for (int i = 0; i < 16; i++) {
+                            double a = Math.PI * 2 * i / 16;
+                            p.getWorld().spawnParticle(org.bukkit.Particle.DUST, top.clone().add(Math.cos(a) * 0.55, (i % 2) * 0.18, Math.sin(a) * 0.55), 1, 0, 0, 0, 0,
+                                new org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0xFFD23F), 1.0F));
+                        }
+                    }
+                });
+            }
         }
     }
 
@@ -290,14 +468,14 @@ public final class Fx {
         if (!titles(p)) {
             p.sendActionBar(Text.mm("<red><b>DEFEAT</b></red> ").append(score(mine, theirs)));
         } else {
-            shine(p, "DEFEAT", RED, score(mine, theirs), 50);
+            play(p, shatter("DEFEAT", RED, score(mine, theirs)), 2, 40, 14);
         }
     }
 
     public static void draw(Player p) {
         sound(p, "block.note_block.bass", 1.0F, 1.0F);
         if (titles(p)) {
-            shine(p, "DRAW", YELLOW, Text.mm("<gray>Time limit reached"), 40);
+            play(p, split("DRAW", YELLOW, Text.mm("<gray>Time limit reached")), 1, 40, 10);
         }
     }
 

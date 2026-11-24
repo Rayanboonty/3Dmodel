@@ -63,7 +63,7 @@ public final class DuelMenu extends Menu {
             for (Kit k : this.plugin.kits().sorted()) {
                 if (k.category == cat && k.enabled && k.hasContents() && i < slots.length) {
                     boolean mapOk = map == null || map.allows(k);
-                    boolean hasArena = !this.plugin.arenas().forKit(k).isEmpty();
+                    boolean hasArena = this.plugin.arenas().canPlay(k);
                     List<String> lore = new ArrayList<>();
 
                     for (String d : k.description) {

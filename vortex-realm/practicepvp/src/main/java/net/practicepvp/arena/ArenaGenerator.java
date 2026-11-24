@@ -295,41 +295,90 @@ public final class ArenaGenerator {
         return new ArenaGenerator.Plan(theme, size, seed, ox, oz, null, d.bottomY(), bounds, s1, s2, center, ffaSpawns, false, false, null, null, d);
     }
 
-    /** Column-by-column build of a show arena. */
+    /**
+     * Column-by-column build of a show arena (1.0.9: chunk by chunk). Each chunk is read once as a snapshot: only the
+     * sections that already hold blocks are cleared (a fresh slot is all air, so nothing is), then the design's columns
+     * are written through the chunk itself. Far less work per block than a world lookup and a read for every block.
+     */
     private static BlockJobs.Job showJob(final World w, final ArenaGenerator.Plan plan) {
         final net.practicepvp.build.Voxels d = plan.show();
         final int minY = w.getMinHeight();
         final int maxY = w.getMaxHeight() - 1;
+        final int c0x = d.minX() >> 4;
+        final int c1x = d.maxX() >> 4;
+        final int c0z = d.minZ() >> 4;
+        final int c1z = d.maxZ() >> 4;
         return new BlockJobs.Job() {
-            int x = d.minX();
-            int z = d.minZ();
+            int cx = c0x;
+            int cz = c0z;
+            int lx = -1;
+            int lz;
+            org.bukkit.Chunk chunk;
+            boolean[] busy;
+            org.bukkit.ChunkSnapshot snap;
             boolean biomes;
             final int[] used = new int[1];
             final net.practicepvp.build.Voxels.Sink sink = (bx, by, bz, block) -> {
                 if (by >= minY && by <= maxY) {
-                    w.getBlockAt(bx, by, bz).setBlockData(ArenaGenerator.state(block), false);
+                    this.chunk.getBlock(bx & 15, by, bz & 15).setBlockData(ArenaGenerator.state(block), false);
                     this.used[0]++;
                 }
             };
 
+            private void openChunk() {
+                this.chunk = w.getChunkAt(this.cx, this.cz);
+                this.snap = this.chunk.getChunkSnapshot(false, false, false);
+                int sections = (maxY - minY + 1) >> 4;
+                this.busy = new boolean[sections + 1];
+                for (int i = 0; i <= sections; i++) {
+                    this.busy[i] = !this.snap.isSectionEmpty(i);
+                }
+
+                this.lx = 0;
+                this.lz = 0;
+            }
+
             @Override
             public int step(int budget) {
                 this.used[0] = 0;
-
-                while (this.x <= d.maxX() && this.used[0] < budget) {
-                    // clear the column first: a rebuild must not leave the old map's blocks behind
-                    for (int y = d.bottomY(); y <= d.topY(); y++) {
-                        Block blk = w.getBlockAt(this.x, y, this.z);
-                        if (!blk.getType().isAir()) {
-                            blk.setType(Material.AIR, false);
-                        }
+                int bottom = Math.max(minY, d.bottomY());
+                int top = Math.min(maxY, d.topY());
+                while (this.cx <= c1x && this.used[0] < budget) {
+                    if (this.chunk == null) {
+                        this.openChunk();
                     }
 
-                    d.column(this.x, this.z, this.sink);
-                    this.used[0] += 8;
-                    if (++this.z > d.maxZ()) {
-                        this.z = d.minZ();
-                        this.x++;
+                    int wx = (this.cx << 4) + this.lx;
+                    int wz = (this.cz << 4) + this.lz;
+                    if (wx >= d.minX() && wx <= d.maxX() && wz >= d.minZ() && wz <= d.maxZ()) {
+                        // clear what an older build left here (only in sections that hold blocks)
+                        for (int y = bottom; y <= top; y++) {
+                            int sec = (y - minY) >> 4;
+                            if (sec >= 0 && sec < this.busy.length && !this.busy[sec]) {
+                                y = minY + ((sec + 1) << 4) - 1;
+                                continue;
+                            }
+
+                            if (!this.snap.getBlockType(this.lx, y, this.lz).isAir()) {
+                                this.chunk.getBlock(this.lx, y, this.lz).setType(Material.AIR, false);
+                                this.used[0]++;
+                            }
+                        }
+
+                        d.column(wx, wz, this.sink);
+                        this.used[0] += 4;
+                    }
+
+                    if (++this.lz > 15) {
+                        this.lz = 0;
+                        if (++this.lx > 15) {
+                            this.chunk = null;
+                            this.snap = null;
+                            if (++this.cz > c1z) {
+                                this.cz = c0z;
+                                this.cx++;
+                            }
+                        }
                     }
 
                     if (BlockJobs.overDeadline()) {
@@ -337,7 +386,7 @@ public final class ArenaGenerator {
                     }
                 }
 
-                if (this.x > d.maxX() && !this.biomes) {
+                if (this.cx > c1x && !this.biomes) {
                     this.biomes = true;
                     if (plan.theme().biome != null) {
                         Cuboid bd = plan.bounds();
@@ -359,7 +408,7 @@ public final class ArenaGenerator {
 
             @Override
             public boolean done() {
-                return this.x > d.maxX() && this.biomes;
+                return this.cx > c1x && this.biomes;
             }
 
             @Override
@@ -369,9 +418,20 @@ public final class ArenaGenerator {
         };
     }
 
-    private static int minFloorY() {
+    private static volatile int minYCache = Integer.MIN_VALUE;
+
+    /** Reads the arena world's floor limit on the main thread, so arena plans can be made on another thread. */
+    public static void warm() {
         World w = Bukkit.getWorld("practice_world");
-        return (w == null ? -64 : w.getMinHeight()) + 1;
+        minYCache = (w == null ? -64 : w.getMinHeight()) + 1;
+    }
+
+    private static int minFloorY() {
+        if (minYCache == Integer.MIN_VALUE && Bukkit.isPrimaryThread()) {
+            warm();
+        }
+
+        return minYCache == Integer.MIN_VALUE ? -63 : minYCache;
     }
 
     private ArenaGenerator() {
@@ -663,7 +723,7 @@ public final class ArenaGenerator {
         };
     }
 
-    static BlockData state(String s) {
+    public static BlockData state(String s) {
         BlockData d = STATES.get(s);
         if (d != null) {
             return d;

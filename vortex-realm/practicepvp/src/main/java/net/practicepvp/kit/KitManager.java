@@ -71,6 +71,12 @@ public final class KitManager {
                 for (String id : root.getKeys(false)) {
                     ConfigurationSection s = root.getConfigurationSection(id);
                     if (s != null) {
+                        if (s.getBoolean("legacy-combat", false) || "LEGACY".equalsIgnoreCase(s.getString("category", ""))) {
+                            // 1.0.9: the 1.8 kits are gone
+                            this.removedLegacy++;
+                            continue;
+                        }
+
                         try {
                             this.kits.put(id, this.read(id, s));
                         } catch (RuntimeException var7) {
@@ -114,10 +120,17 @@ public final class KitManager {
                 }
 
                 this.mergeDefaults(y);
+                if (this.removedLegacy > 0) {
+                    this.save();
+                    this.plugin.getLogger().info("Removed the " + this.removedLegacy + " 1.8 kits.");
+                }
+
                 this.plugin.getLogger().info("Loaded " + this.kits.size() + " kits.");
             }
         }
     }
+
+    private int removedLegacy;
 
     /** What the last update did to the kits: new defaults added, untouched defaults refreshed, edited ones kept. */
     public final List<String> mergeReport = new ArrayList<>();
@@ -177,7 +190,7 @@ public final class KitManager {
         }
 
         y.set("e", effects);
-        y.set("r", k.build + "/" + k.regen + "/" + k.hunger + "/" + k.roundsToWin + "/" + k.buildHeight + "/" + k.pearlCooldown + "/" + k.windCooldown + "/" + k.hitDelay + (k.knockback != 100 ? "/kb" + k.knockback : "") + (k.roundsVote ? "" : "/norv") + (k.legacy ? "/legacy" : ""));
+        y.set("r", k.build + "/" + k.regen + "/" + k.hunger + "/" + k.roundsToWin + "/" + k.buildHeight + "/" + k.pearlCooldown + "/" + k.windCooldown + "/" + k.hitDelay + (k.knockback != 100 ? "/kb" + k.knockback : "") + (k.roundsVote ? "" : "/norv"));
 
         try {
             byte[] d = java.security.MessageDigest.getInstance("SHA-1").digest(y.saveToString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -307,7 +320,6 @@ public final class KitManager {
         k.hitDelay = s.getInt("hit-delay", -1);
         k.knockback = Math.max(0, Math.min(400, s.getInt("knockback", 100)));
         k.roundsVote = s.getBoolean("rounds-vote", true);
-        k.legacy = s.getBoolean("legacy-combat", false);
         k.arenaType = s.getString("arena-type", "AUTO").toUpperCase(Locale.ROOT);
         k.throwMode = s.getString("round-throw", "AUTO").toUpperCase(Locale.ROOT);
         k.arenas.clear();
@@ -414,7 +426,6 @@ public final class KitManager {
             y.set(base + "hit-delay", k.hitDelay);
             y.set(base + "knockback", k.knockback);
             y.set(base + "rounds-vote", k.roundsVote);
-            y.set(base + "legacy-combat", k.legacy);
             y.set(base + "arena-type", k.arenaType);
             y.set(base + "round-throw", k.throwMode);
             y.set(base + "arenas", new ArrayList<>(k.arenas));
