@@ -1431,11 +1431,6 @@ public final class NpcManager implements Listener, CommandExecutor, TabCompleter
             if (!p.hasPermission("cmcpvp.admin")) {
                 p.sendMessage(Text.mm("<red>You don't have permission."));
                 return true;
-            } else if (args.length == 1 && args[0].equalsIgnoreCase("autoplace")) {
-                org.bukkit.Location spawn = this.plugin.lobby() != null ? this.plugin.lobby().lobby() : null;
-                int added = net.cmcpvp.lobby.AutoPlacer.run(this.plugin, spawn != null ? spawn : p.getLocation(), p.getName());
-                p.sendMessage(Text.mm(added > 0 ? "<green>Placed " + added + " NPC booths and holograms round the lobby spawn." : "<gray>Nothing was missing (or there was no free flat ground)."));
-                return true;
             } else if (args.length >= 2) {
                 Npc n = this.get(args[1]);
                 String var7 = args[0].toLowerCase(Locale.ROOT);
@@ -1479,7 +1474,7 @@ public final class NpcManager implements Listener, CommandExecutor, TabCompleter
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
-            out.addAll(List.of("create", "edit", "tp", "delete", "autoplace"));
+            out.addAll(List.of("create", "edit", "tp", "delete"));
         } else if (args.length == 2 && !args[0].equalsIgnoreCase("create")) {
             out.addAll(this.npcs.keySet());
         }

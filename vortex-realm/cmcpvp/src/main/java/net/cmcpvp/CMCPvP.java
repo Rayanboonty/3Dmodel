@@ -808,8 +808,8 @@ public final class CMCPvP extends JavaPlugin {
         CompletableFuture.allOf(this.arenas.snapshotsReady(), this.ffa.snapshotsReady()).whenComplete((v, err) -> Tasks.ensureSync(() -> {
             this.arenasReady = true;
             Tasks.later(40L, this::firstRunSetup);
-            // NPC booths and holograms for what the lobby had no spot for (once per lobby)
-            Tasks.later(400L, () -> net.cmcpvp.lobby.AutoPlacer.startup(this));
+            // 1.0.10: takes away the NPC booths 1.0.9 placed by itself (NPCs are placed by hand)
+            Tasks.later(400L, () -> net.cmcpvp.lobby.AutoPlaceCleanup.run(this));
             Tasks.later(100L, this.arenas::verifyAll);
             // invisible walls around every arena (new copies get theirs within two minutes)
             this.arenaSeal = new net.cmcpvp.arena.ArenaSeal(this);

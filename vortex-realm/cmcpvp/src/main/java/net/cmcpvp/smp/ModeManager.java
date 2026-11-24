@@ -1433,13 +1433,6 @@ public final class ModeManager {
         this.placeNpcs(admin, use, r.npcSpots());
         this.placeFeatureNpcs(admin, r.features());
         this.placeFeatures(r.features());
-        if (use == SpawnBuilder.Style.PVP) {
-            // 1.0.9: every NPC the design had no spot for gets a booth built for it, plus leaderboards and holograms
-            int added = net.cmcpvp.lobby.AutoPlacer.run(this.plugin, spawn, admin.getName());
-            if (added > 0) {
-                admin.sendMessage(Text.mm("<green>Placed " + added + " more NPC booths and holograms round the spawn."));
-            }
-        }
         if (this.plugin.lobbyFx() != null) {
             this.plugin.lobbyFx().install(spawn.getWorld(), r.features());
         }
