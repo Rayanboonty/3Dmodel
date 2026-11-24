@@ -235,14 +235,6 @@ public final class Opt<T> {
     public static final Opt<Boolean> LOBBY_SNOWFALL = bool(
         "lobby.snowfall", true, Opt.Section.LOBBY, "Falling Snow", "Snowflakes fall around players while the winter lobby is on.", Material.POWDER_SNOW_BUCKET
     );
-    public static final Opt<Boolean> LOBBY_AUTO_PLACE = bool(
-        "lobby.auto-place",
-        true,
-        Opt.Section.LOBBY,
-        "Auto-Place NPCs",
-        "Every lobby NPC the build had no spot for (tournaments, cosmetics, bots and more) gets its own booth built on free ground round the spawn, plus leaderboards and welcome holograms. Runs after a lobby is built, and once for an existing lobby.",
-        Material.ARMOR_STAND
-    );
     public static final Opt<Boolean> LOBBY_DOUBLE_JUMP = bool(
         "lobby.double-jump", true, Opt.Section.LOBBY, "Double Jump", "Players can double jump in the lobby (per-player toggle in settings).", Material.FEATHER
     );
