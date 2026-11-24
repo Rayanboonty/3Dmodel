@@ -1433,10 +1433,13 @@ public final class ModeManager {
         this.placeNpcs(admin, use, r.npcSpots());
         this.placeFeatureNpcs(admin, r.features());
         this.placeFeatures(r.features());
-        if (this.plugin.legacyHall() != null) {
-            this.plugin.legacyHall().place(r.features());
+        if (use == SpawnBuilder.Style.PVP) {
+            // 1.0.9: every NPC the design had no spot for gets a booth built for it, plus leaderboards and holograms
+            int added = net.cmcpvp.lobby.AutoPlacer.run(this.plugin, spawn, admin.getName());
+            if (added > 0) {
+                admin.sendMessage(Text.mm("<green>Placed " + added + " more NPC booths and holograms round the spawn."));
+            }
         }
-
         if (this.plugin.lobbyFx() != null) {
             this.plugin.lobbyFx().install(spawn.getWorld(), r.features());
         }
@@ -1633,6 +1636,97 @@ public final class ModeManager {
         }
     }
 
+    /** One lobby NPC: id, hologram lines, what clicking does, its value and what it holds. */
+    public record NpcPlan(String id, List<String> lines, Npc.Action action, String value, Material hand) {
+    }
+
+    /** The NPCs of a PvP lobby, in the order a lobby design's spots take them. */
+    public static List<NpcPlan> pvpPlans(String w) {
+        List<NpcPlan> out = new ArrayList<>();
+        out.add(
+            new NpcPlan(
+                w + "_duels",
+                List.of("<b><gradient:#8FE9FF:#2E9BFF:{phase}>DUELS</gradient></b>", "<gray>{players} in PvP", "{blink}▶ Click to queue"),
+                Npc.Action.MENU,
+                "duels",
+                Material.DIAMOND_SWORD
+            )
+        );
+        out.add(
+            new NpcPlan(
+                w + "_ranked",
+                List.of("<b><gradient:#FFF3A0:#FF9F00:{phase}>RANKED</gradient></b>", "<gray>LT5 → HT1", "{blink}▶ Click to queue"),
+                Npc.Action.MENU,
+                "ranked",
+                Material.NETHERITE_SWORD
+            )
+        );
+        out.add(
+            new NpcPlan(
+                w + "_ffa",
+                List.of("<b><gradient:#FF8A8A:#D90000:{phase}>FREE FOR ALL</gradient></b>", "{blink}▶ Click to fight"),
+                Npc.Action.MENU,
+                "ffa",
+                Material.NETHERITE_AXE
+            )
+        );
+        out.add(
+            new NpcPlan(
+                w + "_leaderboard",
+                List.of("<b><gradient:#A8FF8A:#1FAF5A:{phase}>LEADERBOARDS</gradient></b>", "{blink}▶ Top players"),
+                Npc.Action.MENU,
+                "leaderboard",
+                Material.EMERALD
+            )
+        );
+        out.add(
+            new NpcPlan(
+                w + "_kiteditor",
+                List.of("<b><gradient:#F3B5FF:#B04DFF:{phase}>KIT EDITOR</gradient></b>", "{blink}▶ Arrange kits"),
+                Npc.Action.MENU,
+                "kiteditor",
+                Material.BOOK
+            )
+        );
+        out.add(
+            new NpcPlan(
+                w + "_party",
+                List.of("<b><gradient:#FFF07A:#FFB300:{phase}>PARTIES</gradient></b>", "<gray>Play with friends", "{blink}▶ Click"),
+                Npc.Action.MENU,
+                "party",
+                Material.CAKE
+            )
+        );
+        out.add(
+            new NpcPlan(
+                w + "_settings",
+                List.of("<b><gradient:#F0F0F0:#8A8A8A:{phase}>SETTINGS</gradient></b>", "{blink}▶ Your options"),
+                Npc.Action.MENU,
+                "settings",
+                Material.COMPARATOR
+            )
+        );
+        out.add(
+            new NpcPlan(
+                w + "_spectate",
+                List.of("<b><gradient:#B5F2FF:#33C3FF:{phase}>SPECTATE</gradient></b>", "<gray>Watch live matches", "{blink}▶ Click"),
+                Npc.Action.MENU,
+                "spectate",
+                Material.ENDER_EYE
+            )
+        );
+        // big lobbies (The Fracture) have a spot for each of these too; smaller ones stop at the eight above
+        out.add(new NpcPlan(w + "_bots", List.of("<b><gradient:#B8FF8A:#2FB52F:{phase}>BOT PRACTICE</gradient></b>", "<gray>Train against bots", "{blink}▶ Click"), Npc.Action.COMMAND, "bot", Material.ZOMBIE_HEAD));
+        out.add(new NpcPlan(w + "_events", List.of("<b><gradient:#FFE08A:#FF6A00:{phase}>TOURNAMENTS</gradient></b>", "<gray>Events and brackets", "{blink}▶ Click"), Npc.Action.MENU, "events", Material.GOLDEN_HELMET));
+        out.add(new NpcPlan(w + "_cosmetics", List.of("<b><gradient:#FF9CF0:#A64DFF:{phase}>COSMETICS</gradient></b>", "<gray>Trims, shields and more", "{blink}▶ Click"), Npc.Action.COMMAND, "cosmetics", Material.AMETHYST_SHARD));
+        out.add(new NpcPlan(w + "_stats", List.of("<b><gradient:#9AD8FF:#3A7BFF:{phase}>YOUR STATS</gradient></b>", "<gray>Elo, wins and streaks", "{blink}▶ Click"), Npc.Action.MENU, "stats", Material.PAPER));
+        out.add(new NpcPlan(w + "_welcome", List.of("<b><gradient:#FFFFFF:#FFD54A:{phase}>NEW HERE?</gradient></b>", "<gray>How everything works", "{blink}▶ Click"), Npc.Action.MENU, "welcome", Material.WRITABLE_BOOK));
+        out.add(new NpcPlan(w + "_parkour", List.of("<b><gradient:#FFB0B0:#FF3B3B:{phase}>PARKOUR SPIRE</gradient></b>", "<gray>Step on the gold plate", "<gray>to start the timer"), Npc.Action.MESSAGE,
+            "<gold>Parkour Spire: <gray>step on the <yellow>gold plate</yellow> to start, the gold blocks are checkpoints, reach the flag at the top!", Material.FEATHER));
+        out.add(new NpcPlan(w + "_academy", List.of("<b><gradient:#C8A8FF:#6A3DFF:{phase}>ACADEMY</gradient></b>", "<gray>Lessons for every mode", "{blink}▶ Click"), Npc.Action.COMMAND, "learn", Material.ENCHANTED_BOOK));
+        return out;
+    }
+
     private void placeNpcs(Player admin, SpawnBuilder.Style style, List<Location> spots) {
         record Plan(String id, List<String> lines, Npc.Action action, String value, Material hand) {
         }
@@ -1675,87 +1769,10 @@ public final class ModeManager {
                 }
                 break;
             case PVP:
-                plans.add(
-                    new Plan(
-                        w + "_duels",
-                        List.of("<b><gradient:#8FE9FF:#2E9BFF:{phase}>DUELS</gradient></b>", "<gray>{players} in PvP", "{blink}▶ Click to queue"),
-                        Npc.Action.MENU,
-                        "duels",
-                        Material.DIAMOND_SWORD
-                    )
-                );
-                plans.add(
-                    new Plan(
-                        w + "_ranked",
-                        List.of("<b><gradient:#FFF3A0:#FF9F00:{phase}>RANKED</gradient></b>", "<gray>LT5 → HT1", "{blink}▶ Click to queue"),
-                        Npc.Action.MENU,
-                        "ranked",
-                        Material.NETHERITE_SWORD
-                    )
-                );
-                plans.add(
-                    new Plan(
-                        w + "_ffa",
-                        List.of("<b><gradient:#FF8A8A:#D90000:{phase}>FREE FOR ALL</gradient></b>", "{blink}▶ Click to fight"),
-                        Npc.Action.MENU,
-                        "ffa",
-                        Material.NETHERITE_AXE
-                    )
-                );
-                plans.add(
-                    new Plan(
-                        w + "_leaderboard",
-                        List.of("<b><gradient:#A8FF8A:#1FAF5A:{phase}>LEADERBOARDS</gradient></b>", "{blink}▶ Top players"),
-                        Npc.Action.MENU,
-                        "leaderboard",
-                        Material.EMERALD
-                    )
-                );
-                plans.add(
-                    new Plan(
-                        w + "_kiteditor",
-                        List.of("<b><gradient:#F3B5FF:#B04DFF:{phase}>KIT EDITOR</gradient></b>", "{blink}▶ Arrange kits"),
-                        Npc.Action.MENU,
-                        "kiteditor",
-                        Material.BOOK
-                    )
-                );
-                plans.add(
-                    new Plan(
-                        w + "_party",
-                        List.of("<b><gradient:#FFF07A:#FFB300:{phase}>PARTIES</gradient></b>", "<gray>Play with friends", "{blink}▶ Click"),
-                        Npc.Action.MENU,
-                        "party",
-                        Material.CAKE
-                    )
-                );
-                plans.add(
-                    new Plan(
-                        w + "_settings",
-                        List.of("<b><gradient:#F0F0F0:#8A8A8A:{phase}>SETTINGS</gradient></b>", "{blink}▶ Your options"),
-                        Npc.Action.MENU,
-                        "settings",
-                        Material.COMPARATOR
-                    )
-                );
-                plans.add(
-                    new Plan(
-                        w + "_spectate",
-                        List.of("<b><gradient:#B5F2FF:#33C3FF:{phase}>SPECTATE</gradient></b>", "<gray>Watch live matches", "{blink}▶ Click"),
-                        Npc.Action.MENU,
-                        "spectate",
-                        Material.ENDER_EYE
-                    )
-                );
-                // big lobbies (The Fracture) have a spot for each of these too; smaller ones stop at the eight above
-                plans.add(new Plan(w + "_bots", List.of("<b><gradient:#B8FF8A:#2FB52F:{phase}>BOT PRACTICE</gradient></b>", "<gray>Train against bots", "{blink}▶ Click"), Npc.Action.COMMAND, "bot", Material.ZOMBIE_HEAD));
-                plans.add(new Plan(w + "_events", List.of("<b><gradient:#FFE08A:#FF6A00:{phase}>TOURNAMENTS</gradient></b>", "<gray>Events and brackets", "{blink}▶ Click"), Npc.Action.MENU, "events", Material.GOLDEN_HELMET));
-                plans.add(new Plan(w + "_cosmetics", List.of("<b><gradient:#FF9CF0:#A64DFF:{phase}>COSMETICS</gradient></b>", "<gray>Trims, shields and more", "{blink}▶ Click"), Npc.Action.COMMAND, "cosmetics", Material.AMETHYST_SHARD));
-                plans.add(new Plan(w + "_stats", List.of("<b><gradient:#9AD8FF:#3A7BFF:{phase}>YOUR STATS</gradient></b>", "<gray>Elo, wins and streaks", "{blink}▶ Click"), Npc.Action.MENU, "stats", Material.PAPER));
-                plans.add(new Plan(w + "_welcome", List.of("<b><gradient:#FFFFFF:#FFD54A:{phase}>NEW HERE?</gradient></b>", "<gray>How everything works", "{blink}▶ Click"), Npc.Action.MENU, "welcome", Material.WRITABLE_BOOK));
-                plans.add(new Plan(w + "_parkour", List.of("<b><gradient:#FFB0B0:#FF3B3B:{phase}>PARKOUR SPIRE</gradient></b>", "<gray>Step on the gold plate", "<gray>to start the timer"), Npc.Action.MESSAGE,
-                    "<gold>Parkour Spire: <gray>step on the <yellow>gold plate</yellow> to start, the gold blocks are checkpoints, reach the flag at the top!", Material.FEATHER));
-                plans.add(new Plan(w + "_academy", List.of("<b><gradient:#C8A8FF:#6A3DFF:{phase}>ACADEMY</gradient></b>", "<gray>Lessons for every mode", "{blink}▶ Click"), Npc.Action.COMMAND, "learn", Material.ENCHANTED_BOOK));
+                for (NpcPlan np : pvpPlans(w)) {
+                    plans.add(new Plan(np.id(), np.lines(), np.action(), np.value(), np.hand()));
+                }
+
                 break;
             default:
                 if (this.hubWorld() != null) {

@@ -235,6 +235,14 @@ public final class Opt<T> {
     public static final Opt<Boolean> LOBBY_SNOWFALL = bool(
         "lobby.snowfall", true, Opt.Section.LOBBY, "Falling Snow", "Snowflakes fall around players while the winter lobby is on.", Material.POWDER_SNOW_BUCKET
     );
+    public static final Opt<Boolean> LOBBY_AUTO_PLACE = bool(
+        "lobby.auto-place",
+        true,
+        Opt.Section.LOBBY,
+        "Auto-Place NPCs",
+        "Every lobby NPC the build had no spot for (tournaments, cosmetics, bots and more) gets its own booth built on free ground round the spawn, plus leaderboards and welcome holograms. Runs after a lobby is built, and once for an existing lobby.",
+        Material.ARMOR_STAND
+    );
     public static final Opt<Boolean> LOBBY_DOUBLE_JUMP = bool(
         "lobby.double-jump", true, Opt.Section.LOBBY, "Double Jump", "Players can double jump in the lobby (per-player toggle in settings).", Material.FEATHER
     );
@@ -2041,51 +2049,16 @@ public final class Opt<T> {
     public static final Opt<Integer> COSMETIC_VIEW_DISTANCE = integer(
         "cosmetics.view-distance", 40, Opt.Section.VISUALS, "Pet View Distance", "Blocks away at which other players see pets and wings (lower = lighter for clients).", Material.SPYGLASS, 16, 64, 8
     );
-    // 3.13.0: 1.8 combat for the legacy kits
+    public static final Opt<Boolean> ARENA_ON_DEMAND = bool(
+        "arena.on-demand",
+        true,
+        Opt.Section.ARENA,
+        "On-Demand Arenas",
+        "Duel maps aren't made at start-up: a map (or one more copy of a busy map) is built the moment two players are matched, while they wait in a waiting room styled like that map. FFA arenas are made once, on the first start.",
+        Material.CLOCK
+    );
     public static final Opt<Boolean> ARENA_VIEW_LIMIT = bool(
         "arena.view-limit", true, Opt.Section.ARENA, "Hide Other Arenas", "While fighting, players only see their own arena (their view distance shrinks to it); back to normal in the lobby. Lighter for the server too.", Material.SPYGLASS
-    );
-    public static final Opt<Boolean> LEGACY_ENABLED = bool(
-        "legacy.enabled", true, Opt.Section.MATCH, "1.8 Combat", "Kits with \"1.8 Combat\" on (the 1.8 legacy kits) play with no attack cooldown, 1.8 knockback, sword blocking, rod knockback and instant soup.", Material.GOLDEN_SWORD
-    );
-    public static final Opt<Boolean> LEGACY_ARCADE = bool(
-        "legacy.arcade", true, Opt.Section.MATCH, "1.8 Combat In Arcade", "Arcade games (Sumo, Boxing, Bridge, Spleef...) play with 1.8 combat too.", Material.SLIME_BALL
-    );
-    public static final Opt<Double> LEGACY_KB_HORIZONTAL = dbl(
-        "legacy.kb-horizontal", 0.4, Opt.Section.MATCH, "1.8 Knockback: Push", "How far a 1.8 hit pushes (1.8 = 0.40).", Material.PISTON, 0.0, 1.0, 0.01
-    );
-    public static final Opt<Double> LEGACY_KB_VERTICAL = dbl(
-        "legacy.kb-vertical", 0.4, Opt.Section.MATCH, "1.8 Knockback: Lift", "How high a 1.8 hit lifts (1.8 = 0.40).", Material.FEATHER, 0.0, 1.0, 0.01
-    );
-    public static final Opt<Double> LEGACY_KB_EXTRA_HORIZONTAL = dbl(
-        "legacy.kb-extra-horizontal", 0.5, Opt.Section.MATCH, "1.8 Knockback: Sprint Push", "Extra push of a sprint hit (or per Knockback level), along the hitter's look (1.8 = 0.50).", Material.SUGAR, 0.0, 1.5, 0.01
-    );
-    public static final Opt<Double> LEGACY_KB_EXTRA_VERTICAL = dbl(
-        "legacy.kb-extra-vertical", 0.1, Opt.Section.MATCH, "1.8 Knockback: Sprint Lift", "Extra lift of a sprint hit (1.8 = 0.10).", Material.PHANTOM_MEMBRANE, 0.0, 0.5, 0.005
-    );
-    public static final Opt<Double> LEGACY_KB_VERTICAL_LIMIT = dbl(
-        "legacy.kb-vertical-limit", 0.4, Opt.Section.MATCH, "1.8 Knockback: Max Lift", "The highest upward speed a hit can give (1.8 = 0.40).", Material.LADDER, 0.1, 1.0, 0.01
-    );
-    public static final Opt<Double> LEGACY_KB_FRICTION = dbl(
-        "legacy.kb-friction", 2.0, Opt.Section.MATCH, "1.8 Knockback: Friction", "The speed a player already had is divided by this before a push (1.8 = 2).", Material.ICE, 1.0, 4.0, 0.1
-    );
-    public static final Opt<Boolean> LEGACY_BLOCKING = bool(
-        "legacy.sword-blocking", true, Opt.Section.MATCH, "1.8 Sword Blocking", "Hold right click with a sword to block like in 1.8 (the 1.8 pose, works with a normal 1.21 client).", Material.IRON_SWORD
-    );
-    public static final Opt<Integer> LEGACY_BLOCK_REDUCTION = integer(
-        "legacy.block-reduction", 50, Opt.Section.MATCH, "1.8 Block Strength", "Percent of a hit a raised sword stops (1.8 = 50: a hit does (1 + damage) / 2).", Material.SHIELD, 0, 90, 5
-    );
-    public static final Opt<Boolean> LEGACY_ROD_KNOCKBACK = bool(
-        "legacy.rod-knockback", true, Opt.Section.MATCH, "1.8 Rod Knockback", "Fishing rods push players they hit, like in 1.8 (rod combos).", Material.FISHING_ROD
-    );
-    public static final Opt<Integer> LEGACY_SOUP_HEAL = integer(
-        "legacy.soup-heal", 7, Opt.Section.MATCH, "Instant Soup", "Health a mushroom stew gives at once in 1.8 kits (7 = 3.5 hearts, 0 = off).", Material.MUSHROOM_STEW, 0, 20, 1
-    );
-    public static final Opt<Boolean> LEGACY_SLOW_REGEN = bool(
-        "legacy.slow-regen", true, Opt.Section.MATCH, "1.8 Regeneration", "Natural regeneration as slow as in 1.8 (no fast healing from saturation).", Material.COOKED_BEEF
-    );
-    public static final Opt<Boolean> LEGACY_NO_OFFHAND = bool(
-        "legacy.no-offhand", true, Opt.Section.MATCH, "1.8: No Off-Hand", "The swap-hands key does nothing in 1.8 kits.", Material.BARRIER
     );
     public static final Opt<Integer> UPDATE_CHECK = integer(
         "updates.check-minutes", 30, Opt.Section.NETWORK, "Update Check", "Minutes between two checks for a new version.", Material.CLOCK, 5, 1440, 5

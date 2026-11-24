@@ -420,9 +420,6 @@ commands:
     description: "PracticePvP add-on admin: status, tests, reload, rollback, web dashboard."
     aliases: [vortexplus, vpp]
     permission: cmcpvp.admin
-  legacyhall:
-    description: "The 1.8 Legacy Hall: old-school kits with 1.8 combat. Admins: /legacyhall build."
-    aliases: [legacy, oldkits]
   realm:
     description: "The Unstable Realm season: your story, votes, journal (admins: /realm help)."
     aliases: [unstable, story]

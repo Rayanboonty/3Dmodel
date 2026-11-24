@@ -267,6 +267,16 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         return (int)dims(t, size)[12];
     }
 
+    /**
+     * The blocks of a theme for a small room in its style (the waiting room before a match): floor, wall, wall
+     * accent, pillar, trim, roof, glass pane, light (a lantern kind), banner colour.
+     */
+    public static String[] roomBlocks(Theme t) {
+        Pal p = palette(t);
+        String pillar = t.stadium && p.pillar != null ? p.pillar : p.log + "[axis=y]";
+        return new String[]{p.floorMix[0], p.wall, p.wallAlt, pillar, p.trim, p.roofBlock, p.glass, p.light, p.banners[0]};
+    }
+
     /** Signed distance from the floor's edge of a pro arena of this theme and size (negative on the floor), without building it. */
     public static double floorDistance(Theme t, int size, double x, double z) {
         double[] dm = dims(t, size);

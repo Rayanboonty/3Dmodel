@@ -45,8 +45,6 @@ public final class Kit {
     public int hitDelay = -1;
     /** Knockback in percent (100 = vanilla). */
     public int knockback = 100;
-    /** 3.13.0: 1.8 combat (no attack cooldown, 1.8 knockback, sword blocking, rod knockback, instant soup). */
-    public boolean legacy = false;
     /** Offer the "play one more round" vote before 1v1 duels. */
     public boolean roundsVote = true;
     public String arenaType = "AUTO";

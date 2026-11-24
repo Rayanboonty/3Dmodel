@@ -45,7 +45,6 @@ public final class QueueMenu extends Menu {
         this.tab(0, Dialogs.QueueTab.SKILL, Material.DIAMOND_SWORD, "<aqua>Skill Kits");
         this.tab(2, Dialogs.QueueTab.VANILLA, Material.END_CRYSTAL, "<gold>Vanilla Kits");
         this.tab(4, Dialogs.QueueTab.OTHER, Material.AMETHYST_SHARD, "<light_purple>Other Kits");
-        this.tab(6, Dialogs.QueueTab.LEGACY, Material.GOLDEN_SWORD, "<#FFB547>1.8 Legacy Kits");
         this.tab(8, Dialogs.QueueTab.MOST_PLAYED, Material.BLAZE_POWDER, "<white>Most Played Kits");
         PvPProfile prof = this.plugin.profiles().get(this.viewer);
         List<Kit> shown = this.plugin.dialogs().kitsFor(this.ranked, this.tab);

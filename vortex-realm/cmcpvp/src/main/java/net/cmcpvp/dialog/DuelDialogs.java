@@ -79,7 +79,7 @@ public final class DuelDialogs {
     private List<Kit> kits(Player p, DuelDialogs.Tab tab, boolean rankedOnly) {
         List<Kit> pool = new ArrayList<>();
         for (Kit k : this.plugin.kits().sorted()) {
-            if (k.enabled && k.hasContents() && (!rankedOnly || k.ranked) && !this.plugin.arenas().forKit(k).isEmpty()) {
+            if (k.enabled && k.hasContents() && (!rankedOnly || k.ranked) && this.plugin.arenas().canPlay(k)) {
                 pool.add(k);
             }
         }

@@ -258,6 +258,19 @@ public final class HologramManager {
         }
     }
 
+    /** Where the leaderboards of a world stand. */
+    public List<Location> spots(org.bukkit.World w) {
+        List<Location> out = new ArrayList<>();
+        for (HologramManager.Holo h : this.holos.values()) {
+            Location l = Locs.parse(h.location);
+            if (l != null && l.getWorld() == w) {
+                out.add(l);
+            }
+        }
+
+        return out;
+    }
+
     public int count() {
         return this.holos.size();
     }

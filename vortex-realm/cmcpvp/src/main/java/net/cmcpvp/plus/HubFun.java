@@ -661,17 +661,6 @@ public final class HubFun implements Listener {
 
     // ------------------------------------------------------------------ queue dummy
 
-    /** 3.13.5: no punching dummy while queued for a 1.8 kit. */
-    private boolean legacyQueue(Player p) {
-        for (net.cmcpvp.kit.Kit k : this.plugin.kits().all()) {
-            if (k.legacy && (this.plugin.queues().inQueue(p, k, true) || this.plugin.queues().inQueue(p, k, false))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private void queueDummy(Player p) {
         UUID u = p.getUniqueId();
         Mannequin m = this.dummies.get(u);

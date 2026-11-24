@@ -496,10 +496,6 @@ public final class KitListMenu extends Menu {
                 this.k.roundsVote = !this.k.roundsVote;
                 this.changed();
             });
-            this.set(47, Ui.toggle(Material.GOLDEN_SWORD, "1.8 Combat", this.k.legacy, "No attack cooldown, 1.8 knockback, sword blocking, rod knockback, instant soup."), c -> {
-                this.k.legacy = !this.k.legacy;
-                this.changed();
-            });
             this.set(
                 43,
                 Items.of(Material.WRITABLE_BOOK)

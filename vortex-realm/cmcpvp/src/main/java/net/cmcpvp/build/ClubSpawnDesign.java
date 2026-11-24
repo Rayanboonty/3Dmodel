@@ -17,21 +17,9 @@ public final class ClubSpawnDesign extends Voxels {
     private static final int GROUND = 70;
     private static final int[] DIMS = dims();
 
-    /** 3.13.0: where the 1.8 Legacy Hall stands (relative): at the end of the dirt path south-west of the plaza. */
-    public static final int HALL_X = 4;
-    public static final int HALL_Y = -6;
-    public static final int HALL_Z = 154;
-
     public ClubSpawnDesign(int cx, int floorY, int cz, long seed) {
-        this(cx, floorY, cz, seed, true);
-    }
-
-    public ClubSpawnDesign(int cx, int floorY, int cz, long seed, boolean withHall) {
         super(cx, floorY, cz, Math.max(DIMS[0], DIMS[2]) / 2, DIMS[4] - GROUND, DIMS[4] + DIMS[1] - 1 - GROUND, seed);
         this.load();
-        if (withHall) {
-            this.legacyHall();
-        }
 
         this.finish();
         // the spawn: the middle of the main plaza, on top of whatever is there
@@ -83,142 +71,6 @@ public final class ClubSpawnDesign extends Voxels {
         }
 
         return this.yLo;
-    }
-
-    /**
-     * Stamps the 1.8 Legacy Hall in at the end of the path: trees on its ground are taken away whole (no floating
-     * leaves), the hall's plinth goes down to the terrain and its gardens follow the ground around it.
-     */
-    private void legacyHall() {
-        int x0 = HALL_X - 27;
-        int x1 = HALL_X + 27;
-        int z0 = HALL_Z - 31;
-        int z1 = Math.min(this.R, HALL_Z + 25);
-        java.util.ArrayDeque<int[]> trees = new java.util.ArrayDeque<>();
-        int[][] ground = new int[x1 - x0 + 1][z1 - z0 + 1];
-        for (int x = x0; x <= x1; x++) {
-            for (int z = z0; z <= z1; z++) {
-                int g = this.ground(x, z);
-                ground[x - x0][z - z0] = g;
-                for (int y = g + 1; y <= this.yHi; y++) {
-                    String b = this.get(x, y, z);
-                    if (b != null && !b.equals("air")) {
-                        if (tree(b)) {
-                            trees.add(new int[]{x, y, z});
-                        }
-
-                        this.set(x, y, z, "air");
-                    }
-                }
-            }
-        }
-
-        // whole trees go: leaves and logs joined to what was cleared, a little way around the hall
-        int reach = 14;
-        while (!trees.isEmpty()) {
-            int[] t = trees.poll();
-            // the builders' trees touch at edges and corners too
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    for (int dz = -1; dz <= 1; dz++) {
-                        int x = t[0] + dx;
-                        int y = t[1] + dy;
-                        int z = t[2] + dz;
-                        if (x < x0 - reach || x > x1 + reach || z < z0 - reach || z > z1 + reach) {
-                            continue;
-                        }
-
-                        String b = this.get(x, y, z);
-                        if (tree(b)) {
-                            this.set(x, y, z, "air");
-                            trees.add(new int[]{x, y, z});
-                        }
-                    }
-                }
-            }
-        }
-
-        // leaf clusters left floating near the hall (they only touched the cleared trees across a gap) go too
-        int bx0 = x0 - reach;
-        int bx1 = x1 + reach;
-        int bz0 = z0 - reach;
-        int bz1 = Math.min(this.R, z1 + reach);
-        java.util.Set<Long> seen = new java.util.HashSet<>();
-        for (int x = bx0; x <= bx1; x++) {
-            for (int z = bz0; z <= bz1; z++) {
-                for (int y = this.yLo; y <= this.yHi; y++) {
-                    if (!tree(this.get(x, y, z)) || !seen.add(key(x, y, z))) {
-                        continue;
-                    }
-
-                    java.util.List<int[]> part = new java.util.ArrayList<>();
-                    java.util.ArrayDeque<int[]> q = new java.util.ArrayDeque<>();
-                    q.add(new int[]{x, y, z});
-                    boolean anchored = false;
-                    while (!q.isEmpty()) {
-                        int[] c = q.poll();
-                        part.add(c);
-                        if (c[0] == bx0 || c[0] == bx1 || c[2] == bz0 || c[2] == bz1) {
-                            anchored = true;
-                        }
-
-                        for (int dx = -1; dx <= 1; dx++) {
-                            for (int dy = -1; dy <= 1; dy++) {
-                                for (int dz = -1; dz <= 1; dz++) {
-                                    int nx = c[0] + dx;
-                                    int ny = c[1] + dy;
-                                    int nz = c[2] + dz;
-                                    if (nx < bx0 || nx > bx1 || nz < bz0 || nz > bz1) {
-                                        continue;
-                                    }
-
-                                    String b = this.get(nx, ny, nz);
-                                    if (tree(b)) {
-                                        if (seen.add(key(nx, ny, nz))) {
-                                            q.add(new int[]{nx, ny, nz});
-                                        }
-                                    } else if (b != null && !b.equals("air") && Math.abs(dx) + Math.abs(dy) + Math.abs(dz) == 1) {
-                                        anchored = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (!anchored) {
-                        for (int[] c : part) {
-                            this.set(c[0], c[1], c[2], "air");
-                        }
-                    }
-                }
-            }
-        }
-
-        LegacyHallDesign hall = new LegacyHallDesign(HALL_X, HALL_Y, HALL_Z, 1813L, (lx, lz) -> {
-            int gx = HALL_X + lx - x0;
-            int gz = HALL_Z + lz - z0;
-            return gx >= 0 && gz >= 0 && gx < ground.length && gz < ground[0].length ? ground[gx][gz] - HALL_Y : Integer.MIN_VALUE;
-        });
-        for (int x = hall.minX(); x <= hall.maxX(); x++) {
-            for (int z = hall.minZ(); z <= hall.maxZ(); z++) {
-                hall.column(x, z, (bx, by, bz, b) -> this.set(bx, by, bz, b.substring(10)));
-            }
-        }
-
-        // the plinth reaches down to the terrain where the ground is lower than the hall's foundations
-        for (int x = HALL_X - 21; x <= HALL_X + 21; x++) {
-            for (int z = HALL_Z - 27; z <= HALL_Z + 19; z++) {
-                if (x - x0 < 0 || z - z0 < 0 || x - x0 >= ground.length || z - z0 >= ground[0].length) {
-                    continue;
-                }
-
-                for (int y = ground[x - x0][z - z0] + 1; y < hall.bottomY(); y++) {
-                    this.set(x, y, z, "stone_bricks");
-                }
-            }
-        }
-
-        this.features.putAll(hall.features());
     }
 
     /** Height (relative to the floor) of the highest block of a column, or 0. */
