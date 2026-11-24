@@ -1378,6 +1378,8 @@ public final class PracticePlugin extends JavaPlugin {
                 maps.add(new PracticePlugin.PackMap("pro_corsair", ArenaTheme.CORSAIR_WHARF, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("pro_dynasty", ArenaTheme.GOLDEN_DYNASTY, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("pro_gladiator", ArenaTheme.GLADIATOR_PIT, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_atlantis", ArenaTheme.SUNKEN_ATLANTIS, duelSize, dCopies, false));
+                maps.add(new PracticePlugin.PackMap("pro_starfall", ArenaTheme.STARFALL_CITADEL, duelSize, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("pro_imperial", ArenaTheme.IMPERIAL_COLOSSEUM, 224, dCopies, false));
                 maps.add(new PracticePlugin.PackMap("pro_highpeak", ArenaTheme.HIGHPEAK_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
                 // 1.4.0: the show arenas and every biome that was only made on request before

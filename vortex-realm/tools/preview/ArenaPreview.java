@@ -381,6 +381,8 @@ public final class ArenaPreview {
         c(0x8F8A6E, "gold_ore");
         c(0x5C8C3A, "sugar_cane");
         c(0x5B8731, "cactus");
+        c(0x5E3A6E, "chorus_plant");
+        c(0x6B8E3A, "sea_pickle");
         c(0xF3D27A, "ochre_froglight");
         c(0x63A096, "prismarine");
         c(0x63AB9E, "prismarine_bricks");
