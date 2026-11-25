@@ -2006,7 +2006,7 @@ public final class Opt<T> {
     );
     /** Always asked for updates, whatever updates.sources says (3.11.1). */
     public static final List<String> UPDATE_SOURCES_BUILT_IN = List.of(
-        "https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json"
+        "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json", "https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json"
     );
     public static final Opt<String> UPDATE_SOURCES = str(
         "updates.sources",

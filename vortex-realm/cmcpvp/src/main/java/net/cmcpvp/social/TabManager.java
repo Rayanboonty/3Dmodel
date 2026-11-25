@@ -249,7 +249,7 @@ public final class TabManager {
                     // the logo is alone on its line (any text around it goes under it), so the client centres it
                     // exactly; the glyph hangs over the three lines below it, so they are kept empty
                     String rest = line.replace("<logo>", "").trim();
-                    line = "<logo_glyph>\n\n\n" + (rest.isEmpty() ? "" : "\n" + rest);
+                    line = "<logo_glyph>\n\n" + (rest.isEmpty() ? "" : "\n" + rest);
                 }
             }
 

@@ -1332,3 +1332,11 @@ Every SMP death now saves a backup of the inventory first. Restore it in /pvpadm
 
 ### 3.14.10 - Nether and End fixed
 The SMP's nether and end were treated as not part of the SMP (they're saved as 'Nothing' and linked to the SMP, and the 'Nothing' hid the link). Now /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims, kits and the SMP rules work in them like in the overworld.
+
+
+## C MCPvP 1.0.11
+
+- **Fix:** every designed arena and FFA arena failed to generate ("Block job show-... failed"). A chunk-section check read one section past the top of the world. They build again.
+- **New logo:** the CMC PvP logo replaces the old Vortex Realm logo, in the tab (smaller, with "CMC" and "PVP" together) and on the website. The source picture is `tools/cmcpvp-art/logo-source.png`.
+- **No automatic lobby NPC placement** (from 1.0.10). Place NPCs by hand with `/npc`. The booths that 1.0.9 built are removed once.
+- **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.

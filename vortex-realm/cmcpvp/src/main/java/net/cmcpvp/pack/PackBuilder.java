@@ -126,7 +126,7 @@ public final class PackBuilder {
             icons.append("    {\"type\": \"bitmap\", \"file\": \"")
                 .append("vortex")
                 .append(":font/logo.png\", \"ascent\": 8, ")
-                .append("\"height\": 36, \"chars\": [\"")
+                .append("\"height\": 27, \"chars\": [\"")
                 .append(esc(Glyphs.LOGO))
                 .append("\"]},\n");
         }

@@ -15,9 +15,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'practicepvp')
 DST = os.path.join(ROOT, 'cmcpvp')
 NAME = 'C MCPvP'
-FEED = 'https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json'
+FEED = 'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json'
+OLD_FEED = 'https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json'
 # C MCPvP has its own version line (1.0.0 = launch); bump it for every C MCPvP release
-EDITION_VERSION = '1.0.10'
+EDITION_VERSION = '1.0.11'
 PERM = re.compile(r'(?<![\w.])practice\.(?=[a-z])')
 
 
@@ -99,6 +100,10 @@ def patch_specific(jdir):
         this.vault.beforeLoad();''', p)
     s = s.replace('(%practice_...%)', '(%cmcpvp_...%)')
     wr(p, s)
+    p = jdir + '/pack/PackBuilder.java'
+    wr(p, rep(rd(p), '"\\"height\\": 36, \\"chars\\": [\\""', '"\\"height\\": 27, \\"chars\\": [\\""', p))
+    p = jdir + '/social/TabManager.java'
+    wr(p, rep(rd(p), 'line = "<logo_glyph>\\n\\n\\n" +', 'line = "<logo_glyph>\\n\\n" +', p))
     p = jdir + '/data/DataVault.java'
     wr(p, rep(rd(p), '"VortexRealm-Vault");', '"CMCPvP-Vault");', p))
     p = jdir + '/hook/PlaceholderHook.java'
@@ -107,7 +112,8 @@ def patch_specific(jdir):
     s = rd(p)
     s = rep(s, '"database.name", Opt.Type.STRING, "practice",', '"database.name", Opt.Type.STRING, "cmcpvp",', p)
     # its own update feed: a C MCPvP server never downloads the Vortex jar
-    s = re.sub(r'(UPDATE_SOURCES_BUILT_IN = List\.of\(\s*)"[^"]+",\s*"[^"]+"', r'\1"' + FEED + '"', s)
+    # this repo's feed first (where releases are pushed now), the first account's feed after it (the newest wins)
+    s = re.sub(r'(UPDATE_SOURCES_BUILT_IN = List\.of\(\s*)"[^"]+",\s*"[^"]+"', r'\1"' + FEED + '", "' + OLD_FEED + '"', s)
     if FEED not in s:
         sys.exit('could not set the update feed in Opt.java')
     s = s.replace('"general.server-ip", "play.yourserver.net"', '"general.server-ip", "play.cmcpvp.net"')
@@ -149,11 +155,44 @@ def resources():
     logos(r)
 
 
+def owner_logo(r):
+    """The owner's CMC PvP logo (tools/cmcpvp-art/logo-source.png): black taken out, cropped tight so CMC and PVP
+    sit together. Becomes the tab logo (logo/vr.png, drawn smaller than the Vortex one) and the website logos."""
+    from PIL import Image
+    src = os.path.join(ROOT, 'tools/cmcpvp-art/logo-source.png')
+    if not os.path.exists(src):
+        return False
+    im = Image.open(src).convert('RGBA')
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            cr, cg, cb, ca = px[x, y]
+            m = max(cr, cg, cb)
+            a = 0 if m < 28 else (255 if m > 90 else int((m - 28) * 255 / 62))
+            px[x, y] = (cr, cg, cb, min(ca, a))
+    # tight crop round the letters (faint specks near the edges don't count)
+    im = im.crop(im.split()[3].point(lambda v: 255 if v > 160 else 0).getbbox())
+    def fit(w, h):
+        c = im.copy()
+        c.thumbnail((w, h), Image.LANCZOS)
+        out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        out.paste(c, ((w - c.width) // 2, (h - c.height) // 2), c)
+        return out
+    c = im.copy()
+    c.thumbnail((128, 96), Image.LANCZOS)
+    c.save(os.path.join(r, 'logo/vr.png'))
+    fit(595, 420).save(os.path.join(r, 'web/logo.png'))
+    fit(241, 176).save(os.path.join(r, 'web/logo-mark.png'))
+    return True
+
+
 def logos(r):
     """C MCPvP logo pictures for the website (the owner can swap them for their own art)."""
     try:
         from PIL import Image, ImageDraw, ImageFont
     except ImportError:
+        return
+    if owner_logo(r):
         return
     def font(size):
         for f in ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf'):

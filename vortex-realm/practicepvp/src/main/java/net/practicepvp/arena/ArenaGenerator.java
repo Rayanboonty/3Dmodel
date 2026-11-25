@@ -329,8 +329,9 @@ public final class ArenaGenerator {
                 this.chunk = w.getChunkAt(this.cx, this.cz);
                 this.snap = this.chunk.getChunkSnapshot(false, false, false);
                 int sections = (maxY - minY + 1) >> 4;
-                this.busy = new boolean[sections + 1];
-                for (int i = 0; i <= sections; i++) {
+                // one entry per chunk section of the world (index sections would be past the top)
+                this.busy = new boolean[sections];
+                for (int i = 0; i < sections; i++) {
                     this.busy[i] = !this.snap.isSectionEmpty(i);
                 }
 

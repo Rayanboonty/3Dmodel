@@ -1,4 +1,10 @@
 {
+  "CMCPvP": {
+    "version": "1.0.11",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.11.jar",
+    "sha256": "40b3554568b8556a1ecbfa5351c1ad3973de4cb09b3d7ad2e8665ed92fd799e6",
+    "notes": "Fix: designed arenas and FFA arenas generate again (they all failed with a chunk error). New CMC PvP logo in the tab and on the website. No automatic lobby NPC placement."
+  },
   "PracticePvP": {
     "version": "2.14.10",
     "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.14.10.jar",

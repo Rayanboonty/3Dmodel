@@ -13,6 +13,7 @@ NOTES = {
     'VortexRealm': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'PracticePvP': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
+    'CMCPvP': 'Fix: designed arenas and FFA arenas generate again (they all failed with a chunk error). New CMC PvP logo in the tab and on the website. No automatic lobby NPC placement.',
 }
 
 
@@ -22,7 +23,7 @@ def ver(v):
 
 best = {}
 for f in os.listdir(DIST):
-    m = re.fullmatch(r'(VortexRealm|PracticePvP|VortexSMP)-([0-9.]+)\.jar', f)
+    m = re.fullmatch(r'(VortexRealm|PracticePvP|VortexSMP|CMCPvP)-([0-9.]+)\.jar', f)
     if m and (m.group(1) not in best or ver(m.group(2)) > ver(best[m.group(1)][0])):
         best[m.group(1)] = (m.group(2), f)
 
