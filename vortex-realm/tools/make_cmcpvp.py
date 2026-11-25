@@ -18,7 +18,7 @@ NAME = 'CMCPVP'
 FEED = 'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json'
 OLD_FEED = 'https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json'
 # C MCPvP has its own version line (1.0.0 = launch); bump it for every C MCPvP release
-EDITION_VERSION = '1.0.11'
+EDITION_VERSION = '1.0.12'
 PERM = re.compile(r'(?<![\w.])practice\.(?=[a-z])')
 
 

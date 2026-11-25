@@ -382,6 +382,39 @@ public final class CombatListener implements Listener {
         }
     }
 
+    /**
+     * Auto Splash: a healing (or other helpful) splash potion thrown during a fight goes straight down at the thrower's
+     * feet, so it always heals fully. On for every kit (kits.yml auto-splash) unless the player turns it off.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onAutoSplash(ProjectileLaunchEvent e) {
+        if (!(e.getEntity() instanceof org.bukkit.entity.ThrownPotion pot) || !(pot.getShooter() instanceof Player p)) {
+            return;
+        }
+
+        Session s = this.plugin.sessions().get(p);
+        if (!s.state.fighting()) {
+            return;
+        }
+
+        Kit kit = this.kitOf(s);
+        net.cmcpvp.data.PvPProfile prof = this.plugin.profiles().getIfLoaded(p.getUniqueId());
+        if (kit != null && !kit.autoSplash || prof != null && !prof.on(net.cmcpvp.data.Setting.AUTO_SPLASH)) {
+            return;
+        }
+
+        for (org.bukkit.potion.PotionEffect fx : pot.getEffects()) {
+            org.bukkit.potion.PotionEffectType t = fx.getType();
+            if (t == org.bukkit.potion.PotionEffectType.INSTANT_DAMAGE || t == org.bukkit.potion.PotionEffectType.POISON || t == org.bukkit.potion.PotionEffectType.WEAKNESS
+                || t == org.bukkit.potion.PotionEffectType.SLOWNESS || t == org.bukkit.potion.PotionEffectType.WITHER) {
+                return;
+            }
+        }
+
+        // straight down from the eyes: it bursts at the player's feet a few ticks later
+        pot.setVelocity(new org.bukkit.util.Vector(0.0, -1.2, 0.0));
+    }
+
     @EventHandler(
         priority = EventPriority.HIGH,
         ignoreCancelled = true

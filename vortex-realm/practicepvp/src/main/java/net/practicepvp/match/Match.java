@@ -336,6 +336,13 @@ public final class Match {
                     this.cancel("match.no-arena", false);
                 } else {
                     Collections.shuffle(maps);
+                    // start the 3D previews of these maps now if any is missing (they build in the background)
+                    for (Arena m : maps) {
+                        if (MapModel.wanted(m)) {
+                            MapModel.get(m);
+                        }
+                    }
+
                     // MCPVP offers seven maps (four on top, three below)
                     if (maps.size() > 7) {
                         maps = new ArrayList<>(maps.subList(0, 7));

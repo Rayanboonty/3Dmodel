@@ -59,6 +59,11 @@ public final class Arena {
     }
 
     public boolean allows(Kit kit) {
+        // mace kits fly high: only the big open colosseums, never the vanilla terrain mace maps (trees, hills)
+        if (this.id != null && this.id.startsWith("m_") && kit.arenas.isEmpty()) {
+            return false;
+        }
+
         if (!kit.arenas.isEmpty()) {
             return kit.arenas.contains(this.id);
         } else if (!this.kits.isEmpty()) {

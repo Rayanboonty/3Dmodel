@@ -596,57 +596,57 @@ public final class Dialogs {
         } else if (!this.useDialog(p)) {
             new QueueMenu.Ffa(this.plugin, p).open();
         } else {
+            // the FFA board: the server logo on top (outside the grid), then one Minecraft button per kit - its icon,
+            // its name, a live player bar - laid out three across, and a "random arena" button under them
             List<DialogBody> body = new ArrayList<>();
-            List<ItemStack> rowIcons = new ArrayList<>();
-            List<Component> rowText = new ArrayList<>();
-
+            boolean pack = this.plugin.hasPack(p);
+            body.add(DialogBody.plainMessage(pack
+                ? Component.empty().append(net.practicepvp.pack.Glyphs.logo()).append(Component.text("\n\n\n"))
+                : Text.mm(net.practicepvp.Edition.PRACTICE_ONLY ? "<b><white>CMC</white><#E3172B>PVP</#E3172B></b>" : "<gold><b>" + Text.esc(Cfg.s(Opt.SERVER_NAME)) + "</b>"), 300));
+            int total = 0;
+            List<FfaArena> open = new ArrayList<>();
             for (FfaArena a : this.plugin.ffa().all()) {
-                Kit kit = this.plugin.ffa().kitOf(a);
-                if (kit != null && a.ready()) {
-                    int n = a.players.size();
-                    Component desc = Component.text()
-                        .append(Text.mm(kit.color + "<b>" + Text.esc(a.displayName) + "</b>"))
-                        .append(Component.newline())
-                        .append(Text.mm("<gray>" + n + " player" + (n == 1 ? "" : "s")))
-                        .clickEvent(ClickEvent.callback(aud -> this.safe(p, () -> {
-                            p.closeDialog();
-                            this.plugin.ffa().join(p, a);
-                        }).run(), OPTS))
-                        .hoverEvent(HoverEvent.showText(Text.mm("<gray>Kit: ").append(kit.label()).append(Text.mm("\n<green>▶ Click to join"))))
-                        .build();
-                    ItemStack icon = kit.iconStack();
-                    icon.editMeta(m -> {
-                        m.displayName(Text.noItalic(Text.mm(kit.color + "<b>" + Text.esc(a.displayName))));
-                        m.addItemFlags(ItemFlag.values());
-                    });
-                    rowIcons.add(icon);
-                    rowText.add(desc);
+                if (this.plugin.ffa().kitOf(a) != null && a.ready()) {
+                    open.add(a);
+                    total += a.players.size();
                 }
             }
 
-            int width = TextWidth.fit(TextWidth.widest(rowText), 70, 260);
-
-            for (int i = 0; i < rowIcons.size(); i++) {
-                body.add(
-                    DialogBody.item(rowIcons.get(i))
-                        .description(DialogBody.plainMessage(rowText.get(i), width))
-                        .showDecorations(false)
-                        .showTooltip(true)
-                        .build()
-                );
+            body.add(DialogBody.plainMessage(Text.mm("<#E3172B><b>FREE FOR ALL</b></#E3172B>  <dark_gray>▪</dark_gray>  <white>" + total + "</white> <gray>fighting now"), 300));
+            List<ActionButton> buttons = new ArrayList<>();
+            int most = 1;
+            for (FfaArena a : open) {
+                most = Math.max(most, a.players.size());
             }
 
-            if (body.isEmpty()) {
+            for (FfaArena a : open) {
+                Kit kit = this.plugin.ffa().kitOf(a);
+                int n = a.players.size();
+                int filled = n == 0 ? 0 : Math.max(1, Math.round(5.0F * n / most));
+                Component label = Component.empty()
+                    .append(kit.iconComponent())
+                    .append(Text.mm(" " + kit.color + "<b>" + Text.esc(kit.displayName) + "</b>"))
+                    .append(Text.mm("  <#E3172B>" + "▮".repeat(filled) + "</#E3172B><dark_gray>" + "▮".repeat(5 - filled) + "</dark_gray> <white>" + n));
+                Component tip = Text.mm(kit.color + "<b>" + Text.esc(a.displayName) + "</b>\n<gray>" + n + " player" + (n == 1 ? "" : "s") + " in the arena\n\n<green>▶ Click to jump in");
+                buttons.add(button(label, tip, 150, this.action(p, () -> {
+                    p.closeDialog();
+                    this.plugin.ffa().join(p, a);
+                })));
+            }
+
+            if (open.isEmpty()) {
                 body.add(DialogBody.plainMessage(Msg.get("ffa.menu-empty"), 250));
+                DialogBase base = DialogBase.builder(Component.empty()).canCloseWithEscape(true).pause(false).afterAction(DialogAfterAction.NONE).body(body).build();
+                show(p, base, DialogType.notice(this.closeButton(p)));
+                return;
             }
 
-            DialogBase base = DialogBase.builder(Text.mm("<gold><b>Free For All</b></gold> <dark_gray>»</dark_gray> <aqua>Click an arena to join!"))
-                .canCloseWithEscape(true)
-                .pause(false)
-                .afterAction(DialogAfterAction.NONE)
-                .body(body)
-                .build();
-            show(p, base, DialogType.notice(this.closeButton(p)));
+            buttons.add(button(Text.mm("<white>⚄ <b>Random Arena</b>"), Text.mm("<gray>Drops you into a random FFA arena"), 150, this.action(p, () -> {
+                p.closeDialog();
+                this.plugin.ffa().join(p, open.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(open.size())));
+            })));
+            DialogBase base = DialogBase.builder(Component.empty()).canCloseWithEscape(true).pause(false).afterAction(DialogAfterAction.NONE).body(body).build();
+            show(p, base, DialogType.multiAction(buttons).columns(3).exitAction(this.closeButton(p)).build());
         }
     }
 

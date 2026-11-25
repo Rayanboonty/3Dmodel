@@ -310,6 +310,7 @@ public final class KitManager {
         k.ranked = s.getBoolean("ranked", true);
         k.unranked = s.getBoolean("unranked", true);
         k.ffa = s.getBoolean("ffa", false);
+        k.autoSplash = s.getBoolean("auto-splash", true);
         k.build = s.getBoolean("build", false);
         k.regen = s.getBoolean("natural-regen", true);
         k.hunger = s.getBoolean("hunger", true);
@@ -416,6 +417,7 @@ public final class KitManager {
             y.set(base + "ranked", k.ranked);
             y.set(base + "unranked", k.unranked);
             y.set(base + "ffa", k.ffa);
+            y.set(base + "auto-splash", k.autoSplash);
             y.set(base + "build", k.build);
             y.set(base + "natural-regen", k.regen);
             y.set(base + "hunger", k.hunger);

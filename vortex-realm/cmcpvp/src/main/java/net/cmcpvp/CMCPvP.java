@@ -1296,11 +1296,7 @@ public final class CMCPvP extends JavaPlugin {
         maps.add(new CMCPvP.PackMap("palegarden", ArenaTheme.PALE, vanillaSize, vCopies, false));
         maps.add(new CMCPvP.PackMap("crimson", ArenaTheme.CRIMSON, vanillaSize, vCopies, false));
         maps.add(new CMCPvP.PackMap("mushroomfields", ArenaTheme.MUSHROOM, vanillaSize, vCopies, false));
-        // 2.3.0: big vanilla maps for the mace kits (MACE pool, next to the grand colosseum)
-        int maceVanilla = Cfg.i(Opt.MACE_VANILLA_SIZE);
-        maps.add(new CMCPvP.PackMap("m_plains", ArenaTheme.PLAINS, maceVanilla, vCopies, false));
-        maps.add(new CMCPvP.PackMap("m_badlands", ArenaTheme.BADLANDS, maceVanilla, vCopies, false));
-        maps.add(new CMCPvP.PackMap("m_snowy", ArenaTheme.SNOWY, maceVanilla, vCopies, false));
+        // mace kits play only in the big open colosseums (the vanilla mace maps had trees and hills in the way)
         // 1.5.0: Mole PvP's underground map, the biggest one
         maps.add(new CMCPvP.PackMap("molemines", ArenaTheme.MOLE_MINES, net.cmcpvp.build.MoleMinesDesign.RADIUS * 2 + 1, Math.max(2, copies), false));
         return maps;

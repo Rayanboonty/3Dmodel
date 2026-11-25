@@ -187,7 +187,11 @@ final class StartSequence {
                 c.tick(progress, Math.max(0, this.seconds * 20 - this.ticks));
             }
 
-            if (this.mode == Opt.StartMode.CAGE) {
+            if (this.mode == Opt.StartMode.CAGE || this.mode == Opt.StartMode.CAPSULE) {
+                if (this.mode == Opt.StartMode.CAPSULE && this.ticks % 10 == 0) {
+                    this.readyBar();
+                }
+
                 if (this.ticks >= this.endTick) {
                     this.finish();
                 } else {
@@ -224,6 +228,48 @@ final class StartSequence {
         }
 
         return null;
+    }
+
+    Capsule capsuleOf(Player p) {
+        for (Capsule c : this.capsules) {
+            if (c.player().equals(p)) {
+                return c;
+            }
+        }
+
+        return null;
+    }
+
+    /** PvP HQ: "PUNCH TO READY UP: name ✔, name ✘" over the hotbar while the pods wait. */
+    private void readyBar() {
+        StringBuilder sb = new StringBuilder("<#E3172B><b>PUNCH TO READY UP</b></#E3172B><gray>:");
+        for (Capsule c : this.capsules) {
+            sb.append(" <white>").append(Text.esc(c.player().getName())).append(c.ready ? " <green>✔" : " <red>✘").append("<gray>,");
+        }
+
+        Component bar = Text.mm(sb.substring(0, sb.length() - 7));
+        for (Player o : this.match.participantsOnline()) {
+            o.sendActionBar(bar);
+        }
+    }
+
+    /** A punch in the pod: ready; when everyone is, the count drops to 3 seconds. */
+    void readyCapsule(Player p) {
+        Capsule mine = this.capsuleOf(p);
+        if (this.done || mine == null || mine.ready) {
+            return;
+        }
+
+        mine.markReady();
+        for (Player o : this.match.participantsOnline()) {
+            Snd.play(o, "block.note_block.pling", 0.6F, o.equals(p) ? 1.6F : 1.2F);
+        }
+
+        this.readyBar();
+        if (this.capsules.stream().allMatch(c -> c.ready) && this.endTick - this.ticks > 60) {
+            this.endTick = this.ticks + 60;
+            this.announce(3);
+        }
     }
 
     void ready(Player p) {

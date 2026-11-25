@@ -492,6 +492,10 @@ public final class KitListMenu extends Menu {
                     });
                 }
             );
+            this.set(43, Ui.toggle(Material.SPLASH_POTION, "Auto Splash", this.k.autoSplash, "Splash potions go straight down at the thrower's feet (players can turn it off in /settings)."), c -> {
+                this.k.autoSplash = !this.k.autoSplash;
+                this.changed();
+            });
             this.set(42, Ui.toggle(Material.CLOCK, "Rounds Vote", this.k.roundsVote, "Offer 'play one more round' before 1v1 duels."), c -> {
                 this.k.roundsVote = !this.k.roundsVote;
                 this.changed();

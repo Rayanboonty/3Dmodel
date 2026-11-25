@@ -38,6 +38,15 @@ public final class CageListener implements Listener {
     public void onInteract(PlayerInteractEvent e) {
         Block b = e.getClickedBlock();
         Player p = e.getPlayer();
+        if (e.getAction() == Action.LEFT_CLICK_AIR || e.getAction() == Action.LEFT_CLICK_BLOCK) {
+            StartSequence pod = this.sequence(p);
+            if (pod != null && pod.capsuleOf(p) != null) {
+                e.setCancelled(true);
+                pod.readyCapsule(p);
+                return;
+            }
+        }
+
         StartSequence seq = b == null ? null : this.sequence(p);
         Cage c = seq == null ? null : seq.cageOf(p);
         if (c != null) {

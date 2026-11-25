@@ -65,7 +65,7 @@ public final class OnDemand {
         }
 
         for (PracticePlugin.PackMap m : this.plugin.packMaps()) {
-            if (m.theme() == ArenaTheme.TRAINING_GROUNDS || this.plugin.arenas().pendingOrGet(m.id()) != null || this.building.containsKey(m.id())) {
+            if (m.theme() == ArenaTheme.TRAINING_GROUNDS || m.id().startsWith("m_") || this.plugin.arenas().pendingOrGet(m.id()) != null || this.building.containsKey(m.id())) {
                 continue;
             }
 

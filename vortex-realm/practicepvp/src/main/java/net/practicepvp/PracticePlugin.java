@@ -1288,11 +1288,7 @@ public final class PracticePlugin extends JavaPlugin {
         maps.add(new PracticePlugin.PackMap("palegarden", ArenaTheme.PALE, vanillaSize, vCopies, false));
         maps.add(new PracticePlugin.PackMap("crimson", ArenaTheme.CRIMSON, vanillaSize, vCopies, false));
         maps.add(new PracticePlugin.PackMap("mushroomfields", ArenaTheme.MUSHROOM, vanillaSize, vCopies, false));
-        // 2.3.0: big vanilla maps for the mace kits (MACE pool, next to the grand colosseum)
-        int maceVanilla = Cfg.i(Opt.MACE_VANILLA_SIZE);
-        maps.add(new PracticePlugin.PackMap("m_plains", ArenaTheme.PLAINS, maceVanilla, vCopies, false));
-        maps.add(new PracticePlugin.PackMap("m_badlands", ArenaTheme.BADLANDS, maceVanilla, vCopies, false));
-        maps.add(new PracticePlugin.PackMap("m_snowy", ArenaTheme.SNOWY, maceVanilla, vCopies, false));
+        // mace kits play only in the big open colosseums (the vanilla mace maps had trees and hills in the way)
         // 1.5.0: Mole PvP's underground map, the biggest one
         maps.add(new PracticePlugin.PackMap("molemines", ArenaTheme.MOLE_MINES, net.practicepvp.build.MoleMinesDesign.RADIUS * 2 + 1, Math.max(2, copies), false));
         return maps;

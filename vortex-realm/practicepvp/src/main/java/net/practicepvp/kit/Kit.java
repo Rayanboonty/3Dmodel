@@ -35,6 +35,8 @@ public final class Kit {
     public boolean ranked = true;
     public boolean unranked = true;
     public boolean ffa = false;
+    /** Splash potions thrown in this kit go straight down at the thrower's feet (the player can turn it off for themselves). */
+    public boolean autoSplash = true;
     public boolean build = false;
     public boolean regen = true;
     public boolean hunger = true;

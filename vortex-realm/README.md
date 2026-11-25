@@ -1340,3 +1340,24 @@ The SMP's nether and end were treated as not part of the SMP (they're saved as '
 - **New logo:** the CMC PvP logo replaces the old Vortex Realm logo, in the tab (smaller, with "CMC" and "PVP" together) and on the website. The source picture is `tools/cmcpvp-art/logo-source.png`.
 - **No automatic lobby NPC placement** (from 1.0.10). Place NPCs by hand with `/npc`. The booths that 1.0.9 built are removed once.
 - **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.
+
+
+## CMCPVP 1.0.12
+
+- **Website works on hosts:** it opens on the game address itself (`http://your-ip:your-game-port/`). The reply used to get a Minecraft length prefix in front of it, so browsers showed nothing.
+- **The name is CMCPVP everywhere**, with no "Vortex" left anywhere: messages, menus, worlds and pack names.
+  - Permission nodes that had "vortex" in them now use "cmcpvp" (for example `vortex.rank.*` → `cmcpvp.rank.*`). Update LuckPerms if you used them.
+  - The vanilla-terrain world is now `cmcpvp_terrain`.
+- **PvP HQ capsule start:**
+  - a dark brick pod hanging on chains, a lantern inside, a window toward the opponent;
+  - **PUNCH TO READY UP** (✔/✘ over the hotbar): when both punch, the count drops to 3;
+  - at GO the pod breaks apart and you drop in with no fall damage.
+- **Waiting room:** at most 5 seconds (`match.waiting-room-seconds`), then straight to the map vote with the ready maps. Every kit gets a ready map soon after start-up. The room uses full glass blocks now.
+- **3D previews** for every map in the vote, at the finest detail. They're built right after each map is, so they're ready the first time.
+- **New FFA board:** the logo on top, one button per kit with its icon, name and a live player bar, plus a Random Arena button.
+- **Auto Splash:** splash potions you throw go straight down at your feet for the full heal.
+  - It's on for every kit: Kit Editor → Auto Splash, or `auto-splash` in kits.yml.
+  - Players can turn it off in /settings.
+- **Mace and spear-mace** play only in the big open colosseums (no more vanilla maps with trees).
+- **One tab:** the Competitive design in the logo colours (CMC white, PVP red). The "Lowest Ping Host: Miami, Florida" line is gone.
+- **SMP, server selector, regions, World Manager and Hub Setup** are gone from the menus, settings and commands.

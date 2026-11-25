@@ -53,6 +53,11 @@ public final class MapModel {
 
     /** Display parts a model may use: LOW, NORMAL or HIGH detail. */
     public static int budget() {
+        if (net.practicepvp.Edition.PRACTICE_ONLY) {
+            // CMCPVP: always the finest miniature
+            return 400;
+        }
+
         return switch (Cfg.e(Opt.MAP_PREVIEW_DETAIL, Opt.PreviewDetail.class)) {
             case LOW -> 140;
             case HIGH -> 400;
@@ -66,7 +71,7 @@ public final class MapModel {
 
     /** True when the map vote should show this arena as a 3D miniature (match.map-ban-3d-preview). */
     public static boolean wanted(Arena a) {
-        Opt.MapPreview mode = Cfg.e(Opt.MAP_PREVIEW_3D, Opt.MapPreview.class);
+        Opt.MapPreview mode = net.practicepvp.Edition.PRACTICE_ONLY ? Opt.MapPreview.ALL : Cfg.e(Opt.MAP_PREVIEW_3D, Opt.MapPreview.class);
         if (mode == Opt.MapPreview.OFF || a == null || a.snapshot == null) {
             return false;
         } else if (mode == Opt.MapPreview.ALL) {
@@ -103,8 +108,20 @@ public final class MapModel {
         }
     }
 
-    /** Builds the previews of every arena that shows one, spread out after the start. */
+    /**
+     * Builds the previews of every arena that shows one, spread out after the start, and keeps doing it every 30
+     * seconds for maps built since (an arena ready later has its 3D preview before anyone votes on it).
+     */
     public static void warmLater(PracticePlugin plugin) {
+        Tasks.timer(900L, 600L, () -> {
+            int delay = 0;
+            for (Arena a : new ArrayList<>(plugin.arenas().all())) {
+                if (a.ready() && wanted(a) && !CACHE.containsKey(key(a)) && !BUSY.contains(key(a))) {
+                    Tasks.later(delay, () -> get(a));
+                    delay += 20;
+                }
+            }
+        });
         Tasks.later(400L, () -> {
             List<Arena> list = new ArrayList<>(plugin.arenas().all());
             int delay = 0;
