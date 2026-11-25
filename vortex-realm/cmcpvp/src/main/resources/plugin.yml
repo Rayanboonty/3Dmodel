@@ -55,6 +55,12 @@ commands:
     description: Rematch your last opponent.
   rankup:
     description: Start your promotion series.
+  tiertest:
+    description: Wait for a Tier Tester to test you in a kit.
+    aliases: [requesttest]
+  testqueue:
+    description: Tier Testers - the tier test waitlist.
+    aliases: [tq]
   ping:
     description: Show ping.
   pvpadmin:

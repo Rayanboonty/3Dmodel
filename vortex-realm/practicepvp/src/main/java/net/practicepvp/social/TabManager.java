@@ -329,6 +329,8 @@ public final class TabManager {
                         Placeholder.unparsed("my_elo", me[0]),
                         Placeholder.parsed("my_tier", me[1]),
                         Placeholder.unparsed("my_rank", me[2]),
+                        Placeholder.unparsed("my_points", me[3]),
+                        Placeholder.parsed("my_title", me[4]),
                         Placeholder.unparsed("matches", String.valueOf(this.plugin.matches() == null ? 0 : this.plugin.matches().active().size())),
                         Placeholder.unparsed("queued", String.valueOf(this.plugin.queues() == null ? 0 : this.plugin.queues().total())),
                         Placeholder.unparsed("server", Cfg.s(Opt.SERVER_NAME)),
@@ -370,19 +372,21 @@ public final class TabManager {
         }
     }
 
-    private static final String[] NO_STATS = new String[]{"-", "<gray>-", "-"};
+    private static final String[] NO_STATS = new String[]{"-", "<gray>-", "-", "0", "<gray>Unranked"};
 
     /** Elo, tier and leaderboard place of the viewer in their best kit (Competitive design footer). */
     private String[] myStats(Player p) {
         try {
             PvPProfile prof = this.plugin.profiles().get(p);
             String kit = prof == null ? null : prof.bestKit();
+            int pts = prof == null ? 0 : prof.tierPoints();
+            String title = "<" + Tier.titleColor(pts) + ">" + Tier.title(pts);
             if (kit == null) {
-                return new String[]{"-", "<gray>Unranked", "-"};
+                return new String[]{"-", "<gray>Unranked", "-", String.valueOf(pts), title};
             } else {
                 Tier t = prof.tierIn(kit);
                 int pos = this.plugin.leaderboards() == null ? -1 : this.plugin.leaderboards().position(kit, p.getUniqueId());
-                return new String[]{String.format(Locale.US, "%,d", prof.stats(kit).elo), t == null ? "<gray>Unranked" : t.mm(), pos > 0 ? "#" + pos : "-"};
+                return new String[]{String.format(Locale.US, "%,d", prof.stats(kit).elo), t == null ? "<gray>Unranked" : t.mm(), pos > 0 ? "#" + pos : "-", String.valueOf(pts), title};
             }
         } catch (RuntimeException var6) {
             return NO_STATS;
@@ -543,7 +547,7 @@ public final class TabManager {
     private Component tierTag(Player p) {
         try {
             PvPProfile prof = this.plugin.profiles().get(p);
-            String kit = prof == null ? null : prof.bestKit();
+            String kit = prof == null || !prof.on(net.practicepvp.data.Setting.SHOW_OWN_TIER) ? null : prof.bestKit();
             Tier t = kit == null ? null : prof.tierIn(kit);
             return (Component)(t == null ? Component.empty() : Component.space().append(Text.mm(t.mm())));
         } catch (RuntimeException var5) {

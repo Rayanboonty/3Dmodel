@@ -5,7 +5,7 @@ import java.util.Locale;
 public enum KitCategory {
     SKILL("Skill Kits", "<aqua>", "item/diamond_sword"),
     VANILLA("Vanilla Kits", "<gold>", "item/end_crystal"),
-    OTHER("Other Kits", "<light_purple>", null);
+    OTHER("Community Kits", "<light_purple>", null);
 
     public final String title;
     public final String color;

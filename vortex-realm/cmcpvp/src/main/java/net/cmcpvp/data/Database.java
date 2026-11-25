@@ -39,6 +39,7 @@ public final class Database {
     private volatile boolean recordColumns;
     private volatile boolean snoozeColumns;
     private volatile boolean skillColumns;
+    private volatile boolean ladderColumns;
 
     public Database(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -190,6 +191,23 @@ public final class Database {
         } catch (SQLException var17) {
             this.skillColumns = false;
             this.plugin.getLogger().warning("Skill check columns unavailable; skill-check progress won't survive restarts.");
+        }
+
+        // ladder columns: retest cooldown, rank decay, peak tier
+        for (String col : List.of("last_test BIGINT NOT NULL DEFAULT 0", "last_ranked BIGINT NOT NULL DEFAULT 0", "last_decay BIGINT NOT NULL DEFAULT 0",
+            "peak_tier INT NOT NULL DEFAULT -1")) {
+            try (Statement stx = c.createStatement()) {
+                stx.executeUpdate("ALTER TABLE pp_kit_stats ADD COLUMN " + col);
+            } catch (SQLException ignored) {
+            }
+        }
+
+        try (Statement stx = c.createStatement()) {
+            stx.executeQuery("SELECT last_test, last_ranked, last_decay, peak_tier FROM pp_kit_stats LIMIT 1").close();
+            this.ladderColumns = true;
+        } catch (SQLException e) {
+            this.ladderColumns = false;
+            this.plugin.getLogger().warning("Ladder columns unavailable; retest cooldowns, decay and peak tiers won't survive restarts.");
         }
     }
 
@@ -352,6 +370,15 @@ public final class Database {
                         k.skillPoints = rsx.getInt("skill_points");
                     }
 
+                    if (this.ladderColumns) {
+                        k.lastTest = rsx.getLong("last_test");
+                        k.lastRanked = rsx.getLong("last_ranked");
+                        k.lastDecay = rsx.getLong("last_decay");
+                        k.peakTier = rsx.getInt("peak_tier");
+                    }
+
+                    k.peakTier = Math.max(k.peakTier, k.tier);
+
                     p.kits.put(rsx.getString("kit"), k);
                 }
             }
@@ -396,11 +423,13 @@ public final class Database {
             String cols = "uuid, kit, elo, tier, wins, losses, ranked_games, unranked_wins, unranked_losses, streak, best_streak, peak_elo, promo_state, promo_wins, promo_losses, promo_target, since_remind"
                 + (this.snoozeColumns ? ", promo_wait, promo_declines" : "")
                 + (this.recordColumns ? ", rounds_won, rounds_lost, challenge_wins, challenge_losses" : "")
-                + (this.skillColumns ? ", skill_games, skill_points" : "");
+                + (this.skillColumns ? ", skill_games, skill_points" : "")
+                + (this.ladderColumns ? ", last_test, last_ranked, last_decay, peak_tier" : "");
             String marks = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
                 + (this.snoozeColumns ? ",?,?" : "")
                 + (this.recordColumns ? ",?,?,?,?" : "")
-                + (this.skillColumns ? ",?,?" : "");
+                + (this.skillColumns ? ",?,?" : "")
+                + (this.ladderColumns ? ",?,?,?,?" : "");
 
             try (PreparedStatement ps = c.prepareStatement("REPLACE INTO pp_kit_stats (" + cols + ") VALUES (" + marks + ")")) {
                 for (Entry<String, KitStats> e : p.kits.entrySet()) {
@@ -437,7 +466,14 @@ public final class Database {
 
                     if (this.skillColumns) {
                         ps.setInt(i++, k.skillGames);
-                        ps.setInt(i, k.skillPoints);
+                        ps.setInt(i++, k.skillPoints);
+                    }
+
+                    if (this.ladderColumns) {
+                        ps.setLong(i++, k.lastTest);
+                        ps.setLong(i++, k.lastRanked);
+                        ps.setLong(i++, k.lastDecay);
+                        ps.setInt(i, Math.max(k.peakTier, k.tier));
                     }
 
                     ps.addBatch();
@@ -698,6 +734,26 @@ public final class Database {
             ps.setLong(8, System.currentTimeMillis());
             ps.executeUpdate();
         }
+    }
+
+    /** The last matches one player played (website profile). */
+    public List<Database.RecentMatch> recentMatchesOf(Connection c, UUID who, int limit) throws SQLException {
+        List<Database.RecentMatch> out = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT m.kit, m.ranked, m.score, m.elo_change, m.duration_s, m.ended_at, w.name AS wn, l.name AS ln FROM pp_matches m LEFT JOIN pp_players w ON w.uuid = m.winner LEFT JOIN pp_players l ON l.uuid = m.loser WHERE m.winner = ? OR m.loser = ? ORDER BY m.id DESC LIMIT ?"
+            )) {
+            ps.setString(1, who.toString());
+            ps.setString(2, who.toString());
+            ps.setInt(3, Math.max(1, Math.min(50, limit)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.add(new Database.RecentMatch(rs.getString("kit"), rs.getInt("ranked") == 1, rs.getString("wn"), rs.getString("ln"), rs.getString("score"),
+                        rs.getInt("elo_change"), rs.getInt("duration_s"), rs.getLong("ended_at")));
+                }
+            }
+        }
+
+        return out;
     }
 
     public List<Database.RecentMatch> recentMatches(Connection c, int limit) throws SQLException {

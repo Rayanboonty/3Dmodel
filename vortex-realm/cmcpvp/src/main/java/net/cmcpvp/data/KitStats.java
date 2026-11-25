@@ -26,9 +26,21 @@ public final class KitStats {
     public int challengeLosses;
     public int skillGames;
     public int skillPoints;
+    /** Last tier test (automatic series or a Tier Tester), for the retest cooldown. */
+    public long lastTest;
+    /** Last ranked match, for rank decay. */
+    public long lastRanked;
+    /** Last time decay took points (one step per missed week). */
+    public long lastDecay;
+    /** Highest tier ever reached here (-1 = never ranked); MCTiers-style points come from it. */
+    public int peakTier = -1;
 
     public int matches() {
         return this.wins + this.losses + this.unrankedWins + this.unrankedLosses;
+    }
+
+    public Tier peak() {
+        return Tier.byIndex(Math.max(this.peakTier, this.tier));
     }
 
     public Tier tier() {
@@ -64,6 +76,10 @@ public final class KitStats {
         k.challengeLosses = this.challengeLosses;
         k.skillGames = this.skillGames;
         k.skillPoints = this.skillPoints;
+        k.lastTest = this.lastTest;
+        k.lastRanked = this.lastRanked;
+        k.lastDecay = this.lastDecay;
+        k.peakTier = this.peakTier;
         return k;
     }
 

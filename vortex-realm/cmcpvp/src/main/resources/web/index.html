@@ -400,6 +400,29 @@ main { padding-block: 22px 40px; min-height: 60vh; }
 .meter { height: 7px; border-radius: 7px; background: var(--line); overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--ember), var(--amber)); }
 .empty { padding: 34px; text-align: center; color: var(--muted); }
+/* leaderboard filters: kit search, continent chips with their world-map picture, country picker */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 12px; }
+.filters .kit img.cont { width: 30px; height: 30px; margin: -4px 0; transition: transform .25s cubic-bezier(.3,1.6,.5,1); }
+.filters .kit:hover img.cont { transform: scale(1.18) rotate(-4deg); }
+.filters select, .filters input { height: 40px; border-radius: 11px; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  font: 600 14px/1 var(--f-ui); padding: 0 12px; min-width: 0; }
+.filters input { flex: 1 1 160px; max-width: 240px; }
+.filters select:focus, .filters input:focus { outline: none; border-color: var(--line-2); }
+.kit:active { transform: scale(.96); }
+/* profile: overall points and match history */
+.ptitle { display: inline-flex; align-items: center; gap: 8px; font: 700 13px/1 var(--f-ui); letter-spacing: 1.2px; text-transform: uppercase; color: var(--c); }
+.ks .peak { font: 600 12px/1 var(--f-ui); color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.history { display: grid; gap: 8px; margin-top: 16px; }
+.mrow { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 14px; border-radius: 12px;
+  background: var(--bg-2); border: 1px solid var(--line); transition: transform .2s, border-color .2s; }
+.mrow:hover { transform: translateX(4px); border-color: var(--line-2); }
+.mrow .res { font: 800 13px/1 var(--f-display); letter-spacing: 1px; text-align: center; padding: 6px 0; border-radius: 8px; }
+.mrow .res.w { color: #0b0f1d; background: var(--good); } .mrow .res.l { color: #fff; background: #9E0F1A; }
+.mrow .vs { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 14px/1.3 var(--f-ui); }
+.mrow .vs small { color: var(--muted); font-weight: 600; }
+.mrow .sc { font: 700 15px/1 var(--f-ui); font-variant-numeric: tabular-nums; }
+.mrow .el { font: 700 13px/1 var(--f-ui); font-variant-numeric: tabular-nums; color: var(--muted); min-width: 44px; text-align: right; }
+@media (max-width: 560px) { .mrow { grid-template-columns: 46px minmax(0, 1fr) auto; } .mrow .el { display: none; } .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .skeleton { background: linear-gradient(90deg, var(--panel) 0%, var(--panel-2) 50%, var(--panel) 100%); background-size: 200% 100%; animation: sk 1.2s infinite; border-radius: 12px; }
 @keyframes sk { to { background-position: -200% 0; } }
 
@@ -1048,13 +1071,27 @@ function kitBar(withOverall) {
   return `<div class="kits" role="tablist">${list.map(k => `<button class="kit ${k.id === kitSel ? "on" : ""}" role="tab" aria-selected="${k.id === kitSel}" data-k="${esc(k.id)}" style="--k:${esc(k.color)}" type="button">${ICON(k.icon, k.color)}${esc(k.name)}</button>`).join("")}</div>`;
 }
 function bindKits(cb) { view.querySelectorAll(".kit").forEach(b => b.onclick = () => { kitSel = b.dataset.k; cb(); }); }
+let lbCont = "", lbCountry = "", lbFind = "";
+function filterBar() {
+  const conts = site.continents || [], countries = (site.countries || []).filter(c => !lbCont || c[2] === lbCont).sort((a, b) => a[1].localeCompare(b[1]));
+  return `<div class="filters"><input id="kitFind" type="search" placeholder="Find a kit..." aria-label="Find a kit" value="${esc(lbFind)}">
+    <button class="kit ${!lbCont ? "on" : ""}" data-c="" style="--k:#E3172B" type="button">🌍 World</button>
+    ${conts.map(c => `<button class="kit ${lbCont === c.code ? "on" : ""}" data-c="${esc(c.code)}" style="--k:#E3172B" type="button"><img class="cont" src="/continent/${esc(c.code.toLowerCase())}.png" alt="" loading="lazy">${esc(c.name)}</button>`).join("")}
+    <select id="countrySel" aria-label="Country"><option value="">All countries</option>${countries.map(c => `<option value="${esc(c[0])}" ${lbCountry === c[0] ? "selected" : ""}>${esc(c[1])}</option>`).join("")}</select></div>`;
+}
 async function leaderboards() {
   if (!kitSel || (kitSel !== "overall" && !kits.find(k => k.id === kitSel))) kitSel = "overall";
   const kit = kits.find(k => k.id === kitSel);
-  view.innerHTML = `<div class="h"><div><span class="eyebrow">Ranked</span><h2>Leaderboards</h2><p>The best players per gamemode, by rank points.</p></div></div>${kitBar(true)}
+  view.innerHTML = `<div class="h"><div><span class="eyebrow">Ranked</span><h2>Leaderboards</h2><p>The best players per gamemode, by rank points. Filter by continent or country.</p></div></div>${filterBar()}${kitBar(true)}
     <section class="stage" id="lb"><div class="skeleton" style="height:420px;margin:18px"></div></section>`;
   bindKits(leaderboards);
-  const list = await api("/api/leaderboard?kit=" + encodeURIComponent(kitSel)) || [];
+  const findKits = () => view.querySelectorAll(".kits .kit").forEach(b => { b.hidden = !!lbFind && !b.textContent.toLowerCase().includes(lbFind.toLowerCase()); });
+  findKits();
+  $("#kitFind").oninput = e => { lbFind = e.target.value; findKits(); };
+  view.querySelectorAll(".filters .kit").forEach(b => b.onclick = () => { lbCont = b.dataset.c; lbCountry = ""; leaderboards(); });
+  $("#countrySel").onchange = e => { lbCountry = e.target.value; leaderboards(); };
+  const q = "/api/leaderboard?kit=" + encodeURIComponent(kitSel) + (lbCountry ? "&country=" + encodeURIComponent(lbCountry) : lbCont ? "&continent=" + encodeURIComponent(lbCont) : "");
+  const list = await api(q) || [];
   $("#lb").innerHTML = list.length ? podium(list, kit ? kit.name : "Overall") + `<div class="divider"></div><div class="ladder">${rows(list.slice(3, 50))}</div>`
     : `<div class="empty">Nobody is ranked in ${esc(kit ? kit.name : "this mode")} yet.</div>`;
   bindPlayers($("#lb")); riseSteps(); enter(".ladder .row", {delay: .45, s: .025, y: 10});
@@ -1160,23 +1197,30 @@ async function player(name) {
   const ranked = (p.kits || []).filter(k => k.tier && k.tier.index >= 0).sort((a, b) => b.tier.index - a.tier.index);
   const best = ranked[0];
   const kd = p.ffaDeaths ? (p.ffaKills / p.ffaDeaths).toFixed(2) : p.ffaKills;
-  const days = p.firstJoin ? Math.max(0, Math.round((Date.now() - p.firstJoin) / 86400000)) : 0;
+  const wins = (p.kits || []).reduce((a, k) => a + k.wins + (k.casualWins || 0), 0), losses = (p.kits || []).reduce((a, k) => a + k.losses + (k.casualLosses || 0), 0);
+  const ago = t => { const m = Math.max(1, Math.round((Date.now() - t) / 60000)); return m < 60 ? m + "m ago" : m < 1440 ? Math.round(m / 60) + "h ago" : Math.round(m / 1440) + "d ago"; };
+  const hist = (p.matches || []).map(m => `<div class="mrow"><span class="res ${m.won ? "w" : "l"}">${m.won ? "WIN" : "LOSS"}</span>
+    <span class="vs">vs <a href="#p-${encodeURIComponent(m.opponent || "")}">${esc(m.opponent || "?")}</a> <small>· <span style="color:${esc(m.color)}">${esc(m.kit)}</span> · ${m.ranked ? "Ranked" : "Unranked"} · ${ago(m.at)}</small></span>
+    <span class="sc">${esc(m.score || "")}</span><span class="el">${m.ranked && m.elo ? (m.won ? "+" : "-") + Math.abs(m.elo) : ""}</span></div>`).join("");
   view.innerHTML = `<div class="profile">
     <div class="card viewer" id="viewer">${BODY(p.name, "")}<span class="hint">DRAG TO ROTATE</span></div>
     <div style="min-width:0">
       <div class="card"><div class="pname">${RTAG(p.rank)}<h2>${esc(p.name)}</h2>${FLAG(p.country, p.countryName)}${p.verified ? VERIFIED : ""}
         <span class="live" style="color:${p.online ? "var(--good)" : "var(--dim)"}">${p.online ? "<i></i>Online now" : "Offline"}</span></div>
-        <div class="tiles"><div class="tile"><b>${best ? TIER(best.tier) : "-"}</b><span>Best tier</span></div><div class="tile"><b>${Number(p.ffaKills || 0).toLocaleString()}</b><span>FFA kills</span></div>
-          <div class="tile"><b>${kd}</b><span>FFA K/D</span></div><div class="tile"><b>${days}d</b><span>Playing for</span></div></div></div>
+        <span class="ptitle" style="--c:${esc(p.titleColor || "#B4B4B4")}">★ ${esc(p.title || "Unranked")}</span>
+        <div class="tiles"><div class="tile"><b>${best ? TIER(best.tier) : "-"}</b><span>Best tier</span></div><div class="tile"><b>${Number(p.points || 0).toLocaleString()}</b><span>Tier points</span></div>
+          <div class="tile"><b>${wins + losses ? Math.round(wins / (wins + losses) * 100) + "%" : "-"}</b><span>Win rate</span></div><div class="tile"><b>${kd}</b><span>FFA K/D</span></div></div></div>
       <div class="kitstats">${(p.kits || []).map(k => { const g = k.wins + k.losses, wr = g ? Math.round(k.wins / g * 100) : 0;
         const next = k.tier && k.tier.index >= 0 && k.tier.index < 14 ? THRESH[k.tier.index + 1] : null, cur = k.tier && k.tier.index >= 0 ? THRESH[k.tier.index] : 0;
         const prog = next ? Math.max(0, Math.min(100, (k.elo - cur) / (next - cur) * 100)) : 100;
         return `<div class="card ks"><div class="top">${ICON((kits.find(x => x.id === k.id) || {}).icon || "paper", k.color)}<b>${esc(k.name)}</b>${TIER(k.tier)}</div>
           <div class="pts">${Number(k.elo).toLocaleString()} <small>pts${k.position > 0 ? " · #" + k.position : ""}</small></div>
           <div class="meter" title="${next ? "To the next tier" : "Top tier"}"><i style="width:${prog}%"></i></div>
-          <div class="meta"><span>${k.wins}W ${k.losses}L · ${wr}%</span><span>Best streak ${k.bestStreak}</span></div></div>`; }).join("") || `<div class="card empty">No matches yet.</div>`}</div>
+          <div class="meta"><span>${k.wins}W ${k.losses}L · ${wr}%</span><span>Best streak ${k.bestStreak}</span></div>
+          ${k.peakTier && k.peakTier.index >= 0 ? `<div class="peak">Peak ${TIER(k.peakTier)} · ${k.points || 0} pts</div>` : ""}</div>`; }).join("") || `<div class="card empty">No matches yet.</div>`}</div>
+      ${hist ? `<div class="card" style="margin-top:16px"><h3 style="margin:0;font:700 18px var(--f-display)">Recent matches</h3><div class="history">${hist}</div></div>` : ""}
     </div></div>`;
-  enter(".profile > *", {s: .1, y: 20}); enter(".ks", {delay: .2, s: .05});
+  enter(".profile > *", {s: .1, y: 20}); enter(".ks", {delay: .2, s: .05}); enter(".mrow", {delay: .3, s: .04, y: 10});
   if (G()) view.querySelectorAll(".meter i").forEach(m => G().from(m, {width: 0, duration: 1.1, ease: "power3.out", delay: .35}));
   skin3d(p.name);
 }
@@ -1247,6 +1291,10 @@ function heroLogo() {
 
 /* ---------------------------------------------------------------- routing */
 async function route() {
+  // /@name opens that player's profile (MCPvP style links)
+  if (!location.hash && location.pathname.startsWith("/@") && location.pathname.length > 2) {
+    history.replaceState(null, "", "/#p-" + encodeURIComponent(decodeURIComponent(location.pathname.slice(2))));
+  }
   const hsh = location.hash.slice(1);
   let page = hsh.startsWith("p-") ? "player" : (NAMES[hsh] ? hsh : "home");
   if (page !== "home" && page !== "player" && !(site.pages || []).includes(page)) page = "home";

@@ -67,6 +67,19 @@ public final class PvPProfile {
         return t;
     }
 
+    /** MCTiers-style overall points: every kit's peak tier points added up. */
+    public int tierPoints() {
+        int sum = 0;
+        for (KitStats k : this.kits.values()) {
+            net.cmcpvp.rank.Tier t = k.peak();
+            if (t != null) {
+                sum += t.points();
+            }
+        }
+
+        return sum;
+    }
+
     public String bestKit() {
         String best = null;
         int bestTier = -1;

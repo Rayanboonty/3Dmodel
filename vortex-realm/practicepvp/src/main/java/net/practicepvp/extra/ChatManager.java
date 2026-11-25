@@ -178,7 +178,7 @@ public final class ChatManager implements Listener, TabExecutor {
         Component tier = Component.empty();
         if (Cfg.bool(Opt.CHAT_TIERS)) {
             PvPProfile prof = this.plugin.profiles().getIfLoaded(p.getUniqueId());
-            String kit = prof == null ? null : prof.bestKit();
+            String kit = prof == null || !prof.on(net.practicepvp.data.Setting.SHOW_OWN_TIER) ? null : prof.bestKit();
             Tier t = kit == null ? null : prof.tierIn(kit);
             if (t != null) {
                 Kit k = this.plugin.kits().get(kit);

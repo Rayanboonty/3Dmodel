@@ -72,6 +72,7 @@ public final class RankManager {
         k.elo = Math.max(0, k.elo + delta);
         k.peakElo = Math.max(k.peakElo, k.elo);
         k.rankedGames++;
+        k.lastRanked = System.currentTimeMillis();
         if (won) {
             k.wins++;
             k.streak = Math.max(0, k.streak) + 1;
@@ -100,6 +101,7 @@ public final class RankManager {
         }
 
         this.updateTier(k, won, events);
+        k.peakTier = Math.max(k.peakTier, k.tier);
         prof.dirty = true;
         return new RankManager.Outcome(oldElo, k.elo, k.elo - oldElo, oldTier, k.tier(), events);
     }
@@ -113,6 +115,7 @@ public final class RankManager {
         if (k.promoState == 4 || k.promoState == 3) {
             this.updateDefense(k, won, events);
         } else if (k.promoState == 2) {
+            k.lastTest = System.currentTimeMillis();
             Tier target = Tier.byIndex(k.promoTarget);
             if (target == null) {
                 clearPromo(k);
@@ -298,9 +301,37 @@ public final class RankManager {
         }
     }
 
+    /** Milliseconds left before this player may take another tier test in the kit (0 = may test now). */
+    public long testCooldownLeft(PvPProfile prof, Kit kit) {
+        KitStats k = prof.statsOrNull(kit.id);
+        long wait = Cfg.i(Opt.TIER_TEST_COOLDOWN_DAYS) * 86_400_000L;
+        return k == null || wait <= 0 || k.lastTest <= 0 ? 0L : Math.max(0L, k.lastTest + wait - System.currentTimeMillis());
+    }
+
+    /** "6d 23h", "4h 10m", "12m". */
+    public static String span(long ms) {
+        long m = Math.max(1L, ms / 60_000L);
+        long d = m / 1440L;
+        long h = m % 1440L / 60L;
+        return d > 0 ? d + "d " + h + "h" : h > 0 ? h + "h " + m % 60L + "m" : m + "m";
+    }
+
+    /** Tells the player they must wait; true when they must. */
+    public boolean refuseCooldown(org.bukkit.entity.Player p, PvPProfile prof, Kit kit) {
+        long left = this.testCooldownLeft(prof, kit);
+        if (left <= 0) {
+            return false;
+        } else {
+            p.sendMessage(Text.mm("<#E3172B>⌛ Retest cooldown</#E3172B> <gray>- you can take another ").append(kit.label())
+                .append(Text.mm(" <gray>tier test in <white>" + span(left) + "</white>. Ranked matches still count.")));
+            net.cmcpvp.util.Snd.error(p);
+            return true;
+        }
+    }
+
     public boolean startSeries(PvPProfile prof, Kit kit) {
         KitStats k = prof.statsOrNull(kit.id);
-        if (k != null && (k.promoState == 1 || k.promoState == 2)) {
+        if (k != null && (k.promoState == 1 || k.promoState == 2) && this.testCooldownLeft(prof, kit) <= 0) {
             k.promoState = 2;
             k.promoWins = 0;
             k.promoLosses = 0;
@@ -409,6 +440,7 @@ public final class RankManager {
     public void adminSetTier(PvPProfile prof, Kit kit, Tier tier) {
         KitStats k = prof.stats(kit.id);
         k.tier = tier.ordinal();
+        k.peakTier = Math.max(k.peakTier, k.tier);
         k.elo = Math.max(k.elo, tier.threshold());
         if (tier.next() != null && k.elo >= tier.next().threshold()) {
             k.elo = tier.next().threshold() - 1;

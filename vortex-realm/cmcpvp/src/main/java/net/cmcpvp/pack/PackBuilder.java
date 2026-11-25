@@ -19,6 +19,8 @@ import javax.imageio.ImageIO;
 public final class PackBuilder {
     public static final String NS = "cmcpvp";
     public static final String FONT_ICONS = "icons";
+    /** Continent codes with a map picture (resources/continents/<code>.png). */
+    public static final List<String> CONTINENTS = List.of("eu", "af", "as", "na", "sa", "oc");
     public static final String FONT_RANK = "rank";
     public static final int FLAG_BASE = 57344;
     public static final int SEAL = 61184;
@@ -119,6 +121,21 @@ public final class PackBuilder {
             .append("\"height\": 8, \"chars\": [\"")
             .append(esc(61185))
             .append("\"]},\n");
+        // continent pictures (from the real world map) as item models: the country picker's continent tiles
+        for (String c : CONTINENTS) {
+            try (InputStream in = PackBuilder.class.getResourceAsStream("/continents/" + c + ".png")) {
+                if (in != null) {
+                    files.put("assets/" + NS + "/textures/item/continent_" + c + ".png", in.readAllBytes());
+                    files.put("assets/" + NS + "/models/item/continent_" + c + ".json",
+                        ("{\"parent\": \"minecraft:item/generated\", \"textures\": {\"layer0\": \"" + NS + ":item/continent_" + c + "\"}}\n")
+                            .getBytes(StandardCharsets.UTF_8));
+                    files.put("assets/" + NS + "/items/continent_" + c + ".json",
+                        ("{\"model\": {\"type\": \"minecraft:model\", \"model\": \"" + NS + ":item/continent_" + c + "\"}}\n")
+                            .getBytes(StandardCharsets.UTF_8));
+                }
+            }
+        }
+
         BufferedImage logo = logo();
         if (logo != null) {
             // the server logo for the tab header: 36 px tall, hanging down over the three empty lines below it

@@ -25,7 +25,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 public final class CommandGuardListener implements Listener {
     private static final Set<String> DUEL_ALLOWED = Set.of(
-        "msg", "tell", "w", "whisper", "m", "t", "r", "reply", "pc", "partychat", "ping", "sc", "staffchat", "report", "helpop"
+        "msg", "tell", "w", "whisper", "m", "t", "r", "reply", "pc", "partychat", "ping", "sc", "staffchat", "report", "helpop", "testqueue", "tq"
     );
     private static final Set<String> STAFF_ALLOWED = Set.of(
         "pvpadmin", "pa", "practiceadmin", "staff", "kick", "ban", "mute", "tempban", "stop", "restart", "lp", "luckperms"

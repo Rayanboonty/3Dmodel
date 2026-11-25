@@ -566,6 +566,8 @@ public final class PlayerCommands implements CommandExecutor, TabCompleter {
                 if (!args[1].equalsIgnoreCase("accept") && !args[1].equalsIgnoreCase("start")) {
                     this.plugin.ranks().queueNormally(prof, k);
                     this.plugin.queues().join(p, k, true, false);
+                } else if (this.plugin.ranks().refuseCooldown(p, prof, k)) {
+                    // waits out the retest cooldown
                 } else if (this.plugin.ranks().startSeries(prof, k) && this.plugin.queues().join(p, k, true, false)) {
                     p.sendMessage(
                         Text.mm("<gold>⚠ Tier Test Challenge</gold> <gray>- looking for an opponent in ").append(k.label()).append(Text.mm("<gray>..."))

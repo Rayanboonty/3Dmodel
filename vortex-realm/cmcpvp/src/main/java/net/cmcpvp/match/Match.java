@@ -1258,7 +1258,10 @@ public final class Match {
                         lp.dirty = true;
 
                         try {
-                            this.skillCheck(wp, lp, winnerId, loserId, winner.score, loser.score);
+                            // a Tier Tester's test duel is not a skill-check duel for either player
+                            if (this.plugin.tierTests() == null || !this.plugin.tierTests().isTest(this.id)) {
+                                this.skillCheck(wp, lp, winnerId, loserId, winner.score, loser.score);
+                            }
                         } catch (RuntimeException var19) {
                             this.plugin.getLogger().log(Level.WARNING, "Skill check failed", (Throwable)var19);
                         }

@@ -98,6 +98,19 @@ public final class WebSite implements TabExecutor {
             this.web.exact("GET", "/" + logo, r -> WebServer.Response.of(200, "image/png", png).header("Cache-Control", "public, max-age=86400"));
         }
 
+        // a player's profile at /@name (the page shows it)
+        this.web.prefix("GET", "/@", r -> WebServer.Response.of(200, "text/html; charset=utf-8", this.indexHtml));
+        this.web.prefix("GET", "/continent/", r -> {
+            String code = r.path().substring("/continent/".length()).replace(".png", "").toLowerCase(Locale.ROOT);
+            if (!code.matches("[a-z]{2}")) {
+                return WebServer.Response.notFound();
+            }
+
+            try (InputStream in = WebSite.class.getResourceAsStream("/continents/web/" + code + ".png")) {
+                return in == null ? WebServer.Response.notFound()
+                    : WebServer.Response.of(200, "image/png", in.readAllBytes()).header("Cache-Control", "public, max-age=604800");
+            }
+        });
         this.web.prefix("GET", "/flag/", r -> {
             String code = r.path().substring("/flag/".length()).replace(".png", "").toLowerCase(Locale.ROOT);
             if (!code.matches("[a-z]{2}")) {
@@ -118,7 +131,7 @@ public final class WebSite implements TabExecutor {
         this.web.exact("GET", "/api/server", r -> json(this.server()));
         this.web.exact("GET", "/api/site", r -> json(this.sync(this::site)));
         this.web.exact("GET", "/api/kits", r -> json(this.kits()));
-        this.web.exact("GET", "/api/leaderboard", r -> json(this.board(r.param("kit"))));
+        this.web.exact("GET", "/api/leaderboard", r -> json(this.board(r.param("kit"), r.param("country"), r.param("continent"))));
         this.web.exact("GET", "/api/player", r -> json(this.player(r.param("name"))));
         this.web.exact("GET", "/api/ranks", r -> json(this.sync(this::ranksPublic)));
         this.web.exact("GET", "/api/staff", r -> json(this.sync(this::staff)));
@@ -228,6 +241,25 @@ public final class WebSite implements TabExecutor {
         JsonObject o = new JsonObject();
         o.addProperty("name", Cfg.s(Opt.SERVER_NAME));
         o.addProperty("ip", Cfg.s(Opt.SERVER_IP));
+        JsonArray conts = new JsonArray();
+        for (Map.Entry<String, String> e : Countries.CONTINENTS.entrySet()) {
+            JsonObject cj = new JsonObject();
+            cj.addProperty("code", e.getKey());
+            cj.addProperty("name", e.getValue());
+            conts.add(cj);
+        }
+
+        o.add("continents", conts);
+        JsonArray countries = new JsonArray();
+        for (Countries.Country c : Countries.ALL.values()) {
+            JsonArray cj = new JsonArray();
+            cj.add(c.code());
+            cj.add(c.name());
+            cj.add(c.continent());
+            countries.add(cj);
+        }
+
+        o.add("countries", countries);
         o.addProperty("discord", Cfg.s(Opt.LINK_DISCORD));
         o.addProperty("store", Cfg.s(Opt.STORE_LINK).isBlank() ? Cfg.s(Opt.LINK_DISCORD) : Cfg.s(Opt.STORE_LINK));
         o.addProperty("tagline", Cfg.s(Opt.WEB_TAGLINE));
@@ -438,6 +470,7 @@ public final class WebSite implements TabExecutor {
         Countries.Country c = this.plugin.countries() == null ? null : this.plugin.countries().of(u);
         o.addProperty("country", c == null ? "" : c.code());
         o.addProperty("countryName", c == null ? "" : c.name());
+        o.addProperty("continent", c == null ? "" : c.continent());
         o.addProperty("verified", this.plugin.welcome() != null && !this.plugin.welcome().badge(u).equals(Component.empty()));
         if (this.plugin.serverRanks() != null) {
             Ranks.Rank r = this.plugin.serverRanks().of(u);
@@ -447,15 +480,25 @@ public final class WebSite implements TabExecutor {
         }
     }
 
-    private JsonArray board(String kit) throws Exception {
+    private JsonArray board(String kit, String country, String continent) throws Exception {
         List<Database.LbEntry> list = !"overall".equals(kit) && kit != null ? this.plugin.leaderboards().top(kit) : this.plugin.leaderboards().overall();
+        String cc = country == null ? "" : country.trim().toUpperCase(Locale.ROOT);
+        String ct = continent == null ? "" : continent.trim().toUpperCase(Locale.ROOT);
         return this.sync(() -> {
             JsonArray a = new JsonArray();
             int i = 0;
 
             for (Database.LbEntry e : list) {
+                i++;
+                if (!cc.isEmpty() || !ct.isEmpty()) {
+                    Countries.Country c = this.plugin.countries() == null ? null : this.plugin.countries().of(e.uuid());
+                    if (c == null || !cc.isEmpty() && !c.code().equals(cc) || !ct.isEmpty() && !c.continent().equals(ct)) {
+                        continue;
+                    }
+                }
+
                 JsonObject o = new JsonObject();
-                o.addProperty("pos", ++i);
+                o.addProperty("pos", i);
                 o.addProperty("uuid", e.uuid().toString());
                 o.addProperty("name", e.name());
                 o.addProperty("elo", e.elo());
@@ -474,7 +517,7 @@ public final class WebSite implements TabExecutor {
         if (name != null && name.matches("[A-Za-z0-9_]{1,16}")) {
             Object[] res = this.plugin.db().supply(c -> {
                 UUID ux = this.plugin.db().findUuid(c, name);
-                return ux == null ? null : new Object[]{ux, this.plugin.db().loadProfile(c, ux, name)};
+                return ux == null ? null : new Object[]{ux, this.plugin.db().loadProfile(c, ux, name), this.plugin.db().recentMatchesOf(c, ux, 10)};
             }).get(10L, TimeUnit.SECONDS);
             if (res == null) {
                 JsonObject o = new JsonObject();
@@ -483,6 +526,8 @@ public final class WebSite implements TabExecutor {
             } else {
                 UUID u = (UUID)res[0];
                 PvPProfile prof = (PvPProfile)res[1];
+                @SuppressWarnings("unchecked")
+                List<Database.RecentMatch> history = (List<Database.RecentMatch>)res[2];
                 return this.sync(() -> {
                     PvPProfile live = this.plugin.profiles().getIfLoaded(u);
                     PvPProfile p = live != null ? live : prof;
@@ -494,6 +539,29 @@ public final class WebSite implements TabExecutor {
                     o.addProperty("ffaDeaths", p.ffaDeaths);
                     o.addProperty("firstJoin", p.firstJoin);
                     o.addProperty("lastSeen", p.lastSeen);
+                    int pts = p.tierPoints();
+                    o.addProperty("points", pts);
+                    o.addProperty("title", net.cmcpvp.rank.Tier.title(pts));
+                    o.addProperty("titleColor", net.cmcpvp.rank.Tier.titleColor(pts));
+                    JsonArray ms = new JsonArray();
+                    for (Database.RecentMatch r : history) {
+                        Kit mk = this.plugin.kits().get(r.kit());
+                        JsonObject mj = new JsonObject();
+                        mj.addProperty("kit", mk == null ? r.kit() : mk.displayName);
+                        mj.addProperty("kitId", r.kit());
+                        mj.addProperty("color", mk == null ? "#FFFFFF" : hex(mk.color));
+                        mj.addProperty("ranked", r.ranked());
+                        boolean won = r.winner() != null && r.winner().equalsIgnoreCase(p.name == null ? name : p.name);
+                        mj.addProperty("won", won);
+                        mj.addProperty("opponent", won ? r.loser() : r.winner());
+                        mj.addProperty("score", r.score());
+                        mj.addProperty("elo", r.eloChange());
+                        mj.addProperty("duration", r.durationS());
+                        mj.addProperty("at", r.endedAt());
+                        ms.add(mj);
+                    }
+
+                    o.add("matches", ms);
                     this.who(o, u);
                     JsonArray kits = new JsonArray();
 
@@ -507,6 +575,8 @@ public final class WebSite implements TabExecutor {
                             kj.addProperty("elo", ks.elo);
                             kj.addProperty("peak", ks.peakElo);
                             kj.add("tier", this.tier(ks.tier));
+                            kj.add("peakTier", this.tier(Math.max(ks.peakTier, ks.tier)));
+                            kj.addProperty("points", ks.peak() == null ? 0 : ks.peak().points());
                             kj.addProperty("wins", ks.wins);
                             kj.addProperty("losses", ks.losses);
                             kj.addProperty("casualWins", ks.unrankedWins);

@@ -119,6 +119,36 @@ public final class KitManager {
                     }
                 }
 
+                if (fromVersion < 5) {
+                    // MCPvP groups: Skill (Sword, Shield, Pot, Spear, Mace), Vanilla (Early, Late, End Game), Community (the rest).
+                    // Only kits still in their old default group move.
+                    Map<String, KitCategory> was = new java.util.HashMap<>();
+                    for (String id : List.of("endgame", "sword", "spear", "earlygame", "mace", "spear_mace")) {
+                        was.put(id, KitCategory.SKILL);
+                    }
+                    for (String id : List.of("nethpot", "diasmp", "creeper", "cart", "smp", "crystal", "bow", "uhc", "axe", "builduhc", "diamond_smp")) {
+                        was.put(id, KitCategory.VANILLA);
+                    }
+                    for (String id : List.of("shield", "pot", "lategame", "trident", "gapple", "nodebuff", "combo")) {
+                        was.put(id, KitCategory.OTHER);
+                    }
+
+                    int moved = 0;
+                    for (Kit k : this.kits.values()) {
+                        KitCategory old = was.get(k.id);
+                        KitCategory now = mcpvpGroup(k.id);
+                        if (old != null && k.category == old && now != old) {
+                            k.category = now;
+                            moved++;
+                        }
+                    }
+
+                    this.save();
+                    if (moved > 0) {
+                        this.plugin.getLogger().info("Kits regrouped MCPvP style (Skill / Vanilla / Community): " + moved + " moved.");
+                    }
+                }
+
                 this.mergeDefaults(y);
                 if (this.removedLegacy > 0) {
                     this.save();
@@ -208,6 +238,15 @@ public final class KitManager {
      * <li>an edited kit is kept as it is, and the new default is added next to it as "&lt;id&gt;_new", switched off.</li>
      * </ul>
      */
+    /** MCPvP's kit groups. */
+    public static KitCategory mcpvpGroup(String id) {
+        return switch (id) {
+            case "sword", "shield", "pot", "spear", "mace" -> KitCategory.SKILL;
+            case "earlygame", "lategame", "endgame" -> KitCategory.VANILLA;
+            default -> KitCategory.OTHER;
+        };
+    }
+
     /** Default kits added in later versions (not in the bundled kit file of a first start). */
     private static final java.util.Set<String> NEWER_KITS = java.util.Set.of(
         "mole", "nodebuff18", "debuff", "gapple18", "soup", "archer", "combo18", "builduhc18", "classic"
@@ -381,12 +420,12 @@ public final class KitManager {
                 List.of(
                     "CMCPvP kits. Every kit is its own game mode with its own queues and ranks.",
                     "Edit in-game with /pvpadmin -> Kits (recommended) or /kits.",
-                    "category: SKILL, VANILLA or OTHER (queue menu tab). sprite: item/<name> or gui:<sprite>.",
+                    "category: SKILL, VANILLA or OTHER (= Community; queue menu tab). sprite: item/<name> or gui:<sprite>.",
                     "items: inventory slot -> item. 0-8 hotbar, 9-35 inventory, 36 boots, 37 leggings,",
                     "38 chestplate, 39 helmet, 40 offhand."
                 )
             );
-        y.set("defaults-version", 4);
+        y.set("defaults-version", 5);
         y.set("known-defaults", new ArrayList<>(this.knownDefaults));
 
         for (Map.Entry<String, String> e : this.defaultHash.entrySet()) {

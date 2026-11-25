@@ -253,6 +253,17 @@ public final class Cfg {
             changed = true;
         }
 
+        if (yaml.getInt("config-version", 1) < 16) {
+            // 5 placement matches instead of 10 (only when still on the old default)
+            if (VALUES.get(Opt.PLACEMENT_MATCHES) instanceof Number n && n.intValue() == 10) {
+                VALUES.put(Opt.PLACEMENT_MATCHES, Opt.PLACEMENT_MATCHES.def);
+                yaml.set(Opt.PLACEMENT_MATCHES.path, Opt.PLACEMENT_MATCHES.def);
+            }
+
+            yaml.set("config-version", 16);
+            changed = true;
+        }
+
         yaml.options()
             .setHeader(
                 List.of(

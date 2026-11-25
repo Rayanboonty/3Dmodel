@@ -108,6 +108,7 @@ public final class TabDesigns {
             List.of(
                 "",
                 "<#7FE3FF>Your Elo <white><my_elo></white> <dark_gray>|</dark_gray> <#7FE3FF>Tier <my_tier> <dark_gray>|</dark_gray> <#7FE3FF>Rank <white><my_rank></white>",
+                "<#7FE3FF>Points <white><my_points></white> <dark_gray>|</dark_gray> <my_title>",
                 "<gray>Matches <white><matches></white> <dark_gray>|</dark_gray> <gray>In queue <white><queued></white> <dark_gray>|</dark_gray> <gray>Ping <white><ping>ms</white>",
                 "<#FFD24A><ip>",
                 ""

@@ -641,7 +641,7 @@ public final class Opt<T> {
     );
     public static final Opt<Integer> PLACEMENT_MATCHES = integer(
         "ranking.placement-matches",
-        10,
+        5,
         Opt.Section.RANKING,
         "Placement Matches",
         "Ranked matches a new player plays (per kit) before getting a tier. Until then they are Unranked: no tier tag, no rank icon. 0 = ranked straight away.",
@@ -676,6 +676,69 @@ public final class Opt<T> {
         "Tier Test Pop-up Once",
         "The 'Accept Challenge' pop-up shows one time per tier; after that the challenge waits in the Duels menu (right-click the kit) and /rankup.",
         Material.PAPER
+    );
+    public static final Opt<Integer> TIER_TEST_COOLDOWN_DAYS = integer(
+        "ranking.tier-test-cooldown-days",
+        7,
+        Opt.Section.RANKING,
+        "Retest Cooldown",
+        "Days a player waits after a tier test (automatic or with a Tier Tester) before testing the same kit again. 0 = no wait.",
+        Material.CLOCK,
+        0,
+        60,
+        1
+    );
+    public static final Opt<Boolean> TESTER_TESTS = bool(
+        "ranking.tester-tests",
+        true,
+        Opt.Section.RANKING,
+        "Tier Testers",
+        "Players can join a tier test waitlist (/tiertest <kit>); a Tier Tester (practice.tiertester) duels them and sets their tier.",
+        Material.SPYGLASS
+    );
+    public static final Opt<Integer> TESTER_MAX_ABOVE = integer(
+        "ranking.tester-max-above",
+        3,
+        Opt.Section.RANKING,
+        "Tester Max Jump",
+        "How many tiers (LT, MT, HT each count) above their current tier a Tier Tester can place a player in one test.",
+        Material.LADDER,
+        1,
+        15,
+        1
+    );
+    public static final Opt<Boolean> DECAY = bool(
+        "ranking.decay",
+        true,
+        Opt.Section.RANKING,
+        "Rank Decay",
+        "High tiers lose rank points while the player doesn't play ranked in that kit (they never drop a tier without a Tier Defense).",
+        Material.SOUL_LANTERN
+    );
+    public static final Opt<String> DECAY_FROM = enumOpt(
+        "ranking.decay-from-tier", Tier.HT3, Opt.Section.RANKING, "Decay From Tier", "The lowest tier that decays.", Material.IRON_HELMET, Tier.class
+    );
+    public static final Opt<Integer> DECAY_AFTER_DAYS = integer(
+        "ranking.decay-after-days",
+        14,
+        Opt.Section.RANKING,
+        "Decay After",
+        "Days without a ranked match in a kit before decay starts.",
+        Material.CLOCK,
+        1,
+        90,
+        1
+    );
+    public static final Opt<Integer> DECAY_PER_WEEK = integer(
+        "ranking.decay-per-week",
+        20,
+        Opt.Section.RANKING,
+        "Decay Per Week",
+        "Rank points lost for every inactive week after that.",
+        Material.REDSTONE,
+        1,
+        500,
+        5
     );
     public static final Opt<Integer> SKILL_CHECK_GAMES = integer(
         "ranking.skill-check-duels",

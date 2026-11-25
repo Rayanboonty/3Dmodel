@@ -135,6 +135,7 @@ public enum Setting {
     MATCH_SOUNDS(Setting.Category.SOUND, "Match Sounds", Material.NOTE_BLOCK, "Countdown, round and victory sounds.", 0, "on:On", "off:Off"),
     HIT_SOUND(Setting.Category.SOUND, "Hit Sound", Material.TARGET, "A sound when you land a melee hit.", 0, "vanilla:Vanilla", "ding:Ding", "pling:Pling", "click:Click", "bass:Bass", "chime:Chime"),
     KILL_SOUND(Setting.Category.SOUND, "Kill Sound", Material.GOAT_HORN, "A sound when you win a fight or get a kill.", 0, "none:None", "levelup:Level Up", "orb:XP Orb", "bell:Bell", "anvil:Anvil", "thunder:Thunder", "wither:Wither", "horn:Horn", "totem:Totem"),
+    SHOW_OWN_TIER(Setting.Category.SOCIAL, "Show Own Tier", Material.SPYGLASS, "Show your tier next to your name (tab, chat, nametag). Off = nobody sees it.", 0, "on:Shown", "off:Hidden"),
     AUTO_SPLASH(Setting.Category.GAMEPLAY, "Auto Splash", Material.SPLASH_POTION, "Healing splash potions you throw go straight down at your feet, so you always get the full heal.", 0, "on:On", "off:Off"),
     AUTO_GG(Setting.Category.GAMEPLAY, "Auto GG", Material.OAK_SIGN, "Say gg in chat by itself when a duel ends.", 0, "off:Off", "gg:gg", "ggwp:gg wp", "gf:gf"),
     DEATH_RECAP(Setting.Category.GAMEPLAY, "Death Recap", Material.WRITABLE_BOOK, "After you lose: damage taken, hits, their best combo and what they had left.", 0, "on:On", "off:Off"),

@@ -1342,6 +1342,18 @@ The SMP's nether and end were treated as not part of the SMP (they're saved as '
 - **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.
 
 
+## CMCPVP 1.0.14
+
+- **Tier Testers (like MCPvP).** Players join a test waitlist with `/tiertest <kit>`. A Tier Tester (new **TESTER** rank, permission `practice.tiertester`; owner, admin and mod have it too) opens `/testqueue` and duels them first to the tier-test length, then picks the result from LT5 to HT1. A tester can't place someone above the best tier they reached in that kit themselves, or more than 3 tiers above the player's current tier (`ranking.tester-max-above`). The automatic Tier Test Challenges are still there.
+- **Retest cooldown.** 7 days per kit after any tier test (`ranking.tier-test-cooldown-days`).
+- **5 placement matches** instead of 10. Servers still on 10 move to 5 by themselves.
+- **Rank decay (like PvPHQ).** From HT3 up, after 14 days without a ranked match in a kit, players lose 20 points a week. Decay never takes a tier away. All values are in `ranking.decay-*`.
+- **Peak tier and MCTiers points.** HT1 = 60 points down to LT5 = 1, added up across kits for an overall title (Combat Cadet up to Combat Grandmaster). Shown in the tab and on the website.
+- **Show Own Tier** setting, to hide your tier from the tab, chat and nametag.
+- **Kit groups like MCPvP:** Skill (Sword, Shield, Pot, Spear, Mace), Vanilla (Early, Late, End Game) and Community (the rest).
+- **Website.** Profiles open at `/@name`, with tier points, peak tiers, win rate and recent matches. Leaderboards get a kit search and filters by continent (with world-map pictures) and by country.
+- **Continent pictures** drawn from the real world map (Natural Earth) in the country picker for players with the resource pack (`tools/cmcpvp-art/continents.py`).
+
 ## CMCPVP 1.0.13
 
 - **One tab, always.** The tab is the CMCPVP design: "CMCPVP" glued together, CMC white, PVP red, with every label red and every value white. An old `tab.yml` or the old "C MCPvP" server name can't change it any more; the name is corrected by itself.

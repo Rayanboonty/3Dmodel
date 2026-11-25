@@ -238,7 +238,7 @@ public final class BoardManager {
                 Component out = badge;
                 boolean any = false;
 
-                for (Kit kit : this.tagKits(p)) {
+                for (Kit kit : prof.on(Setting.SHOW_OWN_TIER) ? this.tagKits(p) : List.<Kit>of()) {
                     Tier tier = prof.tierIn(kit.id);
                     if (tier != null) {
                         any = true;

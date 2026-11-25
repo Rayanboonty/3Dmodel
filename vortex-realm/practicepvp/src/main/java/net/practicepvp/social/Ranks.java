@@ -74,6 +74,7 @@ public final class Ranks implements TabExecutor, Listener {
         this.def("admin", "ADMIN", "#FF4D4D", "#C40000", "item/redstone", "#FF5555", 900);
         this.def("dev", "DEV", "#7FF6FF", "#2E9BFF", "item/command_block_minecart", "#55FFFF", 850);
         this.def("mod", "MOD", "#6BFF8C", "#1FAF5A", "item/iron_sword", "#55FF55", 800);
+        this.def("tester", "TESTER", "#FF4D5E", "#9E0F1A", "item/spyglass", "#FF6B78", 680);
         this.def("helper", "HELPER", "#8FD8FF", "#3D8BFF", "item/book", "#7FBFFF", 700);
         this.def("support", "SUPPORT", "#FFE066", "#FFAA00", "item/writable_book", "#FFD54A", 650);
         this.def("builder", "BUILDER", "#FFC48A", "#E07B00", "item/brick", "#FFB86B", 600);
@@ -91,6 +92,7 @@ public final class Ranks implements TabExecutor, Listener {
             "practice.smpadmin",
             "practice.staff",
             "practice.staff.mod",
+            "practice.tiertester",
             "practice.chat.bypass",
             "practice.teleport.bypass",
             "practice.warps.admin",
@@ -119,10 +121,12 @@ public final class Ranks implements TabExecutor, Listener {
             "Keeps games fair: reports, the hacker pool, chat.",
             "practice.staff",
             "practice.staff.mod",
+            "practice.tiertester",
             "practice.chat.bypass",
             "practice.lobbyfly",
             "practice.teleport.bypass"
         );
+        this.perms("tester", true, "", "Tier Tester: duels players from /testqueue and sets their tier (LT5-HT1).", "practice.staff", "practice.tiertester");
         this.perms("helper", true, "", "Answers questions and helps new players.", "practice.staff", "practice.lobbyfly");
         this.perms("support", true, "", "Handles tickets and appeals on Discord.", "practice.staff");
         this.perms("builder", true, "", "Builds the hub, lobbies and arenas.", "practice.lobbyfly", "practice.warps.admin", "practice.homes.unlimited");
@@ -190,6 +194,20 @@ public final class Ranks implements TabExecutor, Listener {
                     k.staff = r.getBoolean("staff", false);
                     this.ranks.put(k.id, k);
                 }
+            }
+
+            if (!this.ranks.containsKey("tester")) {
+                // CMCPVP 1.0.14 / 3.x: the Tier Tester rank (MCPvP style)
+                this.def("tester", "TESTER", "#FF4D5E", "#9E0F1A", "item/spyglass", "#FF6B78", 680);
+                this.perms("tester", true, "", "Tier Tester: duels players from /testqueue and sets their tier (LT5-HT1).", "practice.staff", "practice.tiertester");
+                for (String staff : List.of("owner", "admin", "mod")) {
+                    Ranks.Rank r = this.ranks.get(staff);
+                    if (r != null && !r.permissions.contains("practice.tiertester")) {
+                        r.permissions.add("practice.tiertester");
+                    }
+                }
+
+                this.needsSave = true;
             }
 
             if (!this.ranks.containsKey("booster")) {

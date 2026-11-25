@@ -218,9 +218,17 @@ public final class Countries {
 
             for (Entry<String, String> e : CONTINENTS.entrySet()) {
                 long n = ALL.values().stream().filter(c -> c.continent().equals(e.getKey())).count();
+                ItemStack icon = new ItemStack(icons[i++ % icons.length]);
+                String code = e.getKey().toLowerCase(Locale.ROOT);
+                if (this.plugin.hasPack(p) && net.cmcpvp.pack.PackBuilder.CONTINENTS.contains(code)) {
+                    // the continent's own picture from the world map (pack item model)
+                    icon = new ItemStack(Material.PAPER);
+                    icon.editMeta(m -> m.setItemModel(new org.bukkit.NamespacedKey(net.cmcpvp.pack.PackBuilder.NS, "continent_" + code)));
+                }
+
                 tiles.add(
                     new LobbyDialogs.Tile(
-                        new ItemStack(icons[i++ % icons.length]),
+                        icon,
                         Text.mm("<white><b>" + e.getValue()),
                         Text.mm("<gray>" + n + " countries"),
                         List.of(Text.mm("<white><b>" + e.getValue()), Component.empty(), Text.mm("<green>▶ Click to choose")),

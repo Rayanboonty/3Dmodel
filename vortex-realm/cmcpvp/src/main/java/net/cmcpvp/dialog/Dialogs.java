@@ -131,7 +131,7 @@ public final class Dialogs {
         return b.build();
     }
 
-    ActionButton closeButton(Player p) {
+    public ActionButton closeButton(Player p) {
         return button(Text.mm("<red>Close"), null, 200, this.action(p, p::closeDialog));
     }
 
@@ -407,6 +407,8 @@ public final class Dialogs {
         KitStats ks = prof.statsOrNull(kit.id);
         Tier to = ks == null ? null : Tier.byIndex(ks.promoTarget);
         if (to == null) {
+            this.openQueue(p, true, back);
+        } else if (ks.promoState == 1 && this.plugin.ranks().refuseCooldown(p, prof, kit)) {
             this.openQueue(p, true, back);
         } else {
             int firstTo = Cfg.i(Opt.TIER_TEST_FIRST_TO);

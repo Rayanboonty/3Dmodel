@@ -132,6 +132,8 @@ public final class CMCPvP extends JavaPlugin {
     private QueueManager queues;
     private MatchManager matches;
     private RankManager ranks;
+    private net.cmcpvp.rank.Decay decay;
+    private net.cmcpvp.rank.TierTests tierTests;
     private LeaderboardManager leaderboards;
     private FfaManager ffa;
     private PartyManager parties;
@@ -294,6 +296,11 @@ public final class CMCPvP extends JavaPlugin {
         PluginManager pm = this.getServer().getPluginManager();
         pm.registerEvents(this.staff, this);
         pm.registerEvents(this.profiles, this);
+        this.decay = new net.cmcpvp.rank.Decay(this);
+        pm.registerEvents(this.decay, this);
+        this.decay.start();
+        this.tierTests = new net.cmcpvp.rank.TierTests(this);
+        pm.registerEvents(this.tierTests, this);
         pm.registerEvents(new MenuListener(this), this);
         pm.registerEvents(new ConnectionListener(this), this);
         pm.registerEvents(new LobbyListener(this), this);
@@ -328,6 +335,8 @@ public final class CMCPvP extends JavaPlugin {
             this.bind(c, playerCommands);
         }
 
+        this.bind("tiertest", this.tierTests);
+        this.bind("testqueue", this.tierTests);
         AdminCommands adminCommands = new AdminCommands(this);
         this.bind("pvpadmin", adminCommands);
         this.bind("kits", adminCommands);
@@ -1766,6 +1775,10 @@ public final class CMCPvP extends JavaPlugin {
 
     public MatchManager matches() {
         return this.matches;
+    }
+
+    public net.cmcpvp.rank.TierTests tierTests() {
+        return this.tierTests;
     }
 
     public RankManager ranks() {

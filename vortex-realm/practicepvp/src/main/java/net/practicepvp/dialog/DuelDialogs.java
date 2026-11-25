@@ -45,9 +45,9 @@ public final class DuelDialogs {
     }
 
     public static enum Tab {
-        WEAPONS("<#55FFFF>⚔ <aqua>Weapons", KitCategory.SKILL),
+        WEAPONS("<#55FFFF>⚔ <aqua>Skill", KitCategory.SKILL),
         VANILLA("<#FF55FF>✦ <gold>Vanilla", KitCategory.VANILLA),
-        SKILLS("<#FF55FF>✚ <light_purple>Skills", KitCategory.OTHER),
+        SKILLS("<#FF55FF>✚ <light_purple>Community", KitCategory.OTHER),
         MOST_PLAYED("<#55FF55>■ <white><b><i>Most Played", null);
 
         public final String label;
