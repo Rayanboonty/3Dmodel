@@ -118,8 +118,8 @@ public final class BoardDesigns {
 
     private static String name(String mode) {
         return switch (mode) {
-            case "PRACTICE" -> "C MCPVP";
-            case "HUB" -> "C MCPVP";
+            case "PRACTICE" -> "CMCPVP";
+            case "HUB" -> "CMCPVP";
             case "RANKED" -> "RANKED SMP";
             case "STRENGTH" -> "STRENGTH SMP";
             case "ECO" -> "ECO SMP";

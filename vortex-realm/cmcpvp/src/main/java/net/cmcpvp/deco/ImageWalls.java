@@ -426,7 +426,7 @@ public final class ImageWalls implements TabExecutor {
             URI uri = URI.create(src);
             if (uri.getScheme() != null && (uri.getScheme().equals("http") || uri.getScheme().equals("https"))) {
                 HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8L)).followRedirects(Redirect.NORMAL).build();
-                HttpRequest req = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20L)).header("User-Agent", "VortexRealm-WallImage").GET().build();
+                HttpRequest req = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20L)).header("User-Agent", "CMCPvP-WallImage").GET().build();
                 HttpResponse<InputStream> res = client.send(req, BodyHandlers.ofInputStream());
                 if (res.statusCode() / 100 != 2) {
                     throw new IOException("HTTP " + res.statusCode());

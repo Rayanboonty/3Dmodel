@@ -151,7 +151,7 @@ public final class WorldManager {
     }
 
     public boolean isMarked(Player p) {
-        // a marker left by CMCPvP / VortexRealm / VortexPvP counts too (switching plugins)
+        // a marker left by CMCPvP / CMCPvP / CMCPvP counts too (switching plugins)
         return p.getPersistentDataContainer().has(this.markerKey(), PersistentDataType.BYTE) || net.cmcpvp.util.LegacyKeys.takeFlag(p, this.markerKey());
     }
 

@@ -77,7 +77,7 @@ public final class TabColumns implements Listener {
     public TabColumns(CMCPvP plugin) {
         this.plugin = plugin;
         for (int i = 0; i < SLOTS; i++) {
-            this.slotIds[i] = UUID.nameUUIDFromBytes(("vortex-tab-slot-" + i).getBytes(StandardCharsets.UTF_8));
+            this.slotIds[i] = UUID.nameUUIDFromBytes(("cmcpvp-tab-slot-" + i).getBytes(StandardCharsets.UTF_8));
             this.slotNames[i] = String.format(Locale.ROOT, "~vr%02d", i);
         }
     }

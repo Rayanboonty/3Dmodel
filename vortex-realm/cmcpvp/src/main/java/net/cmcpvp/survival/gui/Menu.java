@@ -3,7 +3,7 @@ package net.cmcpvp.survival.gui;
 import java.util.HashMap;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.util.Items;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -15,13 +15,13 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 public abstract class Menu implements InventoryHolder {
-    protected final VortexSMP plugin;
+    protected final CmcSmp plugin;
     protected final Player viewer;
     private final Map<Integer, Menu.Click> buttons = new HashMap<>();
     private Inventory inv;
     private boolean closedByCode;
 
-    protected Menu(VortexSMP plugin, Player viewer) {
+    protected Menu(CmcSmp plugin, Player viewer) {
         this.plugin = plugin;
         this.viewer = viewer;
     }

@@ -38,7 +38,7 @@ import org.bukkit.scheduler.BukkitTask;
  * the night-time hour with a 5-minute countdown. A full backup is taken first; ranks, stats, kits and everything else
  * are carried over by the normal start-up of the new version.
  *
- * <pre>{ "VortexRealm": {"version": "3.4.0", "url": "https://.../VortexRealm-3.4.0.jar", "sha256": "...", "notes": "..."} }</pre>
+ * <pre>{ "CMCPvP": {"version": "3.4.0", "url": "https://.../CMCPvP-3.4.0.jar", "sha256": "...", "notes": "..."} }</pre>
  */
 public final class AutoUpdater {
     /** What the updater needs from the plugin it updates. */
@@ -207,7 +207,7 @@ public final class AutoUpdater {
             throw new IllegalArgumentException("only https sources are used: " + src);
         }
 
-        HttpResponse<String> res = this.http.send(HttpRequest.newBuilder(URI.create(src)).timeout(Duration.ofSeconds(20)).header("User-Agent", "VortexUpdater").GET().build(), HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> res = this.http.send(HttpRequest.newBuilder(URI.create(src)).timeout(Duration.ofSeconds(20)).header("User-Agent", "CmcUpdater").GET().build(), HttpResponse.BodyHandlers.ofString());
         if (res.statusCode() != 200) {
             throw new IllegalStateException("HTTP " + res.statusCode() + " from " + URI.create(src).getHost());
         }
@@ -250,7 +250,7 @@ public final class AutoUpdater {
         File jar = this.jarFile();
         File part = new File(dir, "." + jar.getName() + ".part");
         MessageDigest md = MessageDigest.getInstance("SHA-256");
-        HttpResponse<InputStream> dl = this.http.send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofMinutes(3)).header("User-Agent", "VortexUpdater").GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+        HttpResponse<InputStream> dl = this.http.send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofMinutes(3)).header("User-Agent", "CmcUpdater").GET().build(), HttpResponse.BodyHandlers.ofInputStream());
         if (dl.statusCode() != 200) {
             throw new IllegalStateException("download: HTTP " + dl.statusCode());
         }

@@ -34,7 +34,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
- * Brings an old plugin folder back - CMCPvP, VortexRealm or VortexPvP, as a folder or a .zip / .tar.gz of it -
+ * Brings an old plugin folder back - CMCPvP, CMCPvP or CMCPvP, as a folder or a .zip / .tar.gz of it -
  * dropped in plugins/&lt;this plugin&gt;/import/. Read on the next start, before anything loads:
  * <ul>
  * <li>server setup comes back exactly as it was (worlds and hub, lobby, NPCs, holograms, decorations, images,
@@ -87,7 +87,7 @@ public final class OldDataImport {
         return "pp_kit_stats".substring(0, 3);
     }
 
-    /** This plugin's permission prefix ("practice." / "vortex." / "vortexpvp."), renamed the same way. */
+    /** This plugin's permission prefix ("practice." / "cmcpvp." / "cmcpvp."), renamed the same way. */
     static String ownPermPrefix() {
         String p = "cmcpvp.admin";
         return p.substring(0, p.indexOf('.') + 1);
@@ -162,7 +162,7 @@ public final class OldDataImport {
             File readme = new File(this.importDir, "README.txt");
             if (!readme.exists()) {
                 Files.writeString(readme.toPath(), String.join("\n",
-                    "Put an old plugin folder here to bring everything back: CMCPvP, VortexRealm or VortexPvP.",
+                    "Put an old plugin folder here to bring everything back: CMCPvP, CMCPvP or CMCPvP.",
                     "The folder itself (with config.yml, kits.yml, data.db... inside), or a .zip / .tar.gz of it.",
                     "Then restart the server. Server setup (hub, worlds, NPCs, holograms, arenas, kits, ranks, settings) comes back",
                     "as it was; player data (homes, claims, last locations, stats, money, inventories, ender chests) is merged -",
@@ -223,9 +223,9 @@ public final class OldDataImport {
         this.note("Files that were missing added: " + added + "; player files merged: " + merged + " entries brought back");
     }
 
-    private static final Pattern OLD_PERMS = Pattern.compile("(?<![\\w.])(" + "practice" + "|" + "vortex" + "|" + "vortexpvp" + ")\\.(?=[a-z])");
+    private static final Pattern OLD_PERMS = Pattern.compile("(?<![\\w.])(" + "practice" + "|" + "cmcpvp" + "|" + "cmcpvp" + ")\\.(?=[a-z])");
 
-    /** Permission nodes of the old plugin renamed to this plugin's ("cmcpvp.vip" -> "vortex.vip"). */
+    /** Permission nodes of the old plugin renamed to this plugin's ("cmcpvp.vip" -> "cmcpvp.vip"). */
     String perms(String text) {
         String own = ownPermPrefix();
         return OLD_PERMS.matcher(text).replaceAll(m -> m.group(1).equals(own.substring(0, own.length() - 1)) ? m.group() : own.replace("$", "\\$"));
@@ -909,7 +909,7 @@ public final class OldDataImport {
 
     // ------------------------------------------------------------------ /pvpadmin import
 
-    /** /pvpadmin import [from <CMCPvP|VortexRealm|VortexPvP>]: explains, or stages an old folder for the next start. */
+    /** /pvpadmin import [from <CMCPvP|CMCPvP|CMCPvP>]: explains, or stages an old folder for the next start. */
     public static void command(CMCPvP plugin, CommandSender s, String[] a) {
         File importDir = new File(plugin.getDataFolder(), "import");
         if (a.length >= 3 && a[1].equalsIgnoreCase("from")) {
@@ -949,7 +949,7 @@ public final class OldDataImport {
         }
 
         s.sendMessage(Text.mm("<gold><b>Import an old plugin folder</b>"));
-        s.sendMessage(Text.mm("<gray>1. Put the old folder (CMCPvP, VortexRealm or VortexPvP) - or a .zip / .tar.gz of it - in <white>plugins/"
+        s.sendMessage(Text.mm("<gray>1. Put the old folder (CMCPvP, CMCPvP or CMCPvP) - or a .zip / .tar.gz of it - in <white>plugins/"
             + Text.esc(plugin.getDataFolder().getName()) + "/import/</white>"));
         s.sendMessage(Text.mm("<gray>   or, if it is still in plugins/: <white>/pvpadmin import from CMCPvP"));
         s.sendMessage(Text.mm("<gray>2. Restart. Server setup comes back as it was; player data is merged (nothing current is overwritten)."));

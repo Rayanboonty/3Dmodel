@@ -88,7 +88,7 @@ public final class ServerSelector {
                     e.sleepNote = sn == null ? "" : String.valueOf(sn);
                     e.wakeOnJoin = Boolean.TRUE.equals(m.get("wake-on-join"));
                     if (e.action == ServerSelector.Action.MODE) {
-                        // the SMP modes moved to their own server (VortexSMP): their old world entries are dropped
+                        // the SMP modes moved to their own server (CmcSmp): their old world entries are dropped
                         dropped++;
                         continue;
                     }

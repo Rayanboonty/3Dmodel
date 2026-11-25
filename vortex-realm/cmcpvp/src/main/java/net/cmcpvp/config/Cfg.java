@@ -132,7 +132,7 @@ public final class Cfg {
         }
 
         if (yaml.getInt("config-version", 1) < 8) {
-            // C MCPvP round 3: arenas twice as big, no walls, MCPVP ban timers. Only values still on the old defaults move.
+            // CMCPVP round 3: arenas twice as big, no walls, MCPVP ban timers. Only values still on the old defaults move.
             Object[][] bigger = new Object[][]{
                 {Opt.DUEL_ARENA_SIZE, 96}, {Opt.FFA_ARENA_SIZE, 128}, {Opt.MACE_ARENA_SIZE, 230}, {Opt.MAP_BAN_TURN_SECONDS, 8},
                 {Opt.END_DELAY, 70}

@@ -7,7 +7,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.util.Items;
@@ -44,12 +44,12 @@ public final class TradeManager implements Listener, TabExecutor {
     private static final int READY = 45;
     private static final int CANCEL = 49;
     private static final int THEIRS = 53;
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final Map<UUID, UUID> requests = new HashMap<>();
     private final Map<UUID, Long> requestAt = new HashMap<>();
     private final Map<UUID, Trade> trades = new HashMap<>();
 
-    public TradeManager(VortexSMP plugin) {
+    public TradeManager(CmcSmp plugin) {
         this.plugin = plugin;
     }
 

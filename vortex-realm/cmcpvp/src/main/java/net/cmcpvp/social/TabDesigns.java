@@ -104,28 +104,28 @@ public final class TabDesigns {
             "Competitive",
             "Practice-server style: dark slate, gold and aqua section bars, every board shows tier and Elo, and your own stats in the footer.",
             Material.GOLDEN_SWORD,
-            List.of("", "<logo>", "<b><gradient:#FFD24A:#FF9F1C><server></gradient></b> <dark_gray>|</dark_gray> <#7FE3FF>Practice", "<dark_gray><st>                                        </st>", ""),
+            List.of("", "<logo>", "<b><white>CMC</white><#E3172B>PVP</#E3172B></b> <dark_gray>|</dark_gray> <gray>Practice", "<dark_gray><st>                                        </st>", ""),
             List.of(
                 "",
-                "<#7FE3FF>Your Elo <white><my_elo></white> <dark_gray>|</dark_gray> <#7FE3FF>Tier <my_tier> <dark_gray>|</dark_gray> <#7FE3FF>Rank <white><my_rank></white>",
+                "<#FFFFFF>Your Elo <white><my_elo></white> <dark_gray>|</dark_gray> <#FFFFFF>Tier <my_tier> <dark_gray>|</dark_gray> <#FFFFFF>Rank <white><my_rank></white>",
                 "<gray>Matches <white><matches></white> <dark_gray>|</dark_gray> <gray>In queue <white><queued></white> <dark_gray>|</dark_gray> <gray>Ping <white><ping>ms</white>",
-                "<#FFD24A><ip>",
+                "<#E3172B><ip>",
                 ""
             ),
-            List.of("#B8860B", "#FFD24A", "#FFF1B0", "#FFD24A", "#B8860B"),
+            List.of("#7A0C14", "#E3172B", "#FFD5D9", "#E3172B", "#7A0C14"),
             0.6,
-            moods("#FFD24A", "#FF9F1C"),
+            moods("#E3172B", "#9E0F1A"),
             true,
             "pvp",
             "online,top,sword,crystal,mace,nethpot,uhc,spear",
             10,
             new TabDesigns.Style(
                 titles(
-                    "online", "<#2B3445>▌</#2B3445><#7FE3FF><b>ONLINE</b> <gray>{count}",
-                    "top", "<#2B3445>▌</#2B3445><#FFD24A><b>TOP ELO</b>",
+                    "online", "<#2B3445>▌</#2B3445><#FFFFFF><b>ONLINE</b> <gray>{count}",
+                    "top", "<#2B3445>▌</#2B3445><#E3172B><b>TOP ELO</b>",
                     "staff", "<#2B3445>▌</#2B3445><#55FF55><b>STAFF</b>",
                     "friends", "<#2B3445>▌</#2B3445><#9FA8FF><b>FRIENDS</b>",
-                    "kit", "<#2B3445>▌</#2B3445><#FFD24A><b>{kit}</b>"
+                    "kit", "<#2B3445>▌</#2B3445><#E3172B><b>{kit}</b>"
                 ),
                 true,
                 false,
@@ -450,6 +450,7 @@ public final class TabDesigns {
 
     /** The design the server uses (tab.design). */
     public static TabDesigns.Design active() {
-        return get(Cfg.s(Opt.TAB_DESIGN).toUpperCase(Locale.ROOT));
+        // the practice-only build has one tab: its own two-tone Competitive design
+        return get(net.cmcpvp.Edition.PRACTICE_ONLY ? "COMPETITIVE" : Cfg.s(Opt.TAB_DESIGN).toUpperCase(Locale.ROOT));
     }
 }

@@ -20,7 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.util.Snd;
@@ -43,7 +43,7 @@ import org.bukkit.scheduler.BukkitTask;
  */
 public final class DiscordLink implements CommandExecutor {
     private static final String API = "https://discord.com/api/v10";
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final File file;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
     private final Map<String, UUID> pending = new ConcurrentHashMap<>();
@@ -56,7 +56,7 @@ public final class DiscordLink implements CommandExecutor {
     private volatile String status = "not set up";
     private int ticks;
 
-    public DiscordLink(VortexSMP plugin) {
+    public DiscordLink(CmcSmp plugin) {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "discord.yml");
         this.data = YamlConfiguration.loadConfiguration(this.file);

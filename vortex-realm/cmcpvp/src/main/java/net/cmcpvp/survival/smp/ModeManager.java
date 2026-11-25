@@ -1,7 +1,7 @@
 package net.cmcpvp.survival.smp;
 
 import java.util.List;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.util.Locs;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -9,17 +9,17 @@ import org.bukkit.World;
 
 /**
  * On a dedicated SMP server every world is survival: homes and warps are kept under the SURVIVAL group
- * (the same layout the old VortexRealm SMP used, so its files can be imported as they are).
+ * (the same layout the old CMCPvP SMP used, so its files can be imported as they are).
  */
 public final class ModeManager {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
 
-    public ModeManager(VortexSMP plugin) {
+    public ModeManager(CmcSmp plugin) {
         this.plugin = plugin;
     }
 
     public WorldMode mode(World w) {
-        // same server as VortexRealm: its world modes (HUB, PVP, SURVIVAL, ECO...)
+        // same server as CMCPvP: its world modes (HUB, PVP, SURVIVAL, ECO...)
         return this.plugin.realm().on() ? this.plugin.realm().mode(w) : WorldMode.SURVIVAL;
     }
 

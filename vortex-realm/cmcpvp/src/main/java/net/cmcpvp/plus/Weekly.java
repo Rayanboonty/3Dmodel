@@ -118,7 +118,7 @@ public final class Weekly {
         EventManager.Event ev = new EventManager.Event();
         ev.name = "Weekly Cup #" + n;
         ev.kit = k;
-        ev.host = "C MCPvP";
+        ev.host = "CMCPVP";
         ev.prize = this.plus.config().i("weekly.tournament.shards", 500) + " shards + Weekly Champion title";
         ev.joinSeconds = this.plus.config().i("weekly.tournament.join-seconds", 120);
         if (!this.plugin.events().host(ev)) {
@@ -220,7 +220,7 @@ public final class Weekly {
                         weapons++;
                     }
 
-                    if (it.getItemMeta() != null && it.getItemMeta().getPersistentDataContainer().getKeys().stream().anyMatch(k -> k.getNamespace().equals("vortexpvp"))) {
+                    if (it.getItemMeta() != null && it.getItemMeta().getPersistentDataContainer().getKeys().stream().anyMatch(k -> k.getNamespace().equals("cmcpvp"))) {
                         continue;
                     }
 

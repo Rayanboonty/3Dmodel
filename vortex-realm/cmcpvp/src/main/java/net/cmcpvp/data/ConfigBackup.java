@@ -32,7 +32,7 @@ public final class ConfigBackup {
     }
 
     public File dir() {
-        File d = new File(new File(this.plugin.getDataFolder().getParentFile(), "VortexRealm-Vault"), "exports");
+        File d = new File(new File(this.plugin.getDataFolder().getParentFile(), "CMCPvP-Vault"), "exports");
         if (!d.isDirectory() && !d.mkdirs()) {
             this.plugin.getLogger().warning("Could not create " + d);
         }

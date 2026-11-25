@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.logging.Level;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.util.Text;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -19,22 +19,22 @@ import org.bukkit.configuration.file.YamlConfiguration;
 /**
  * Brings old SMP data into this plugin:
  * <ul>
- * <li>the old VortexSMP plugin's folder (plugins/VortexSMP): homes, warps, market, drills, Discord links - copied into
+ * <li>the old CmcSmp plugin's folder (plugins/CmcSmp): homes, warps, market, drills, Discord links - copied into
  * smp/ once, before anything starts;</li>
- * <li>an old VortexRealm / CMCPvP folder (or a .zip / .tar.gz of it) dropped in plugins/&lt;this&gt;/import/:
+ * <li>an old CMCPvP / CMCPvP folder (or a .zip / .tar.gz of it) dropped in plugins/&lt;this&gt;/import/:
  * every saved SMP inventory and ender chest, their backups and last spots (homes and warps come with OldImport).</li>
  * </ul>
  * Nothing is overwritten: an inventory a player already has here stays, and the imported one is added to their
  * backups (one click to restore with /pvpadmin invbackup). The inventories folder is zipped first.
  */
 public final class SmpImport {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final File importDir;
     private final File stateFile;
     private YamlConfiguration state;
     private String last = "nothing to import";
 
-    public SmpImport(VortexSMP plugin) {
+    public SmpImport(CmcSmp plugin) {
         this.plugin = plugin;
         this.importDir = new File(plugin.host().getDataFolder(), "import");
         this.stateFile = new File(plugin.getDataFolder(), "smp-import-state.yml");
@@ -60,13 +60,13 @@ public final class SmpImport {
         }
     }
 
-    // ------------------------------------------------------------------ the old VortexSMP plugin's folder
+    // ------------------------------------------------------------------ the old CmcSmp plugin's folder
 
-    /** plugins/VortexSMP: its files are copied into smp/ once (existing ones are kept). */
+    /** plugins/CmcSmp: its files are copied into smp/ once (existing ones are kept). */
     public void copySmpPluginFolder() {
         this.loadState();
-        File old = new File(this.plugin.host().getDataFolder().getParentFile(), "VortexSMP");
-        if (!old.isDirectory() || this.state.getBoolean("vortexsmp-folder")) {
+        File old = new File(this.plugin.host().getDataFolder().getParentFile(), "CmcSmp");
+        if (!old.isDirectory() || this.state.getBoolean("cmcsmp-folder")) {
             return;
         }
 
@@ -81,19 +81,19 @@ public final class SmpImport {
                     Files.copy(f.toPath(), to.toPath());
                     copied++;
                 } catch (IOException e) {
-                    this.plugin.getLogger().log(Level.WARNING, "Import: couldn't copy " + f.getName() + " from plugins/VortexSMP", e);
+                    this.plugin.getLogger().log(Level.WARNING, "Import: couldn't copy " + f.getName() + " from plugins/CmcSmp", e);
                 }
             }
         }
 
-        this.state.set("vortexsmp-folder", true);
+        this.state.set("cmcsmp-folder", true);
         this.saveState();
-        this.last = "copied " + copied + " files from plugins/VortexSMP";
-        this.plugin.getLogger().info("Import: the SMP is part of this plugin now - " + copied + " files of plugins/VortexSMP (homes, warps, market, drills, links) "
-            + "were copied into " + this.plugin.getDataFolder().getName() + "/. The VortexSMP jar isn't needed any more.");
+        this.last = "copied " + copied + " files from plugins/CmcSmp";
+        this.plugin.getLogger().info("Import: the SMP is part of this plugin now - " + copied + " files of plugins/CmcSmp (homes, warps, market, drills, links) "
+            + "were copied into " + this.plugin.getDataFolder().getName() + "/. The CmcSmp jar isn't needed any more.");
     }
 
-    // ------------------------------------------------------------------ old VortexRealm / CMCPvP folders
+    // ------------------------------------------------------------------ old CMCPvP / CMCPvP folders
 
     public void startup() {
         try {
@@ -118,7 +118,7 @@ public final class SmpImport {
             this.plugin.oldImport().command(sender, new String[]{run ? "run" : "preview"});
         } else {
             sender.sendMessage(Text.mm("<gold><b>SMP import</b> <gray>- " + Text.esc(this.last)));
-            sender.sendMessage(Text.mm("<gray>Put an old VortexRealm / CMCPvP folder (or a .zip of it) in <white>plugins/"
+            sender.sendMessage(Text.mm("<gray>Put an old CMCPvP / CMCPvP folder (or a .zip of it) in <white>plugins/"
                 + Text.esc(this.plugin.host().getDataFolder().getName()) + "/import/</white>, then <white>/pvpadmin smp import run</white>."));
             sender.sendMessage(Text.mm("<gray>Homes and warps are added, SMP inventories and ender chests are loaded when a player has none here yet - "
                 + "otherwise they wait in /pvpadmin invbackup <player>. Nothing is overwritten."));

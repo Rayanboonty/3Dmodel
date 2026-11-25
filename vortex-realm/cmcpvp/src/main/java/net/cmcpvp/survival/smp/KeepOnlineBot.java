@@ -8,7 +8,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.logging.Level;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import org.bukkit.Bukkit;
@@ -31,14 +31,14 @@ import org.bukkit.scheduler.BukkitTask;
  * ignored for sleeping, and is marked "NPC" so other plugins (and the auto-updater) don't count it as a real player.
  */
 public final class KeepOnlineBot implements Listener {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private Object handle;
     private Object channel;
     private UUID uuid;
     private BukkitTask task;
     private String lastError;
 
-    public KeepOnlineBot(VortexSMP plugin) {
+    public KeepOnlineBot(CmcSmp plugin) {
         this.plugin = plugin;
     }
 
@@ -57,7 +57,7 @@ public final class KeepOnlineBot implements Listener {
     }
 
     public static boolean isBot(Player p) {
-        return p.hasMetadata("vortex-keepalive");
+        return p.hasMetadata("cmcpvp-keepalive");
     }
 
     /** Starts the bot when the setting is on (and stops it when it was turned off). */
@@ -72,7 +72,7 @@ public final class KeepOnlineBot implements Listener {
     private void spawn() {
         String name = Cfg.s(Opt.KEEPALIVE_NAME).replaceAll("[^A-Za-z0-9_]", "");
         if (name.length() < 3 || name.length() > 16) {
-            name = "VortexBot";
+            name = "CMCBot";
         }
 
         if (Bukkit.getPlayerExact(name) != null) {
@@ -82,7 +82,7 @@ public final class KeepOnlineBot implements Listener {
 
         try {
             World w = Bukkit.getWorlds().get(0);
-            this.uuid = UUID.nameUUIDFromBytes(("VortexKeepOnline:" + name).getBytes(StandardCharsets.UTF_8));
+            this.uuid = UUID.nameUUIDFromBytes(("CMCKeepOnline:" + name).getBytes(StandardCharsets.UTF_8));
             Object server = Bukkit.getServer().getClass().getMethod("getServer").invoke(Bukkit.getServer());
             Object level = w.getClass().getMethod("getHandle").invoke(w);
             Class<?> profileClass = Class.forName("com.mojang.authlib.GameProfile");
@@ -127,7 +127,7 @@ public final class KeepOnlineBot implements Listener {
                 throw new IllegalStateException("the server didn't take the player");
             }
 
-            p.setMetadata("vortex-keepalive", new FixedMetadataValue(this.plugin.host(), true));
+            p.setMetadata("cmcpvp-keepalive", new FixedMetadataValue(this.plugin.host(), true));
             p.setMetadata("NPC", new FixedMetadataValue(this.plugin.host(), true));
             p.setGameMode(GameMode.SPECTATOR);
             p.setInvulnerable(true);

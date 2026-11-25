@@ -1,4 +1,4 @@
-<title>Vortex Admin</title>
+<title>CMC Admin</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="robots" content="noindex">
 <link rel="icon" href="logo-mark.png" type="image/png">
@@ -198,12 +198,12 @@ const OKSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2400); }
 async function get(p) { const r = await fetch("/api/admin/" + p, {credentials: "same-origin"}); if (r.status === 401) { showLogin(); throw new Error("login"); } return r.json(); }
 async function post(p, body, quiet) {
-  const r = await fetch("/api/admin/" + p, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Requested-With": "vortex"}, body: JSON.stringify(body || {})});
+  const r = await fetch("/api/admin/" + p, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Requested-With": "cmcpvp"}, body: JSON.stringify(body || {})});
   if (r.status === 401) { showLogin(); throw new Error("login"); }
   const j = await r.json(); if (!quiet) { if (j.error) toast(j.error); else if (j.message) toast(j.message); } return j;
 }
 function showLogin(msg) {
-  $("#root").innerHTML = `<div class="card login"><div class="empty"><div class="orb"></div><h2>Vortex Admin</h2><p>${esc(msg || "Type /webadmin in game and open the link it gives you. The link works once and logs you in for two hours.")}</p></div></div>`;
+  $("#root").innerHTML = `<div class="card login"><div class="empty"><div class="orb"></div><h2>CMC Admin</h2><p>${esc(msg || "Type /webadmin in game and open the link it gives you. The link works once and logs you in for two hours.")}</p></div></div>`;
 }
 
 const PAGES = [["ai", "AI Command Center", "Control"], ["dash", "Dashboard", "Control"], ["players", "Players", "Server"], ["reports", "Reports", "Server"],
@@ -214,7 +214,7 @@ const tpsHistory = [];
 function shell(page) {
   const title = (PAGES.find(p => p[0] === page) || PAGES[0])[1];
   let grp = "";
-  $("#root").innerHTML = `<div class="app"><aside id="aside"><div class="brand"><img src="logo-mark.png" alt="" width="241" height="176"><div><b>VORTEX</b><span>ADMIN PANEL</span></div></div>
+  $("#root").innerHTML = `<div class="app"><aside id="aside"><div class="brand"><img src="logo-mark.png" alt="" width="241" height="176"><div><b>CMC</b><span>ADMIN PANEL</span></div></div>
     <nav>${PAGES.map(([id, n, g]) => { const h = g !== grp ? `<div class="grp">${g}</div>` : ""; grp = g;
       return h + `<button data-p="${id}" class="${id === page ? "on" : ""}" type="button">${ico(id === "dash" ? "dash" : id)}${n}${id === "ai" ? '<span class="ai">AI</span>' : ""}</button>`; }).join("")}
       <button type="button" onclick="window.open('/', '_blank')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg>Public website</button></nav>
@@ -254,7 +254,7 @@ function ai() {
     </div></div>`;
   const draw = () => {
     $("#log").innerHTML = aiLog.length ? aiLog.map(m => m.who === "you" ? `<div class="msg you">${esc(m.text)}</div>`
-      : `<div class="msg ai"><div class="by"><i></i>VORTEX AI</div>${m.wait ? '<span class="thinking"><i></i><i></i><i></i></span>' : esc(m.text)}${m.changes && m.changes.length ? `<div class="changes">${m.changes.map(c => `<div>✎ <span>${esc(c)}</span></div>`).join("")}</div>` : ""}</div>`).join("")
+      : `<div class="msg ai"><div class="by"><i></i>CMC AI</div>${m.wait ? '<span class="thinking"><i></i><i></i><i></i></span>' : esc(m.text)}${m.changes && m.changes.length ? `<div class="changes">${m.changes.map(c => `<div>✎ <span>${esc(c)}</span></div>`).join("")}</div>` : ""}</div>`).join("")
       : `<div class="empty"><div class="orb"></div><h2>What should I change?</h2><p>Ask in plain words, in any language. I can read and change the whole plugin: settings, kits, ranks, players, worlds, backups and commands.</p></div>`;
     $("#log").scrollTop = $("#log").scrollHeight;
   };
@@ -371,7 +371,7 @@ async function kits() {
 /* ---------------------------------------------------------------- ranks */
 async function ranks() {
   const list = await get("ranks");
-  $("#main").innerHTML = `<p class="sub">Each rank gives its own permission <code>vortex.rank.&lt;id&gt;</code> plus the ones you list (applied live). <code>-node</code> takes one away. A rank can inherit another.</p>
+  $("#main").innerHTML = `<p class="sub">Each rank gives its own permission <code>cmcpvp.rank.&lt;id&gt;</code> plus the ones you list (applied live). <code>-node</code> takes one away. A rank can inherit another.</p>
     <div class="card" style="margin-bottom:14px"><form class="row" id="give"><b>Give a rank</b><input id="rsName" placeholder="Player name" required><select id="rsRank">${list.map(r => `<option value="${esc(r.id)}">${esc(r.id)}</option>`).join("")}</select><button class="btn hot">Give</button>
       <span style="flex:1"></span><input id="newRank" placeholder="new-rank-id"><button class="btn" type="button" id="newGo">+ New rank</button></form></div>
     ${list.map(r => `<details class="sec"><summary>${r.label ? `<span class="tag" style="background:linear-gradient(90deg,${esc(r.from)},${esc(r.to)})">${esc(r.label)}</span>` : "<b>default</b>"}<span class="muted" style="font-size:13px">${esc(r.id)} · weight ${r.weight}${r.staff ? " · staff" : ""}${r.price ? " · " + esc(r.price) : ""}</span></summary>
@@ -409,7 +409,7 @@ async function rankPanel(el, id, tab, keep) {
   const given = info.gives || {};
   let body = "";
   if (tab === "perms") {
-    const total = Object.keys(given).filter(n => !n.startsWith("vortex.rank.")).length;
+    const total = Object.keys(given).filter(n => !n.startsWith("cmcpvp.rank.")).length;
     const all = given["*"] !== undefined;
     body = `<div class="row" style="margin:10px 0"><input class="rpq" placeholder="Search ${permCatalog.reduce((s, g) => s + g.nodes.length, 0)} permissions…" value="${esc(keep && keep.q || "")}" style="flex:1;min-width:200px" aria-label="Search permissions">
         <select class="rpg" aria-label="Plugin"><option value="">Every plugin</option>${permCatalog.map(g => `<option ${keep && keep.g === g.name ? "selected" : ""}>${esc(g.name)}</option>`).join("")}</select>
@@ -472,7 +472,7 @@ async function backups() {
   const block = (kind, title, desc, files, canRestore) => `<div class="sec"><h3>${title}<button class="btn sm hot" style="margin-left:auto" data-bk="${kind}" type="button">Back up now</button></h3><div class="in"><p class="muted" style="margin-top:0">${desc}</p>
     ${files.length ? `<div class="tbl"><table style="min-width:0"><tbody>${files.slice(0, 10).map(f => `<tr><td><code style="color:var(--text)">${esc(f)}</code></td><td style="text-align:right">${canRestore ? `<button class="btn sm" data-rs="${kind}" data-f="${esc(f)}" type="button">Restore</button>
       <span data-rc="${esc(kind + f)}" hidden> <button class="btn sm red" data-rr="${kind}" data-f="${esc(f)}" type="button">Yes, restore</button></span>` : ""}</td></tr>`).join("")}</tbody></table></div>` : '<div class="muted">No backups yet.</div>'}</div></div>`;
-  $("#main").innerHTML = `<p class="sub">Everything is kept outside the plugin folder (plugins/VortexRealm-Vault), so updates never lose it. Restoring backs up the current state first.</p>
+  $("#main").innerHTML = `<p class="sub">Everything is kept outside the plugin folder (plugins/CMCPvP-Vault), so updates never lose it. Restoring backs up the current state first.</p>
     ${block("full", "All-in-One Backup", "Ranks, kits and settings in one file, plus every player's tier, points and records. Restores live.", b.full || [], true)}
     ${block("kits", "Kits", "Every kit with its contents, icon, rules and arenas.", b.kits || [], true)}
     ${block("settings", "Settings", "Every settings file: config, messages, ranks, hotbar, scoreboards, selector, economy, tab, NPCs, decorations.", b.settings || [], true)}

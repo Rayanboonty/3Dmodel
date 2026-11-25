@@ -89,7 +89,7 @@ final class AiTools {
                 Map.of("command", AiAgent.str("The command without the slash")),
                 List.of("command")
             ));
-            t.add(AiAgent.tool("read_file", "Read a text file of the server (relative to the server folder, e.g. plugins/VortexRealm/config.yml, server.properties). Folders list their files.", Map.of("path", AiAgent.str("Relative path")), List.of("path")));
+            t.add(AiAgent.tool("read_file", "Read a text file of the server (relative to the server folder, e.g. plugins/CMCPvP/config.yml, server.properties). Folders list their files.", Map.of("path", AiAgent.str("Relative path")), List.of("path")));
             t.add(AiAgent.tool(
                 "edit_yaml",
                 "Set one value in a YAML file under plugins/ (any plugin's config). A copy is kept as <file>.ai-backup first. Most plugins need a reload or restart to see it; for this plugin's own settings prefer set_setting.",

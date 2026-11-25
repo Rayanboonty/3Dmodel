@@ -23,7 +23,7 @@ import java.util.logging.Level;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.session.Tp;
@@ -51,24 +51,24 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * Brings the SMP of an old VortexRealm / CMCPvP server over, once, when its plugin folder (or a .zip /
- * .tar.gz of it) is put into {@code plugins/VortexSMP/import/}: homes and warps of the
+ * Brings the SMP of an old CMCPvP / CMCPvP server over, once, when its plugin folder (or a .zip /
+ * .tar.gz of it) is put into {@code plugins/CmcSmp/import/}: homes and warps of the
  * chosen mode, where players last were, and their old survival inventory and ender chest. Nothing is overwritten:
  * existing homes and warps win, and items are only placed into empty slots - the rest waits in /oldstuff.
  */
 public final class OldImport implements Listener, CommandExecutor {
-    private static final String[] OLD = {"practicepvp", "vortexrealm", "vortexpvp"};
+    private static final String[] OLD = {"practicepvp", "cmcpvp", "cmcpvp"};
     /** Tags of the practice plugins' hub, lobby and kit items: never real survival items. */
     private static final Set<String> JUNK_KEYS = Set.of("hub_item", "action", "gui", "wand", "kit_slot");
     private static final String[] OLD_MODES = {"SURVIVAL", "LIFESTEAL", "STRENGTH", "RANKED", "ECO"};
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final File dir;
     private final File stateFile;
     private final File pendingDir;
     private YamlConfiguration state = new YamlConfiguration();
     private String summary = "nothing imported";
 
-    public OldImport(VortexSMP plugin) {
+    public OldImport(CmcSmp plugin) {
         this.plugin = plugin;
         this.dir = new File(plugin.host().getDataFolder(), "import");
         this.stateFile = new File(plugin.getDataFolder(), "import-state.yml");
@@ -93,10 +93,10 @@ public final class OldImport implements Listener, CommandExecutor {
             try {
                 Files.writeString(new File(this.dir, "README.txt").toPath(), String.join("\n",
                     "Optional: bring the SMP of your old server over (homes, warps, last spots, inventories, ender chests).",
-                    "1. Copy the old plugins/VortexRealm (or CMCPvP) folder into this folder,",
+                    "1. Copy the old plugins/CMCPvP (or CMCPvP) folder into this folder,",
                     "   or put a .zip / .tar.gz of it here.",
                     "2. Choose which old SMP mode to bring over with import.mode in config.yml (SURVIVAL by default).",
-                    "3. Restart the server (or run /vortexsmp import run). It is done once; see import-state.yml.",
+                    "3. Restart the server (or run /cmcsmp import run). It is done once; see import-state.yml.",
                     "Existing homes and warps are never overwritten. A backup is made first."), StandardCharsets.UTF_8);
             } catch (IOException var2) {
             }
@@ -158,7 +158,7 @@ public final class OldImport implements Listener, CommandExecutor {
             return r;
         }
 
-        // the old folder copied as it was: plugins/VortexRealm (or CMCPvP / VortexPvP) next to VortexSMP's own
+        // the old folder copied as it was: plugins/CMCPvP (or CMCPvP / CMCPvP) next to CmcSmp's own
         File plugins = this.plugin.host().getDataFolder().getParentFile();
         File[] siblings = plugins == null ? null : plugins.listFiles(File::isDirectory);
         if (siblings != null) {
@@ -566,7 +566,7 @@ public final class OldImport implements Listener, CommandExecutor {
         // inventories: inventories/groups/<uuid>/<mode>.yml (and the "-unsorted-" copies) of the chosen modes
         File groups = new File(root, "inventories/groups");
         File[] players = groups.listFiles(File::isDirectory);
-        // same server: VortexRealm loads the old inventories itself (each world group keeps its own)
+        // same server: CMCPvP loads the old inventories itself (each world group keeps its own)
         if (Cfg.bool(Opt.IMPORT_INVENTORIES) && !this.plugin.realm().on() && players != null) {
             for (File pd : players) {
                 UUID u;
@@ -643,7 +643,7 @@ public final class OldImport implements Listener, CommandExecutor {
         boolean anyChosen = counts.keySet().stream().anyMatch(modes::contains);
         if (!anyChosen && !counts.isEmpty()) {
             String hint = "No saved inventories for import.mode " + String.join("/", modes) + ", but there are some for " + counts
-                + " - set import.mode in config.yml to one of those (or ALL) and run /vortexsmp import run again.";
+                + " - set import.mode in config.yml to one of those (or ALL) and run /cmcsmp import run again.";
             report = report + ". " + hint;
             this.plugin.getLogger().warning("Import: " + hint);
         }
@@ -928,7 +928,7 @@ public final class OldImport implements Listener, CommandExecutor {
     /**
      * Before the server loads a player: when their ID changed with the move (the old and new host use a different
      * online-mode), their old player file (inventory, ender chest, XP, position) is copied to the new ID, and their
-     * saved import files and homes follow. Also finishes an admin's /vortexsmp import relink.
+     * saved import files and homes follow. Also finishes an admin's /cmcsmp import relink.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPreLogin(org.bukkit.event.player.AsyncPlayerPreLoginEvent e) {
@@ -1185,7 +1185,7 @@ public final class OldImport implements Listener, CommandExecutor {
             org.bukkit.attribute.AttributeInstance max = p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
             p.setHealth(Math.max(1.0, Math.min(max == null ? 20.0 : max.getValue(), y.getDouble("health", 20.0))));
             String gm = y.getString("gamemode", "SURVIVAL");
-            if (!p.hasPermission("vortexsmp.admin") && !"HUB".equals(mode)) {
+            if (!p.hasPermission("cmcsmp.admin") && !"HUB".equals(mode)) {
                 p.setGameMode(org.bukkit.GameMode.valueOf(gm.equals("ADVENTURE") ? "SURVIVAL" : gm));
             }
         } catch (RuntimeException var13) {
@@ -1326,7 +1326,7 @@ public final class OldImport implements Listener, CommandExecutor {
         }
 
         if (old == null) {
-            sender.sendMessage(Text.mm("<red>No old data found for " + Text.esc(name) + " under another ID. <gray>Try <white>/vortexsmp import check " + Text.esc(name)));
+            sender.sendMessage(Text.mm("<red>No old data found for " + Text.esc(name) + " under another ID. <gray>Try <white>/cmcsmp import check " + Text.esc(name)));
             return;
         }
 
@@ -1359,27 +1359,27 @@ public final class OldImport implements Listener, CommandExecutor {
         }
     }
 
-    /** /vortexsmp import check [player]: where the old data is, what was found, and what to do next. */
+    /** /cmcsmp import check [player]: where the old data is, what was found, and what to do next. */
     private void check(CommandSender s, String name) {
         File root = this.findRoot();
         s.sendMessage(Text.mm("<gold><b>Old SMP import check"));
         if (root == null) {
-            s.sendMessage(Text.mm("<red>✘ No old plugin folder found. <gray>Looked in plugins/VortexSMP/import/ and plugins/VortexRealm, CMCPvP, VortexPvP."));
-            s.sendMessage(Text.mm("<gray>→ Copy the old <white>plugins/VortexRealm</white> folder (with its inventories folder) from the old server into <white>plugins/</white> and restart."));
+            s.sendMessage(Text.mm("<red>✘ No old plugin folder found. <gray>Looked in plugins/CmcSmp/import/ and plugins/CMCPvP, CMCPvP, CMCPvP."));
+            s.sendMessage(Text.mm("<gray>→ Copy the old <white>plugins/CMCPvP</white> folder (with its inventories folder) from the old server into <white>plugins/</white> and restart."));
         } else {
             Map<String, Integer> counts = modeCounts(root);
             s.sendMessage(Text.mm("<green>✔ Old folder: <white>" + Text.esc(root.getPath())));
             s.sendMessage(Text.mm((counts.isEmpty() ? "<red>✘" : "<green>✔") + " <gray>Saved inventories per mode: <white>" + (counts.isEmpty() ? "none (no inventories/groups folder)" : counts)
                 + " <gray>• import.mode <white>" + Text.esc(Cfg.s(Opt.IMPORT_MODE))));
             if (!counts.isEmpty() && counts.keySet().stream().noneMatch(this.modes()::contains)) {
-                s.sendMessage(Text.mm("<yellow>→ import.mode doesn't match any of those: set it to one of them (or ALL), then <white>/vortexsmp import run again"));
+                s.sendMessage(Text.mm("<yellow>→ import.mode doesn't match any of those: set it to one of them (or ALL), then <white>/cmcsmp import run again"));
             }
         }
 
         s.sendMessage(Text.mm("<gray>Import: <white>" + Text.esc(this.summary) + " <gray>• online-mode <white>" + Bukkit.getOnlineMode()
             + " <gray>• player files in the world: <white>" + java.util.Optional.ofNullable(playerData().list()).map(a -> a.length).orElse(0)));
         if (name == null) {
-            s.sendMessage(Text.mm("<gray>Add a player name to check one player: <white>/vortexsmp import check <name>"));
+            s.sendMessage(Text.mm("<gray>Add a player name to check one player: <white>/cmcsmp import check <name>"));
             return;
         }
 
@@ -1393,9 +1393,9 @@ public final class OldImport implements Listener, CommandExecutor {
 
         UUID old = this.state.isSet("linked." + now) ? null : this.findOld(now, name, true);
         if (old != null) {
-            s.sendMessage(Text.mm("<yellow>→ Their old data is under another ID. <white>/vortexsmp import relink " + Text.esc(name) + "</white> <yellow>gives it back."));
+            s.sendMessage(Text.mm("<yellow>→ Their old data is under another ID. <white>/cmcsmp import relink " + Text.esc(name) + "</white> <yellow>gives it back."));
         } else if (this.exactFile(now).isFile() || this.pendingFile(now).isFile()) {
-            s.sendMessage(Text.mm("<yellow>→ Items are saved for them: they get them when they join, or now with <white>/vortexsmp import give " + Text.esc(name)));
+            s.sendMessage(Text.mm("<yellow>→ Items are saved for them: they get them when they join, or now with <white>/cmcsmp import give " + Text.esc(name)));
         } else if (this.hasOldData(now)) {
             s.sendMessage(Text.mm("<green>✔ Their data is under their current ID - nothing else to do."));
         } else {
@@ -1430,7 +1430,7 @@ public final class OldImport implements Listener, CommandExecutor {
         return has.isEmpty() ? "<dark_gray>nothing" : "<white>" + String.join(", ", has);
     }
 
-    /** /vortexsmp migrate: checks the move of an old SMP (world + plugin folder) and says what is missing. */
+    /** /cmcsmp migrate: checks the move of an old SMP (world + plugin folder) and says what is missing. */
     public void migrateGuide(CommandSender s) {
         File root = this.findRoot();
         World main = Bukkit.getWorlds().get(0);
@@ -1452,8 +1452,8 @@ public final class OldImport implements Listener, CommandExecutor {
         }
 
         s.sendMessage(Text.mm("<gold><b>Moving the old SMP to this server</b>"));
-        s.sendMessage(Text.mm((root != null ? "<green>✔" : "<red>✖") + " <gray>Old plugin folder in plugins/VortexSMP/import/"
-            + (root != null ? " <dark_gray>(" + Text.esc(root.getPath()) + ")" : " <white>- copy the old plugins/VortexRealm folder there")));
+        s.sendMessage(Text.mm((root != null ? "<green>✔" : "<red>✖") + " <gray>Old plugin folder in plugins/CmcSmp/import/"
+            + (root != null ? " <dark_gray>(" + Text.esc(root.getPath()) + ")" : " <white>- copy the old plugins/CMCPvP folder there")));
         s.sendMessage(Text.mm((oldSmp.isEmpty() || oldSmp.contains(main.getName()) ? "<green>✔" : "<yellow>!") + " <gray>Old SMP world: <white>"
             + (oldSmp.isEmpty() ? "?" : String.join(", ", oldSmp)) + " <gray>· this server's main world: <white>" + Text.esc(main.getName())
             + (oldSmp.isEmpty() || oldSmp.contains(main.getName()) ? "" : " <yellow>- copy the old SMP world folder and set level-name=" + oldSmp.get(0) + " in server.properties (or keep the name: it is mapped automatically)")));
@@ -1462,11 +1462,11 @@ public final class OldImport implements Listener, CommandExecutor {
         s.sendMessage(Text.mm("<gray>Status: <white>" + Text.esc(this.summary)));
         s.sendMessage(Text.mm("<gray>On join each player gets their SMP inventory, ender chest and XP back exactly; if their copied player data already holds the newer SMP inventory, that one is kept. Nothing is deleted: anything else they carried goes to <yellow>/oldstuff</yellow>."));
         if (root != null && !this.state.getBoolean("done")) {
-            s.sendMessage(Text.mm("<gray>Next: <yellow>/vortexsmp import preview</yellow> then <yellow>/vortexsmp import run</yellow> (or just restart)."));
+            s.sendMessage(Text.mm("<gray>Next: <yellow>/cmcsmp import preview</yellow> then <yellow>/cmcsmp import run</yellow> (or just restart)."));
         }
     }
 
-    /** /vortexsmp import [preview|run] */
+    /** /cmcsmp import [preview|run] */
     public void command(CommandSender sender, String[] args) {
         String sub = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "";
         if (sub.equals("check")) {
@@ -1474,7 +1474,7 @@ public final class OldImport implements Listener, CommandExecutor {
             return;
         } else if (sub.equals("relink") || sub.equals("give")) {
             if (args.length < 2) {
-                sender.sendMessage(Text.mm("<red>Usage: /vortexsmp import " + sub + " <player>"));
+                sender.sendMessage(Text.mm("<red>Usage: /cmcsmp import " + sub + " <player>"));
                 return;
             }
 
@@ -1496,13 +1496,13 @@ public final class OldImport implements Listener, CommandExecutor {
 
         File root = this.findRoot();
         if (root == null) {
-            sender.sendMessage(Text.mm("<red>Nothing to import. <gray>Put the old plugins/VortexRealm folder (or a .zip/.tar.gz of it) into plugins/VortexSMP/import/."));
+            sender.sendMessage(Text.mm("<red>Nothing to import. <gray>Put the old plugins/CMCPvP folder (or a .zip/.tar.gz of it) into plugins/CmcSmp/import/."));
             return;
         }
 
         if (args.length > 0 && args[0].equalsIgnoreCase("run")) {
             if (this.state.getBoolean("done") && !(args.length > 1 && args[1].equalsIgnoreCase("again"))) {
-                sender.sendMessage(Text.mm("<yellow>Already imported (" + Text.esc(this.summary) + "). <gray>/vortexsmp import run again <gray>to import once more (only missing things are added)."));
+                sender.sendMessage(Text.mm("<yellow>Already imported (" + Text.esc(this.summary) + "). <gray>/cmcsmp import run again <gray>to import once more (only missing things are added)."));
                 return;
             }
 
@@ -1510,7 +1510,7 @@ public final class OldImport implements Listener, CommandExecutor {
             this.plugin.essentials().load();
         } else {
             this.run(root, true, sender);
-            sender.sendMessage(Text.mm("<gray>Run it with <yellow>/vortexsmp import run"));
+            sender.sendMessage(Text.mm("<gray>Run it with <yellow>/cmcsmp import run"));
         }
     }
 }

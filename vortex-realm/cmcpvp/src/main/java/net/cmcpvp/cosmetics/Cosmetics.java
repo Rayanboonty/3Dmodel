@@ -54,7 +54,7 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
     private final Map<UUID, Cosmetics.Data> data = new ConcurrentHashMap<>();
     /** Ready-made shield designs: name, base colour, then pattern:colour layers. */
     private static final String[][] PRESETS = new String[][]{
-        {"Vortex", "PURPLE", "gradient:CYAN", "circle:MAGENTA", "border:BLACK"},
+        {"CMC", "PURPLE", "gradient:CYAN", "circle:MAGENTA", "border:BLACK"},
         {"Flame", "ORANGE", "gradient_up:RED", "triangles_bottom:YELLOW", "border:RED"},
         {"Royal", "BLUE", "rhombus:YELLOW", "circle:BLUE", "curly_border:YELLOW"},
         {"Skull", "BLACK", "skull:WHITE", "border:GRAY"},

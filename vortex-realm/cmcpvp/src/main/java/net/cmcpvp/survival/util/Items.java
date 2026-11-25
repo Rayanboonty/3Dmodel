@@ -28,12 +28,12 @@ public final class Items {
     private Items() {
     }
 
-    /** The old VortexSMP keys, so its menus and items keep working. */
+    /** The old CmcSmp keys, so its menus and items keep working. */
     public static void init() {
-        ACTION = new NamespacedKey("vortexsmp", "action");
-        KIT_SLOT = new NamespacedKey("vortexsmp", "kit_slot");
-        GUI = new NamespacedKey("vortexsmp", "gui");
-        WAND = new NamespacedKey("vortexsmp", "wand");
+        ACTION = new NamespacedKey("cmcsmp", "action");
+        KIT_SLOT = new NamespacedKey("cmcsmp", "kit_slot");
+        GUI = new NamespacedKey("cmcsmp", "gui");
+        WAND = new NamespacedKey("cmcsmp", "wand");
     }
 
     public static Items.Builder of(Material m) {

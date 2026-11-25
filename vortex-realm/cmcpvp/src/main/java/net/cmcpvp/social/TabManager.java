@@ -42,8 +42,8 @@ public final class TabManager {
         ""
     );
     private String brandText = "";
-    /** The C MCPvP logo gradient (deep purple -> violet -> cyan). */
-    private static final List<String> VORTEX_COLORS = List.of("#3B0F7A", "#6A2BE0", "#9B5CFF", "#4FC3FF", "#8FF6FF");
+    /** The CMCPVP logo gradient (deep purple -> violet -> cyan). */
+    private static final List<String> CMC_COLORS = List.of("#3B0F7A", "#6A2BE0", "#9B5CFF", "#4FC3FF", "#8FF6FF");
     private static final List<String> OLD_COLORS = List.of("#C0141E", "#E8261C", "#FF4E1F", "#FF7A1A", "#FFB547");
     private boolean refreshQueued;
     private static final List<String> OLD_HEADER = List.of("", "<b><mood:✦ <server> ✦></b>", "<gray><mode>", "");
@@ -117,11 +117,11 @@ public final class TabManager {
 
         if (!y.contains("brand-colors")) {
             y.set("brand-text", "");
-            y.set("brand-colors", VORTEX_COLORS);
+            y.set("brand-colors", CMC_COLORS);
             y.set("brand-speed", 1.0);
             changed = true;
         } else if (y.getStringList("brand-colors").equals(OLD_COLORS)) {
-            y.set("brand-colors", VORTEX_COLORS);
+            y.set("brand-colors", CMC_COLORS);
             changed = true;
         }
 
@@ -423,7 +423,7 @@ public final class TabManager {
 
     /** "3706 Online · Lowest Ping Host: Miami, Florida" (MCPVP footer). */
     private Component hostLine() {
-        String host = this.plugin.regions() == null ? "" : this.plugin.regions().hostLabel();
+        String host = this.plugin.regions() == null || net.cmcpvp.Edition.PRACTICE_ONLY ? "" : this.plugin.regions().hostLabel();
         String line = "<#FF5555>" + Bukkit.getOnlinePlayers().size() + "</#FF5555> <gray>Online";
         if (!host.isBlank()) {
             line = line + " <dark_gray>·</dark_gray> <gray>Lowest Ping Host: <#FF5555>" + Text.esc(host);

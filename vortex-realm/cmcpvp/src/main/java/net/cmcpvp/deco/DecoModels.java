@@ -507,8 +507,8 @@ public final class DecoModels {
             }
         });
         add(
-            "vortex_portal",
-            "Vortex Portal",
+            "cmcpvp_portal",
+            "CMC Portal",
             "Magic",
             Material.ENDER_EYE,
             DecoModels.Anim.SPIN,
@@ -769,7 +769,7 @@ public final class DecoModels {
 
                 b.box(Material.QUARTZ_BLOCK, 0.0, 4.3, 0.0, 5.4, 0.6, 0.8)
                     .box(Material.GOLD_BLOCK, 0.0, 4.65, 0.0, 5.0, 0.1, 0.6)
-                    .text("<gold><b>C MCPVP", 0.0, 4.1, 0.42, 1.6, 0.0);
+                    .text("<gold><b>CMCPVP", 0.0, 4.1, 0.42, 1.6, 0.0);
             }
         );
         add(

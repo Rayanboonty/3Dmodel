@@ -22,7 +22,7 @@ public final class Opt<T> {
     public final Class<? extends Enum<?>> enumClass;
     public final boolean gui;
     public static final Opt<String> SERVER_NAME = str(
-        "general.server-name", "C MCPvP", Opt.Section.GENERAL, "Server Name", "Scoreboard title text (gold, bold).", Material.NAME_TAG
+        "general.server-name", "CMCPVP", Opt.Section.GENERAL, "Server Name", "Scoreboard title text (gold, bold).", Material.NAME_TAG
     );
     public static final Opt<String> SERVER_IP = str(
         "general.server-ip", "play.cmcpvp.net", Opt.Section.GENERAL, "Server IP", "Shown at the bottom of the scoreboard.", Material.PAPER
@@ -109,7 +109,7 @@ public final class Opt<T> {
         "extras.welcome.brief",
         Opt.Type.STRING_LIST,
         List.of(
-            "<gray>C MCPvP is a <white>PvP practice network</white>: duels in <gold>20+ kits</gold>, a <gold>tier ladder</gold> from <#9E9E9E>LT5</#9E9E9E> to <#FFAA00><b>HT1</b></#FFAA00>, FFA, parties and tournaments.",
+            "<gray>CMCPVP is a <white>PvP practice network</white>: duels in <gold>20+ kits</gold>, a <gold>tier ladder</gold> from <#9E9E9E>LT5</#9E9E9E> to <#FFAA00><b>HT1</b></#FFAA00>, FFA, parties and tournaments.",
             "<gray>Off the battlefield: our <green>Survival SMP</green> server - one click away in the hub (<white>/smp</white>).",
             "<gray>Play fair: cheaters end up in the <dark_red>hacker pool</dark_red>. <white>/report</white> anyone suspicious."
         ),
@@ -1086,8 +1086,12 @@ public final class Opt<T> {
         false,
         Opt.Section.GENERAL,
         "Automatic Backups",
-        "Full backups (plugins/VortexRealm-Vault) by themselves every 6 hours, at shutdown and before updates. Off = only when you click Backup Everything in /pvpadmin (saves storage).",
+        "Full backups (plugins/CMCPvP-Vault) by themselves every 6 hours, at shutdown and before updates. Off = only when you click Backup Everything in /pvpadmin (saves storage).",
         Material.ENDER_CHEST
+    );
+    public static final Opt<Integer> WAITING_ROOM_SECONDS = integer(
+        "match.waiting-room-seconds", 5, Opt.Section.MATCH, "Waiting Room Time",
+        "Seconds matched players stay in the waiting room before going on to the map vote with the maps that are ready.", Material.CLOCK, 2, 60, 1
     );
     public static final Opt<Boolean> ARENA_BARRIER_WALLS = bool(
         "arena.barrier-walls",
@@ -1216,7 +1220,7 @@ public final class Opt<T> {
     );
     public static final Opt<String> VANILLA_SEED = str(
         "arena.vanilla.seed",
-        "VortexRealm",
+        "CMCPvP",
         Opt.Section.ARENA,
         "Vanilla Map Seed",
         "World seed the vanilla maps are cut from. Same seed = the same maps on every server. Change it and rebuild to get new maps.",
@@ -1238,7 +1242,7 @@ public final class Opt<T> {
         false,
         Opt.Section.ARENA,
         "Keep Terrain World",
-        "Keep the temporary vortex_terrain world after cutting maps (for admins who want to look around). Off = deleted automatically.",
+        "Keep the temporary cmcpvp_terrain world after cutting maps (for admins who want to look around). Off = deleted automatically.",
         Material.CHEST
     );
     public static final Opt<Integer> VANILLA_COPIES = integer(
@@ -1316,7 +1320,7 @@ public final class Opt<T> {
         "",
         Opt.Section.WEB,
         "External Pack URL",
-        "Leave empty to serve the pack from the built-in web server. Or upload plugins/CMCPvP/web/vortex-pack.zip somewhere and paste its direct download link here.",
+        "Leave empty to serve the pack from the built-in web server. Or upload plugins/CMCPvP/web/cmcpvp-pack.zip somewhere and paste its direct download link here.",
         Material.LEAD
     );
     public static final Opt<Boolean> WEB_ENABLED = bool(
@@ -1987,7 +1991,7 @@ public final class Opt<T> {
         true,
         Opt.Section.SMP,
         "SMP On This Server",
-        "The SMP worlds of worlds.yml run on this server again: the selector opens them, every SMP world group keeps its own inventory, ender chest and XP (saved and backed up), and VortexSMP adds homes, tpa, rtp and more. Off = the SMP is on another server (transfer).",
+        "The SMP worlds of worlds.yml run on this server again: the selector opens them, every SMP world group keeps its own inventory, ender chest and XP (saved and backed up), and CmcSmp adds homes, tpa, rtp and more. Off = the SMP is on another server (transfer).",
         Material.GRASS_BLOCK
     );
     public static final Opt<Integer> SMP_BACKUP_MINUTES = integer(

@@ -99,7 +99,7 @@ public final class Ranks implements TabExecutor, Listener {
             "cmcpvp.lobbyfly",
             "cmcpvp.ah.unlimited"
         };
-        this.perms("owner", true, "", "Runs C MCPvP.", adminPerms);
+        this.perms("owner", true, "", "Runs CMCPVP.", adminPerms);
         this.perms("admin", true, "", "Manages the server and the staff team.", adminPerms);
         this.perms(
             "dev",
@@ -266,7 +266,7 @@ public final class Ranks implements TabExecutor, Listener {
 
         while (cur != null && seen.add(cur.id)) {
             List<String> own = new ArrayList<>();
-            own.add("vortex.rank." + cur.id);
+            own.add("cmcpvp.rank." + cur.id);
             own.addAll(cur.permissions);
             chain.add(own);
             cur = cur.inherit != null && !cur.inherit.isBlank() ? this.ranks.get(cur.inherit.toLowerCase(Locale.ROOT)) : null;
@@ -353,7 +353,7 @@ public final class Ranks implements TabExecutor, Listener {
                     "Server ranks. icon = an item/block sprite (item/diamond, block/blue_ice...),",
                     "weight = order in tab (higher first). Players get a rank with /rank set, or with the permission",
                     "cmcpvp.rank.<id> (e.g. from a LuckPerms group); the highest weight wins.",
-                    "permissions = what the rank gives (plus vortex.rank.<id>); '-node' takes a permission away.",
+                    "permissions = what the rank gives (plus cmcpvp.rank.<id>); '-node' takes a permission away.",
                     "inherit = also give another rank's permissions. perks/price/description show on the website."
                 )
             );

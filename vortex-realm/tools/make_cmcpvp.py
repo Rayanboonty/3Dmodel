@@ -14,7 +14,7 @@ import os, re, shutil, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'practicepvp')
 DST = os.path.join(ROOT, 'cmcpvp')
-NAME = 'C MCPvP'
+NAME = 'CMCPVP'
 FEED = 'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json'
 OLD_FEED = 'https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json'
 # C MCPvP has its own version line (1.0.0 = launch); bump it for every C MCPvP release
@@ -80,7 +80,88 @@ def main():
     patch_specific(jdir)
     resources()
     pom()
+    devortex()
     print('CMCPvP %s source ready at %s' % (edition_version(core_version()), DST))
+
+
+# every Vortex name, longest first (links to this repo's update feed are kept as they are)
+DEVORTEX = [
+    ('Vortex Realm', 'C MCPvP'), ('VORTEX REALM', 'C MCPVP'), ('Vortex realm', 'C MCPvP'),
+    ('VortexRealm', 'CMCPvP'), ('VortexPvP', 'CMCPvP'), ('VortexSMP', 'CmcSmp'), ('VortexMC', 'CMCPvP'),
+    ('VortexIsles', 'CrystalIsles'), ('Vortex Isles', 'Crystal Isles'), ('VORTEX_ISLES', 'CRYSTAL_ISLES'),
+    ('VortexUpdater', 'CmcUpdater'), ('VortexBot', 'CMCBot'), ('VortexMigration', 'CmcMigration'),
+    ('VORTEX_', 'CMC_'), ('VORTEX', 'CMC'), ('Vortex', 'CMC'),
+    ('vortexrealm', 'cmcpvp'), ('vortexsmps', 'cmcpvp'), ('vortexsmp', 'cmcsmp'), ('vortexpvp', 'cmcpvp'),
+    ('vortexplus', 'cmcplus'), ('vortex', 'cmcpvp'),
+]
+URL = re.compile(r'https?://[^\s"\'<>)]*')
+
+
+def devortex_text(s):
+    kept = []
+
+    def keep(m):
+        kept.append(m.group(0))
+        return '\x00%d\x00' % (len(kept) - 1)
+
+    s = URL.sub(lambda m: keep(m) if 'raw.githubusercontent.com' in m.group(0) or 'github.com/apps' in m.group(0) else m.group(0), s)
+    s = s.replace('"Vor" + "texRealm"', '\x01')
+    for a, b in DEVORTEX:
+        s = s.replace(a, b)
+    s = s.replace('\x01', '"Vor" + "texRealm"')
+    return re.sub('\x00(\\d+)\x00', lambda m: kept[int(m.group(1))], s)
+
+
+def devortex():
+    """C MCPvP shows no Vortex name anywhere: classes, messages, menus, worlds, pack names, files."""
+    root = os.path.join(DST, 'src')
+    for dp, dn, fn in os.walk(root):
+        for f in fn:
+            if f.endswith(('.java', '.yml', '.yaml', '.html', '.js', '.css', '.json', '.txt', '.properties', '.md', '.mcmeta')):
+                fp = os.path.join(dp, f)
+                s = rd(fp)
+                n = devortex_text(s)
+                if n != s:
+                    wr(fp, n)
+    # files and folders with the name
+    for dp, dn, fn in os.walk(root, topdown=False):
+        for name in fn + dn:
+            if 'vortex' in name.lower():
+                os.rename(os.path.join(dp, name), os.path.join(dp, devortex_text(name)))
+    left = []
+    for dp, dn, fn in os.walk(root):
+        for f in fn:
+            fp = os.path.join(dp, f)
+            if f.endswith(('.java', '.yml', '.html', '.js', '.json', '.properties')):
+                for i, line in enumerate(rd(fp).splitlines()):
+                    if 'vortex' in URL.sub('', line).lower() and '"Vor" + "texRealm"' not in line:
+                        left.append('%s:%d: %s' % (fp, i + 1, line.strip()[:120]))
+    if left:
+        sys.exit('Vortex names left:\n' + '\n'.join(left[:30]))
+    # the name is written as one word everywhere: CMCPVP
+    for dp, dn, fn in os.walk(root):
+        for f in fn:
+            if f.endswith(('.java', '.yml', '.yaml', '.html', '.js', '.css', '.json', '.txt', '.properties', '.md')):
+                fp = os.path.join(dp, f)
+                s = rd(fp)
+                n = s.replace('C MCPvP', 'CMCPVP').replace('C MCPVP', 'CMCPVP').replace('C-MCPvP', 'CMCPVP')
+                if n != s:
+                    wr(fp, n)
+    two_tone_tab()
+
+
+def two_tone_tab():
+    """The one tab of CMCPVP: the Competitive design in the logo's colours - CMC white, PVP red."""
+    p = os.path.join(DST, 'src/main/java/net/cmcpvp/social/TabDesigns.java')
+    s = rd(p)
+    a = s.index('"COMPETITIVE",')
+    b = s.index('new TabDesigns.Design(', a)
+    part = s[a:b]
+    part = rep(part, '"<b><gradient:#FFD24A:#FF9F1C><server></gradient></b> <dark_gray>|</dark_gray> <#7FE3FF>Practice"',
+               '"<b><white>CMC</white><#E3172B>PVP</#E3172B></b> <dark_gray>|</dark_gray> <gray>Practice"', p)
+    for old, new in (('#FFD24A', '#E3172B'), ('#FF9F1C', '#9E0F1A'), ('#7FE3FF', '#FFFFFF'), ('#B8860B', '#7A0C14'), ('#FFF1B0', '#FFD5D9')):
+        part = part.replace(old, new)
+    wr(p, s[:a] + part + s[b:])
 
 
 def patch_specific(jdir):
@@ -88,7 +169,7 @@ def patch_specific(jdir):
     p = jdir + '/CMCPvP.java'
     s = rd(p)
     s = rep(s, '''        this.vault = new DataVault(this);
-        this.vault.beforeLoad();''', '''        for (String other : java.util.List.of("PracticePvP", "VortexRealm")) {
+        this.vault.beforeLoad();''', '''        for (String other : java.util.List.of("PracticePvP", "Vor" + "texRealm")) {
             if (this.getServer().getPluginManager().getPlugin(other) != null) {
                 this.getLogger().severe(other + " is installed too. C MCPvP is its own server: remove " + other + "-*.jar from plugins/ and restart.");
                 this.getServer().getPluginManager().disablePlugin(this);

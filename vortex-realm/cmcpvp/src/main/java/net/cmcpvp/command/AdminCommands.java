@@ -252,7 +252,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                 }
                 case "backupall": {
                         note(sender, "<gray>Backing up everything (SMP + Practice)...");
-                        this.plugin.vaultSnapshot("manual", (name, err) -> note(sender, err != null ? "<red>Backup failed: " + Text.esc(String.valueOf(err.getMessage())) : "<green>Backed up: <white>" + name + "</white> in plugins/VortexRealm-Vault"));
+                        this.plugin.vaultSnapshot("manual", (name, err) -> note(sender, err != null ? "<red>Backup failed: " + Text.esc(String.valueOf(err.getMessage())) : "<green>Backed up: <white>" + name + "</white> in plugins/CMCPvP-Vault"));
                         break;
                 }
                 case "showcase": {
@@ -323,7 +323,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                             this.plugin.dialogs().smp().open(p);
                         } else if (this.plugin.survival() == null) {
                             sender.sendMessage(Text.mm(this.plugin.survivalPending()
-                                ? "<yellow>The SMP starts after the next restart (the old VortexSMP plugin is still running until then)."
+                                ? "<yellow>The SMP starts after the next restart (the old CmcSmp plugin is still running until then)."
                                 : "<red>The SMP didn't start - see the console."));
                         } else {
                             this.plugin.survival().onCommand(sender, null, "smp", java.util.Arrays.copyOfRange(args, 1, args.length));
@@ -642,7 +642,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                                                 sender,
                                                 err != null
                                                     ? "<red>Snapshot failed: " + Text.esc(String.valueOf(err.getMessage()))
-                                                    : "<green>Saved <white>" + name + "</white> in <white>plugins/VortexRealm-Vault"
+                                                    : "<green>Saved <white>" + name + "</white> in <white>plugins/CMCPvP-Vault"
                                             )
                                         );
                                     return;
@@ -678,7 +678,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
                                     List<String> fs = v.files();
                                     note(
                                         sender,
-                                        "<gold><b>Data vault</b> <gray>(plugins/VortexRealm-Vault, newest first) - settings, kits, arenas, worlds, NPCs, inventories, database"
+                                        "<gold><b>Data vault</b> <gray>(plugins/CMCPvP-Vault, newest first) - settings, kits, arenas, worlds, NPCs, inventories, database"
                                     );
                                     if (fs.isEmpty()) {
                                         note(sender, "<gray>Nothing yet. <white>/pvpadmin vault save");
@@ -909,7 +909,7 @@ public final class AdminCommands implements CommandExecutor, TabCompleter {
 
                         try {
                             String f = this.plugin.configBackup().backup(kind);
-                            note(sender, "<green>Saved <white>" + f + "</white> <gray>(plugins/VortexRealm-Vault/exports)");
+                            note(sender, "<green>Saved <white>" + f + "</white> <gray>(plugins/CMCPvP-Vault/exports)");
                         } catch (Exception var15) {
                             note(sender, "<red>Backup failed: " + Text.esc(String.valueOf(var15.getMessage())));
                         }

@@ -49,7 +49,7 @@ import org.bukkit.scheduler.BukkitTask;
  * unloaded and deleted as soon as the queue is empty.
  */
 public final class VanillaTerrain {
-    public static final String SOURCE_PREFIX = "vortex_terrain";
+    public static final String SOURCE_PREFIX = "cmcpvp_terrain";
     public static final int VERSION = 9;
     private static final boolean[] VEG = new boolean[Material.values().length];
     private static final boolean[] GROUND = new boolean[Material.values().length];
@@ -92,7 +92,7 @@ public final class VanillaTerrain {
     public static long seed() {
         String s = Cfg.s(Opt.VANILLA_SEED).trim();
         if (s.isEmpty()) {
-            s = "VortexRealm";
+            s = "CMCPvP";
         }
 
         try {

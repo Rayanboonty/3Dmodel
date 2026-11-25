@@ -800,6 +800,8 @@ public final class PracticePlugin extends JavaPlugin {
         CompletableFuture.allOf(this.arenas.snapshotsReady(), this.ffa.snapshotsReady()).whenComplete((v, err) -> Tasks.ensureSync(() -> {
             this.arenasReady = true;
             Tasks.later(40L, this::firstRunSetup);
+            // every kit gets a ready map soon after start-up (one build at a time), so nobody waits for a first map
+            Tasks.timer(600L, 400L, () -> this.arenas.onDemand().warmUp());
             // 1.0.10: takes away the NPC booths 1.0.9 placed by itself (NPCs are placed by hand)
             Tasks.later(400L, () -> net.practicepvp.lobby.AutoPlaceCleanup.run(this));
             Tasks.later(100L, this.arenas::verifyAll);

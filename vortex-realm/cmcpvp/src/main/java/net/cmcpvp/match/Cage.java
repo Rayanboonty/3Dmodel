@@ -37,7 +37,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 final class Cage {
-    static final NamespacedKey KEY = new NamespacedKey("vortexrealm", "cage");
+    static final NamespacedKey KEY = new NamespacedKey("cmcpvp", "cage");
     final Player player;
     private final Map<Block, BlockData> original = new LinkedHashMap<>();
     final Set<Block> gate = new LinkedHashSet<>();

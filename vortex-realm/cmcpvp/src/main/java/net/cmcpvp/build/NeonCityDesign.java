@@ -13,7 +13,7 @@ public final class NeonCityDesign extends Voxels {
         this.platform();
         this.avenues();
         this.plaza();
-        this.vortex();
+        this.cmcpvp();
         this.placeTowers();
 
         for (NeonCityDesign.Tower t : this.towers) {
@@ -141,7 +141,7 @@ public final class NeonCityDesign extends Voxels {
         }
     }
 
-    private void vortex() {
+    private void cmcpvp() {
         this.disc(0.0, 0.0, 1, 3.5, "polished_blackstone");
         this.disc(0.0, 0.0, 2, 2.5, "black_concrete");
         this.disc(0.0, 0.0, 2, 1.2, "sea_lantern");

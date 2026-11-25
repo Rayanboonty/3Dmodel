@@ -423,7 +423,7 @@ public final class TabManager {
 
     /** "3706 Online · Lowest Ping Host: Miami, Florida" (MCPVP footer). */
     private Component hostLine() {
-        String host = this.plugin.regions() == null ? "" : this.plugin.regions().hostLabel();
+        String host = this.plugin.regions() == null || net.practicepvp.Edition.PRACTICE_ONLY ? "" : this.plugin.regions().hostLabel();
         String line = "<#FF5555>" + Bukkit.getOnlinePlayers().size() + "</#FF5555> <gray>Online";
         if (!host.isBlank()) {
             line = line + " <dark_gray>·</dark_gray> <gray>Lowest Ping Host: <#FF5555>" + Text.esc(host);

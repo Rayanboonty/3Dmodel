@@ -68,7 +68,7 @@ public final class ModeManager {
     private final Map<String, String> generators = new LinkedHashMap<>();
     private final NamespacedKey groupKey;
     private final NamespacedKey hubItemKey;
-    /** Worlds worlds.yml gives an SMP mode: the SMP now runs on its own server with VortexSMP, so they are left alone. */
+    /** Worlds worlds.yml gives an SMP mode: the SMP now runs on its own server with CmcSmp, so they are left alone. */
     private final List<String> retired = new ArrayList<>();
     private ConfigurationSection old;
     /** Last spot of each player in each SMP world (the selector brings them back there). */
@@ -94,7 +94,7 @@ public final class ModeManager {
                 .setHeader(
                     List.of(
                         "World modes (edit in /pvpadmin -> World Manager).",
-                        "modes: PVP, HUB, NONE. The SMP runs on its own server now (VortexSMP); worlds with an old",
+                        "modes: PVP, HUB, NONE. The SMP runs on its own server now (CmcSmp); worlds with an old",
                         "SMP mode (SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO) are kept in this file but not loaded.",
                         "generator: normal, flat or void - worlds listed here are loaded on startup."
                     )
@@ -131,7 +131,7 @@ public final class ModeManager {
 
         if (!this.retired.isEmpty()) {
             this.plugin.getLogger().info("Worlds with an old SMP mode " + this.retired + " are left alone now (extra ones are not loaded): the SMP runs on "
-                + "its own server (VortexSMP). Their files and every saved inventory are kept; see the README to move them.");
+                + "its own server (CmcSmp). Their files and every saved inventory are kept; see the README to move them.");
         }
 
         for (Entry<String, String> e : this.generators.entrySet()) {
@@ -272,13 +272,13 @@ public final class ModeManager {
             .setHeader(
                 List.of(
                     "World modes (edit in /pvpadmin -> World Manager).",
-                    "modes: PVP, HUB, NONE. The SMP runs on its own server now (VortexSMP); worlds with an old",
+                    "modes: PVP, HUB, NONE. The SMP runs on its own server now (CmcSmp); worlds with an old",
                     "SMP mode (SURVIVAL, LIFESTEAL, STRENGTH, RANKED, ECO) are kept in this file but not loaded.",
                     "generator: normal, flat or void - worlds listed here are loaded on startup."
                 )
             );
         if (this.old != null) {
-            // the old SMP settings are kept so nothing is lost (VortexSMP can import them)
+            // the old SMP settings are kept so nothing is lost (CmcSmp can import them)
             y.set("settings", this.old);
         }
 
@@ -555,7 +555,7 @@ public final class ModeManager {
     /**
      * The SMP moved to its own server, so this plugin no longer swaps inventories. A player who still carries the
      * items of an old SMP inventory group (they logged off in an SMP world on 2.x) gets them saved to
-     * {@code inventories/groups/<uuid>/<group>.yml} before the hub gives them its items, so VortexSMP can import
+     * {@code inventories/groups/<uuid>/<group>.yml} before the hub gives them its items, so CmcSmp can import
      * them. Nothing is ever cleared without a saved copy.
      */
     public void stashLegacy(Player p) {
@@ -589,7 +589,7 @@ public final class ModeManager {
                 return;
             }
 
-            this.plugin.getLogger().info("Saved the old " + carried + " inventory of " + p.getName() + " to " + f.getPath() + " (VortexSMP imports it).");
+            this.plugin.getLogger().info("Saved the old " + carried + " inventory of " + p.getName() + " to " + f.getPath() + " (CmcSmp imports it).");
             p.getInventory().clear();
             p.getEnderChest().clear();
             p.setLevel(0);
@@ -683,7 +683,7 @@ public final class ModeManager {
     // ------------------------------------------------------------------ the SMP on this server
 
     public static boolean sameServer() {
-        // the practice-only build (C MCPvP) never has an SMP
+        // the practice-only build (CMCPVP) never has an SMP
         return !net.cmcpvp.Edition.PRACTICE_ONLY && Cfg.bool(Opt.SMP_SAME_SERVER);
     }
 

@@ -37,7 +37,7 @@ final class Elevator {
     private final ChangeTracker tracker;
     private final Map<Block, BlockData> removed = new LinkedHashMap<>();
     private final List<BlockDisplay> blocks = new ArrayList<>();
-    private static final NamespacedKey LIFT = new NamespacedKey("vortexrealm", "elevator_lift");
+    private static final NamespacedKey LIFT = new NamespacedKey("cmcpvp", "elevator_lift");
     private static final double DRAG = 0.98;
     private double lastG;
     private double expectedVy;

@@ -354,21 +354,23 @@ public final class AdminDialogs {
                 "Saves everything now: settings, kits, arenas,",
                 "ranks, stats, homes, every player's SMP and",
                 "Practice inventory, ender chest and XP.",
-                "Kept in plugins/VortexRealm-Vault."
+                "Kept in plugins/CMCPvP-Vault."
             )
         );
-        tiles.add(
-            tile(
-                Material.GRASS_BLOCK,
-                "<green><b>SMP",
-                "<gray>Settings, worlds, bring back old data",
-                () -> this.plugin.dialogs().smp().open(p),
-                "The survival SMP of this server: on/off,",
-                "all its settings, the SMP worlds, bringing",
-                "homes and inventories back from a backup or",
-                "the old plugin files, every player's backups."
-            )
-        );
+        if (!net.cmcpvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.GRASS_BLOCK,
+                    "<green><b>SMP",
+                    "<gray>Settings, worlds, bring back old data",
+                    () -> this.plugin.dialogs().smp().open(p),
+                    "The survival SMP of this server: on/off,",
+                    "all its settings, the SMP worlds, bringing",
+                    "homes and inventories back from a backup or",
+                    "the old plugin files, every player's backups."
+                )
+            );
+        }
         tiles.add(
             tile(
                 Material.ENDER_CHEST,
@@ -387,16 +389,18 @@ public final class AdminDialogs {
                 chest(p, () -> new StaffMenu(this.plugin, p).open());
             }
         }, "Helper, Mod and Admin roles."));
-        tiles.add(
-            tile(
-                Material.FILLED_MAP,
-                "<gold><b>World Manager",
-                "<gray>Modes, spawns, new worlds",
-                () -> this.worlds(p),
-                "Hub and PvP worlds. The SMP runs",
-                "on its own server (VortexSMP)."
-            )
-        );
+        if (!net.cmcpvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.FILLED_MAP,
+                    "<gold><b>World Manager",
+                    "<gray>Modes, spawns, new worlds",
+                    () -> this.worlds(p),
+                    "Hub and PvP worlds. The SMP runs",
+                    "on its own server (CmcSmp)."
+                )
+            );
+        }
         tiles.add(tile(Material.ARMOR_STAND, "<gold><b>NPCs", "<gray>Skins, actions, auras", () -> this.plugin.npcs().list(p), "Travel NPCs and menu NPCs."));
         if (this.plugin.chatFilter() != null) {
             tiles.add(
@@ -411,29 +415,33 @@ public final class AdminDialogs {
             );
         }
 
-        tiles.add(
-            tile(
-                Material.COMPASS,
-                "<gold><b>Server Selector",
-                "<gray>Practice, the SMP server, more servers...",
-                () -> this.plugin.serverSelector().editor(p),
-                "Names, icons, server addresses,",
-                "status badges and order."
-            )
-        );
-        tiles.add(
-            tile(
-                Material.BEACON,
-                "<gold><b>Hub Setup",
-                this.plugin.modes().hubWorld() == null ? "<yellow>No hub yet - one click" : "<green>Hub: " + this.plugin.modes().hubWorld().getName(),
-                () -> {
-                    p.closeDialog();
-                    this.plugin.hub().setup(p);
-                },
-                "Creates a hub world (if needed), builds",
-                "the spawn with NPCs. Players join there."
-            )
-        );
+        if (!net.cmcpvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.COMPASS,
+                    "<gold><b>Server Selector",
+                    "<gray>Practice, the SMP server, more servers...",
+                    () -> this.plugin.serverSelector().editor(p),
+                    "Names, icons, server addresses,",
+                    "status badges and order."
+                )
+            );
+        }
+        if (!net.cmcpvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.BEACON,
+                    "<gold><b>Hub Setup",
+                    this.plugin.modes().hubWorld() == null ? "<yellow>No hub yet - one click" : "<green>Hub: " + this.plugin.modes().hubWorld().getName(),
+                    () -> {
+                        p.closeDialog();
+                        this.plugin.hub().setup(p);
+                    },
+                    "Creates a hub world (if needed), builds",
+                    "the spawn with NPCs. Players join there."
+                )
+            );
+        }
         tiles.add(
             tile(
                 Material.GOLDEN_HELMET,
@@ -550,16 +558,18 @@ public final class AdminDialogs {
                 "(PvP lobby, hub and each SMP mode)."
             )
         );
-        tiles.add(
-            tile(
-                Material.OAK_SIGN,
-                "<gold><b>Tab Design",
-                "<gray>Now: <white>" + (this.plugin.tab() == null ? "?" : net.cmcpvp.social.TabDesigns.get(this.plugin.tab().design()).name()),
-                () -> this.tabDesigns(p),
-                "11 complete tab list looks: Classic, Competitive,",
-                "Network, Minimal, Neon, Stats Wall, Royal, Ocean..."
-            )
-        );
+        if (!net.cmcpvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.OAK_SIGN,
+                    "<gold><b>Tab Design",
+                    "<gray>Now: <white>" + (this.plugin.tab() == null ? "?" : net.cmcpvp.social.TabDesigns.get(this.plugin.tab().design()).name()),
+                    () -> this.tabDesigns(p),
+                    "11 complete tab list looks: Classic, Competitive,",
+                    "Network, Minimal, Neon, Stats Wall, Royal, Ocean..."
+                )
+            );
+        }
         tiles.add(
             tile(
                 Material.AMETHYST_CLUSTER,
@@ -1099,11 +1109,11 @@ public final class AdminDialogs {
         } else {
             return switch (s) {
                 case ROYAL_CASTLE -> "Royal Castle - a walled castle with towers, a keep and a courtyard on a hilly island: lake, waterfall, a fort with a bridge, a watchtower and a small market";
-                case CITADEL -> "Vortex Citadel - the grand hub";
+                case CITADEL -> "CMC Citadel - the grand hub";
                 case ARCHIPELAGO -> "Sky Archipelago - floating islands with bridges";
                 case NEON -> "Neon City";
                 case KEEP -> "Royal Keep - a small castle";
-                case GRAND_HUB -> "Vortex Grand Hub - huge";
+                case GRAND_HUB -> "CMC Grand Hub - huge";
                 case TOWN_SQUARE -> "Town Square - a medieval town hub";
                 case CASTLE_MARKET -> "Castle Market - castles, market stalls and a fountain";
                 case PRACTICE_TOWN -> "Practice Town - a hall for every mode, shops, market and parkour";
@@ -1111,7 +1121,7 @@ public final class AdminDialogs {
                 case SKY_EMPIRE -> "Sky Empire - 500 blocks";
                 case CLUB_SPAWN -> "Club Spawn - the MCPVP.CLUB spawn map (by Xter/SFFredd): plaza, town, river and forest";
                 case FRACTURE -> "The Fracture - a 350-block floating island split by a glowing chasm and joined by three bridges: Crown Plaza with 8 domed pavilions, Hall of Champions, FFA Colosseum, Kit Forge, Cosmetic Spire, training yard, parkour spire, tournament stage, ponds, waterfalls and snowy peaks";
-                case VORTEX_ISLES -> "Vortex Isles - a floating island hub with the Vortex Spire, 8 gamemode shrines, hills, trees and a waterfall (pro-style)";
+                case CRYSTAL_ISLES -> "Crystal Isles - a floating island hub with the CMC Spire, 8 gamemode shrines, hills, trees and a waterfall (pro-style)";
                 case JUNGLE -> "Jungle Temple";
                 case COLOSSEUM -> "Colosseum lobby - a round arena plaza";
                 default -> s.name().charAt(0) + s.name().substring(1).toLowerCase(Locale.ROOT) + " plaza - a small spawn with NPC pedestals";
@@ -1124,7 +1134,7 @@ public final class AdminDialogs {
             case ROYAL_CASTLE -> Material.GOLDEN_HELMET;
             case CITADEL, GRAND_HUB -> Material.BEACON;
             case ARCHIPELAGO, SKY_EMPIRE -> Material.FEATHER;
-            case VORTEX_ISLES -> Material.AMETHYST_CLUSTER;
+            case CRYSTAL_ISLES -> Material.AMETHYST_CLUSTER;
             case CLUB_SPAWN -> Material.EMERALD_BLOCK;
             case FRACTURE -> Material.CRYING_OBSIDIAN;
             case NEON -> Material.GLOW_INK_SAC;
@@ -1454,7 +1464,7 @@ public final class AdminDialogs {
                     tiles,
                     List.of(
                         Text.mm(
-                            "<gray>Ranks, kits and settings in <white>one file</white>: every settings file, every kit, the server ranks with their permissions and members, and every player's tier and points. Saved in <white>plugins/VortexRealm-Vault/exports</white> every 12 hours."
+                            "<gray>Ranks, kits and settings in <white>one file</white>: every settings file, every kit, the server ranks with their permissions and members, and every player's tier and points. Saved in <white>plugins/CMCPvP-Vault/exports</white> every 12 hours."
                         )
                     ),
                     null,
@@ -2085,7 +2095,7 @@ public final class AdminDialogs {
         p.sendMessage(Text.mm("<gray>Backing up everything (SMP + Practice)..."));
         this.plugin.vaultSnapshot("manual", (name, err) -> p.sendMessage(Text.mm(err != null
             ? "<red>Backup failed - see the console."
-            : "<green><b>Backed up.</b> <gray>Saved as <white>" + name + "</white> in plugins/VortexRealm-Vault (restore it in Data Vault).")));
+            : "<green><b>Backed up.</b> <gray>Saved as <white>" + name + "</white> in plugins/CMCPvP-Vault (restore it in Data Vault).")));
     }
 
     public void vault(Player p) {
@@ -2144,7 +2154,7 @@ public final class AdminDialogs {
                 tiles,
                 List.of(
                     Text.mm(
-                        "<gray>Everything the plugin keeps is saved to <white>plugins/VortexRealm-Vault</white> (outside the plugin folder) every 6 hours, at shutdown and before every update: settings, kits, arenas, worlds, NPCs, holograms, ranks, the database and every player's inventory, ender chest and XP. If the plugin folder is ever deleted or replaced, the newest snapshot comes back by itself."
+                        "<gray>Everything the plugin keeps is saved to <white>plugins/CMCPvP-Vault</white> (outside the plugin folder) every 6 hours, at shutdown and before every update: settings, kits, arenas, worlds, NPCs, holograms, ranks, the database and every player's inventory, ender chest and XP. If the plugin folder is ever deleted or replaced, the newest snapshot comes back by itself."
                     )
                 ),
                 null,
@@ -2422,7 +2432,8 @@ public final class AdminDialogs {
         List<LobbyDialogs.Tile> tiles = new ArrayList<>();
         if (section == null) {
             for (Opt.Section s : Opt.Section.values()) {
-                long count = Opt.all().stream().filter(ox -> ox.gui && ox.section == s).count();
+                long count = net.cmcpvp.Edition.PRACTICE_ONLY && (s == Opt.Section.SMP || s == Opt.Section.NETWORK) ? 0L
+                    : Opt.all().stream().filter(ox -> ox.gui && ox.section == s).count();
                 if (count != 0L) {
                     tiles.add(tile(s.icon, "<gold><b>" + s.title, "<gray>" + count + " options", () -> this.settings(p, s)));
                 }

@@ -3,7 +3,7 @@ package net.cmcpvp.survival.smp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.util.Snd;
@@ -21,9 +21,9 @@ import org.bukkit.potion.PotionEffectType;
 
 /** /craft /ec /trash /hat /nv /near /playtime and /setspawn. */
 public final class Utils implements TabExecutor {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
 
-    public Utils(VortexSMP plugin) {
+    public Utils(CmcSmp plugin) {
         this.plugin = plugin;
     }
 

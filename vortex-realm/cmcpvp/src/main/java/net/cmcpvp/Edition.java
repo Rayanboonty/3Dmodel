@@ -8,8 +8,8 @@ import org.bukkit.command.Command;
 import org.bukkit.command.PluginCommand;
 
 /**
- * Which server this build is for. The normal build (CMCPvP / VortexRealm) has everything. A practice-only build
- * (C MCPvP) is the same code with {@code edition.properties} saying {@code practice-only=true}: no SMP, no hub, no
+ * Which server this build is for. The normal build (CMCPvP / CMCPvP) has everything. A practice-only build
+ * (CMCPVP) is the same code with {@code edition.properties} saying {@code practice-only=true}: no SMP, no hub, no
  * server selector, no seasons; only the practice lobby, duels, FFA, parties, bots and events.
  */
 public final class Edition {
@@ -21,7 +21,7 @@ public final class Edition {
     /** Parts of the plugin that never start in a practice-only build. */
     private static final Set<String> SMP_PARTS = Set.of(
         "smp", "SMP seasons", "everyone equal in the SMP", "SMP kits", "SMP claims", "Unstable Realm season",
-        "SMP elytra wall rescue", "SMP portals", "VexBot bridge");
+        "SMP elytra wall rescue", "SMP portals", "VexBot bridge", "regions");
 
     static {
         Properties p = new Properties();
@@ -34,11 +34,14 @@ public final class Edition {
         }
 
         PRACTICE_ONLY = Boolean.parseBoolean(p.getProperty("practice-only", "false"));
-        NAME = p.getProperty("name", "C MCPvP");
+        NAME = p.getProperty("name", "CMCPVP");
     }
 
     private Edition() {
     }
+
+    /** Commands a practice-only server never offers (SMP, hub travel, server selector, regions). */
+    private static final Set<String> GONE = Set.of("worlds", "smp", "region", "survival", "leavepvp");
 
     /** Should this part of the plugin start in this build? */
     public static boolean starts(String part) {
@@ -58,7 +61,7 @@ public final class Edition {
         java.util.Map<String, Command> known = Bukkit.getCommandMap().getKnownCommands();
         for (String name : plugin.getDescription().getCommands().keySet()) {
             PluginCommand c = plugin.getCommand(name);
-            if (c == null || c.getExecutor() != plugin) {
+            if (c == null || c.getExecutor() != plugin && !GONE.contains(name)) {
                 continue;
             }
 

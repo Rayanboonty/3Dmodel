@@ -48,7 +48,7 @@ import org.bukkit.scoreboard.Team;
 
 /**
  * Rules of the hub world (no damage, no building, the selector items) and the travel commands
- * /hub /practice /worlds /smp. The SMP itself runs on its own server now (VortexSMP).
+ * /hub /practice /worlds /smp. The SMP itself runs on its own server now (CmcSmp).
  */
 public final class ModeRules implements Listener, CommandExecutor, TabCompleter {
     private final CMCPvP plugin;

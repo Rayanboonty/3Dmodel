@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * The Fracture: the C MCPvP spawn. A floating island about 350 blocks across, split in two by a glowing chasm and held
+ * The Fracture: the CMCPVP spawn. A floating island about 350 blocks across, split in two by a glowing chasm and held
  * together by three bridges.
  *
  * <ul>

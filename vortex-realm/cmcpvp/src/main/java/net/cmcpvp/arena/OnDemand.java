@@ -77,6 +77,28 @@ public final class OnDemand {
         return out;
     }
 
+    /** No map is being built right now. */
+    public boolean idle() {
+        return this.building.isEmpty();
+    }
+
+    /**
+     * Every few seconds after start-up: a kit that has no ready map gets one built in the background (one at a time,
+     * designed maps first), so matched players never wait for a first map.
+     */
+    public void warmUp() {
+        if (!this.enabled() || !this.idle()) {
+            return;
+        }
+
+        for (net.cmcpvp.kit.Kit k : this.plugin.kits().all()) {
+            if (this.plugin.arenas().forKit(k).isEmpty() && !this.candidates(k).isEmpty()) {
+                this.buildFor(k);
+                return;
+            }
+        }
+    }
+
     /** True when the kit can be played: a map is ready, or one can be built for it now. */
     public boolean canPlay(Kit kit) {
         return !this.plugin.arenas().forKit(kit).isEmpty() || !this.candidates(kit).isEmpty() || this.buildingFor(kit) != null;

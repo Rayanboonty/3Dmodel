@@ -2,8 +2,8 @@ name: CMCPvP
 version: '${project.version}'
 main: net.cmcpvp.CMCPvP
 api-version: '1.21.11'
-description: C MCPvP - Cracked Minecraft PvP. Practice only - ranked and unranked duels, LT5-HT1 tiers, FFA, parties, bots, events.
-authors: [C MCPvP]
+description: CMCPVP - Cracked Minecraft PvP. Practice only - ranked and unranked duels, LT5-HT1 tiers, FFA, parties, bots, events.
+authors: [CMCPVP]
 website: https://cmcpvp.net
 softdepend: [PlaceholderAPI, Vulcan, GrimAC, LuckPerms, Vault, VexBot]
 
@@ -205,10 +205,10 @@ commands:
     description: Pick the server region closest to you.
     aliases: [regions]
 
-  # ---- the SMP (it was the VortexSMP plugin)
+  # ---- the SMP (it was the CmcSmp plugin)
   setspawn:
     description: Set the SMP spawn where you stand.
-    permission: vortexsmp.admin
+    permission: cmcsmp.admin
   oldstuff:
     description: Take the items you had on the old SMP.
     aliases: [olditems]
@@ -225,7 +225,7 @@ commands:
   smpadmin:
     description: SMP control panel (players, positions, inventories, logout spots, web map).
     aliases: [sa]
-    permission: vortexsmp.admin
+    permission: cmcsmp.admin
   craft:
     description: Portable crafting table.
     aliases: [wb, workbench]
@@ -278,10 +278,10 @@ commands:
     description: The server warps.
   setwarp:
     description: Create a warp here (icon = item in hand).
-    permission: vortexsmp.warps.admin
+    permission: cmcsmp.warps.admin
   delwarp:
     description: Delete a warp.
-    permission: vortexsmp.warps.admin
+    permission: cmcsmp.warps.admin
 
   namecolor:
     description: Pick the colour of your name in chat.
@@ -418,7 +418,7 @@ commands:
     permission: cmcpvp.admin
   plus:
     description: "PracticePvP add-on admin: status, tests, reload, rollback, web dashboard."
-    aliases: [vortexplus, vpp]
+    aliases: [cmcplus, vpp]
     permission: cmcpvp.admin
   realm:
     description: "The Unstable Realm season: your story, votes, journal (admins: /realm help)."
@@ -456,23 +456,23 @@ permissions:
   cmcpvp.coach:
     description: "Can coach anyone (not only friends)."
     default: op
-  vortexsmp.admin:
-    description: Every admin command (/smpadmin, /setspawn, /vortexsmp, warps).
+  cmcsmp.admin:
+    description: Every admin command (/smpadmin, /setspawn, /cmcsmp, warps).
     default: op
     children:
-      vortexsmp.warps.admin: true
-      vortexsmp.teleport.bypass: true
-      vortexsmp.staff: true
-  vortexsmp.staff:
+      cmcsmp.warps.admin: true
+      cmcsmp.teleport.bypass: true
+      cmcsmp.staff: true
+  cmcsmp.staff:
     description: See staff details in /smpadmin.
     default: op
-  vortexsmp.warps.admin:
+  cmcsmp.warps.admin:
     description: /setwarp and /delwarp.
     default: op
-  vortexsmp.teleport.bypass:
+  cmcsmp.teleport.bypass:
     description: No teleport warmup or cooldown.
     default: op
-  vortexsmp.homes.unlimited:
+  cmcsmp.homes.unlimited:
     description: Unlimited homes.
     default: op
   cmcpvp.admin:

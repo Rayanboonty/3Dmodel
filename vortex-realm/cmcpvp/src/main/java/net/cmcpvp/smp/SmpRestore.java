@@ -35,7 +35,7 @@ import org.bukkit.inventory.ItemStack;
 
 /**
  * Brings SMP data back from a chosen source: a Data Vault snapshot (taken before every update, every 6 hours and at
- * shutdown), this plugin's own old files, the old VortexSMP plugin's folder or one of its backups, or an old plugin
+ * shutdown), this plugin's own old files, the old CmcSmp plugin's folder or one of its backups, or an old plugin
  * folder / zip put in smp/import/. What comes back: homes and warps, every saved SMP inventory and ender chest (also
  * what players were carrying at the time, read from the player files in the snapshot), their backups and last spots.
  * <p>
@@ -273,7 +273,7 @@ public final class SmpRestore {
         };
     }
 
-    /** The folder inside a source that holds the plugin files ("" or "VortexRealm/" in a zip of the folder). */
+    /** The folder inside a source that holds the plugin files ("" or "CMCPvP/" in a zip of the folder). */
     private static String prefix(List<String> names) {
         for (String n : names) {
             int i = n.indexOf("inventories/groups/");
@@ -314,7 +314,7 @@ public final class SmpRestore {
     /** Applies (or with {@code dry} only counts). Call on the main thread. */
     public Preview run(Source s, Set<Part> parts, boolean replace, boolean dry) throws IOException {
         Preview pv = new Preview();
-        net.cmcpvp.survival.VortexSMP smp = this.plugin.survival();
+        net.cmcpvp.survival.CmcSmp smp = this.plugin.survival();
         ModeManager modes = this.modes();
         String tag = s.id().replaceAll("[^A-Za-z0-9_-]+", "-").replaceAll("-+$", "");
         try (Reader r = this.reader(s.file())) {
@@ -572,7 +572,7 @@ public final class SmpRestore {
     // ------------------------------------------------------------------ at start-up
 
     /**
-     * Once per source and version of its files: homes and warps of this plugin's old files and of the old VortexSMP
+     * Once per source and version of its files: homes and warps of this plugin's old files and of the old CmcSmp
      * plugin, and everything in smp/import/ - only what's missing.
      */
     public void startup() {
@@ -580,7 +580,7 @@ public final class SmpRestore {
         YamlConfiguration st = YamlConfiguration.loadConfiguration(stateFile);
         Map<String, Set<Part>> auto = new LinkedHashMap<>();
         auto.put("own", EnumSet.of(Part.HOMES));
-        auto.put("vortexsmp", EnumSet.of(Part.HOMES));
+        auto.put("cmcsmp", EnumSet.of(Part.HOMES));
         for (Source s : this.sources()) {
             Set<Part> parts = s.id().startsWith("drop:") ? EnumSet.allOf(Part.class) : auto.get(s.id());
             if (parts == null) {

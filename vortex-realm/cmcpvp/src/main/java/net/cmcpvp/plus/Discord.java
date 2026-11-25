@@ -101,7 +101,7 @@ public final class Discord implements Listener {
 
         JsonObject body = new JsonObject();
         body.addProperty("content", next);
-        body.addProperty("username", this.plus.config().s("discord.name", "C MCPvP"));
+        body.addProperty("username", this.plus.config().s("discord.name", "CMCPVP"));
         JsonObject mentions = new JsonObject();
         mentions.add("parse", new JsonArray());
         body.add("allowed_mentions", mentions);

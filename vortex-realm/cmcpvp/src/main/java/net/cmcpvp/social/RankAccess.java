@@ -178,7 +178,7 @@ public final class RankAccess {
         for (Ranks.Rank r : this.ranks.all()) {
             if (!r.isDefault()) {
                 put(out, "cmcpvp.rank." + r.id, "Have the " + r.label + " rank (for LuckPerms groups)", "CMCPvP", op);
-                put(out, "vortex.rank." + r.id, "Marks " + r.label + " players (given by the rank, for other plugins)", "CMCPvP", op);
+                put(out, "cmcpvp.rank." + r.id, "Marks " + r.label + " players (given by the rank, for other plugins)", "CMCPvP", op);
             }
         }
     }
@@ -203,7 +203,7 @@ public final class RankAccess {
             return "Bukkit";
         } else if (n.startsWith("paper.") || n.startsWith("spigot.")) {
             return "Paper";
-        } else if (!n.startsWith("practice.") && !n.startsWith("vortex.")) {
+        } else if (!n.startsWith("practice.") && !n.startsWith("cmcpvp.")) {
             int dot = n.indexOf(46);
             return pretty(dot > 0 ? n.substring(0, dot) : n);
         } else {
@@ -362,7 +362,7 @@ public final class RankAccess {
             Set<String> seen = new HashSet<>();
 
             for (Ranks.Rank cur = this.ranks.get(r.inherit); cur != null && seen.add(cur.id); cur = this.ranks.get(cur.inherit)) {
-                if (Boolean.TRUE.equals(this.expand(cur.permissions).get(node)) || node.equals("vortex.rank." + cur.id)) {
+                if (Boolean.TRUE.equals(this.expand(cur.permissions).get(node)) || node.equals("cmcpvp.rank." + cur.id)) {
                     return cur.id;
                 }
             }

@@ -1089,6 +1089,10 @@ public final class Opt<T> {
         "Full backups (plugins/VortexRealm-Vault) by themselves every 6 hours, at shutdown and before updates. Off = only when you click Backup Everything in /pvpadmin (saves storage).",
         Material.ENDER_CHEST
     );
+    public static final Opt<Integer> WAITING_ROOM_SECONDS = integer(
+        "match.waiting-room-seconds", 5, Opt.Section.MATCH, "Waiting Room Time",
+        "Seconds matched players stay in the waiting room before going on to the map vote with the maps that are ready.", Material.CLOCK, 2, 60, 1
+    );
     public static final Opt<Boolean> ARENA_BARRIER_WALLS = bool(
         "arena.barrier-walls",
         true,

@@ -1,6 +1,6 @@
-<title>C MCPvP</title>
+<title>CMCPVP</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="C MCPvP: competitive Minecraft PvP. Ranked duels with tiers LT5 to HT1, leaderboards, tournaments and events.">
+<meta name="description" content="CMCPVP: competitive Minecraft PvP. Ranked duels with tiers LT5 to HT1, leaderboards, tournaments and events.">
 <link rel="icon" href="logo-mark.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -520,7 +520,7 @@ footer { position: relative; z-index: 1; border-top: 1px solid var(--line); back
   <div class="wrap">
     <nav class="nav" aria-label="Main">
       <div class="side left" id="navLeft"></div>
-      <a class="logo" href="#home" aria-label="Home"><img src="logo-mark.png" alt="C MCPvP" id="navLogo" width="241" height="176"><span class="swoosh"></span></a>
+      <a class="logo" href="#home" aria-label="Home"><img src="logo-mark.png" alt="CMCPVP" id="navLogo" width="241" height="176"><span class="swoosh"></span></a>
       <div class="side right"><span id="navRight" style="display:contents"></span>
         <button class="btn hot" id="playBtn" type="button"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Play</span></button>
         <button class="btn burger" id="burger" type="button" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -538,7 +538,7 @@ footer { position: relative; z-index: 1; border-top: 1px solid var(--line); back
 <footer class="page">
   <div class="wrap foot">
     <div><img src="logo-mark.png" alt="" width="241" height="176" style="display:block;height:56px;width:auto;margin-bottom:12px">
-      <span class="wordmark" style="font-size:28px;display:inline-block" id="footName">C MCPVP</span>
+      <span class="wordmark" style="font-size:28px;display:inline-block" id="footName">CMCPVP</span>
       <p style="color:var(--muted);margin:12px 0 0;max-width:40ch" id="footTag"></p></div>
     <div><h4>Explore</h4><div id="footPages"></div></div>
     <div><h4>Community</h4><a id="footDiscord" target="_blank" rel="noopener">Discord</a><a id="footStore" target="_blank" rel="noopener">Store</a><div id="footLinks"></div></div>
@@ -643,7 +643,7 @@ function demoBoard(kit) {
 function demo(path) {
   const u = new URL(path, "https://x.y");
   switch (u.pathname) {
-    case "/api/site": return {name: "C MCPvP", ip: "play.cmcpvp.net", discord: "#", store: "#",
+    case "/api/site": return {name: "CMCPVP", ip: "play.cmcpvp.net", discord: "#", store: "#",
       tagline: "The competitive PvP network. Ranked duels from LT5 to HT1, tournaments and events, all on one server.", accent: "#FFB547",
       pages: ["home", "modes", "leaderboards", "tiers", "ranks", "staff", "rules", "player"],
       news: [{date: "2026-10-19", title: "Skill check placement", text: "Your first three unranked duels in a kit now place you at the tier you play at."},
@@ -668,7 +668,7 @@ function demo(path) {
       {id: "vip", label: "VIP", from: "#8CFF7A", to: "#2E9B3A", price: "$4.99", description: "The first step up.", perks: ["Green VIP tag in chat and tab", "4 homes", "Queue priority"]},
       {id: "mvp", label: "MVP", from: "#FFC14D", to: "#FF7A00", price: "$9.99", description: "Stand out in every lobby.", perks: ["Everything in VIP", "6 homes", "Lobby fly", "Custom kill effects"]},
       {id: "legend", label: "LEGEND", from: "#FFE27A", to: "#FF6F00", price: "$19.99", description: "For the ones who live here.", perks: ["Everything in MVP", "10 homes", "Animated tag", "Host tournaments"]},
-      {id: "media", label: "MEDIA", from: "#FF4D4D", to: "#D40000", price: "", description: "For creators who film on Vortex.", perks: ["Red play-button icon", "Early access to updates"]}], staff: []};
+      {id: "media", label: "MEDIA", from: "#FF4D4D", to: "#D40000", price: "", description: "For creators who film on CMC.", perks: ["Red play-button icon", "Early access to updates"]}], staff: []};
     case "/api/staff": return [["Kaizo", "OWNER", "#FF5F5F", "#FF9A3D"], ["Nyxie", "ADMIN", "#FF4D4D", "#C40000"], ["Rexar", "MOD", "#6BFF8C", "#1FAF5A"], ["Lumen", "MOD", "#6BFF8C", "#1FAF5A"],
       ["Sable", "HELPER", "#8FD8FF", "#3D8BFF"], ["Tidal", "BUILDER", "#FFC48A", "#E07B00"]].map(([name, label, from, to], i) => ({name, uuid: name, online: i % 2 === 0, rank: {label, from, to, staff: true}}));
     case "/api/player": {
@@ -727,7 +727,7 @@ async function copyIp() {
 }
 function applySite() {
   document.documentElement.style.setProperty("--accent", /^#[0-9a-f]{6}$/i.test(site.accent || "") ? site.accent : "#FFB547");
-  $("#navLogo").alt = site.name || "C MCPvP";
+  $("#navLogo").alt = site.name || "CMCPVP";
   $("#footName").textContent = String(site.name).toUpperCase(); $("#footTag").textContent = site.tagline || "";
   $("#footIp").textContent = site.ip || ""; $("#footDiscord").href = site.discord || "#"; $("#footStore").href = site.store || "#";
   $("#footLinks").innerHTML = (site.links || []).filter(l => l.url).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)}</a>`).join("");
@@ -835,7 +835,7 @@ async function home() {
           <a class="btn" href="#leaderboards">${svgIcon("leaderboards")}Leaderboards</a></div>
       </div>
       <div><div class="heroArt" id="heroArt"><div class="tilt" id="heroTilt"><div class="float">
-          <img class="main" src="logo.png" alt="${esc(site.name || "C MCPvP")}" width="595" height="420" draggable="false">
+          <img class="main" src="logo.png" alt="${esc(site.name || "CMCPVP")}" width="595" height="420" draggable="false">
           <img class="amb" src="logo.png" alt="" aria-hidden="true"><img class="soft x" src="logo.png" alt="" aria-hidden="true"><img class="soft y" src="logo.png" alt="" aria-hidden="true">
           <span class="shine" aria-hidden="true"></span>${[18, 34, 52, 66, 80].map((l, i) => `<i class="spark" style="left:${l}%;animation-delay:${i * .7}s;--dx:${(i % 2 ? -1 : 1) * (8 + i * 4)}px"></i>`).join("")}</div></div></div>
         <div class="stats"><div class="stat hot"><b id="s1">0</b><span>Online</span></div><div class="stat"><b id="s2">0</b><span>Fighting</span></div><div class="stat"><b id="s3">0</b><span>In queue</span></div></div></div>

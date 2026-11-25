@@ -57,7 +57,7 @@ public final class ResourcePacks implements Listener {
                 r -> this.zip == null
                     ? WebServer.Response.notFound()
                     : WebServer.Response.of(200, "application/zip", this.zip)
-                        .header("Content-Disposition", "attachment; filename=\"vortex-pack.zip\"")
+                        .header("Content-Disposition", "attachment; filename=\"cmcpvp-pack.zip\"")
                         .header("Cache-Control", "public, max-age=86400")
             );
             web.exact("HEAD", "/pack", r -> WebServer.Response.notFound());
@@ -86,7 +86,7 @@ public final class ResourcePacks implements Listener {
                     String hex = HexFormat.of().formatHex(digest);
                     File dir = new File(this.plugin.getDataFolder(), "web");
                     if (dir.isDirectory() || dir.mkdirs()) {
-                        Files.write(new File(dir, "vortex-pack.zip").toPath(), built.zip());
+                        Files.write(new File(dir, "cmcpvp-pack.zip").toPath(), built.zip());
                     }
 
                     this.zip = built.zip();
@@ -114,7 +114,7 @@ public final class ResourcePacks implements Listener {
                         .log(Level.WARNING, "Could not build the resource pack; flags and the rank-up screen fall back to plain text.", (Throwable)var10x);
                 }
             },
-            "VortexPackBuilder"
+            "CMCPackBuilder"
         );
         t.setDaemon(true);
         t.start();

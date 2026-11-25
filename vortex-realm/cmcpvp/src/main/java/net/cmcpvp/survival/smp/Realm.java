@@ -1,7 +1,7 @@
 package net.cmcpvp.survival.smp;
 
 import net.cmcpvp.CMCPvP;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -11,9 +11,9 @@ import org.bukkit.entity.Player;
  * hub. The SMP always runs on this server, next to Practice.
  */
 public final class Realm {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
 
-    public Realm(VortexSMP plugin) {
+    public Realm(CmcSmp plugin) {
         this.plugin = plugin;
     }
 

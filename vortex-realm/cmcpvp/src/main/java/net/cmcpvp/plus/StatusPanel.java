@@ -51,7 +51,7 @@ public final class StatusPanel {
         }
 
         List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
-        online.removeIf(p -> p.hasMetadata("NPC") || p.hasMetadata("vortex-keepalive"));
+        online.removeIf(p -> p.hasMetadata("NPC") || p.hasMetadata("cmcpvp-keepalive"));
         StringBuilder key = new StringBuilder().append(online.size());
         for (Player p : online) {
             key.append(',').append(p.getName());
@@ -70,14 +70,14 @@ public final class StatusPanel {
     }
 
     private JsonObject payload(List<Player> online) {
-        String ip = this.plus.config().s("discord.status-ip", "vortexsmps.playwithbao.com");
+        String ip = this.plus.config().s("discord.status-ip", "cmcpvp.playwithbao.com");
         int max = Bukkit.getMaxPlayers();
         long ts = System.currentTimeMillis() / 1000L;
         JsonArray embeds = new JsonArray();
         JsonObject head = new JsonObject();
         head.addProperty("color", 0x3DBE4B);
         JsonObject author = new JsonObject();
-        author.addProperty("name", "C MCPVP  •  LIVE SERVER STATUS");
+        author.addProperty("name", "CMCPVP  •  LIVE SERVER STATUS");
         head.add("author", author);
         head.addProperty("title", "🟢  ONLINE  •  " + online.size() + " / " + max + " players");
         StringBuilder d = new StringBuilder();
@@ -120,7 +120,7 @@ public final class StatusPanel {
         }
 
         JsonObject body = new JsonObject();
-        body.addProperty("username", "C MCPvP Status");
+        body.addProperty("username", "CMCPVP Status");
         body.add("embeds", embeds);
         JsonObject mentions = new JsonObject();
         mentions.add("parse", new JsonArray());

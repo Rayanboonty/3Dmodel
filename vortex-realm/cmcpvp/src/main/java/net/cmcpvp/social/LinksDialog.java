@@ -49,7 +49,7 @@ public final class LinksDialog {
             if (code != null) {
                 HttpRequest req = HttpRequest.newBuilder(URI.create("https://discord.com/api/v10/invites/" + code + "?with_counts=true"))
                     .timeout(Duration.ofSeconds(6L))
-                    .header("User-Agent", "VortexRealm-Plugin (server links, 1.0)")
+                    .header("User-Agent", "CMCPvP-Plugin (server links, 1.0)")
                     .GET()
                     .build();
                 HTTP.sendAsync(req, BodyHandlers.ofString()).thenAccept(res -> {

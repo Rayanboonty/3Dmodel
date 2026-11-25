@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The toolkit for floating-island builds (Eco Spawn, Vortex Isles): an island with an irregular outline, rolling hills
+ * The toolkit for floating-island builds (Eco Spawn, Crystal Isles): an island with an irregular outline, rolling hills
  * that rise toward the rim with stone showing on steep slopes, a deep eroded underside that breaks into rock spikes,
  * small floating islets, branching trees with clumpy crowns, winding lantern-lit paths, a stream that falls off the
  * edge and wild flowers. Subclasses flatten pads for what they build ({@link #pad}) and place it on the terrain.

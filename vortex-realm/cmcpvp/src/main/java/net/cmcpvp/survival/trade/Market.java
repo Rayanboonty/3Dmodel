@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.util.Items;
@@ -46,13 +46,13 @@ import org.bukkit.inventory.ItemStack;
  * away when online). Cancel an offer to get your items back.
  */
 public final class Market implements Listener, TabExecutor {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final File file;
     private YamlConfiguration data;
     /** Items put in for an offer, waiting for the "what do you want" answer. */
     private final Map<UUID, List<ItemStack>> drafts = new HashMap<>();
 
-    public Market(VortexSMP plugin) {
+    public Market(CmcSmp plugin) {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "market.yml");
         this.data = YamlConfiguration.loadConfiguration(this.file);
@@ -383,7 +383,7 @@ public final class Market implements Listener, TabExecutor {
 
     private void cancel(Player p, String id) {
         String base = "offers." + id + ".";
-        if (!p.getUniqueId().toString().equals(this.data.getString(base + "owner")) && !p.hasPermission("vortexsmp.admin")) {
+        if (!p.getUniqueId().toString().equals(this.data.getString(base + "owner")) && !p.hasPermission("cmcsmp.admin")) {
             return;
         }
 

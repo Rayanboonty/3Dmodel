@@ -357,18 +357,20 @@ public final class AdminDialogs {
                 "Kept in plugins/VortexRealm-Vault."
             )
         );
-        tiles.add(
-            tile(
-                Material.GRASS_BLOCK,
-                "<green><b>SMP",
-                "<gray>Settings, worlds, bring back old data",
-                () -> this.plugin.dialogs().smp().open(p),
-                "The survival SMP of this server: on/off,",
-                "all its settings, the SMP worlds, bringing",
-                "homes and inventories back from a backup or",
-                "the old plugin files, every player's backups."
-            )
-        );
+        if (!net.practicepvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.GRASS_BLOCK,
+                    "<green><b>SMP",
+                    "<gray>Settings, worlds, bring back old data",
+                    () -> this.plugin.dialogs().smp().open(p),
+                    "The survival SMP of this server: on/off,",
+                    "all its settings, the SMP worlds, bringing",
+                    "homes and inventories back from a backup or",
+                    "the old plugin files, every player's backups."
+                )
+            );
+        }
         tiles.add(
             tile(
                 Material.ENDER_CHEST,
@@ -387,16 +389,18 @@ public final class AdminDialogs {
                 chest(p, () -> new StaffMenu(this.plugin, p).open());
             }
         }, "Helper, Mod and Admin roles."));
-        tiles.add(
-            tile(
-                Material.FILLED_MAP,
-                "<gold><b>World Manager",
-                "<gray>Modes, spawns, new worlds",
-                () -> this.worlds(p),
-                "Hub and PvP worlds. The SMP runs",
-                "on its own server (VortexSMP)."
-            )
-        );
+        if (!net.practicepvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.FILLED_MAP,
+                    "<gold><b>World Manager",
+                    "<gray>Modes, spawns, new worlds",
+                    () -> this.worlds(p),
+                    "Hub and PvP worlds. The SMP runs",
+                    "on its own server (VortexSMP)."
+                )
+            );
+        }
         tiles.add(tile(Material.ARMOR_STAND, "<gold><b>NPCs", "<gray>Skins, actions, auras", () -> this.plugin.npcs().list(p), "Travel NPCs and menu NPCs."));
         if (this.plugin.chatFilter() != null) {
             tiles.add(
@@ -411,29 +415,33 @@ public final class AdminDialogs {
             );
         }
 
-        tiles.add(
-            tile(
-                Material.COMPASS,
-                "<gold><b>Server Selector",
-                "<gray>Practice, the SMP server, more servers...",
-                () -> this.plugin.serverSelector().editor(p),
-                "Names, icons, server addresses,",
-                "status badges and order."
-            )
-        );
-        tiles.add(
-            tile(
-                Material.BEACON,
-                "<gold><b>Hub Setup",
-                this.plugin.modes().hubWorld() == null ? "<yellow>No hub yet - one click" : "<green>Hub: " + this.plugin.modes().hubWorld().getName(),
-                () -> {
-                    p.closeDialog();
-                    this.plugin.hub().setup(p);
-                },
-                "Creates a hub world (if needed), builds",
-                "the spawn with NPCs. Players join there."
-            )
-        );
+        if (!net.practicepvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.COMPASS,
+                    "<gold><b>Server Selector",
+                    "<gray>Practice, the SMP server, more servers...",
+                    () -> this.plugin.serverSelector().editor(p),
+                    "Names, icons, server addresses,",
+                    "status badges and order."
+                )
+            );
+        }
+        if (!net.practicepvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.BEACON,
+                    "<gold><b>Hub Setup",
+                    this.plugin.modes().hubWorld() == null ? "<yellow>No hub yet - one click" : "<green>Hub: " + this.plugin.modes().hubWorld().getName(),
+                    () -> {
+                        p.closeDialog();
+                        this.plugin.hub().setup(p);
+                    },
+                    "Creates a hub world (if needed), builds",
+                    "the spawn with NPCs. Players join there."
+                )
+            );
+        }
         tiles.add(
             tile(
                 Material.GOLDEN_HELMET,
@@ -550,16 +558,18 @@ public final class AdminDialogs {
                 "(PvP lobby, hub and each SMP mode)."
             )
         );
-        tiles.add(
-            tile(
-                Material.OAK_SIGN,
-                "<gold><b>Tab Design",
-                "<gray>Now: <white>" + (this.plugin.tab() == null ? "?" : net.practicepvp.social.TabDesigns.get(this.plugin.tab().design()).name()),
-                () -> this.tabDesigns(p),
-                "11 complete tab list looks: Classic, Competitive,",
-                "Network, Minimal, Neon, Stats Wall, Royal, Ocean..."
-            )
-        );
+        if (!net.practicepvp.Edition.PRACTICE_ONLY) {
+            tiles.add(
+                tile(
+                    Material.OAK_SIGN,
+                    "<gold><b>Tab Design",
+                    "<gray>Now: <white>" + (this.plugin.tab() == null ? "?" : net.practicepvp.social.TabDesigns.get(this.plugin.tab().design()).name()),
+                    () -> this.tabDesigns(p),
+                    "11 complete tab list looks: Classic, Competitive,",
+                    "Network, Minimal, Neon, Stats Wall, Royal, Ocean..."
+                )
+            );
+        }
         tiles.add(
             tile(
                 Material.AMETHYST_CLUSTER,
@@ -2422,7 +2432,8 @@ public final class AdminDialogs {
         List<LobbyDialogs.Tile> tiles = new ArrayList<>();
         if (section == null) {
             for (Opt.Section s : Opt.Section.values()) {
-                long count = Opt.all().stream().filter(ox -> ox.gui && ox.section == s).count();
+                long count = net.practicepvp.Edition.PRACTICE_ONLY && (s == Opt.Section.SMP || s == Opt.Section.NETWORK) ? 0L
+                    : Opt.all().stream().filter(ox -> ox.gui && ox.section == s).count();
                 if (count != 0L) {
                     tiles.add(tile(s.icon, "<gold><b>" + s.title, "<gray>" + count + " options", () -> this.settings(p, s)));
                 }

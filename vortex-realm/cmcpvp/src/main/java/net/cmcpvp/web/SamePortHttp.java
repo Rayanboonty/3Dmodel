@@ -27,7 +27,7 @@ public final class SamePortHttp {
     private final CMCPvP plugin;
     private final WebServer web;
     private final ExecutorService pool = Executors.newFixedThreadPool(4, r -> {
-        Thread t = new Thread(r, "VortexWeb-MC");
+        Thread t = new Thread(r, "CMCWeb-MC");
         t.setDaemon(true);
         return t;
     });
@@ -58,7 +58,7 @@ public final class SamePortHttp {
                     case "afterInitChannel":
                         if (this.enabled && args != null && args.length == 1 && args[0] instanceof Channel ch) {
                             try {
-                                ch.pipeline().addFirst("vortex_http", new SamePortHttp.Sniffer());
+                                ch.pipeline().addFirst("cmcpvp_http", new SamePortHttp.Sniffer());
                             } catch (RuntimeException var8) {
                             }
                         }
@@ -69,13 +69,13 @@ public final class SamePortHttp {
                     case "equals":
                         return p == args[0];
                     case "toString":
-                        return "VortexRealm same-port HTTP";
+                        return "CMCPvP same-port HTTP";
                     default:
                         return null;
                 }
             });
             Method add = holder.getMethod("addListener", Key.class, listener);
-            add.invoke(null, Key.key("vortexrealm", "http"), proxy);
+            add.invoke(null, Key.key("cmcpvp", "http"), proxy);
             this.installed = true;
             this.web.samePort(this.enabled);
             this.plugin.getLogger().info("Website and resource pack are also served on the Minecraft port.");
@@ -97,12 +97,12 @@ public final class SamePortHttp {
 
         try {
             Class<?> holder = Class.forName("io.papermc.paper.network.ChannelInitializeListenerHolder");
-            holder.getMethod("removeListener", Key.class).invoke(null, Key.key("vortexrealm", "http"));
+            holder.getMethod("removeListener", Key.class).invoke(null, Key.key("cmcpvp", "http"));
         } catch (LinkageError | RuntimeException | ReflectiveOperationException var2) {
         }
     }
 
-    private static void write(Channel ch, WebServer.Request req, WebServer.Response res) {
+    private static void write(ChannelHandlerContext ch, WebServer.Request req, WebServer.Response res) {
         StringBuilder h = new StringBuilder();
         h.append("HTTP/1.1 ").append(res.status()).append(' ').append(reason(res.status())).append("\r\n");
         h.append("Content-Type: ").append(res.type()).append("\r\n");
@@ -223,10 +223,11 @@ public final class SamePortHttp {
                                 System.arraycopy(all, bodyStart, body, 0, body.length);
                                 String ip = ctx.channel().remoteAddress() instanceof InetSocketAddress a ? a.getAddress().getHostAddress() : "?";
                                 WebServer.Request req = WebServer.request(first[0], first[1], headers, body, ip);
-                                Channel ch = ctx.channel();
+                                // written from this handler's place (the head of the pipeline), so Minecraft's packet
+                                // encoders don't put a length in front of the HTTP reply
                                 SamePortHttp.this.pool.execute(() -> {
                                     WebServer.Response res = SamePortHttp.this.web.dispatch(req);
-                                    ch.eventLoop().execute(() -> SamePortHttp.write(ch, req, res));
+                                    ctx.executor().execute(() -> SamePortHttp.write(ctx, req, res));
                                 });
                             }
                         }

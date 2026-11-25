@@ -70,7 +70,7 @@ public final class SelfTest {
         this.chatFilter();
         this.database();
         this.dialog();
-        this.vortex();
+        this.cmcpvp();
         for (java.util.function.Consumer<SelfTest> x : EXTRA) {
             try {
                 x.accept(this);
@@ -370,8 +370,8 @@ public final class SelfTest {
         }
     }
 
-    /** Checks for the C MCPvP additions: privacy filters, Tier Defense pairing, tables and the tab columns. */
-    private void vortex() {
+    /** Checks for the CMCPVP additions: privacy filters, Tier Defense pairing, tables and the tab columns. */
+    private void cmcpvp() {
         net.cmcpvp.social.SocialManager.Filter f = net.cmcpvp.social.SocialManager.Filter.parse("fr.fm|5|100");
         this.check(
             "Privacy: request filter round trip",
@@ -520,7 +520,7 @@ public final class SelfTest {
         );
         this.check("Match found: the first version's pop by default (totem, then the kit's weapon)", "BOTH".equals(net.cmcpvp.config.Opt.FOUND_EFFECT.def), String.valueOf(net.cmcpvp.config.Opt.FOUND_EFFECT.def));
         List<net.cmcpvp.build.Voxels> designs = new ArrayList<>();
-        designs.add(new net.cmcpvp.build.VortexIslesDesign(0, 100, 0, 90, 3L));
+        designs.add(new net.cmcpvp.build.CrystalIslesDesign(0, 100, 0, 90, 3L));
         designs.add(new net.cmcpvp.build.MoleMinesDesign(0, 100, 0, 5L, false));
         designs.add(new net.cmcpvp.build.MoleMinesDesign(0, 100, 0, 6L, true));
         for (net.cmcpvp.build.DuelArenaDesign.Style st : net.cmcpvp.build.DuelArenaDesign.Style.values()) {

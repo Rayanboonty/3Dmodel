@@ -95,13 +95,13 @@ public final class NetworkSync {
                 return false;
             }
 
-            long time = Long.parseLong(r.header("x-vortex-time"));
+            long time = Long.parseLong(r.header("x-cmcpvp-time"));
             if (Math.abs(System.currentTimeMillis() / 1000L - time) > 120L) {
                 return false;
             }
 
             String want = this.sign(r.method(), r.path(), time, r.body());
-            return MessageDigest.isEqual(want.getBytes(StandardCharsets.UTF_8), String.valueOf(r.header("x-vortex-sig")).getBytes(StandardCharsets.UTF_8));
+            return MessageDigest.isEqual(want.getBytes(StandardCharsets.UTF_8), String.valueOf(r.header("x-cmcpvp-sig")).getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             return false;
         }
@@ -111,8 +111,8 @@ public final class NetworkSync {
         long time = System.currentTimeMillis() / 1000L;
         return HttpRequest.newBuilder(URI.create(this.primaryUrl + path))
             .timeout(Duration.ofSeconds(20))
-            .header("X-Vortex-Time", String.valueOf(time))
-            .header("X-Vortex-Sig", this.sign(method, path, time, body));
+            .header("X-CMC-Time", String.valueOf(time))
+            .header("X-CMC-Sig", this.sign(method, path, time, body));
     }
 
     // ------------------------------------------------------------------ primary side (web routes)

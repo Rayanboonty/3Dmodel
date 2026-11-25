@@ -666,7 +666,7 @@ public final class WebSite implements TabExecutor {
         WebSite.Login l = this.session(r);
         if (l == null) {
             return error(401, "Not logged in. Type /webadmin in game.");
-        } else if (r.method().equals("POST") && !"vortex".equals(r.header("x-requested-with"))) {
+        } else if (r.method().equals("POST") && !"cmcpvp".equals(r.header("x-requested-with"))) {
             return error(403, "Bad request.");
         } else {
             JsonObject body;

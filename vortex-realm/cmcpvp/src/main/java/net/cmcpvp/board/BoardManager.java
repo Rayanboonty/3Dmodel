@@ -348,7 +348,7 @@ public final class BoardManager {
         String tpl = this.plugin.smpBoard() == null ? null : this.plugin.smpBoard().title("PRACTICE");
         if (tpl != null && !tpl.isBlank()) {
             try {
-                return Text.shadow(Text.mm(tpl.replace("C MCPvP", Text.esc(Cfg.s(Opt.SERVER_NAME)))), -12637696);
+                return Text.shadow(Text.mm(tpl.replace("CMCPVP", Text.esc(Cfg.s(Opt.SERVER_NAME)))), -12637696);
             } catch (RuntimeException var3) {
             }
         }

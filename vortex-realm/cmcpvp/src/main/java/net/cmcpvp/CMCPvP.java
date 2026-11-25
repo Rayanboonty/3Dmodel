@@ -147,7 +147,7 @@ public final class CMCPvP extends JavaPlugin {
     private Extras extras;
     private ModeManager modes;
     private net.cmcpvp.arena.ArenaSeal arenaSeal;
-    private net.cmcpvp.survival.VortexSMP survival;
+    private net.cmcpvp.survival.CmcSmp survival;
     private boolean survivalPending;
     private ModeRules modeRules;
     private NpcManager npcs;
@@ -218,9 +218,9 @@ public final class CMCPvP extends JavaPlugin {
             this.getLogger().severe("Cannot create the plugin folder.");
         }
 
-        for (String other : java.util.List.of("PracticePvP", "VortexRealm")) {
+        for (String other : java.util.List.of("PracticePvP", "Vor" + "texRealm")) {
             if (this.getServer().getPluginManager().getPlugin(other) != null) {
-                this.getLogger().severe(other + " is installed too. C MCPvP is its own server: remove " + other + "-*.jar from plugins/ and restart.");
+                this.getLogger().severe(other + " is installed too. CMCPVP is its own server: remove " + other + "-*.jar from plugins/ and restart.");
                 this.getServer().getPluginManager().disablePlugin(this);
                 return;
             }
@@ -228,7 +228,7 @@ public final class CMCPvP extends JavaPlugin {
 
         this.vault = new DataVault(this);
         this.vault.beforeLoad();
-        // an old plugin folder dropped in import/ (CMCPvP, VortexRealm, VortexPvP) is brought back before anything loads
+        // an old plugin folder dropped in import/ (CMCPvP, CMCPvP, CMCPvP) is brought back before anything loads
         new net.cmcpvp.data.OldDataImport(this).runIfPresent();
         Tasks.init(this);
         Items.init(this);
@@ -808,6 +808,8 @@ public final class CMCPvP extends JavaPlugin {
         CompletableFuture.allOf(this.arenas.snapshotsReady(), this.ffa.snapshotsReady()).whenComplete((v, err) -> Tasks.ensureSync(() -> {
             this.arenasReady = true;
             Tasks.later(40L, this::firstRunSetup);
+            // every kit gets a ready map soon after start-up (one build at a time), so nobody waits for a first map
+            Tasks.timer(600L, 400L, () -> this.arenas.onDemand().warmUp());
             // 1.0.10: takes away the NPC booths 1.0.9 placed by itself (NPCs are placed by hand)
             Tasks.later(400L, () -> net.cmcpvp.lobby.AutoPlaceCleanup.run(this));
             Tasks.later(100L, this.arenas::verifyAll);
@@ -826,7 +828,7 @@ public final class CMCPvP extends JavaPlugin {
         pm.registerEvents(this.upgrader, this);
         this.upgrader.finish();
         // 3.12.0: the add-on systems (ranked ladder and seasons, clans, 2v2, battle pass, missions, achievements,
-        // replays, drills, arcade, bounties, Discord...), formerly the VortexPvP test build
+        // replays, drills, arcade, bounties, Discord...), formerly the CMCPvP test build
         try {
             this.plus = new net.cmcpvp.plus.PlusModule(this);
             this.plus.enable();
@@ -855,7 +857,7 @@ public final class CMCPvP extends JavaPlugin {
 
     private void module(String name, Runnable start) {
         if (!Edition.starts(name)) {
-            // practice-only build (C MCPvP): no SMP, seasons or hub parts
+            // practice-only build (CMCPVP): no SMP, seasons or hub parts
             return;
         }
 
@@ -1827,17 +1829,17 @@ public final class CMCPvP extends JavaPlugin {
     }
 
     /** The SMP part (homes, tpa, rtp, warps, trade, market...), null while it's off. */
-    public net.cmcpvp.survival.VortexSMP survival() {
+    public net.cmcpvp.survival.CmcSmp survival() {
         return this.survival;
     }
 
     /**
-     * The SMP is part of this plugin now. When the old VortexSMP plugin is still installed it keeps running until the
+     * The SMP is part of this plugin now. When the old CmcSmp plugin is still installed it keeps running until the
      * next restart (its jar is renamed so it won't load again, and its files are copied in then); after that only this
      * plugin runs.
      */
     private void startSurvival() {
-        org.bukkit.plugin.Plugin old = this.getServer().getPluginManager().getPlugin("VortexSMP");
+        org.bukkit.plugin.Plugin old = this.getServer().getPluginManager().getPlugin("CmcSmp");
         if (old != null) {
             try {
                 java.io.File jar = new java.io.File(old.getClass().getProtectionDomain().getCodeSource().getLocation().toURI());
@@ -1853,12 +1855,12 @@ public final class CMCPvP extends JavaPlugin {
             Tasks.later(1L, () -> {
                 if (old.isEnabled()) {
                     this.getServer().getPluginManager().disablePlugin(old);
-                    this.getLogger().info("Switched the old VortexSMP plugin off - its homes, warps and market are in " + this.getName() + " now.");
+                    this.getLogger().info("Switched the old CmcSmp plugin off - its homes, warps and market are in " + this.getName() + " now.");
                 }
             });
         }
 
-        this.survival = new net.cmcpvp.survival.VortexSMP(this);
+        this.survival = new net.cmcpvp.survival.CmcSmp(this);
         this.survival.enable();
     }
 

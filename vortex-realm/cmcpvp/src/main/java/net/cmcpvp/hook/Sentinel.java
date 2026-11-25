@@ -311,8 +311,8 @@ public final class Sentinel implements Listener, TabExecutor {
                 if (ch != null) {
                     ch.eventLoop().execute(() -> {
                         try {
-                            if (ch.pipeline().get("vortex_sentinel") == null && ch.pipeline().get("decoder") != null) {
-                                ch.pipeline().addAfter("decoder", "vortex_sentinel", new Sentinel.Counter(dt));
+                            if (ch.pipeline().get("cmcpvp_sentinel") == null && ch.pipeline().get("decoder") != null) {
+                                ch.pipeline().addAfter("decoder", "cmcpvp_sentinel", new Sentinel.Counter(dt));
                             }
                         } catch (RuntimeException var4) {
                         }

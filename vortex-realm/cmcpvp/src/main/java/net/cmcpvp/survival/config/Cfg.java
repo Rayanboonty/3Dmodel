@@ -3,21 +3,21 @@ package net.cmcpvp.survival.config;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
  * The SMP settings: they live in the main config.yml under smp. (shown in /pvpadmin → Settings → SMP). Values from
- * the old smp/config.yml or the separate VortexSMP plugin's config.yml are moved over once.
+ * the old smp/config.yml or the separate CmcSmp plugin's config.yml are moved over once.
  */
 public final class Cfg {
-    private static VortexSMP plugin;
+    private static CmcSmp plugin;
 
     private Cfg() {
     }
 
-    public static void load(VortexSMP p) {
+    public static void load(CmcSmp p) {
         plugin = p;
         p.reloadConfig();
         YamlConfiguration own = p.getConfig();
@@ -25,7 +25,7 @@ public final class Cfg {
             int moved = 0;
             List<File> olds = new ArrayList<>();
             olds.add(new File(p.getDataFolder(), "config.yml"));
-            olds.add(new File(p.host().getDataFolder().getParentFile(), "VortexSMP/config.yml"));
+            olds.add(new File(p.host().getDataFolder().getParentFile(), "CmcSmp/config.yml"));
             for (File f : olds) {
                 if (!f.isFile()) {
                     continue;

@@ -22,7 +22,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 /**
  * The first start after an update: the vault has already saved everything (plugin data, database and every player's
  * inventory) before anything loaded; config, kits, messages and the database were brought forward while loading. This
- * puts it all in one report for the console, for admins when they join, and in VortexRealm-Vault/last-update.txt.
+ * puts it all in one report for the console, for admins when they join, and in CMCPvP-Vault/last-update.txt.
  */
 public final class Upgrader implements Listener {
     private final CMCPvP plugin;

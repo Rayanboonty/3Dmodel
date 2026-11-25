@@ -73,7 +73,7 @@ public final class SmpBoard {
             def(
                 y,
                 "PRACTICE",
-                "<gold><b>C MCPvP</b>",
+                "<gold><b>CMCPVP</b>",
                 List.of(
                     sep,
                     " <gray>Online: <green><online>",
@@ -92,7 +92,7 @@ public final class SmpBoard {
             def(
                 y,
                 "HUB",
-                "<b><mood:C MCPVP></b>",
+                "<b><mood:CMCPVP></b>",
                 List.of(
                     sep,
                     " <gray>Rank: <rank>",
@@ -271,8 +271,8 @@ public final class SmpBoard {
         boolean outside = this.plugin.sessions().state(p) == PlayerState.OUTSIDE;
         String group = this.plugin.tab() == null ? "HUB" : this.plugin.tab().group(p);
         PvPProfile prof = this.plugin.profiles().getIfLoaded(p.getUniqueId());
-        // in the SMP worlds VortexSMP shows its own sidebar
-        boolean smpOwn = this.plugin.modes() != null && this.plugin.modes().smpWorld(p.getWorld()) && (this.plugin.survival() != null || Bukkit.getPluginManager().isPluginEnabled("VortexSMP"));
+        // in the SMP worlds CmcSmp shows its own sidebar
+        boolean smpOwn = this.plugin.modes() != null && this.plugin.modes().smpWorld(p.getWorld()) && (this.plugin.survival() != null || Bukkit.getPluginManager().isPluginEnabled("CmcSmp"));
         boolean want = outside && !smpOwn && Cfg.bool(Opt.SMP_SIDEBAR) && this.layouts.containsKey(group) && (prof == null || prof.on(Setting.SCOREBOARD));
         Scoreboard sb = this.boards.get(p.getUniqueId());
         if (!want) {

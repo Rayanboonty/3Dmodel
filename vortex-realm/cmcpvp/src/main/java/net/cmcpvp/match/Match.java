@@ -441,6 +441,16 @@ public final class Match {
             this.closeRoom();
             this.cancel("match.no-free-arena", true);
         } else {
+            if (od.enabled() && this.room != null && this.arenaWaitAttempts > Math.max(1, Cfg.i(Opt.WAITING_ROOM_SECONDS))
+                && !this.plugin.arenas().forKit(this.kit).isEmpty()) {
+                // a few seconds in the room are enough: on to the map vote with the maps that are ready (the build
+                // carries on in the background for the next matches)
+                this.closeRoom();
+                this.state = Match.State.WAITING;
+                this.begin();
+                return;
+            }
+
             if (od.enabled()) {
                 if (this.room == null) {
                     this.room = new WaitingRoom(this.plugin, this, preferred, this.participantsOnline());

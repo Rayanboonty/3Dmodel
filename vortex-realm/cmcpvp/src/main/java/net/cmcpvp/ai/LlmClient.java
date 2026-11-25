@@ -306,7 +306,7 @@ public final class LlmClient {
         }
 
         JsonObject res = this.post(base + "/chat/completions", body, "authorization", key == null || key.isEmpty() ? null : "Bearer " + key,
-            "HTTP-Referer", "https://github.com/vortexrealm", "X-Title", "C MCPvP");
+            "HTTP-Referer", "https://github.com/cmcpvp", "X-Title", "CMCPVP");
         JsonArray choices = res.getAsJsonArray("choices");
         if (choices == null || choices.isEmpty()) {
             return new Result("", List.of(), false);

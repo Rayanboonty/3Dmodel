@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.util.Fmt;
@@ -29,12 +29,12 @@ import org.bukkit.scoreboard.Scoreboard;
 /** The SMP sidebar, the tab header/footer and the join/leave messages. */
 public final class Sidebar implements Listener {
     private static final String SEP = "<dark_gray><st>                        </st>";
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final Map<UUID, Scoreboard> boards = new HashMap<>();
     private final Map<UUID, Component[]> last = new HashMap<>();
     private int frame;
 
-    public Sidebar(VortexSMP plugin) {
+    public Sidebar(CmcSmp plugin) {
         this.plugin = plugin;
     }
 
@@ -83,7 +83,7 @@ public final class Sidebar implements Listener {
     private void update(Player p) {
         Realm realm = this.plugin.realm();
         if (realm.on() && !realm.smp(p.getWorld())) {
-            // outside the SMP, VortexRealm's own sidebar and tab show
+            // outside the SMP, CMCPvP's own sidebar and tab show
             Scoreboard own = this.boards.remove(p.getUniqueId());
             this.last.remove(p.getUniqueId());
             if (own != null && p.getScoreboard() == own) {

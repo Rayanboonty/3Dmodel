@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.dialog.LobbyDialogs;
@@ -45,13 +45,13 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 
 public final class SmpAdmin implements CommandExecutor, TabCompleter, Listener {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final File file;
     private final Map<UUID, SmpAdmin.Seen> seen = new HashMap<>();
     private final Set<UUID> frozen = new HashSet<>();
     private boolean dirty;
 
-    public SmpAdmin(VortexSMP plugin) {
+    public SmpAdmin(CmcSmp plugin) {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "smp-tracker.yml");
     }
@@ -147,7 +147,7 @@ public final class SmpAdmin implements CommandExecutor, TabCompleter, Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player p) {
-            if (!p.hasPermission("vortexsmp.admin")) {
+            if (!p.hasPermission("cmcsmp.admin")) {
                 p.sendMessage(Text.mm("<red>You don't have permission."));
                 return true;
             } else if (args.length >= 1) {

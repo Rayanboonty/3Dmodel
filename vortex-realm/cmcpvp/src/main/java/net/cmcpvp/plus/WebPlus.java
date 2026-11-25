@@ -278,7 +278,7 @@ public final class WebPlus {
 
     private String page(String title, String body) {
         return "<!doctype html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>" + h(title) + "</title>" + STYLE
-            + "</head><body><div class=wrap>" + body + "<p class=muted style='margin-top:32px'>C MCPvP • <a href='/'>home</a> • <a href='/plus/weekly'>weekly</a></p></div></body></html>";
+            + "</head><body><div class=wrap>" + body + "<p class=muted style='margin-top:32px'>CMCPVP • <a href='/'>home</a> • <a href='/plus/weekly'>weekly</a></p></div></body></html>";
     }
 
     private String profilePage(String rawName) {
@@ -327,11 +327,11 @@ public final class WebPlus {
         }
 
         b.append("</table></div>");
-        return this.page(d.name + " - C MCPvP", b.toString());
+        return this.page(d.name + " - CMCPVP", b.toString());
     }
 
     private String weeklyPage() {
-        StringBuilder b = new StringBuilder("<h1>This week on C MCPvP</h1>");
+        StringBuilder b = new StringBuilder("<h1>This week on CMCPVP</h1>");
         b.append("<p class=muted>Season ").append(this.plus.seasons().number()).append(" ends in ").append(h(this.plus.seasons().timeLeft())).append("</p>");
         String motw = this.plus.weekly() == null ? null : this.plus.weekly().motw();
         b.append("<div class=card><h3>🎬 Match of the Week</h3>");
@@ -350,7 +350,7 @@ public final class WebPlus {
         }
 
         b.append("</table></div>");
-        return this.page("Weekly - C MCPvP", b.toString());
+        return this.page("Weekly - CMCPVP", b.toString());
     }
 
     private String adminPage() {
@@ -364,7 +364,7 @@ public final class WebPlus {
             + "document.getElementById('arenas').innerHTML='<tr><th>Arena</th><th>On</th><th></th></tr>'+j.arenas.map(a=>'<tr><td>'+esc(a.name)+'</td><td>'+(a.enabled?'✅':'⛔')+'</td><td><button onclick=\"rb(\\''+esc(a.id)+'\\')\">Rebuild</button></td></tr>').join('');"
             + "}catch(e){}}async function rb(id){await fetch('/api/plus/admin/rebuild?key='+K+'&arena='+encodeURIComponent(id),{method:'POST'});alert('Rebuilding '+id)}"
             + "load();setInterval(load,3000);</script>";
-        return this.page("Admin - C MCPvP", body);
+        return this.page("Admin - CMCPVP", body);
     }
 
     public String selfCheck() {

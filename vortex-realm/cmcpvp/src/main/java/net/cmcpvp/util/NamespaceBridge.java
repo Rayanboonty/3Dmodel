@@ -24,13 +24,13 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Switching between our plugins (CMCPvP, VortexRealm, VortexPvP) keeps the world as it is: the tags the old
+ * Switching between our plugins (CMCPvP, CMCPvP, CMCPvP) keeps the world as it is: the tags the old
  * plugin put on entities (bot hall, NPCs, image walls), blocks (spawner stacks) and items (hub items, shop spawners,
  * kit items) are renamed to this plugin's name when they load, so the new plugin recognises them.
  * A tag is only taken over when the plugin that made it is not running on this server.
  */
 public final class NamespaceBridge implements Listener {
-    private static final String[] NAMESPACES = {"practicepvp", "vortexrealm", "vortexpvp"};
+    private static final String[] NAMESPACES = {"practicepvp", "cmcpvp", "cmcpvp"};
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static final PersistentDataType[] TYPES = {
         PersistentDataType.STRING, PersistentDataType.BYTE, PersistentDataType.INTEGER, PersistentDataType.LONG, PersistentDataType.DOUBLE,

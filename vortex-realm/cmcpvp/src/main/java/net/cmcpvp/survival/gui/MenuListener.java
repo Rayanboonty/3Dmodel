@@ -1,7 +1,7 @@
 package net.cmcpvp.survival.gui;
 
 import java.util.logging.Level;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.util.Snd;
 import net.cmcpvp.survival.util.Tasks;
 import org.bukkit.entity.Player;
@@ -16,10 +16,10 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 
 public final class MenuListener implements Listener {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final java.util.Map<java.util.UUID, Long> clicks = new java.util.HashMap<>();
 
-    public MenuListener(VortexSMP plugin) {
+    public MenuListener(CmcSmp plugin) {
         this.plugin = plugin;
     }
 

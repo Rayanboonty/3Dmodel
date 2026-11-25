@@ -102,7 +102,7 @@ public final class SamePortHttp {
         }
     }
 
-    private static void write(Channel ch, WebServer.Request req, WebServer.Response res) {
+    private static void write(ChannelHandlerContext ch, WebServer.Request req, WebServer.Response res) {
         StringBuilder h = new StringBuilder();
         h.append("HTTP/1.1 ").append(res.status()).append(' ').append(reason(res.status())).append("\r\n");
         h.append("Content-Type: ").append(res.type()).append("\r\n");
@@ -223,10 +223,11 @@ public final class SamePortHttp {
                                 System.arraycopy(all, bodyStart, body, 0, body.length);
                                 String ip = ctx.channel().remoteAddress() instanceof InetSocketAddress a ? a.getAddress().getHostAddress() : "?";
                                 WebServer.Request req = WebServer.request(first[0], first[1], headers, body, ip);
-                                Channel ch = ctx.channel();
+                                // written from this handler's place (the head of the pipeline), so Minecraft's packet
+                                // encoders don't put a length in front of the HTTP reply
                                 SamePortHttp.this.pool.execute(() -> {
                                     WebServer.Response res = SamePortHttp.this.web.dispatch(req);
-                                    ch.eventLoop().execute(() -> SamePortHttp.write(ch, req, res));
+                                    ctx.executor().execute(() -> SamePortHttp.write(ctx, req, res));
                                 });
                             }
                         }

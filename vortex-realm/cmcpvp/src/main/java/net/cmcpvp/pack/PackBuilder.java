@@ -17,7 +17,7 @@ import java.util.zip.ZipOutputStream;
 import javax.imageio.ImageIO;
 
 public final class PackBuilder {
-    public static final String NS = "vortex";
+    public static final String NS = "cmcpvp";
     public static final String FONT_ICONS = "icons";
     public static final String FONT_RANK = "rank";
     public static final int FLAG_BASE = 57344;
@@ -86,12 +86,12 @@ public final class PackBuilder {
         }
 
         g.dispose();
-        files.put("assets/vortex/textures/font/flags.png", png(grid));
-        files.put("assets/vortex/textures/font/seal.png", png(BadgeArt.seal(16)));
-        files.put("assets/vortex/textures/font/play.png", png(BadgeArt.play(22, 16)));
+        files.put("assets/cmcpvp/textures/font/flags.png", png(grid));
+        files.put("assets/cmcpvp/textures/font/seal.png", png(BadgeArt.seal(16)));
+        files.put("assets/cmcpvp/textures/font/play.png", png(BadgeArt.play(22, 16)));
         StringBuilder icons = new StringBuilder("{\n  \"providers\": [\n");
         icons.append("    {\"type\": \"bitmap\", \"file\": \"")
-            .append("vortex")
+            .append("cmcpvp")
             .append(":font/flags.png\", \"ascent\": 7, ")
             .append("\"height\": 8, \"chars\": [");
 
@@ -108,13 +108,13 @@ public final class PackBuilder {
 
         icons.append("]},\n");
         icons.append("    {\"type\": \"bitmap\", \"file\": \"")
-            .append("vortex")
+            .append("cmcpvp")
             .append(":font/seal.png\", \"ascent\": 7, ")
             .append("\"height\": 8, \"chars\": [\"")
             .append(esc(61184))
             .append("\"]},\n");
         icons.append("    {\"type\": \"bitmap\", \"file\": \"")
-            .append("vortex")
+            .append("cmcpvp")
             .append(":font/play.png\", \"ascent\": 7, ")
             .append("\"height\": 8, \"chars\": [\"")
             .append(esc(61185))
@@ -122,9 +122,9 @@ public final class PackBuilder {
         BufferedImage logo = logo();
         if (logo != null) {
             // the server logo for the tab header: 36 px tall, hanging down over the three empty lines below it
-            files.put("assets/vortex/textures/font/logo.png", png(logo));
+            files.put("assets/cmcpvp/textures/font/logo.png", png(logo));
             icons.append("    {\"type\": \"bitmap\", \"file\": \"")
-                .append("vortex")
+                .append("cmcpvp")
                 .append(":font/logo.png\", \"ascent\": 8, ")
                 .append("\"height\": 27, \"chars\": [\"")
                 .append(esc(Glyphs.LOGO))
@@ -147,7 +147,7 @@ public final class PackBuilder {
         }
 
         icons.append("}}\n  ]\n}\n");
-        files.put("assets/vortex/font/icons.json", icons.toString().getBytes(StandardCharsets.UTF_8));
+        files.put("assets/cmcpvp/font/icons.json", icons.toString().getBytes(StandardCharsets.UTF_8));
         StringBuilder rank = new StringBuilder("{\n  \"providers\": [\n");
         float after = -glowAdvance() + (glowWidthUnits() - badgeWidthUnits()) / 2.0F;
         float back = -badgeAdvance();
@@ -194,9 +194,9 @@ public final class PackBuilder {
 
             sg.dispose();
             String name = art.label().toLowerCase(Locale.ROOT);
-            files.put("assets/vortex/textures/font/rank/" + name + ".png", png(sheet));
+            files.put("assets/cmcpvp/textures/font/rank/" + name + ".png", png(sheet));
             rank.append("    {\"type\": \"bitmap\", \"file\": \"")
-                .append("vortex")
+                .append("cmcpvp")
                 .append(":font/rank/")
                 .append(name)
                 .append(".png\", \"ascent\": ")
@@ -220,9 +220,9 @@ public final class PackBuilder {
 
             for (int lvl = 0; lvl < 3; lvl++) {
                 String gname = name + "_" + lvl;
-                files.put("assets/vortex/textures/font/glow/" + gname + ".png", png(BadgeArt.glow(art.rgb(), 0.45 + lvl * 0.3, 96)));
+                files.put("assets/cmcpvp/textures/font/glow/" + gname + ".png", png(BadgeArt.glow(art.rgb(), 0.45 + lvl * 0.3, 96)));
                 rank.append("    {\"type\": \"bitmap\", \"file\": \"")
-                    .append("vortex")
+                    .append("cmcpvp")
                     .append(":font/glow/")
                     .append(gname)
                     .append(".png\", \"ascent\": ")
@@ -238,7 +238,7 @@ public final class PackBuilder {
         int lastComma = rank.lastIndexOf("},\n");
         rank.replace(lastComma, lastComma + 3, "}\n");
         rank.append("  ]\n}\n");
-        files.put("assets/vortex/font/rank.json", rank.toString().getBytes(StandardCharsets.UTF_8));
+        files.put("assets/cmcpvp/font/rank.json", rank.toString().getBytes(StandardCharsets.UTF_8));
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
         try (ZipOutputStream zip = new ZipOutputStream(bytes)) {

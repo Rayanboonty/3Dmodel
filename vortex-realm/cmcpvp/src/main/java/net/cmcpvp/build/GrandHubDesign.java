@@ -28,7 +28,7 @@ public final class GrandHubDesign extends MegaVoxels {
             this.gate(i * 45 + 22.5, GATES[i]);
         }
 
-        this.vortex();
+        this.cmcpvp();
         this.edge();
         this.islets();
         this.spawn = new double[]{0.5, 1.0, 26.5, 180.0};
@@ -94,7 +94,7 @@ public final class GrandHubDesign extends MegaVoxels {
         }
     }
 
-    private void vortex() {
+    private void cmcpvp() {
         for (int t = 0; t < 3; t++) {
             this.disc(0.0, 0.0, 1 + t, 8.5 - t * 1.5, t == 2 ? "gold_block" : "polished_blackstone_bricks");
         }

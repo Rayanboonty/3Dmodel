@@ -465,8 +465,8 @@ public final class PlusCommands implements TabExecutor {
                     return;
                 }
 
-                UUID w = UUID.nameUUIDFromBytes("VortexTestWinner".getBytes());
-                UUID l = UUID.nameUUIDFromBytes("VortexTestLoser".getBytes());
+                UUID w = UUID.nameUUIDFromBytes("CMCTestWinner".getBytes());
+                UUID l = UUID.nameUUIDFromBytes("CMCTestLoser".getBytes());
                 PlayerData wd = this.plus.store().get(w);
                 wd.name = "TestWinner";
                 PlayerData ld = this.plus.store().get(l);

@@ -1,18 +1,18 @@
 package net.cmcpvp.build;
 
 /**
- * Vortex Isles: the flagship hub. A floating island with rolling hills and an eroded underside; in the middle the
- * Vortex Spire - an obsidian core wound by two rising ribbons of amethyst and purpur, floating rings around it and a
+ * Crystal Isles: the flagship hub. A floating island with rolling hills and an eroded underside; in the middle the
+ * CMC Spire - an obsidian core wound by two rising ribbons of amethyst and purpur, floating rings around it and a
  * beacon of end rods at the top - on a stepped plaza with a sun-ray floor. Around the plaza eight domed shrines (one per
  * gamemode NPC) with columns, coloured roof bands and a pedestal; winding paths, a waterfall, big trees and islets.
  */
-public final class VortexIslesDesign extends IslandVoxels {
+public final class CrystalIslesDesign extends IslandVoxels {
     private static final int PLAZA = 20;
     private static final int SHRINES = 8;
     private static final double SHRINE_R = 33.0;
     private static final String[] COLORS = {"red", "orange", "yellow", "lime", "cyan", "light_blue", "purple", "magenta"};
 
-    public VortexIslesDesign(int cx, int floorY, int cz, int radius, long seed) {
+    public CrystalIslesDesign(int cx, int floorY, int cz, int radius, long seed) {
         super(cx, floorY, cz, Math.max(80, radius), -54, 44, seed, PLAZA, Math.max(80, radius) - 16.0);
         for (int i = 0; i < SHRINES; i++) {
             double a = this.shrineAngle(i);
@@ -44,7 +44,7 @@ public final class VortexIslesDesign extends IslandVoxels {
 
     @Override
     public String name() {
-        return "Vortex Isles";
+        return "Crystal Isles";
     }
 
     /** The shrines sit around the plaza, leaving the south (the way in, +z) open. */
@@ -71,7 +71,7 @@ public final class VortexIslesDesign extends IslandVoxels {
                 } else if (Math.abs(d - 13.5) < 0.6) {
                     b = "purpur_block";
                 } else {
-                    // sun rays: alternating light and dark wedges, a vortex twist toward the rim
+                    // sun rays: alternating light and dark wedges, a cmcpvp twist toward the rim
                     double twist = a + d * 4.0;
                     b = Math.floorMod((int)Math.round(twist / 11.25), 2) == 0 ? "smooth_quartz" : "polished_andesite";
                 }
@@ -101,7 +101,7 @@ public final class VortexIslesDesign extends IslandVoxels {
         }
     }
 
-    /** The Vortex Spire: an obsidian core with two helical ribbons, floating rings and a crown of end rods. */
+    /** The CMC Spire: an obsidian core with two helical ribbons, floating rings and a crown of end rods. */
     private void spire() {
         int base = 4;
         int height = 34;

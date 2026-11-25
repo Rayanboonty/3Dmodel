@@ -10,8 +10,8 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.ShadowColor;
 
 public final class Glyphs {
-    private static final Key ICONS = Key.key("vortex", "icons");
-    private static final Key RANK = Key.key("vortex", "rank");
+    private static final Key ICONS = Key.key("cmcpvp", "icons");
+    private static final Key RANK = Key.key("cmcpvp", "rank");
     private static final Map<String, Integer> FLAG_INDEX = new HashMap<>();
     /** Server logo (tab header). */
     static final int LOGO = 61186;

@@ -33,19 +33,19 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 
 /**
- * The SMP part of the plugin (it was the separate VortexSMP plugin): homes, tpa, rtp, warps, back, combat tag, the
+ * The SMP part of the plugin (it was the separate CmcSmp plugin): homes, tpa, rtp, warps, back, combat tag, the
  * SMP sidebar, /craft /ec /hat /trash, drills, /trade and /market - all inside the SMP worlds of worlds.yml. The
  * worlds, the selector and every inventory (each world group its own, saved and backed up) are the main plugin's.
  * Its files are in plugins/&lt;this plugin&gt;/smp/ (config.yml, homes, warps, market...).
  */
-public final class VortexSMP implements CommandExecutor, TabCompleter {
-    private static VortexSMP instance;
+public final class CmcSmp implements CommandExecutor, TabCompleter {
+    private static CmcSmp instance;
     private final CMCPvP host;
     private final File folder;
     private final File configFile;
     private YamlConfiguration config;
     private net.cmcpvp.survival.smp.KeepOnlineBot keepOnline;
-    private final VortexSMP.Worlds worlds = new VortexSMP.Worlds();
+    private final CmcSmp.Worlds worlds = new CmcSmp.Worlds();
     private final Realm realm;
     private ModeManager modes;
     private Dialogs dialogs;
@@ -60,14 +60,14 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
     private net.cmcpvp.survival.trade.TradeManager trades;
     private net.cmcpvp.survival.trade.Market market;
 
-    public VortexSMP(CMCPvP host) {
+    public CmcSmp(CMCPvP host) {
         this.host = host;
         this.folder = new File(host.getDataFolder(), "smp");
         this.configFile = new File(this.folder, "config.yml");
         this.realm = new Realm(this);
     }
 
-    public static VortexSMP get() {
+    public static CmcSmp get() {
         return instance;
     }
 
@@ -113,7 +113,7 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
         instance = this;
         Tasks.init(this.host);
         Items.init();
-        // the old VortexSMP plugin's files come over first (homes, warps, market, drills, Discord links)
+        // the old CmcSmp plugin's files come over first (homes, warps, market, drills, Discord links)
         this.smpImport = new SmpImport(this);
         this.smpImport.copySmpPluginFolder();
         Cfg.load(this);
@@ -125,7 +125,7 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
         this.oldImport.prepare();
         this.essentials = new Essentials(this, this.modes);
         this.essentials.load();
-        // old homes, warps and inventories: this plugin's old files, the VortexSMP folder and smp/import/ (only what's missing)
+        // old homes, warps and inventories: this plugin's old files, the CmcSmp folder and smp/import/ (only what's missing)
         this.restore = new net.cmcpvp.smp.SmpRestore(this.host);
         try {
             this.restore.startup();
@@ -387,7 +387,7 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
         return this.smpImport;
     }
 
-    public VortexSMP.Worlds worlds() {
+    public CmcSmp.Worlds worlds() {
         return this.worlds;
     }
 
@@ -398,11 +398,11 @@ public final class VortexSMP implements CommandExecutor, TabCompleter {
     /** The practice worlds (arenas, the practice lobby) are left alone by the SMP. */
     public final class Worlds {
         public boolean managed(World w) {
-            return VortexSMP.this.realm.managed(w);
+            return CmcSmp.this.realm.managed(w);
         }
 
         public boolean isMarked(Player p) {
-            return VortexSMP.this.realm.marked(p);
+            return CmcSmp.this.realm.marked(p);
         }
     }
 }

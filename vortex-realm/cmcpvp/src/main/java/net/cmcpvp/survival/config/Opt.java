@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Every setting of VortexSMP (config.yml). Paths match the old SMP settings of VortexRealm/CMCPvP. */
+/** Every setting of CmcSmp (config.yml). Paths match the old SMP settings of CMCPvP/CMCPvP. */
 public final class Opt<T> {
     private static final List<Opt<?>> ALL = new ArrayList<>();
     /** The settings shown in /pvpadmin: name, icon, min, max, step. The rest belonged to the separate plugin. */
@@ -48,10 +48,10 @@ public final class Opt<T> {
     // network: where /hub and /lobby send players (the Practice server)
     public static final Opt<String> HUB_HOST = new Opt<>("network.hub.host", "", "Address of the Practice/lobby server, e.g. play.example.net (empty = /hub is off).");
     public static final Opt<Integer> HUB_PORT = new Opt<>("network.hub.port", 25565, "Port of the Practice/lobby server.");
-    public static final Opt<Boolean> SAME_SERVER = new Opt<>("network.same-server", true, "With VortexRealm/CMCPvP on this server too: the SMP worlds are VortexRealm's SMP-mode worlds, it switches the inventories, and these commands work inside them (/hub goes to its lobby).");
+    public static final Opt<Boolean> SAME_SERVER = new Opt<>("network.same-server", true, "With CMCPvP/CMCPvP on this server too: the SMP worlds are CMCPvP's SMP-mode worlds, it switches the inventories, and these commands work inside them (/hub goes to its lobby).");
     public static final Opt<String> NETWORK_MODE = new Opt<>("network.mode", "TRANSFER", "TRANSFER = built-in transfer (accepts-transfers=true on the lobby server). PROXY = Velocity/BungeeCord Connect.");
     public static final Opt<String> HUB_PROXY = new Opt<>("network.hub.proxy-name", "lobby", "The lobby's server name in velocity.toml (PROXY mode only).");
-    public static final Opt<String> SERVER_NAME = new Opt<>("general.server-name", "C MCPvP", "Name in the sidebar and tab.");
+    public static final Opt<String> SERVER_NAME = new Opt<>("general.server-name", "CMCPVP", "Name in the sidebar and tab.");
     public static final Opt<String> SERVER_IP = new Opt<>("general.server-ip", "play.yourserver.net", "IP shown at the bottom of the sidebar.");
     public static final Opt<String> LINK_DISCORD = new Opt<>("extras.links.discord", "", "Discord link shown in the tab footer.");
     public static final Opt<Boolean> SMP_SIDEBAR = new Opt<>("extras.smp-sidebar", true, "The SMP sidebar.");
@@ -62,10 +62,10 @@ public final class Opt<T> {
     // essentials
     public static final Opt<Boolean> ESSENTIALS = new Opt<>("smp.essentials", true, "Built-in /home /spawn /back /rtp /tpa /warp.");
     public static final Opt<Boolean> ESS_HOMES = new Opt<>("smp.homes.enabled", true, "/sethome /home /delhome /homes.");
-    public static final Opt<Integer> HOMES_MAX = new Opt<>("smp.homes.max", 3, "Homes per player (more with vortexsmp.homes.<n>).");
-    public static final Opt<Integer> HOMES_HELPER = new Opt<>("smp.homes.helper", 4, "Homes with vortexsmp.homes.role.helper.");
-    public static final Opt<Integer> HOMES_MOD = new Opt<>("smp.homes.mod", 5, "Homes with vortexsmp.homes.role.mod.");
-    public static final Opt<Integer> HOMES_ADMIN = new Opt<>("smp.homes.admin", 10, "Homes with vortexsmp.homes.role.admin (and ops).");
+    public static final Opt<Integer> HOMES_MAX = new Opt<>("smp.homes.max", 3, "Homes per player (more with cmcsmp.homes.<n>).");
+    public static final Opt<Integer> HOMES_HELPER = new Opt<>("smp.homes.helper", 4, "Homes with cmcsmp.homes.role.helper.");
+    public static final Opt<Integer> HOMES_MOD = new Opt<>("smp.homes.mod", 5, "Homes with cmcsmp.homes.role.mod.");
+    public static final Opt<Integer> HOMES_ADMIN = new Opt<>("smp.homes.admin", 10, "Homes with cmcsmp.homes.role.admin (and ops).");
     public static final Opt<Boolean> ESS_TPA = new Opt<>("smp.tpa.enabled", true, "/tpa /tpahere /tpaccept /tpdeny /tptoggle.");
     public static final Opt<Integer> TPA_EXPIRE = new Opt<>("smp.tpa.expire-seconds", 60, "Seconds before a teleport request expires.");
     public static final Opt<Boolean> ESS_BACK = new Opt<>("smp.back.enabled", true, "/back returns to where you were before your last teleport.");
@@ -92,11 +92,11 @@ public final class Opt<T> {
     public static final Opt<Boolean> MARKET = new Opt<>("market.enabled", true, "/market: post what you give and what you want; others fill your offer.");
     public static final Opt<Integer> MARKET_MAX = new Opt<>("market.max-offers", 5, "Most open offers per player.");
     // keep-online bot (only where your host allows it)
-    public static final Opt<Boolean> KEEPALIVE_BOT = new Opt<>("keepalive.enabled", false, "A keep-online player inside the server so a host that sleeps empty servers keeps it running. Only use it if your host allows it. /vortexsmp bot on|off.");
-    public static final Opt<String> KEEPALIVE_NAME = new Opt<>("keepalive.name", "VortexBot", "Name of the keep-online player (3-16 letters, digits or _).");
+    public static final Opt<Boolean> KEEPALIVE_BOT = new Opt<>("keepalive.enabled", false, "A keep-online player inside the server so a host that sleeps empty servers keeps it running. Only use it if your host allows it. /cmcsmp bot on|off.");
+    public static final Opt<String> KEEPALIVE_NAME = new Opt<>("keepalive.name", "CMCBot", "Name of the keep-online player (3-16 letters, digits or _).");
     public static final Opt<Boolean> KEEPALIVE_HIDE = new Opt<>("keepalive.hide-from-tab", true, "Hide the keep-online player from the tab list (it still counts as online).");
     // auto-update
-    public static final Opt<Boolean> UPDATES = new Opt<>("updates.enabled", true, "Download new versions of VortexSMP by itself and install them on a restart (a backup is taken first; nothing is lost).");
+    public static final Opt<Boolean> UPDATES = new Opt<>("updates.enabled", true, "Download new versions of CmcSmp by itself and install them on a restart (a backup is taken first; nothing is lost).");
     public static final Opt<String> UPDATE_SOURCES = new Opt<>("updates.sources", "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json", "Update manifest links (update.json), comma separated, tried in order.");
     public static final Opt<Integer> UPDATE_CHECK = new Opt<>("updates.check-minutes", 30, "Minutes between two checks for a new version.");
     public static final Opt<String> UPDATE_RESTART = new Opt<>("updates.restart", "EMPTY_OR_NIGHT", "EMPTY_OR_NIGHT (when nobody is online, or at the restart hour with a countdown), NOW, or MANUAL. Turn on auto-restart in your host panel.");

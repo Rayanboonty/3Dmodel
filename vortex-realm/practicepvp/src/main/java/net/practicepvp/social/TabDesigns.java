@@ -450,6 +450,7 @@ public final class TabDesigns {
 
     /** The design the server uses (tab.design). */
     public static TabDesigns.Design active() {
-        return get(Cfg.s(Opt.TAB_DESIGN).toUpperCase(Locale.ROOT));
+        // the practice-only build has one tab: its own two-tone Competitive design
+        return get(net.practicepvp.Edition.PRACTICE_ONLY ? "COMPETITIVE" : Cfg.s(Opt.TAB_DESIGN).toUpperCase(Locale.ROOT));
     }
 }

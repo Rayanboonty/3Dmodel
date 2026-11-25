@@ -161,7 +161,8 @@ final class WaitingRoom {
         String pillar = l[3];
         String trim = l[4];
         String roof = l[5];
-        String glass = l[6];
+        // full glass blocks: panes placed block by block stand as lone posts with gaps
+        String glass = l[6].replace("_pane", "");
         String light = l[7];
         String banner = l[8];
         int y = this.by;

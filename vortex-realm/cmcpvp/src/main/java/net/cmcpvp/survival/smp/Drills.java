@@ -9,7 +9,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.util.Items;
@@ -42,15 +42,15 @@ import org.bukkit.util.RayTraceResult;
  * real break: other plugins can protect it, the pickaxe's enchantments apply and it loses durability.
  */
 public final class Drills implements Listener, TabExecutor {
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final NamespacedKey key;
     private final File file;
     private final YamlConfiguration claimed;
     private final Set<UUID> breaking = new HashSet<>();
 
-    public Drills(VortexSMP plugin) {
+    public Drills(CmcSmp plugin) {
         this.plugin = plugin;
-        this.key = new NamespacedKey("vortexsmp", "drill");
+        this.key = new NamespacedKey("cmcsmp", "drill");
         this.file = new File(plugin.getDataFolder(), "drills.yml");
         this.claimed = YamlConfiguration.loadConfiguration(this.file);
     }
@@ -78,7 +78,7 @@ public final class Drills implements Listener, TabExecutor {
         };
         ItemStack it = Items.of(size >= 4 ? Material.NETHERITE_PICKAXE : Material.DIAMOND_PICKAXE)
             .name(name)
-            .lore("<gray>Mines a <white>" + size + "x" + size + "</white> square at once.", "<gray>Earned by inviting friends to our Discord.", "", "<dark_gray>C MCPvP SMP")
+            .lore("<gray>Mines a <white>" + size + "x" + size + "</white> square at once.", "<gray>Earned by inviting friends to our Discord.", "", "<dark_gray>CMCPVP SMP")
             .tag(this.key, String.valueOf(size))
             .glint(true)
             .build();
@@ -205,7 +205,7 @@ public final class Drills implements Listener, TabExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         String sub = args.length == 0 ? "info" : args[0].toLowerCase(Locale.ROOT);
-        if (sub.equals("give") && sender.hasPermission("vortexsmp.admin")) {
+        if (sub.equals("give") && sender.hasPermission("cmcsmp.admin")) {
             Player t = args.length > 1 ? Bukkit.getPlayerExact(args[1]) : (sender instanceof Player sp ? sp : null);
             int size = args.length > 2 ? parse(args[2]) : 3;
             if (t == null || size < 2) {
@@ -216,7 +216,7 @@ public final class Drills implements Listener, TabExecutor {
             }
 
             return true;
-        } else if (sub.equals("bonus") && sender.hasPermission("vortexsmp.admin") && args.length > 2) {
+        } else if (sub.equals("bonus") && sender.hasPermission("cmcsmp.admin") && args.length > 2) {
             org.bukkit.OfflinePlayer t = Bukkit.getOfflinePlayerIfCached(args[1]);
             if (t != null && this.plugin.discord() != null) {
                 this.plugin.discord().addBonus(t.getUniqueId(), parse(args[2]));
@@ -294,7 +294,7 @@ public final class Drills implements Listener, TabExecutor {
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 1) {
             List<String> o = new ArrayList<>(List.of("claim", "info"));
-            if (sender.hasPermission("vortexsmp.admin")) {
+            if (sender.hasPermission("cmcsmp.admin")) {
                 o.add("give");
                 o.add("bonus");
             }

@@ -75,7 +75,7 @@ public final class WebServer {
 
         this.port = port;
         this.pool = Executors.newFixedThreadPool(4, r -> {
-            Thread t = new Thread(r, "VortexWeb");
+            Thread t = new Thread(r, "CMCWeb");
             t.setDaemon(true);
             return t;
         });

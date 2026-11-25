@@ -63,7 +63,7 @@ public final class SmpDialogs {
 
     public void open(Player p) {
         ModeManager modes = this.plugin.modes();
-        net.cmcpvp.survival.VortexSMP smp = this.plugin.survival();
+        net.cmcpvp.survival.CmcSmp smp = this.plugin.survival();
         World world = modes == null ? null : modes.smpWorld();
         int inSmp = 0;
         for (Player o : Bukkit.getOnlinePlayers()) {
@@ -102,7 +102,7 @@ public final class SmpDialogs {
             "Saves every player's SMP and Practice", "inventory, ender chest, XP, homes and", "all settings right now."));
         tiles.add(tile(Material.ENDER_CHEST, "<gold><b>Bring Back SMP Data", "<gray>From a backup or the old plugin files", () -> this.sources(p),
             "Homes, warps, inventories, ender chests and", "last spots from a Data Vault snapshot (made", "before every update), the old plugin files",
-            "or the old VortexSMP folder. Nothing current", "is lost: it goes into backups first."));
+            "or the old CmcSmp folder. Nothing current", "is lost: it goes into backups first."));
         tiles.add(tile(Material.CHEST, "<gold><b>Player Inventories", "<gray>Every player's saved SMP items", () -> this.players(p, 0),
             "See and restore any player's SMP / ECO", "inventory and ender chest backups."));
         if (smp != null && smp.essentials() != null) {
@@ -136,7 +136,7 @@ public final class SmpDialogs {
         for (int i = 0; i < Math.min(40, src.size()); i++) {
             SmpRestore.Source s = src.get(i);
             Material icon = s.id().startsWith("vault:") ? (s.id().contains("pre-update") ? Material.ENDER_CHEST : Material.CHEST)
-                : (s.id().equals("own") ? Material.BOOKSHELF : (s.id().startsWith("vsmp") || s.id().equals("vortexsmp") ? Material.GRASS_BLOCK : Material.BARREL));
+                : (s.id().equals("own") ? Material.BOOKSHELF : (s.id().startsWith("vsmp") || s.id().equals("cmcsmp") ? Material.GRASS_BLOCK : Material.BARREL));
             String when = s.time() > 0L ? new SimpleDateFormat("dd MMM HH:mm").format(new Date(s.time())) : "";
             tiles.add(tile(icon, "<white><b>" + Text.esc(s.label()), "<gray>" + Text.esc(s.detail()) + (when.isEmpty() ? "" : " <dark_gray>• <gray>" + when),
                 () -> this.preview(p, s), "Click to see what it has."));

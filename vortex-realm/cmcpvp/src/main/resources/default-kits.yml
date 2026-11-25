@@ -1,4 +1,4 @@
-# C MCPvP kits. Every kit is its own game mode with its own queues and ranks.
+# CMCPVP kits. Every kit is its own game mode with its own queues and ranks.
 # Edit in-game with /pvpadmin -> Kits (recommended) or /kits.
 # category: SKILL, VANILLA or OTHER (queue menu tab). sprite: item/<name> or gui:<sprite>.
 # items: inventory slot -> item. 0-8 hotbar, 9-35 inventory, 36 boots, 37 leggings,

@@ -54,7 +54,7 @@ public final class SmpLockdown implements Listener {
 
     /** Perk and admin permissions switched off inside the SMP (also for operators). */
     private static final List<String> PERKS = List.of(
-        "vortexsmp.admin", "vortexsmp.staff", "vortexsmp.homes.unlimited", "vortexsmp.teleport.bypass", "vortexsmp.warps.admin",
+        "cmcsmp.admin", "cmcsmp.staff", "cmcsmp.homes.unlimited", "cmcsmp.teleport.bypass", "cmcsmp.warps.admin",
         "cmcpvp.homes.unlimited", "cmcpvp.homes.4", "cmcpvp.homes.6", "cmcpvp.homes.8", "cmcpvp.homes.10", "cmcpvp.homes.12",
         "cmcpvp.homes.16", "cmcpvp.homes.20", "cmcpvp.teleport.bypass", "cmcpvp.warps.admin", "cmcpvp.claims.admin", "cmcpvp.smpadmin",
         "cmcpvp.ah.unlimited", "cmcpvp.lobbyfly", "cmcpvp.admin", "cmcpvp.staff", "cmcpvp.staff.mod", "cmcpvp.staff.alts",
@@ -116,7 +116,7 @@ public final class SmpLockdown implements Listener {
 
     /** Makes a player a normal survival player for the SMP (or gives the perks back outside it). */
     public void apply(Player p) {
-        if (p.hasMetadata("NPC") || p.hasMetadata("vortex-keepalive")) {
+        if (p.hasMetadata("NPC") || p.hasMetadata("cmcpvp-keepalive")) {
             // the keep-online bot and other bots are left alone
             return;
         }
@@ -220,7 +220,7 @@ public final class SmpLockdown implements Listener {
 
     /** 3.13.11: helpers, mods, admins and the owner by server rank, /staff members, or the staff permissions. */
     private boolean staffNow(Player p) {
-        if (p.isOp() || p.hasPermission("cmcpvp.staff") || p.hasPermission("cmcpvp.admin") || p.hasPermission("vortexsmp.staff")) {
+        if (p.isOp() || p.hasPermission("cmcpvp.staff") || p.hasPermission("cmcpvp.admin") || p.hasPermission("cmcsmp.staff")) {
             return true;
         }
 
@@ -397,7 +397,7 @@ public final class SmpLockdown implements Listener {
         }
     }
 
-    /** Every spectate is written down (plugins/VortexRealm/smp-spectate-log.txt) and shown to online ops. */
+    /** Every spectate is written down (plugins/CMCPvP/smp-spectate-log.txt) and shown to online ops. */
     private void log(Player staff, String what) {
         String line = java.time.LocalDateTime.now().withNano(0) + "  " + staff.getName() + " " + what;
         Bukkit.getScheduler().runTaskAsynchronously(this.plugin, () -> {

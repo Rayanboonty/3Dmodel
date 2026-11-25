@@ -39,7 +39,7 @@ import org.bukkit.entity.Player;
 public final class ArenaManager {
     public static final int SLOT_SIZE = 512;
     public static final int SLOT_Z_START = 4096;
-    /** New arenas (from C MCPvP round 3 on) are placed on a second grid far away from the old one. */
+    /** New arenas (from CMCPVP round 3 on) are placed on a second grid far away from the old one. */
     public static final int SLOT2_Z_START = 65536;
     /** Seconds every copy of a map must be busy before Auto Copies adds another. */
     private static final long AUTO_COPY_BUSY_MS = 20000L;

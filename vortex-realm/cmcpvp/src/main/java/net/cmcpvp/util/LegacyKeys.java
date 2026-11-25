@@ -6,13 +6,13 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
- * Markers our plugins leave on players are named after the plugin ("practicepvp:inv_group", "vortexrealm:inv_group").
+ * Markers our plugins leave on players are named after the plugin ("practicepvp:inv_group", "cmcpvp:inv_group").
  * When a server switches from one of them to another, the new plugin takes the old marker over here, so it still
  * knows which saved inventory and ender chest the player is carrying.
  */
 public final class LegacyKeys {
     /** Plain names on purpose: the plugin generators only rename the package and the plugin name. */
-    private static final String[] NAMESPACES = {"practicepvp", "vortexrealm", "vortexpvp"};
+    private static final String[] NAMESPACES = {"practicepvp", "cmcpvp", "cmcpvp"};
 
     private LegacyKeys() {
     }

@@ -2,7 +2,7 @@ package net.cmcpvp.survival.smp;
 
 import java.util.Locale;
 import java.util.Set;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.util.Snd;
 import net.cmcpvp.survival.util.Text;
 import org.bukkit.Bukkit;
@@ -22,13 +22,13 @@ import org.bukkit.event.player.PlayerTeleportEvent;
  * when a player leaves the SMP so nothing is carried between inventories.
  */
 public final class SameServer implements Listener {
-    /** VortexSMP commands that only work inside the SMP worlds. */
+    /** CmcSmp commands that only work inside the SMP worlds. */
     private static final Set<String> SMP_ONLY = Set.of(
         "craft", "enderchest", "trash", "hat", "nightvision", "near", "trade", "market", "drill", "oldstuff"
     );
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
 
-    public SameServer(VortexSMP plugin) {
+    public SameServer(CmcSmp plugin) {
         this.plugin = plugin;
     }
 
@@ -57,7 +57,7 @@ public final class SameServer implements Listener {
 
         Command c = Bukkit.getCommandMap().getCommand(typed);
         if (c instanceof PluginCommand pc && pc.getPlugin() == this.plugin.host() && SMP_ONLY.contains(pc.getName().toLowerCase(Locale.ROOT)) && !inSmp
-            && !(pc.getName().equalsIgnoreCase("drill") && p.hasPermission("vortexsmp.admin"))) {
+            && !(pc.getName().equalsIgnoreCase("drill") && p.hasPermission("cmcsmp.admin"))) {
             e.setCancelled(true);
             p.sendMessage(Text.mm("<red>That works in the SMP. <click:run_command:'/smp'><hover:show_text:'<gray>Go to the SMP'><green>[Go to the SMP]</green></hover></click>"));
             Snd.error(p);

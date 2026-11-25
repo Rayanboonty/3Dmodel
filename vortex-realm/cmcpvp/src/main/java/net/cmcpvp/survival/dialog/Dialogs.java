@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback.Options;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.util.ClientVersion;
 import net.cmcpvp.survival.util.Tasks;
 import net.cmcpvp.survival.util.Text;
@@ -28,10 +28,10 @@ import org.bukkit.entity.Player;
 public final class Dialogs {
     static final Options OPTS = Options.builder().uses(-1).lifetime(Duration.ofMinutes(10L)).build();
     private static final Options ONCE = Options.builder().uses(1).lifetime(Duration.ofMinutes(10L)).build();
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final LobbyDialogs lobby;
 
-    public Dialogs(VortexSMP plugin) {
+    public Dialogs(CmcSmp plugin) {
         this.plugin = plugin;
         this.lobby = new LobbyDialogs(this);
     }

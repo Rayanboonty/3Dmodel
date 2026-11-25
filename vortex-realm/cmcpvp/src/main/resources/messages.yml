@@ -1,4 +1,4 @@
-# C MCPvP messages (MiniMessage format: https://docs.advntr.dev/minimessage/format.html)
+# CMCPVP messages (MiniMessage format: https://docs.advntr.dev/minimessage/format.html)
 # <placeholders> are filled in by the plugin. {placeholders} are used inside click/hover tags.
 # Missing keys fall back to the defaults shipped inside the jar.
 

@@ -18,7 +18,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 import net.kyori.adventure.text.Component;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.dialog.Dialogs;
@@ -64,7 +64,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 public final class Essentials implements Listener, TabExecutor {
     private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final ModeManager modes;
     private final File dataFile;
     private final File warpsFile;
@@ -77,7 +77,7 @@ public final class Essentials implements Listener, TabExecutor {
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Long> rtpCooldowns = new HashMap<>();
 
-    public Essentials(VortexSMP plugin, ModeManager modes) {
+    public Essentials(CmcSmp plugin, ModeManager modes) {
         this.plugin = plugin;
         this.modes = modes;
         this.dataFile = new File(plugin.getDataFolder(), "homes.yml");
@@ -146,7 +146,7 @@ public final class Essentials implements Listener, TabExecutor {
     // ------------------------------------------------------------------ bringing old homes and warps back
 
     /**
-     * Adds the homes of a homes.yml (homes.&lt;uuid&gt;.&lt;MODE&gt;.&lt;name&gt;: this plugin's, the 2.x one and VortexSMP's all
+     * Adds the homes of a homes.yml (homes.&lt;uuid&gt;.&lt;MODE&gt;.&lt;name&gt;: this plugin's, the 2.x one and CmcSmp's all
      * use it). {@code replace}: a home with the same name is set to the old spot too. {@code dry}: only counts.
      * Returns how many homes were (or would be) added or changed.
      */
@@ -362,20 +362,20 @@ public final class Essentials implements Listener, TabExecutor {
     }
 
     private boolean bypass(Player p) {
-        return p.hasPermission("vortexsmp.teleport.bypass");
+        return p.hasPermission("cmcsmp.teleport.bypass");
     }
 
     /** Homes a player may have per mode: the default, more for staff roles, or a rank's cmcpvp.homes.N. */
     int maxHomes(Player p) {
-        if (p.hasPermission("vortexsmp.homes.unlimited")) {
+        if (p.hasPermission("cmcsmp.homes.unlimited")) {
             return Integer.MAX_VALUE;
         } else {
             int max = Cfg.i(Opt.HOMES_MAX);
-            if (p.hasPermission("vortexsmp.homes.role.admin")) {
+            if (p.hasPermission("cmcsmp.homes.role.admin")) {
                 max = Math.max(max, Cfg.i(Opt.HOMES_ADMIN));
-            } else if (p.hasPermission("vortexsmp.homes.role.mod")) {
+            } else if (p.hasPermission("cmcsmp.homes.role.mod")) {
                 max = Math.max(max, Cfg.i(Opt.HOMES_MOD));
-            } else if (p.hasPermission("vortexsmp.homes.role.helper")) {
+            } else if (p.hasPermission("cmcsmp.homes.role.helper")) {
                 max = Math.max(max, Cfg.i(Opt.HOMES_HELPER));
             }
 
@@ -385,7 +385,7 @@ public final class Essentials implements Listener, TabExecutor {
 
             for (PermissionAttachmentInfo pi : p.getEffectivePermissions()) {
                 String perm = pi.getPermission();
-                if (pi.getValue() && (perm.startsWith("vortexsmp.homes.") || perm.startsWith("cmcpvp.homes."))) {
+                if (pi.getValue() && (perm.startsWith("cmcsmp.homes.") || perm.startsWith("cmcpvp.homes."))) {
                     try {
                         max = Math.max(max, Integer.parseInt(perm.substring(perm.indexOf(".homes.") + 7)));
                     } catch (NumberFormatException var7) {
@@ -409,7 +409,7 @@ public final class Essentials implements Listener, TabExecutor {
     private void warmup(Player p, String what, Runnable done, Runnable failed) {
         // a teleport already counting down is replaced, and the player is told
         this.cancelWarmup(p, "a new teleport started");
-        if (this.plugin.combatTag() != null && this.plugin.combatTag().tagged(p) && !p.hasPermission("vortexsmp.admin")) {
+        if (this.plugin.combatTag() != null && this.plugin.combatTag().tagged(p) && !p.hasPermission("cmcsmp.admin")) {
             err(p, "You can't teleport in combat (" + this.plugin.combatTag().secondsLeft(p) + "s).");
             if (failed != null) {
                 failed.run();
@@ -468,7 +468,7 @@ public final class Essentials implements Listener, TabExecutor {
                                 if (w.quarters <= 0) {
                                     Tasks.cancel(w.task);
                                     this.warmups.remove(p.getUniqueId());
-                                    if (this.plugin.combatTag() != null && this.plugin.combatTag().tagged(p) && !p.hasPermission("vortexsmp.admin")) {
+                                    if (this.plugin.combatTag() != null && this.plugin.combatTag().tagged(p) && !p.hasPermission("cmcsmp.admin")) {
                                         err(p, "Teleport cancelled - you are in combat.");
                                         if (w.failed != null) {
                                             w.failed.run();
@@ -1244,7 +1244,7 @@ public final class Essentials implements Listener, TabExecutor {
                 // the outer islands start 1000 blocks out: a smaller border leaves only the dragon's island
                 err(p, "Random teleport in the End needs the End world border to reach at least 1150 blocks from the centre.");
                 for (Player op : Bukkit.getOnlinePlayers()) {
-                    if (op.hasPermission("vortexsmp.admin") && !op.equals(p)) {
+                    if (op.hasPermission("cmcsmp.admin") && !op.equals(p)) {
                         msg(op, "<yellow>[SMP] <gray>The End world border (radius " + (int)(w.getWorldBorder().getSize() / 2.0) + ") is too small for /rtp there.");
                     }
                 }
@@ -1282,7 +1282,7 @@ public final class Essentials implements Listener, TabExecutor {
                                     } else if (p.isOnline()) {
                                         Location safe = safeSpot(w, x, z);
                                         if (safe != null) {
-                                            if (this.plugin.combatTag() != null && this.plugin.combatTag().tagged(p) && !p.hasPermission("vortexsmp.admin")) {
+                                            if (this.plugin.combatTag() != null && this.plugin.combatTag().tagged(p) && !p.hasPermission("cmcsmp.admin")) {
                                                 err(p, "Random teleport cancelled - you are in combat.");
                                             } else {
                                                 safe.setYaw(p.getLocation().getYaw());
@@ -1393,7 +1393,7 @@ public final class Essentials implements Listener, TabExecutor {
         if (from.equals(to)) {
             err(from, "You can't send a request to yourself.");
         } else if (this.smp(to.getWorld()) && this.group(to.getWorld()).equals(this.group(from.getWorld()))) {
-            if (this.tpaOff.contains(to.getUniqueId()) && !from.hasPermission("vortexsmp.staff")) {
+            if (this.tpaOff.contains(to.getUniqueId()) && !from.hasPermission("cmcsmp.staff")) {
                 err(from, to.getName() + " doesn't accept teleport requests.");
             } else if (false) {
                 err(from, to.getName() + " doesn't accept teleport requests from you.");
@@ -1578,7 +1578,7 @@ public final class Essentials implements Listener, TabExecutor {
                 this.warpsMenu(p);
                 break;
             case "setwarp":
-                if (!p.hasPermission("vortexsmp.warps.admin")) {
+                if (!p.hasPermission("cmcsmp.warps.admin")) {
                     err(p, "You don't have permission.");
                     return;
                 }
@@ -1596,7 +1596,7 @@ public final class Essentials implements Listener, TabExecutor {
                 msg(p, "<green>✔ Warp <white>" + name + "</white> set in " + this.modeLabel(p.getWorld()) + "<green>.");
                 break;
             default:
-                if (!p.hasPermission("vortexsmp.warps.admin")) {
+                if (!p.hasPermission("cmcsmp.warps.admin")) {
                     err(p, "You don't have permission.");
                     return;
                 }
@@ -1641,7 +1641,7 @@ public final class Essentials implements Listener, TabExecutor {
                 List.of(),
                 Text.mm(
                     "<gray>No warps here yet."
-                        + (p.hasPermission("vortexsmp.warps.admin") ? " <gold>/setwarp <name></gold> <gray>with an item in your hand." : "")
+                        + (p.hasPermission("cmcsmp.warps.admin") ? " <gold>/setwarp <name></gold> <gray>with an item in your hand." : "")
                 ),
                 List.of(),
                 1,

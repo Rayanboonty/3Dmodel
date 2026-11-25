@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.Map.Entry;
-import net.cmcpvp.survival.VortexSMP;
+import net.cmcpvp.survival.CmcSmp;
 import net.cmcpvp.survival.config.Cfg;
 import net.cmcpvp.survival.config.Opt;
 import net.cmcpvp.survival.util.Snd;
@@ -56,11 +56,11 @@ public final class CombatTag implements Listener {
         "tournament",
         "event"
     );
-    private final VortexSMP plugin;
+    private final CmcSmp plugin;
     private final ModeManager modes;
     private final Map<UUID, Long> until = new HashMap<>();
 
-    public CombatTag(VortexSMP plugin, ModeManager modes) {
+    public CombatTag(CmcSmp plugin, ModeManager modes) {
         this.plugin = plugin;
         this.modes = modes;
     }
@@ -131,7 +131,7 @@ public final class CombatTag implements Listener {
     )
     public void onCommand(PlayerCommandPreprocessEvent e) {
         Player p = e.getPlayer();
-        if (this.tagged(p) && !p.hasPermission("vortexsmp.admin")) {
+        if (this.tagged(p) && !p.hasPermission("cmcsmp.admin")) {
             String m = e.getMessage().startsWith("/") ? e.getMessage().substring(1) : e.getMessage();
             String label = m.split(" ")[0].toLowerCase(Locale.ROOT);
             int colon = label.indexOf(58);
@@ -153,7 +153,7 @@ public final class CombatTag implements Listener {
     )
     public void onTeleport(PlayerTeleportEvent e) {
         Player p = e.getPlayer();
-        if (this.tagged(p) && !p.hasPermission("vortexsmp.admin")) {
+        if (this.tagged(p) && !p.hasPermission("cmcsmp.admin")) {
             switch (e.getCause()) {
                 default:
                     e.setCancelled(true);
@@ -181,7 +181,7 @@ public final class CombatTag implements Listener {
     )
     public void onQuit(PlayerQuitEvent e) {
         Player p = e.getPlayer();
-        if (this.tagged(p) && this.smp(p) && !p.hasPermission("vortexsmp.admin")) {
+        if (this.tagged(p) && this.smp(p) && !p.hasPermission("cmcsmp.admin")) {
             this.until.remove(p.getUniqueId());
             p.setHealth(0.0);
 

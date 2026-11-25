@@ -27,7 +27,7 @@ import org.bukkit.entity.Player;
  * and is removed the moment the match ends or the player leaves.
  */
 public final class PingEqualizer {
-    public static final String HANDLER = "vortex_ping_eq";
+    public static final String HANDLER = "cmcpvp_ping_eq";
     private final CMCPvP plugin;
     private final Map<Integer, List<UUID>> matches = new ConcurrentHashMap<>();
     private final Map<UUID, PingEqualizer.DelayHandler> handlers = new ConcurrentHashMap<>();
