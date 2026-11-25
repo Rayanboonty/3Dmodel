@@ -13,7 +13,7 @@ NOTES = {
     'VortexRealm': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'PracticePvP': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
-    'CMCPvP': 'CMCPVP 1.0.12: website works on the game port, PvP HQ capsule with punch to ready, 5 s waiting room then the vote, 3D previews for every map, new FFA board, Auto Splash, mace maps fixed, one two-tone tab, no Vortex/SMP/selector',
+    'CMCPvP': 'CMCPVP 1.0.13: one tab only - CMCPVP glued, CMC white, PVP red, all red/white text (old tab.yml and "C MCPvP" name fixed by itself); FFA board: each kit item in its own button next to its box, one row per kit; arenas build about 2x faster with far less RAM (landscape ring off, arena.landscape to turn it back on)',
 }
 
 

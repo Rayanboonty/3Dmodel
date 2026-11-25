@@ -18,7 +18,7 @@ NAME = 'CMCPVP'
 FEED = 'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json'
 OLD_FEED = 'https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json'
 # C MCPvP has its own version line (1.0.0 = launch); bump it for every C MCPvP release
-EDITION_VERSION = '1.0.12'
+EDITION_VERSION = '1.0.13'
 PERM = re.compile(r'(?<![\w.])practice\.(?=[a-z])')
 
 
@@ -159,7 +159,10 @@ def two_tone_tab():
     part = s[a:b]
     part = rep(part, '"<b><gradient:#FFD24A:#FF9F1C><server></gradient></b> <dark_gray>|</dark_gray> <#7FE3FF>Practice"',
                '"<b><white>CMC</white><#E3172B>PVP</#E3172B></b> <dark_gray>|</dark_gray> <gray>Practice"', p)
-    for old, new in (('#FFD24A', '#E3172B'), ('#FF9F1C', '#9E0F1A'), ('#7FE3FF', '#FFFFFF'), ('#B8860B', '#7A0C14'), ('#FFF1B0', '#FFD5D9')):
+    part = part.replace('"<dark_gray><st>                                        </st>"', '"<#7A0C14><st>                                        </st>"')
+    # every accent red or white: labels light red, values white, section bars deep red
+    for old, new in (('#FFD24A', '#E3172B'), ('#FF9F1C', '#9E0F1A'), ('#7FE3FF', '#FF4D5E'), ('#B8860B', '#7A0C14'), ('#FFF1B0', '#FFD5D9'),
+                     ('#55FF55', '#FFFFFF'), ('#9FA8FF', '#FFD5D9'), ('#2B3445', '#7A0C14')):
         part = part.replace(old, new)
     wr(p, s[:a] + part + s[b:])
 

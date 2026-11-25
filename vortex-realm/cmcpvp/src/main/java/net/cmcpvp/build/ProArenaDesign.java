@@ -254,7 +254,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
             own = Math.max(hx, hz) + dOut + 6;
         }
 
-        int ring = Math.max(0, Math.min(56, 255 - own));
+        int ring = ArenaLandscape.enabled() ? Math.max(0, Math.min(56, 255 - own)) : 0;
         if (ring < 12) {
             ring = 0;
         }

@@ -86,7 +86,7 @@ public final class ColosseumDesign {
         int hx0 = this.straight + this.radius + this.outer + this.landscape + 6 + (style == ColosseumDesign.Style.GLADIATOR ? 20 : 0);
         int hz0 = this.radius + this.outer + this.landscape + 6;
         // the landscape ring, kept inside the arena's 512-block slot
-        boolean ringed = style == ColosseumDesign.Style.GRAND || style == ColosseumDesign.Style.CHAMPIONS;
+        boolean ringed = net.practicepvp.build.ArenaLandscape.enabled() && (style == ColosseumDesign.Style.GRAND || style == ColosseumDesign.Style.CHAMPIONS);
         int out = ringed ? Math.max(0, Math.min(56, 255 - Math.max(hx0, hz0))) : 0;
         this.ringOut = out >= 12 ? out : 0;
         this.ringStart = this.outer + this.landscape + (this.landscape > 0 ? 2.0 : 1.2);

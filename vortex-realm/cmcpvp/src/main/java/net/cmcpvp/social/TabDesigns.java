@@ -104,10 +104,10 @@ public final class TabDesigns {
             "Competitive",
             "Practice-server style: dark slate, gold and aqua section bars, every board shows tier and Elo, and your own stats in the footer.",
             Material.GOLDEN_SWORD,
-            List.of("", "<logo>", "<b><white>CMC</white><#E3172B>PVP</#E3172B></b> <dark_gray>|</dark_gray> <gray>Practice", "<dark_gray><st>                                        </st>", ""),
+            List.of("", "<logo>", "<b><white>CMC</white><#E3172B>PVP</#E3172B></b> <dark_gray>|</dark_gray> <gray>Practice", "<#7A0C14><st>                                        </st>", ""),
             List.of(
                 "",
-                "<#FFFFFF>Your Elo <white><my_elo></white> <dark_gray>|</dark_gray> <#FFFFFF>Tier <my_tier> <dark_gray>|</dark_gray> <#FFFFFF>Rank <white><my_rank></white>",
+                "<#FF4D5E>Your Elo <white><my_elo></white> <dark_gray>|</dark_gray> <#FF4D5E>Tier <my_tier> <dark_gray>|</dark_gray> <#FF4D5E>Rank <white><my_rank></white>",
                 "<gray>Matches <white><matches></white> <dark_gray>|</dark_gray> <gray>In queue <white><queued></white> <dark_gray>|</dark_gray> <gray>Ping <white><ping>ms</white>",
                 "<#E3172B><ip>",
                 ""
@@ -121,11 +121,11 @@ public final class TabDesigns {
             10,
             new TabDesigns.Style(
                 titles(
-                    "online", "<#2B3445>▌</#2B3445><#FFFFFF><b>ONLINE</b> <gray>{count}",
-                    "top", "<#2B3445>▌</#2B3445><#E3172B><b>TOP ELO</b>",
-                    "staff", "<#2B3445>▌</#2B3445><#55FF55><b>STAFF</b>",
-                    "friends", "<#2B3445>▌</#2B3445><#9FA8FF><b>FRIENDS</b>",
-                    "kit", "<#2B3445>▌</#2B3445><#E3172B><b>{kit}</b>"
+                    "online", "<#7A0C14>▌</#7A0C14><#FF4D5E><b>ONLINE</b> <gray>{count}",
+                    "top", "<#7A0C14>▌</#7A0C14><#E3172B><b>TOP ELO</b>",
+                    "staff", "<#7A0C14>▌</#7A0C14><#FFFFFF><b>STAFF</b>",
+                    "friends", "<#7A0C14>▌</#7A0C14><#FFD5D9><b>FRIENDS</b>",
+                    "kit", "<#7A0C14>▌</#7A0C14><#E3172B><b>{kit}</b>"
                 ),
                 true,
                 false,

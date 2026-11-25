@@ -1093,6 +1093,14 @@ public final class Opt<T> {
         "match.waiting-room-seconds", 5, Opt.Section.MATCH, "Waiting Room Time",
         "Seconds matched players stay in the waiting room before going on to the map vote with the maps that are ready.", Material.CLOCK, 2, 60, 1
     );
+    public static final Opt<Boolean> ARENA_LANDSCAPE = bool(
+        "arena.landscape",
+        false,
+        Opt.Section.ARENA,
+        "Arena Landscapes",
+        "Mountains, forests and set pieces round every designed arena. Off (default) = only the arena itself: about ten times fewer blocks, built much faster and with far less memory. Arenas rebuild by themselves after a change.",
+        Material.SPRUCE_SAPLING
+    );
     public static final Opt<Boolean> ARENA_BARRIER_WALLS = bool(
         "arena.barrier-walls",
         true,

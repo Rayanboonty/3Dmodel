@@ -596,8 +596,8 @@ public final class Dialogs {
         } else if (!this.useDialog(p)) {
             new QueueMenu.Ffa(this.plugin, p).open();
         } else {
-            // the FFA board: the server logo on top (outside the grid), then one Minecraft button per kit - its icon,
-            // its name, a live player bar - laid out three across, and a "random arena" button under them
+            // the FFA board: the server logo on top (outside the buttons), then one row per kit - the kit's item in its
+            // own square button, its box next to it - and a "random arena" row under them
             List<DialogBody> body = new ArrayList<>();
             boolean pack = this.plugin.hasPack(p);
             body.add(DialogBody.plainMessage(pack
@@ -619,19 +619,20 @@ public final class Dialogs {
                 most = Math.max(most, a.players.size());
             }
 
+            // one row per kit: its item in a square button of its own, then the kit's box (name, live bar, count)
             for (FfaArena a : open) {
                 Kit kit = this.plugin.ffa().kitOf(a);
                 int n = a.players.size();
                 int filled = n == 0 ? 0 : Math.max(1, Math.round(5.0F * n / most));
-                Component label = Component.empty()
-                    .append(kit.iconComponent())
-                    .append(Text.mm(" " + kit.color + "<b>" + Text.esc(kit.displayName) + "</b>"))
-                    .append(Text.mm("  <#E3172B>" + "▮".repeat(filled) + "</#E3172B><dark_gray>" + "▮".repeat(5 - filled) + "</dark_gray> <white>" + n));
-                Component tip = Text.mm(kit.color + "<b>" + Text.esc(a.displayName) + "</b>\n<gray>" + n + " player" + (n == 1 ? "" : "s") + " in the arena\n\n<green>▶ Click to jump in");
-                buttons.add(button(label, tip, 150, this.action(p, () -> {
+                Component tip = Text.mm(kit.color + "<b>" + Text.esc(a.displayName) + "</b>\n<gray>" + n + " player" + (n == 1 ? "" : "s") + " in the arena\n\n<#E3172B>▶ <white>Click to jump in");
+                Runnable join = () -> {
                     p.closeDialog();
                     this.plugin.ffa().join(p, a);
-                })));
+                };
+                buttons.add(button(kit.iconComponent(), tip, 24, this.action(p, join)));
+                Component box = Text.mm(kit.color + "<b>" + Text.esc(kit.displayName) + "</b>   <#E3172B>" + "▮".repeat(filled) + "</#E3172B><dark_gray>"
+                    + "▮".repeat(5 - filled) + "</dark_gray>  <white>" + n + "</white> <gray>playing");
+                buttons.add(button(box, tip, 196, this.action(p, join)));
             }
 
             if (open.isEmpty()) {
@@ -641,12 +642,15 @@ public final class Dialogs {
                 return;
             }
 
-            buttons.add(button(Text.mm("<white>⚄ <b>Random Arena</b>"), Text.mm("<gray>Drops you into a random FFA arena"), 150, this.action(p, () -> {
+            Component rtip = Text.mm("<gray>Drops you into a random FFA arena");
+            Runnable random = () -> {
                 p.closeDialog();
                 this.plugin.ffa().join(p, open.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(open.size())));
-            })));
+            };
+            buttons.add(button(Text.mm("<#E3172B>⚄"), rtip, 24, this.action(p, random)));
+            buttons.add(button(Text.mm("<white><b>Random Arena</b>"), rtip, 196, this.action(p, random)));
             DialogBase base = DialogBase.builder(Component.empty()).canCloseWithEscape(true).pause(false).afterAction(DialogAfterAction.NONE).body(body).build();
-            show(p, base, DialogType.multiAction(buttons).columns(3).exitAction(this.closeButton(p)).build());
+            show(p, base, DialogType.multiAction(buttons).columns(2).exitAction(this.closeButton(p)).build());
         }
     }
 

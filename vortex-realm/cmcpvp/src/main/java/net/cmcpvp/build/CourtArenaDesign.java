@@ -63,6 +63,10 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
 
     /** How many blocks of landscape fit round a court arena of this size inside its 512-block slot. */
     public static int outskirts(int size) {
+        if (!ArenaLandscape.enabled()) {
+            return 0;
+        }
+
         int r0 = Math.max(64, (size - 1) / 2);
         return Math.max(0, Math.min(OUTSKIRTS, 255 - r0));
     }

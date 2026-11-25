@@ -16,6 +16,11 @@ import java.util.function.DoubleBinaryOperator;
  * invisible wall right outside the build keeps every fight inside.
  */
 public final class ArenaLandscape extends CourtParts {
+    /** Landscapes are optional (arena.landscape): off, an arena is only itself - far fewer blocks, much faster and lighter. */
+    public static boolean enabled() {
+        return net.cmcpvp.config.Cfg.bool(net.cmcpvp.config.Opt.ARENA_LANDSCAPE);
+    }
+
     public enum Kind {
         /** Grass, spruce and birch, snowy peaks; a village, watchtowers, a windmill. */
         ALPINE("Alpine valley", "grass_block", "dirt", 74, 54, false, 1.0),

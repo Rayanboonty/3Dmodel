@@ -1342,6 +1342,12 @@ The SMP's nether and end were treated as not part of the SMP (they're saved as '
 - **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.
 
 
+## CMCPVP 1.0.13
+
+- **One tab, always.** The tab is the CMCPVP design: "CMCPVP" glued together, CMC white, PVP red, with every label red and every value white. An old `tab.yml` or the old "C MCPvP" server name can't change it any more; the name is corrected by itself.
+- **New FFA board.** Each kit has its item in its own square button, with the kit's box (name, live player bar, count) next to it. There is one row per kit, the logo sits on top, and "Random Arena" is at the bottom.
+- **Faster, lighter arenas.** The decorative landscape ring around each arena is off by default. Arenas build about twice as fast and use much less memory. `arena.landscape: true` turns the ring back on.
+
 ## CMCPVP 1.0.12
 
 - **Website works on hosts:** it opens on the game address itself (`http://your-ip:your-game-port/`). The reply used to get a Minecraft length prefix in front of it, so browsers showed nothing.

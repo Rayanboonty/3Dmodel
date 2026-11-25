@@ -67,7 +67,8 @@ public final class ArenaGenerator {
             + "/"
             + Cfg.bool(Opt.ARENA_ORES)
             + "/"
-            + Cfg.bool(Opt.COLOSSEUM_BARRIERS);
+            + Cfg.bool(Opt.COLOSSEUM_BARRIERS)
+            + (net.cmcpvp.build.ArenaLandscape.enabled() ? "/land" : "/bare");
     }
 
     public static boolean onFloor(ArenaTheme theme, int size, Cuboid bounds, int x, int z) {

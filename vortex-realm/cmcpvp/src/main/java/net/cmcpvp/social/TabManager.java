@@ -154,6 +154,48 @@ public final class TabManager {
                     );
             }
         }
+
+        if (net.cmcpvp.Edition.PRACTICE_ONLY) {
+            this.forceOneDesign();
+        }
+    }
+
+    /**
+     * The practice-only build has one tab, always its own design: a saved tab.yml, an old design choice or an old
+     * server name ("CMCPVP") can't change it.
+     */
+    private void forceOneDesign() {
+        TabDesigns.Design d = TabDesigns.active();
+        this.header = d.header();
+        this.footer = d.footer();
+        this.brandText = "";
+        this.brand.colors(d.brandColors());
+        this.brand.speed(d.brandSpeed());
+        if (d.moods() != null) {
+            this.moods.clear();
+            for (Map.Entry<String, String[]> e : d.moods().entrySet()) {
+                this.moods.put(e.getKey(), new TabManager.Mood(e.getValue()[0], e.getValue()[1], true));
+            }
+        }
+
+        String name = Cfg.s(Opt.SERVER_NAME);
+        String glued = name.replace(" ", "").replace("-", "");
+        if (glued.equalsIgnoreCase(this.plugin.getName()) && !name.equals(glued.toUpperCase(Locale.ROOT))) {
+            Cfg.set(Opt.SERVER_NAME, glued.toUpperCase(Locale.ROOT));
+        }
+
+        if (Cfg.bool(Opt.TAB_COLUMNS) != d.columns()) {
+            Cfg.set(Opt.TAB_COLUMNS, d.columns());
+        }
+        if (!d.where().equals(Cfg.s(Opt.TAB_COLUMNS_WHERE))) {
+            Cfg.set(Opt.TAB_COLUMNS_WHERE, d.where());
+        }
+        if (!d.sections().equals(Cfg.s(Opt.TAB_COLUMNS_SECTIONS))) {
+            Cfg.set(Opt.TAB_COLUMNS_SECTIONS, d.sections());
+        }
+        if (Cfg.i(Opt.TAB_COLUMNS_SECTION_SIZE) != d.sectionSize()) {
+            Cfg.set(Opt.TAB_COLUMNS_SECTION_SIZE, d.sectionSize());
+        }
     }
 
     private static void setMood(YamlConfiguration y, String key, String from, String to, boolean animated) {

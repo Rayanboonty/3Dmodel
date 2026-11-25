@@ -1,9 +1,9 @@
 {
   "CMCPvP": {
-    "version": "1.0.12",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.12.jar",
-    "sha256": "e7358391a9002eef9bc10c136dec654527817ee5f7d53ad469294996f520d17c",
-    "notes": "CMCPVP 1.0.12: website works on the game port, PvP HQ capsule with punch to ready, 5 s waiting room then the vote, 3D previews for every map, new FFA board, Auto Splash, mace maps fixed, one two-tone tab, no Vortex/SMP/selector"
+    "version": "1.0.13",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.13.jar",
+    "sha256": "1d1f73d676182503b7356686b3d41a124b1b6f4c0989997e605dde7cfb7a4be7",
+    "notes": "CMCPVP 1.0.13: one tab only - CMCPVP glued, CMC white, PVP red, all red/white text (old tab.yml and \"C MCPvP\" name fixed by itself); FFA board: each kit item in its own button next to its box, one row per kit; arenas build about 2x faster with far less RAM (landscape ring off, arena.landscape to turn it back on)"
   },
   "PracticePvP": {
     "version": "2.14.10",
