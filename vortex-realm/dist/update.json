@@ -1,9 +1,9 @@
 {
   "CMCPvP": {
-    "version": "1.0.14",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.14.jar",
-    "sha256": "f9b96e9105b96eb6615449aa1d0c36e905ea644239c931267025ad619c941be4",
-    "notes": "CMCPVP 1.0.14: Tier Testers (/tiertest waitlist, /testqueue, new TESTER rank), 7-day retest cooldown, 5 placement matches, rank decay from HT3, peak tiers + MCTiers points and overall titles, Show Own Tier setting, Skill/Vanilla/Community kit groups, website profiles at /@name with match history, leaderboard continent/country filters, real world-map continent pictures"
+    "version": "1.0.15",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.15.jar",
+    "sha256": "c5582575af96edbde8a6cc7b05ff9409ead711ac65367a93f53945587034887b",
+    "notes": "CMCPVP 1.0.15: real 3D map previews (a true scaled copy of each arena), invisible walls built first on every arena and FFA map, roomy see-through PvP HQ capsule with a trapdoor floor and shattering glass, 4 new masterpiece arenas (Dragonspire Keep, Koi Shrine Summit, Corsair Harbor, Stormpeak Sanctuary), new main buildings for Frostfang, Stonewatch, Ember Citadel and Obsidian Forge, a ruined Titan Colosseum, sculpted trees everywhere, 7 lookalike maps retired"
   },
   "PracticePvP": {
     "version": "2.14.10",

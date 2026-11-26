@@ -355,6 +355,7 @@ public final class ArenaPreview {
         c(0x653046, "crimson_planks");
         c(0x2B6963, "warped_planks");
         c(0xC4B04C, "bamboo_planks", "bamboo_block", "bamboo_mosaic");
+        c(0x6A9A2E, "bamboo");
         c(0x96603F, "bricks");
         c(0x2C1519, "nether_bricks", "cracked_nether_bricks", "chiseled_nether_bricks");
         c(0x450709, "red_nether_bricks");

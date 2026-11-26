@@ -476,21 +476,64 @@ abstract class CourtParts extends MegaVoxels {
     }
 
     /** A round broadleaf tree with a few side branches. */
+    /**
+     * A broadleaf tree the way builders shape them (1.0.15): a slightly leaning trunk with a flared foot, three to five
+     * boughs climbing out at different heights, and a crown of several soft, uneven leaf clusters (no single ball).
+     */
     protected void broadleaf(int x, int y, int z, String logType, String leafType, int trunk, double crown) {
-        for (int i = 0; i < trunk; i++) {
-            this.set(x, y + i, z, log(logType, 'y'));
+        double lean = hash3(901L, x, y, z) * Math.PI * 2.0;
+        double tx = x;
+        double tz = z;
+        int height = Math.max(4, trunk + (int)Math.round(crown * 0.6));
+        for (int i = 0; i < height; i++) {
+            if (i > 1) {
+                tx += Math.cos(lean) * 0.13;
+                tz += Math.sin(lean) * 0.13;
+            }
+
+            this.set((int)Math.round(tx), y + i, (int)Math.round(tz), log(logType, 'y'));
         }
 
-        int top = y + trunk;
-        for (int b = 0; b < 3; b++) {
-            double a = this.rnd.nextDouble() * Math.PI * 2.0;
-            int bx = x + (int)Math.round(Math.cos(a) * crown * 0.55);
-            int bz = z + (int)Math.round(Math.sin(a) * crown * 0.55);
-            this.line(x, top - 2, z, bx, top, bz, log(logType, Math.abs(Math.cos(a)) > Math.abs(Math.sin(a)) ? 'x' : 'z'));
-            this.blob(bx, top + 1, bz, crown * 0.7, leaves(leafType));
+        if (height >= 7) {
+            for (int[] d : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                if (hash3(902L, x + d[0], y, z + d[1]) < 0.6) {
+                    this.set(x + d[0], y, z + d[1], log(logType, 'y'));
+                }
+            }
         }
 
-        this.blob(x, top + 1, z, crown, leaves(leafType));
+        int top = y + height;
+        int boughs = 3 + (int)(hash3(903L, x, y, z) * 2.99);
+        for (int b = 0; b < boughs; b++) {
+            double a = (b + hash3(905L, x, b, z) * 0.7) * Math.PI * 2.0 / boughs;
+            double len = crown * (0.75 + hash3(907L, x, b, z) * 0.5);
+            int by = top - 2 - (int)(hash3(909L, x, b, z) * Math.min(4, height / 2.0));
+            double ex = tx + Math.cos(a) * len;
+            double ez = tz + Math.sin(a) * len;
+            double ey = by + len * 0.5;
+            this.line(tx, by, tz, ex, ey, ez, log(logType, Math.abs(Math.cos(a)) > Math.abs(Math.sin(a)) ? 'x' : 'z'));
+            this.leafCluster(ex, ey + 0.8, ez, crown * 0.8 + 0.6, leafType);
+        }
+
+        this.leafCluster(tx, top + 1.2, tz, crown * 1.05, leafType);
+    }
+
+    /** A soft cluster of leaves: squashed, with a ragged edge. */
+    protected void leafCluster(double ox, double oy, double oz, double r, String leafType) {
+        int n = (int)Math.ceil(r) + 1;
+        for (int dx = -n; dx <= n; dx++) {
+            for (int dy = -n; dy <= n; dy++) {
+                for (int dz = -n; dz <= n; dz++) {
+                    int x = (int)Math.round(ox) + dx;
+                    int y = (int)Math.round(oy) + dy;
+                    int z = (int)Math.round(oz) + dz;
+                    double d = Math.sqrt(dx * dx + dy * dy * 2.1 + dz * dz);
+                    if (d <= r - hash3(911L, x, y, z) * 1.0) {
+                        this.setIfEmpty(x, y, z, leaves(leafType));
+                    }
+                }
+            }
+        }
     }
 
     protected void blob(int x, int y, int z, double r, String b) {
@@ -535,44 +578,105 @@ abstract class CourtParts extends MegaVoxels {
         }
     }
 
-    /** A cherry tree: a leaning trunk and a wide pink crown. */
+    /** A cherry tree (1.0.15): a twisting trunk, spreading boughs and wide, flat clouds of blossom. */
     protected void cherryTree(int x, int y, int z) {
-        int h = 5 + this.rnd.nextInt(3);
-        int tx = x;
-        int tz = z;
-        double lean = this.rnd.nextDouble() * Math.PI * 2.0;
-        for (int i = 0; i < h; i++) {
-            if (i == h / 2) {
-                tx += (int)Math.round(Math.cos(lean));
-                tz += (int)Math.round(Math.sin(lean));
-            }
-
-            this.set(tx, y + i, tz, log("cherry_log", 'y'));
+        int height = 5 + (int)(hash3(921L, x, y, z) * 3.0);
+        double a = hash3(923L, x, y, z) * Math.PI * 2.0;
+        double tx = x;
+        double tz = z;
+        for (int i = 0; i < height; i++) {
+            tx += Math.cos(a + i * 0.5) * 0.33;
+            tz += Math.sin(a + i * 0.5) * 0.33;
+            this.set((int)Math.round(tx), y + i, (int)Math.round(tz), log("cherry_log", 'y'));
         }
 
-        this.blob(tx, y + h, tz, 4.2, leaves("cherry"));
-        this.blob(tx + (int)Math.round(Math.cos(lean + 2) * 3), y + h - 1, tz + (int)Math.round(Math.sin(lean + 2) * 3), 2.8, leaves("cherry"));
+        int top = y + height;
+        for (int b = 0; b < 4; b++) {
+            double ba = a + b * Math.PI / 2.0 + hash3(925L, x, b, z) * 0.8;
+            double len = 3.0 + hash3(927L, x, b, z) * 2.5;
+            double ex = tx + Math.cos(ba) * len;
+            double ez = tz + Math.sin(ba) * len;
+            double ey = top - 1 + len * 0.3;
+            this.line(tx, top - 2, tz, ex, ey, ez, log("cherry_log", Math.abs(Math.cos(ba)) > Math.abs(Math.sin(ba)) ? 'x' : 'z'));
+            this.ellipsoid(ex, ey + 1.0, ez, 3.0, 1.4, 3.0, leaves("cherry"));
+        }
+
+        this.ellipsoid(tx, top + 1.3, tz, 3.6, 1.6, 3.6, leaves("cherry"));
     }
 
-    /** A spruce with an optional snow cap. */
+    /** A spruce (1.0.15): tiers of uneven width (wide, narrow, wide...), a pointed top, snow on its branches when snowy. */
     protected void spruce(int x, int y, int z, int h, boolean snow) {
-        this.conifer(x, y, z, "spruce_log", "spruce", h);
-        if (snow) {
-            for (int dx = -3; dx <= 3; dx++) {
-                for (int dz = -3; dz <= 3; dz++) {
-                    for (int dy = h + 2; dy >= 2; dy--) {
-                        String b = this.get(x + dx, y + dy, z + dz);
-                        if (b != null && b.startsWith("spruce_leaves")) {
-                            if (this.empty(x + dx, y + dy + 1, z + dz)) {
-                                this.set(x + dx, y + dy + 1, z + dz, "snow[layers=1]");
-                            }
+        for (int i = 0; i < h; i++) {
+            this.set(x, y + i, z, log("spruce_log", 'y'));
+        }
 
-                            break;
+        for (int i = 2; i <= h + 1; i++) {
+            double t = (double)(i - 2) / Math.max(1, h - 1);
+            double r = (1.0 - t) * (1.8 + h * 0.17);
+            if (i % 3 == 1) {
+                r *= 0.55;
+            }
+
+            int ry = (int)Math.ceil(r);
+            for (int dx = -ry; dx <= ry; dx++) {
+                for (int dz = -ry; dz <= ry; dz++) {
+                    double d = Math.sqrt(dx * dx + dz * dz);
+                    if ((dx != 0 || dz != 0) && d <= r + 0.3 - hash3(931L, x + dx, y + i, z + dz) * 0.7) {
+                        this.setIfEmpty(x + dx, y + i, z + dz, leaves("spruce"));
+                        if (snow && this.empty(x + dx, y + i + 1, z + dz) && hash3(933L, x + dx, y + i, z + dz) < 0.65) {
+                            this.set(x + dx, y + i + 1, z + dz, "snow[layers=2]");
                         }
                     }
                 }
             }
         }
+
+        this.set(x, y + h + 1, z, leaves("spruce"));
+        this.set(x, y + h + 2, z, snow ? "snow[layers=3]" : leaves("spruce"));
+    }
+
+    /**
+     * A gable roof over x0..x1 / z0..z1 from y0 (ridge along x, or along z), {@code over} blocks of eave; the gable ends
+     * are walled with {@code body}. Returns the y above the ridge.
+     */
+    protected int gableRoof(int x0, int x1, int z0, int z1, int y0, String stairMat, String body, boolean alongX, int over) {
+        int a0 = alongX ? z0 - over : x0 - over;
+        int a1 = alongX ? z1 + over : x1 + over;
+        int b0 = alongX ? x0 - over : z0 - over;
+        int b1 = alongX ? x1 + over : z1 + over;
+        int k = 0;
+        int y = y0;
+        while (a0 + k <= a1 - k) {
+            for (int b = b0; b <= b1; b++) {
+                for (int a = a0 + k; a <= a1 - k; a++) {
+                    boolean lo = a == a0 + k;
+                    boolean hi = a == a1 - k;
+                    String blk;
+                    if (lo && hi) {
+                        blk = slab(stairMat, false);
+                    } else if (lo) {
+                        blk = stairs(stairMat, alongX ? "south" : "east", false);
+                    } else if (hi) {
+                        blk = stairs(stairMat, alongX ? "north" : "west", false);
+                    } else if (b == b0 + over || b == b1 - over) {
+                        blk = body;
+                    } else {
+                        continue;
+                    }
+
+                    if (alongX) {
+                        this.set(b, y, a, blk);
+                    } else {
+                        this.set(a, y, b, blk);
+                    }
+                }
+            }
+
+            k++;
+            y++;
+        }
+
+        return y;
     }
 
     protected void lantern(int x, int y, int z, String post, int h, String light) {

@@ -684,7 +684,8 @@ public final class FfaManager {
             this.save();
             build = this.plugin.vanilla().cut(theme, Math.max(size, ArenaManager.targetSize(theme, true)), ox, oz, true, crystal, null).thenComposeAsync(cut -> {
                 this.applyCut(a, cut, crystal);
-                return ArenaManager.preload(w, a.bounds).thenComposeAsync(v -> this.plugin.jobs().submit(cut.snapshot().pasteJob(w, 0, 0, true)), Tasks.MAIN);
+                return ArenaManager.preload(w, a.bounds).thenComposeAsync(v -> this.sealNow(w, a.bounds), Tasks.MAIN)
+                    .thenComposeAsync(v -> this.plugin.jobs().submit(cut.snapshot().pasteJob(w, 0, 0, true)), Tasks.MAIN);
             }, Tasks.MAIN);
         } else {
             ArenaGenerator.Plan plan = ArenaGenerator.plan(theme, size, seed, ox, oz, true, Cfg.i(Opt.BUILD_HEIGHT), crystal);
@@ -694,6 +695,7 @@ public final class FfaManager {
             this.arenas.put(a.id, a);
             this.save();
             build = ArenaManager.preload(w, plan.bounds())
+                .thenComposeAsync(v -> this.sealNow(w, plan.bounds()), Tasks.MAIN)
                 .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaGenerator.buildJob(w, plan)), Tasks.MAIN)
                 .thenComposeAsync(v -> this.captureSnapshot(a), Tasks.MAIN);
         }
@@ -832,6 +834,7 @@ public final class FfaManager {
             CompletableFuture<Void> result = new CompletableFuture<>();
             ArenaManager.preload(w, wipe)
                 .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaManager.clearJob(w, wipe)), Tasks.MAIN)
+                .thenComposeAsync(v -> this.sealNow(w, nb), Tasks.MAIN)
                 .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaGenerator.buildJob(w, plan)), Tasks.MAIN)
                 .thenComposeAsync(v -> this.captureSnapshot(a), Tasks.MAIN)
                 .whenComplete((v, err) -> Tasks.ensureSync(() -> {
@@ -858,11 +861,16 @@ public final class FfaManager {
         }
     }
 
-    /** Walls of a rebuilt / new FFA arena (the rebuild wiped the old ones). */
+    /** After a build: any wall a build step opened again is closed (the walls went up at the start of the build). */
     private void resealLater(FfaArena a) {
         if (this.plugin.arenaSeal() != null) {
-            this.plugin.arenaSeal().reseal(a);
+            this.plugin.arenaSeal().verify(a);
         }
+    }
+
+    /** The invisible walls of an FFA arena, as the first step of building it. */
+    private CompletableFuture<Void> sealNow(org.bukkit.World w, net.practicepvp.util.Cuboid c) {
+        return this.plugin.arenaSeal() == null ? CompletableFuture.completedFuture(null) : this.plugin.arenaSeal().sealNow(w, c);
     }
 
     public boolean crystal(FfaArena a) {
@@ -888,6 +896,7 @@ public final class FfaManager {
             Cuboid wipe = ArenaManager.wipeArea(w, union);
             return ArenaManager.preload(w, wipe)
                 .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaManager.clearJob(w, wipe)), Tasks.MAIN)
+                .thenComposeAsync(v -> this.sealNow(w, a.bounds), Tasks.MAIN)
                 .thenComposeAsync(v -> this.plugin.jobs().submit(cut.snapshot().pasteJob(w, 0, 0, true)), Tasks.MAIN);
         }, Tasks.MAIN).whenComplete((v, err) -> Tasks.ensureSync(() -> {
             a.building = false;

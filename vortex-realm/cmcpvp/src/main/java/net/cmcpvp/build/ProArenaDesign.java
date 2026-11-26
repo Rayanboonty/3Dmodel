@@ -1173,6 +1173,10 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
             case "PAGODA" -> this.pagodaTemple(w, zf);
             case "ZIGGURAT" -> this.ziggurat(w, zf);
             case "PYRAMID" -> this.pharaohPyramid(w, zf);
+            case "LONGHALL" -> this.longhall(w, zf);
+            case "ABBEY" -> this.abbeyRuin(w, zf);
+            case "KASBAH" -> this.kasbah(w, zf);
+            case "VOLCANO" -> this.volcanoForge(w, zf);
             default -> this.castle(w, zf);
         }
 
@@ -1458,6 +1462,382 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
             this.cyl(sx, sz, 5.0, 1, 21, wm);
             this.ringAt(sx, sz, 4.6, 6.2, 21, of(p.trim));
             this.onion(sx, 22, sz, 5.4, of(p.dome), p.emGold);
+        }
+    }
+
+    // ---------------------------------------------------------------- 1.0.15: heroes of their own
+
+    /**
+     * Frost: a Nordic longhall on a stone plinth - walls of horizontal logs between posts, a steep shingle roof with
+     * snow, crossed dragon-head beams on the gables, a carved porch - and a stave church tower of stacked roofs.
+     */
+    private void longhall(int w, int zf) {
+        Face f = new Face(0, zf, 0, -1);
+        int len = Math.min(w, 20);
+        int depth = 12;
+        f.box(-len - 2, this.yLo, -1, len + 2, 1, depth + 1, of("cobblestone"));
+        for (int u = -len; u <= len; u++) {
+            for (int wv = 0; wv <= depth; wv++) {
+                boolean shell = Math.abs(u) == len || wv == 0 || wv == depth;
+                for (int y = 2; y <= 8; y++) {
+                    if (!shell) {
+                        f.set(u, y, wv, "cave_air");
+                    } else if (Math.floorMod(u, 5) == 0 || Math.abs(u) == len) {
+                        f.set(u, y, wv, "stripped_spruce_log[axis=y]");
+                    } else if (y == 5 && wv == 0 && Math.floorMod(u, 5) == 2) {
+                        f.set(u, y, wv, "glass_pane");
+                    } else {
+                        f.set(u, y, wv, Math.abs(u) == len ? "spruce_log[axis=z]" : "spruce_log[axis=x]");
+                    }
+                }
+            }
+        }
+
+        // the steep roof, snowed over, ridge along the hall
+        int top = this.gableRoof(f.x(-len, 0), f.x(len, 0), f.z(0, depth), f.z(0, 0), 9, "dark_oak", "spruce_planks", true, 2);
+        for (int u = -len - 2; u <= len + 2; u++) {
+            for (int y = 9; y <= top; y++) {
+                for (int wv = -2; wv <= depth + 2; wv++) {
+                    String b = f.get(u, y, wv);
+                    if (b != null && b.startsWith("dark_oak_stairs") && f.empty(u, y + 1, wv) && hash3(941L, u, y, wv) < 0.7) {
+                        f.set(u, y + 1, wv, "snow[layers=2]");
+                    }
+                }
+            }
+        }
+
+        // crossed dragon-head beams on both gables
+        for (int s = -1; s <= 1; s += 2) {
+            int u = s * (len + 2);
+            for (int k = 0; k <= 3; k++) {
+                f.set(u, top - 1 + k, depth / 2 - 1 - k, "dark_oak_log[axis=y]");
+                f.set(u, top - 1 + k, depth / 2 + 1 + k, "dark_oak_log[axis=y]");
+            }
+
+            f.set(u, top + 3, depth / 2 - 5, stairs("dark_oak", "north", true));
+            f.set(u, top + 3, depth / 2 + 5, stairs("dark_oak", "south", true));
+        }
+
+        // the porch in the middle of the long side
+        f.box(-3, 2, -4, 3, 2, -1, "spruce_planks");
+        for (int s = -1; s <= 1; s += 2) {
+            for (int y = 3; y <= 6; y++) {
+                f.set(s * 3, y, -4, "stripped_spruce_log[axis=y]");
+            }
+        }
+
+        for (int u = -1; u <= 1; u++) {
+            for (int y = 3; y <= 5; y++) {
+                f.set(u, y, 0, null);
+            }
+        }
+
+        this.gableRoof(f.x(-4, 0), f.x(4, 0), f.z(0, -1), f.z(0, -5), 7, "dark_oak", "dark_oak_planks", false, 0);
+        // the stave church tower at one end: stacked shrinking roofs with beasts on the corners
+        int tx = f.x(len + 9, 0);
+        int tz = f.z(0, depth / 2);
+        int y = 2;
+        int half = 5;
+        this.fill(tx - 6, this.yLo, tz - 6, tx + 6, 1, tz + 6, of("cobblestone"));
+        for (int tier = 0; tier < 4; tier++) {
+            int h = tier == 0 ? 7 : 4;
+            for (int yy = y; yy < y + h; yy++) {
+                for (int dx = -half; dx <= half; dx++) {
+                    for (int dz = -half; dz <= half; dz++) {
+                        boolean shell = Math.abs(dx) == half || Math.abs(dz) == half;
+                        this.set(tx + dx, yy, tz + dz, shell ? (Math.abs(dx) == half && Math.abs(dz) == half ? "stripped_dark_oak_log[axis=y]" : "spruce_planks") : "cave_air");
+                    }
+                }
+            }
+
+            int ry = this.pyramidRoof(tx - half - 1, tz - half - 1, tx + half + 1, tz + half + 1, y + h, "dark_oak", of("dark_oak_planks"));
+            for (int sx = -1; sx <= 1; sx += 2) {
+                for (int sz = -1; sz <= 1; sz += 2) {
+                    this.set(tx + sx * (half + 2), y + h, tz + sz * (half + 2), stairs("dark_oak", sx > 0 ? "west" : "east", true));
+                }
+            }
+
+            y += h + 2;
+            half = Math.max(2, half - 1);
+        }
+
+        for (int k = 0; k < 6; k++) {
+            this.set(tx, y + k, tz, k < 5 ? "dark_oak_fence" : "gold_block");
+        }
+
+        // rune stones and braziers before the hall
+        for (int s = -1; s <= 1; s += 2) {
+            int rx = f.x(s * 8, -6);
+            int rz = f.z(0, -6);
+            for (int k = 1; k <= 4; k++) {
+                this.set(rx, k, rz, k == 4 ? "chiseled_stone_bricks" : (hash3(943L, rx, k, rz) < 0.4 ? "mossy_cobblestone" : "stone"));
+            }
+
+            this.set(f.x(s * 5, -6), 1, rz, "campfire[lit=true]");
+        }
+    }
+
+    /** Highland: the ruin of a great abbey - a nave with broken walls and empty pointed windows, a rose window, a bell tower. */
+    private void abbeyRuin(int w, int zf) {
+        Face f = new Face(0, zf, 0, -1);
+        int len = Math.min(w + 4, 26);
+        int depth = 14;
+        Mat stone = this.mixOf(this.seed + 951L, "stone_bricks", "mossy_stone_bricks", 0.25, "cracked_stone_bricks", 0.15, "andesite", 0.08, "mossy_cobblestone", 0.06);
+        f.box(-len, this.yLo, 0, len, 1, depth, stone);
+        for (int u = -len; u <= len; u++) {
+            // the wall's broken top: high at the ends, gnawed down in the middle
+            double ruin = noise(this.seed + 953L, u * 0.18, 0) * 9.0 + Math.max(0, 6 - Math.abs(Math.abs(u) - len)) * -1.2;
+            int hFront = (int)Math.round(18 - ruin);
+            int hBack = (int)Math.round(20 - noise(this.seed + 955L, u * 0.16, 3) * 7.0);
+            for (int y = 2; y <= Math.max(hFront, 4); y++) {
+                f.set(u, y, 0, stone.at(f.x(u, 0), y, f.z(u, 0)));
+                f.set(u, y, 1, stone.at(f.x(u, 1), y, f.z(u, 1)));
+            }
+
+            for (int y = 2; y <= hBack; y++) {
+                f.set(u, y, depth, stone.at(f.x(u, depth), y, f.z(u, depth)));
+                f.set(u, y, depth - 1, stone.at(f.x(u, depth - 1), y, f.z(u, depth - 1)));
+            }
+
+            for (int wv = 2; wv < depth - 1; wv++) {
+                f.set(u, 1, wv, hash3(957L, u, 1, wv) < 0.3 ? "moss_block" : "grass_block");
+                if (hash3(959L, u, 2, wv) < 0.05) {
+                    f.set(u, 2, wv, "mossy_cobblestone");
+                }
+            }
+
+            // pointed windows, open to the sky
+            if (Math.floorMod(u, 6) == 3 && Math.abs(u) < len - 3) {
+                for (int y = 5; y <= 12; y++) {
+                    for (int du = -1; du <= 1; du++) {
+                        if (inArch(u + du, y, u, 1.0, 5, 12, true)) {
+                            f.set(u + du, y, 0, null);
+                            f.set(u + du, y, 1, null);
+                            f.set(u + du, y, depth, null);
+                            f.set(u + du, y, depth - 1, null);
+                        }
+                    }
+                }
+            }
+
+            // a buttress between windows (some fallen)
+            if (Math.floorMod(u, 6) == 0 && Math.abs(u) < len - 1 && hash3(961L, u, 0, 0) < 0.75) {
+                for (int y = 2; y <= 10; y++) {
+                    f.set(u, y, -1, stone.at(f.x(u, -1), y, f.z(u, -1)));
+                    if (y <= 5) {
+                        f.set(u, y, -2, stone.at(f.x(u, -2), y, f.z(u, -2)));
+                    }
+                }
+            }
+        }
+
+        // the west front with an empty rose window, the gable still standing
+        int gu = -len;
+        for (int wv = 0; wv <= depth; wv++) {
+            int gh = 22 + Math.min(wv, depth - wv);
+            for (int y = 2; y <= gh; y++) {
+                f.set(gu, y, wv, stone.at(f.x(gu, wv), y, f.z(gu, wv)));
+            }
+        }
+
+        for (int wv = 1; wv < depth; wv++) {
+            for (int y = 8; y <= 20; y++) {
+                double r = Math.hypot(wv - depth / 2.0, y - 14);
+                if (r < 5.2) {
+                    f.set(gu, y, wv, r > 4.2 || Math.abs(wv - depth / 2) < 1 || Math.abs(y - 14) < 1 ? "chiseled_stone_bricks" : null);
+                }
+            }
+        }
+
+        // the bell tower at the east end, its top broken off on one side
+        int tx = f.x(len - 4, 0);
+        int tz = f.z(0, depth / 2);
+        for (int y = 2; y <= 34; y++) {
+            for (int dx = -5; dx <= 5; dx++) {
+                for (int dz = -5; dz <= 5; dz++) {
+                    boolean shell = Math.abs(dx) == 5 || Math.abs(dz) == 5;
+                    if (!shell) {
+                        continue;
+                    }
+
+                    if (y > 26 && dx + dz > 2 + (34 - y)) {
+                        continue;
+                    }
+
+                    boolean slit = (y % 8 == 4 || y % 8 == 5) && (dx == 0 || dz == 0);
+                    this.set(tx + dx, y, tz + dz, slit ? null : stone.at(tx + dx, y, tz + dz));
+                }
+            }
+        }
+
+        // rubble and old graves round the ruin
+        for (int k = 0; k < 14; k++) {
+            int u = (int)Math.round((hash3(963L, k, 0, 0) - 0.5) * len * 2.2);
+            int wv = -3 - (int)(hash3(965L, k, 0, 0) * 6);
+            this.set(f.x(u, wv), 1, f.z(u, wv), hash3(967L, k, 1, 0) < 0.5 ? "mossy_cobblestone" : "cobblestone");
+            if (k % 3 == 0) {
+                this.set(f.x(u, wv), 2, f.z(u, wv), "mossy_cobblestone_wall");
+            }
+        }
+    }
+
+    /** Ember: a kasbah - battered red walls, tapering towers with stepped crenels, a horseshoe gate, palms in pots. */
+    private void kasbah(int w, int zf) {
+        Face f = new Face(0, zf, 0, -1);
+        int len = Math.min(w + 2, 26);
+        int depth = 14;
+        Mat clay = this.mixOf(this.seed + 971L, "red_sandstone", "smooth_red_sandstone", 0.3, "terracotta", 0.15, "orange_terracotta", 0.08);
+        f.box(-len, this.yLo, 0, len, 1, depth, of("red_sandstone"));
+        for (int y = 2; y <= 14; y++) {
+            int in = (y - 2) / 6;
+            for (int u = -len + in; u <= len - in; u++) {
+                for (int wv = in; wv <= depth - in; wv++) {
+                    boolean shell = Math.abs(u) == len - in || wv == in || wv == depth - in;
+                    String b = !shell ? "cave_air" : (y == 9 || y == 10 ? (Math.floorMod(u + y, 4) < 2 ? "red_terracotta" : "white_terracotta") : clay.at(f.x(u, wv), y, f.z(u, wv)));
+                    f.set(u, y, wv, b);
+                }
+            }
+        }
+
+        // stepped crenels along the top
+        for (int u = -len + 2; u <= len - 2; u++) {
+            int k = Math.floorMod(u, 4);
+            if (k == 0 || k == 1) {
+                f.set(u, 15, 2, "red_sandstone");
+                f.set(u, 16, 2, k == 0 ? stairs("red_sandstone", "east", false) : stairs("red_sandstone", "west", false));
+            }
+        }
+
+        // small windows with dark grilles
+        for (int u = -len + 4; u <= len - 4; u += 4) {
+            if (Math.abs(u) > 4) {
+                f.set(u, 6, 0, "dark_oak_trapdoor[facing=south,half=bottom,open=true]");
+                f.set(u, 12, 1, "dark_oak_trapdoor[facing=south,half=bottom,open=true]");
+            }
+        }
+
+        // the horseshoe gate with a carved frame
+        this.arch(f, 0, 2, 5, 8, false, 3, "dark_oak_planks", "chiseled_red_sandstone");
+        for (int u = -4; u <= 4; u++) {
+            f.set(u, 11, -1, Math.abs(u) % 2 == 0 ? "orange_glazed_terracotta" : "red_terracotta");
+        }
+
+        // tapering towers: four on the corners, two tall ones by the gate
+        int[][] towers = {{-len, 0, 20}, {len, 0, 20}, {-len, depth, 18}, {len, depth, 18}, {-8, -1, 26}, {8, -1, 26}};
+        for (int[] t : towers) {
+            int tx = f.x(t[0], t[1]);
+            int tz = f.z(t[0], t[1]);
+            int h = t[2];
+            for (int y = this.yLo; y <= h; y++) {
+                int r = y < 2 ? 4 : 4 - Math.max(0, (y - 2) / 8);
+                for (int dx = -r; dx <= r; dx++) {
+                    for (int dz = -r; dz <= r; dz++) {
+                        this.set(tx + dx, y, tz + dz, y == h - 4 || y == h - 3 ? "red_terracotta" : clay.at(tx + dx, y, tz + dz));
+                    }
+                }
+
+                if (y > 4 && y % 6 == 0) {
+                    this.set(tx + r, y, tz, "black_concrete");
+                    this.set(tx - r, y, tz, "black_concrete");
+                }
+            }
+
+            int r = 4 - Math.max(0, (h - 2) / 8);
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if ((Math.abs(dx) == r || Math.abs(dz) == r) && Math.floorMod(dx + dz, 2) == 0) {
+                        this.set(tx + dx, h + 1, tz + dz, "red_sandstone");
+                        this.set(tx + dx, h + 2, tz + dz, slab("red_sandstone", false));
+                    }
+                }
+            }
+        }
+
+        // palms in clay pots before the walls
+        for (int s = -1; s <= 1; s += 2) {
+            for (int k = 0; k < 2; k++) {
+                int u = s * (12 + k * 9);
+                this.set(f.x(u, -4), 1, f.z(u, -4), "terracotta");
+                this.palmTree(f.x(u, -4), 2, f.z(u, -4));
+            }
+        }
+    }
+
+    /**
+     * Volcano: a black cone rises behind the forge, glowing seams (magma, shroomlight, orange glass) running down it
+     * from a lit crater; at its foot a forge hall of dark bricks with smoking chimneys and anvils.
+     */
+    private void volcanoForge(int w, int zf) {
+        int vz = zf - 34;
+        double base = 30.0;
+        int peak = 46;
+        for (int dx = -36; dx <= 36; dx++) {
+            for (int dz = -36; dz <= 36; dz++) {
+                double r = Math.hypot(dx, dz) + noise(this.seed + 981L, dx * 0.15, dz * 0.15) * 4.0;
+                if (r > base) {
+                    continue;
+                }
+
+                int h = (int)Math.round((1.0 - Math.pow(r / base, 1.3)) * peak);
+                boolean crater = r < 6.0;
+                int top = crater ? peak - 5 : h;
+                int x = dx;
+                int z = vz + dz;
+                for (int y = this.yLo; y <= top; y++) {
+                    double seam = Math.abs(Math.sin(Math.atan2(dz, dx) * 3.0 + r * 0.05));
+                    String b;
+                    if (crater && y == top) {
+                        b = "shroomlight";
+                    } else if (y == top && seam < 0.07 && r > 7) {
+                        b = hash3(983L, x, y, z) < 0.5 ? "magma_block" : "orange_stained_glass";
+                    } else if (y >= top - 1) {
+                        b = hash3(985L, x, y, z) < 0.2 ? "smooth_basalt" : "blackstone";
+                    } else {
+                        b = "basalt[axis=y]";
+                    }
+
+                    this.set(x, y, z, b);
+                }
+            }
+        }
+
+        // the forge hall at the volcano's foot
+        Face f = new Face(0, zf, 0, -1);
+        int len = Math.min(w, 20);
+        f.box(-len, this.yLo, 0, len, 1, 12, of("polished_blackstone_bricks"));
+        for (int u = -len; u <= len; u++) {
+            for (int wv = 0; wv <= 12; wv++) {
+                boolean shell = Math.abs(u) == len || wv == 0 || wv == 12;
+                for (int y = 2; y <= 11; y++) {
+                    if (!shell) {
+                        f.set(u, y, wv, "cave_air");
+                    } else if (Math.floorMod(u, 6) == 0 || Math.abs(u) == len) {
+                        f.set(u, y, wv, "deepslate_tiles");
+                    } else if (wv == 0 && y >= 4 && y <= 8 && Math.floorMod(u, 6) == 3) {
+                        f.set(u, y, wv, "red_stained_glass_pane");
+                    } else {
+                        f.set(u, y, wv, hash3(987L, u, y, wv) < 0.15 ? "cracked_deepslate_bricks" : "deepslate_bricks");
+                    }
+                }
+            }
+        }
+
+        this.gableRoof(f.x(-len, 0), f.x(len, 0), f.z(0, 12), f.z(0, 0), 12, "polished_blackstone_brick", "polished_blackstone_bricks", true, 1);
+        // chimneys glowing at the top
+        for (int k = -1; k <= 1; k++) {
+            int u = k * 12;
+            for (int y = 12; y <= 24; y++) {
+                f.set(u, y, 6, y >= 23 ? "magma_block" : "deepslate_bricks");
+            }
+
+            f.set(u, 25, 6, "campfire[lit=true]");
+        }
+
+        // the forge door and anvils outside
+        this.arch(f, 0, 2, 5, 7, false, 2, "orange_stained_glass", "polished_blackstone_bricks");
+        for (int s = -1; s <= 1; s += 2) {
+            this.set(f.x(s * 6, -3), 1, f.z(0, -3), "anvil[facing=east]");
+            this.set(f.x(s * 9, -3), 1, f.z(0, -3), "blast_furnace[facing=south,lit=true]");
         }
     }
 
@@ -2192,13 +2572,15 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
         }
 
         java.util.Random r = new java.util.Random(this.seed ^ 0x6A7DL);
-        for (int x = -this.R + 2; x <= this.R - 2; x += 10) {
-            for (int z = -this.R + 2; z <= this.R - 2; z += 10) {
+        // 1.0.15: trees stand in groves with open meadows between them (no more even grid)
+        for (int x = -this.R + 2; x <= this.R - 2; x += 7) {
+            for (int z = -this.R + 2; z <= this.R - 2; z += 7) {
                 int tx = x + r.nextInt(5) - 2;
                 int tz = z + r.nextInt(5) - 2;
                 int size = r.nextInt(3);
                 double d = this.sd(tx, tz);
-                boolean skip = r.nextDouble() < 0.35;
+                double grove = noise(this.seed + 977L, tx * 0.045, tz * 0.045);
+                boolean skip = grove < 0.52 || r.nextDouble() < 0.2;
                 if (skip || d < 10.0 || d > this.dOut - 2 || Math.abs(tx) > this.hx && Math.abs(tz) < 13 || !this.clear(tx, tz, 2, 10)) {
                     continue;
                 }
@@ -2894,6 +3276,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
     private static void layout(Pal p, Theme t) {
         switch (t) {
             case FROST -> {
+                p.court = "LONGHALL";
                 p.towerTop = "SPIRE";
                 p.tree = "SNOWY";
                 p.plaza = new String[]{"snow_block", "white_concrete_powder", "packed_ice"};
@@ -2909,6 +3292,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.hedge = "jungle";
             }
             case HIGHLAND -> {
+                p.court = "ABBEY";
                 p.rock = true;
                 p.tree = "SPRUCE";
                 p.plaza = new String[]{"grass_block", "coarse_dirt", "podzol"};
@@ -2924,7 +3308,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.hedge = "flowering_azalea";
             }
             case EMBER -> {
-                p.court = "PALACE";
+                p.court = "KASBAH";
                 p.south = "LOGGIA";
                 p.tree = "DEAD";
                 p.plaza = new String[]{"red_sand", "terracotta", "red_sandstone"};
@@ -2955,7 +3339,7 @@ public final class ProArenaDesign extends CourtParts implements ArenaVoxels {
                 p.hedge = "jungle";
             }
             case VOLCANO -> {
-                p.court = "CATHEDRAL";
+                p.court = "VOLCANO";
                 p.tree = "DEAD";
                 p.plaza = new String[]{"blackstone", "smooth_basalt", "tuff"};
                 p.paving = "polished_blackstone_bricks";

@@ -91,7 +91,10 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
         switch (l) {
             case CASTLE -> this.castle();
             case PALACE -> this.palace();
-            case COLOSSEUM -> this.colosseum();
+            case COLOSSEUM -> {
+                this.colosseum();
+                this.ruinSector();
+            }
             case PLAZA -> this.plaza();
             case GOTHIC -> this.gothic();
             case BEACH -> this.beach();
@@ -833,7 +836,7 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
             }
             case 7 -> {
                 if (kind < 0.45) {
-                    this.conifer(x, y, z, "spruce_log", "spruce", 9 + size);
+                    this.spruce(x, y, z, 9 + size, false);
                 } else {
                     this.broadleaf(x, y, z, "oak_log", "oak", 3 + size % 2, 2.4);
                 }
@@ -2262,6 +2265,68 @@ public final class CourtArenaDesign extends CourtParts implements ArenaVoxels {
     }
 
     /** Tall sandstone columns on the top terrace, arches between them, a ring beam with balusters and red cloths. */
+    /**
+     * 1.0.15: the colosseum is old - a quarter of its upper ring has fallen: the walls are gnawed down to an uneven
+     * edge, the fallen stones lie in heaps at the foot, and moss and ivy climb the broken part.
+     */
+    private void ruinSector() {
+        int reach = (int)Math.ceil(this.a) + 28;
+        double from = -Math.PI * 0.62;
+        double to = -Math.PI * 0.12;
+        for (int x = -reach; x <= reach; x++) {
+            for (int z = -reach; z <= reach; z++) {
+                double d = this.sd(x, z);
+                if (d < 6.0) {
+                    continue;
+                }
+
+                double ang = Math.atan2(z, x);
+                if (ang < from || ang > to) {
+                    continue;
+                }
+
+                double edge = Math.min(ang - from, to - ang) / (to - from);
+                int keep = (int)Math.round(5 + (1.0 - Math.min(1.0, edge * 3.0)) * 16 + noise(this.seed + 991L, x * 0.2, z * 0.2) * 6);
+                if (edge < 0.04) {
+                    continue;
+                }
+
+                for (int y = keep; y <= 60; y++) {
+                    String b = this.get(x, y, z);
+                    if (b != null && !b.equals("barrier")) {
+                        this.set(x, y, z, null);
+                    }
+                }
+
+                // moss and ivy on what still stands
+                for (int y = 2; y < keep; y++) {
+                    String b = this.get(x, y, z);
+                    if (b != null && (b.startsWith("sandstone") || b.startsWith("smooth_sandstone") || b.equals("stone_bricks")) && hash3(993L, x, y, z) < 0.35) {
+                        this.set(x, y, z, b.equals("stone_bricks") ? "mossy_stone_bricks" : "mossy_cobblestone");
+                    }
+                }
+            }
+        }
+
+        // heaps of fallen stone outside the broken part
+        for (int k = 0; k < 26; k++) {
+            double ang = from + hash3(995L, k, 0, 0) * (to - from);
+            double r = this.a + 22 + hash3(997L, k, 0, 0) * 8;
+            int x = (int)Math.round(Math.cos(ang) * r);
+            int z = (int)Math.round(Math.sin(ang) * r * (this.b / this.a));
+            double size = 1.5 + hash3(999L, k, 0, 0) * 2.0;
+            for (int dx = -3; dx <= 3; dx++) {
+                for (int dz = -3; dz <= 3; dz++) {
+                    for (int dy = 0; dy <= 2; dy++) {
+                        if (Math.sqrt(dx * dx + dy * dy * 2.5 + dz * dz) <= size) {
+                            this.setIfEmpty(x + dx, 1 + dy, z + dz, hash3(1001L, x + dx, dy, z + dz) < 0.4 ? "mossy_cobblestone" : "sandstone");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private void colonnade(int top) {
         double dc = 2.0 + TIERS + 1.6;
         int colTop = top + 16;

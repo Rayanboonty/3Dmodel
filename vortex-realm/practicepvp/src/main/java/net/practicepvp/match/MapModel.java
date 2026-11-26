@@ -40,28 +40,32 @@ public final class MapModel {
     public final float vertical;
 
     private MapModel(List<MapModel.Part> parts, float span, int cells, float height) {
+        this(parts, span, cells, height, Math.min(EXAGGERATE, 0.5F * span / Math.max(1.0F, height)));
+    }
+
+    private MapModel(List<MapModel.Part> parts, float span, int cells, float height, float vertical) {
         this.parts = parts;
         this.span = span;
         this.cells = cells;
         this.height = height;
-        this.vertical = Math.min(EXAGGERATE, 0.5F * span / Math.max(1.0F, height));
+        this.vertical = vertical;
     }
 
     /** One box, in blocks, relative to the middle of the model (x and z) and to its vertical middle (y). */
     public record Part(float x, float y, float z, float w, float h, float d, BlockData data) {
     }
 
-    /** Display parts a model may use: LOW, NORMAL or HIGH detail. */
+    /** Display parts a model may use: LOW, NORMAL or HIGH detail (a true 3D model needs more parts than the old relief). */
     public static int budget() {
         if (net.practicepvp.Edition.PRACTICE_ONLY) {
-            // CMCPVP: always the finest miniature
-            return 400;
+            // CMCPVP: always the finest miniature (kept light: every part is a display each voter's client animates)
+            return 750;
         }
 
         return switch (Cfg.e(Opt.MAP_PREVIEW_DETAIL, Opt.PreviewDetail.class)) {
-            case LOW -> 140;
-            case HIGH -> 400;
-            default -> 240;
+            case LOW -> 350;
+            case HIGH -> 900;
+            default -> 600;
         };
     }
 
@@ -135,8 +139,294 @@ public final class MapModel {
         });
     }
 
-    /** The model of a snapshot (also used by the self test and the offline renders). */
+    /** Voxel grid widths tried for the true 3D model, finest first. */
+    private static final int[] VOXEL_GRIDS = new int[]{96, 88, 80, 72, 66, 60, 54, 48, 44, 40, 36, 32, 28, 24};
+
+    /** The model of a snapshot (also used by the self test and the offline renders): a true scaled-down 3D copy. */
     public static MapModel build(RegionSnapshot snap, int budget) {
+        MapModel m = voxels(snap, budget);
+        return m != null ? m : relief(snap, budget);
+    }
+
+    /**
+     * The arena scaled down in all three directions alike (no stretching): each voxel of an N-wide grid is a cube of
+     * blocks, kept when enough of it is built and drawn in its most common block; hidden inside voxels take the block of
+     * the voxel above so they merge away; equal voxels join into boxes (greedy meshing). Roofs, arches, towers, trees,
+     * the stands and the open floor all keep their real shape. Deep rock under the play area is cut off.
+     */
+    static MapModel voxels(RegionSnapshot snap, int budget) {
+        Map<Material, BlockData> fam = new HashMap<>();
+        Voxelized<BlockData> v = voxelize(snap.sx, snap.sy, snap.sz, (x, y, z) -> {
+            Material m = snap.blockAt(x, y, z).getMaterial();
+            return empty(m) ? null : fam.computeIfAbsent(m, MapModel::family);
+        }, budget);
+        if (v == null) {
+            return null;
+        }
+
+        List<MapModel.Part> parts = new ArrayList<>(v.boxes().size());
+        for (Box<BlockData> b : v.boxes()) {
+            parts.add(new MapModel.Part(b.x(), b.y(), b.z(), b.w(), b.h(), b.d(), b.block()));
+        }
+
+        return new MapModel(parts, v.span(), v.cells(), v.height(), 1.0F);
+    }
+
+    /** The block of one cell (null = nothing drawn there): a snapshot in game, a design in the offline tools. */
+    @FunctionalInterface
+    public interface Cells<B> {
+        B at(int x, int y, int z);
+    }
+
+    /** One box of a miniature, in blocks, relative to the middle (x, z) and to the vertical middle (y). */
+    public record Box<B>(float x, float y, float z, float w, float h, float d, B block) {
+    }
+
+    public record Voxelized<B>(List<Box<B>> boxes, float span, int cells, float height) {
+    }
+
+    /**
+     * The scaled-down 3D copy (see {@link #voxels}) of any grid of blocks: the same code runs in game and in the
+     * offline check that draws a miniature next to its arena.
+     */
+    @SuppressWarnings("unchecked")
+    public static <B> Voxelized<B> voxelize(int sx, int sy, int sz, Cells<B> cells, int budget) {
+        float span = Math.max(sx, sz);
+        // where the floor is: the median top surface
+        int[] tops = new int[sx * sz];
+        int k = 0;
+        for (int x = 0; x < sx; x += 2) {
+            for (int z = 0; z < sz; z += 2) {
+                for (int y = sy - 1; y >= 0; y--) {
+                    if (cells.at(x, y, z) != null) {
+                        tops[k++] = y;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (k == 0) {
+            return null;
+        }
+
+        Arrays.sort(tops, 0, k);
+        int floor = tops[k / 2];
+        Voxelized<B> last = null;
+        for (int g : VOXEL_GRIDS) {
+            float c = span / g;
+            if (c < 1.0F) {
+                continue;
+            }
+
+            // keep a slab of ground under the floor (as deep as 12% of the width), not the whole underground
+            int y0 = Math.max(0, floor - Math.max(4, (int)(span * 0.12F)));
+            int gx = (int)Math.ceil(sx / c);
+            int gz = (int)Math.ceil(sz / c);
+            int gy = (int)Math.ceil((sy - y0) / c);
+            Object[] vox = new Object[gx * gy * gz];
+            Map<Object, Integer> count = new HashMap<>();
+            for (int i = 0; i < gx; i++) {
+                int x0 = (int)(i * c);
+                int x1 = Math.min(sx, Math.max(x0 + 1, (int)((i + 1) * c)));
+                for (int j = 0; j < gz; j++) {
+                    int z0 = (int)(j * c);
+                    int z1 = Math.min(sz, Math.max(z0 + 1, (int)((j + 1) * c)));
+                    for (int l = 0; l < gy; l++) {
+                        int yy0 = y0 + (int)(l * c);
+                        int yy1 = Math.min(sy, Math.max(yy0 + 1, y0 + (int)((l + 1) * c)));
+                        int vol = (x1 - x0) * (yy1 - yy0) * (z1 - z0);
+                        int solid = 0;
+                        count.clear();
+                        for (int x = x0; x < x1; x++) {
+                            for (int y = yy0; y < yy1; y++) {
+                                for (int z = z0; z < z1; z++) {
+                                    B m = cells.at(x, y, z);
+                                    if (m != null) {
+                                        solid++;
+                                        // the top of a voxel is what is seen from above (grass over dirt, roof tiles over beams)
+                                        count.merge(m, 1 + 2 * (y - yy0), Integer::sum);
+                                    }
+                                }
+                            }
+                        }
+
+                        // thin walls and floors (one block of a 3-block voxel) still count
+                        if (solid > 0 && solid * VOXEL_FILL >= vol) {
+                            Object best = null;
+                            int most = 0;
+                            for (Map.Entry<Object, Integer> e : count.entrySet()) {
+                                if (e.getValue() > most) {
+                                    most = e.getValue();
+                                    best = e.getKey();
+                                }
+                            }
+
+                            vox[(i * gz + j) * gy + l] = best;
+                        }
+                    }
+                }
+            }
+
+            // a lone voxel of another block (a pattern smaller than a voxel) takes the block most of its neighbours have
+            Object[] smooth = vox.clone();
+            Map<Object, Integer> near = new HashMap<>();
+            int[][] dirs = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+            for (int i = 0; i < gx; i++) {
+                for (int j = 0; j < gz; j++) {
+                    for (int l = 0; l < gy; l++) {
+                        Object own = vox[(i * gz + j) * gy + l];
+                        if (own == null) {
+                            continue;
+                        }
+
+                        near.clear();
+                        boolean alone = true;
+                        for (int[] dd : dirs) {
+                            int a2 = i + dd[0];
+                            int l2 = l + dd[1];
+                            int j2 = j + dd[2];
+                            if (a2 >= 0 && j2 >= 0 && l2 >= 0 && a2 < gx && j2 < gz && l2 < gy) {
+                                Object o = vox[(a2 * gz + j2) * gy + l2];
+                                if (o != null) {
+                                    near.merge(o, 1, Integer::sum);
+                                    alone &= !o.equals(own);
+                                }
+                            }
+                        }
+
+                        if (alone) {
+                            for (Map.Entry<Object, Integer> e : near.entrySet()) {
+                                if (e.getValue() >= 3) {
+                                    smooth[(i * gz + j) * gy + l] = e.getKey();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            vox = smooth;
+            // hidden voxels (built on all six sides) take the block above them: they merge into tall boxes
+            for (int i = 1; i < gx - 1; i++) {
+                for (int j = 1; j < gz - 1; j++) {
+                    for (int l = gy - 2; l >= 1; l--) {
+                        int at = (i * gz + j) * gy + l;
+                        if (vox[at] != null && vox[at + 1] != null && vox[at - 1] != null && vox[((i + 1) * gz + j) * gy + l] != null
+                            && vox[((i - 1) * gz + j) * gy + l] != null && vox[(i * gz + j + 1) * gy + l] != null && vox[(i * gz + j - 1) * gy + l] != null) {
+                            vox[at] = vox[at + 1];
+                        }
+                    }
+                }
+            }
+
+            List<int[]> boxes = mesh3(vox, gx, gy, gz, budget + 1);
+            if (boxes.isEmpty()) {
+                return null;
+            }
+
+            int lowest = Integer.MAX_VALUE;
+            int highest = Integer.MIN_VALUE;
+            for (int[] b : boxes) {
+                lowest = Math.min(lowest, b[1]);
+                highest = Math.max(highest, b[4] + 1);
+            }
+
+            float hx = sx / 2.0F;
+            float hz = sz / 2.0F;
+            float midY = (lowest + highest) * c / 2.0F;
+            List<Box<B>> out = new ArrayList<>(boxes.size());
+            for (int[] b : boxes) {
+                float px0 = b[0] * c;
+                float py0 = b[1] * c;
+                float pz0 = b[2] * c;
+                float px1 = Math.min(sx, (b[3] + 1) * c);
+                float py1 = (b[4] + 1) * c;
+                float pz1 = Math.min(sz, (b[5] + 1) * c);
+                out.add(new Box<>(px0 - hx, py0 - midY, pz0 - hz, px1 - px0, py1 - py0, pz1 - pz0, (B)vox[(b[0] * gz + b[2]) * gy + b[1]]));
+            }
+
+            last = new Voxelized<>(out, span, g, (highest - lowest) * c);
+            if (out.size() <= budget) {
+                return last;
+            }
+        }
+
+        return last;
+    }
+
+    /** A voxel is drawn when at least 1/VOXEL_FILL of it is built. */
+    static final int VOXEL_FILL = 4;
+
+    /** Greedy 3D meshing: boxes {x0, y0, z0, x1, y1, z1} of equal voxels; stops early past {@code limit} boxes. */
+    private static List<int[]> mesh3(Object[] vox, int gx, int gy, int gz, int limit) {
+        boolean[] used = new boolean[vox.length];
+        List<int[]> out = new ArrayList<>();
+        for (int l = 0; l < gy; l++) {
+            for (int i = 0; i < gx; i++) {
+                for (int j = 0; j < gz; j++) {
+                    int at = (i * gz + j) * gy + l;
+                    Object b = vox[at];
+                    if (b == null || used[at]) {
+                        continue;
+                    }
+
+                    int i1 = i;
+                    while (i1 + 1 < gx && free(vox, used, ((i1 + 1) * gz + j) * gy + l, b)) {
+                        i1++;
+                    }
+
+                    int j1 = j;
+                    grow:
+                    while (j1 + 1 < gz) {
+                        for (int a = i; a <= i1; a++) {
+                            if (!free(vox, used, (a * gz + j1 + 1) * gy + l, b)) {
+                                break grow;
+                            }
+                        }
+
+                        j1++;
+                    }
+
+                    int l1 = l;
+                    up:
+                    while (l1 + 1 < gy) {
+                        for (int a = i; a <= i1; a++) {
+                            for (int c = j; c <= j1; c++) {
+                                if (!free(vox, used, (a * gz + c) * gy + l1 + 1, b)) {
+                                    break up;
+                                }
+                            }
+                        }
+
+                        l1++;
+                    }
+
+                    for (int a = i; a <= i1; a++) {
+                        for (int c = j; c <= j1; c++) {
+                            for (int d = l; d <= l1; d++) {
+                                used[(a * gz + c) * gy + d] = true;
+                            }
+                        }
+                    }
+
+                    out.add(new int[]{i, l, j, i1, l1, j1});
+                    if (out.size() > limit) {
+                        return out;
+                    }
+                }
+            }
+        }
+
+        return out;
+    }
+
+    private static boolean free(Object[] vox, boolean[] used, int at, Object b) {
+        return !used[at] && b.equals(vox[at]);
+    }
+
+    /** The old relief model (a height per cell): the fallback when a snapshot has no blocks to voxelise. */
+    static MapModel relief(RegionSnapshot snap, int budget) {
         int sx = snap.sx;
         int sy = snap.sy;
         int sz = snap.sz;
@@ -467,6 +757,49 @@ public final class MapModel {
     }
 
     private static Material familyMaterial(Material m) {
+        Material t = Material.matchMaterial(tone(familyMaterial0(m).name()));
+        return t != null && t.isBlock() ? t : familyMaterial0(m);
+    }
+
+    /**
+     * Variants of one material read as one colour at miniature size: cut / chiseled / smooth / polished / cracked /
+     * mossy and bricks / tiles of a stone become that stone (by name, so the offline check uses the same rule).
+     */
+    public static String tone(String name) {
+        String n = name.toLowerCase(java.util.Locale.ROOT);
+        for (String p : new String[]{"chiseled_", "cut_", "smooth_", "cracked_", "mossy_", "infested_"}) {
+            if (n.startsWith(p)) {
+                n = n.substring(p.length());
+            }
+        }
+
+        if (n.equals("stone_bricks") || n.equals("cobblestone") || n.equals("stone") || n.equals("andesite") || n.equals("polished_andesite")
+            || n.equals("tuff") || n.equals("tuff_bricks") || n.equals("polished_tuff")) {
+            return "stone_bricks";
+        } else if (n.equals("deepslate_bricks") || n.equals("deepslate_tiles") || n.equals("polished_deepslate") || n.equals("cobbled_deepslate") || n.equals("deepslate")) {
+            return "polished_deepslate";
+        } else if (n.equals("polished_blackstone_bricks") || n.equals("blackstone") || n.equals("polished_blackstone")) {
+            return "polished_blackstone";
+        } else if (n.equals("quartz_bricks") || n.equals("quartz_pillar") || n.equals("quartz_block") || n.equals("quartz")) {
+            return "quartz_block";
+        } else if (n.equals("sandstone") || n.equals("sand")) {
+            return "sandstone";
+        } else if (n.equals("red_sandstone") || n.equals("red_sand")) {
+            return "red_sandstone";
+        } else if (n.equals("prismarine_bricks")) {
+            return "prismarine";
+        } else if (n.equals("mud_bricks") || n.equals("packed_mud")) {
+            return "packed_mud";
+        } else if (n.equals("dirt_path") || n.equals("coarse_dirt") || n.equals("rooted_dirt")) {
+            return "dirt";
+        } else if (n.endsWith("_log") || n.endsWith("_wood")) {
+            return n.startsWith("stripped_") ? n.substring(9).replace("_wood", "_log") : n.replace("_wood", "_log");
+        }
+
+        return n;
+    }
+
+    private static Material familyMaterial0(Material m) {
         String n = m.name();
         if (m == Material.WATER || m == Material.BUBBLE_COLUMN) {
             return Material.LIGHT_BLUE_STAINED_GLASS;

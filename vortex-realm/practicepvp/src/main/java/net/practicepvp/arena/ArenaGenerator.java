@@ -68,11 +68,17 @@ public final class ArenaGenerator {
             + Cfg.bool(Opt.ARENA_ORES)
             + "/"
             + Cfg.bool(Opt.COLOSSEUM_BARRIERS)
-            + (net.practicepvp.build.ArenaLandscape.enabled() ? "/land" : "/bare");
+            + (net.practicepvp.build.ArenaLandscape.enabled() ? "/land" : "/bare")
+            // 1.0.15: the court and pro arenas were rebuilt (trees, new main buildings) - they are made again once
+            + (theme.court != null || theme.pro != null || theme.master != null ? "/t15" : "");
     }
 
     public static boolean onFloor(ArenaTheme theme, int size, Cuboid bounds, int x, int z) {
-        if (theme != null && theme.pro != null && bounds != null && size > 0) {
+        if (theme != null && theme.master != null && bounds != null) {
+            int cx = Math.floorDiv(bounds.minX() + bounds.maxX(), 2);
+            int cz = Math.floorDiv(bounds.minZ() + bounds.maxZ(), 2);
+            return net.practicepvp.build.MasterArenaDesign.floorDistance(x - cx, z - cz) < -0.5;
+        } else if (theme != null && theme.pro != null && bounds != null && size > 0) {
             // the pro arenas (3.15.0): only the fighting floor
             int cx = Math.floorDiv(bounds.minX() + bounds.maxX(), 2);
             int cz = Math.floorDiv(bounds.minZ() + bounds.maxZ(), 2);
@@ -252,6 +258,37 @@ public final class ArenaGenerator {
         if (ffa) {
             int n = 12;
 
+            for (int i = 0; i < n; i++) {
+                int[] o = d.ffaSpot(i, n);
+                double yaw = Math.toDegrees(Math.atan2(o[0], -o[2]));
+                ffaSpawns.add(new Pos(cx + o[0] + 0.5, floorY + o[1], cz + o[2] + 0.5, (float)yaw, 0.0F));
+            }
+        }
+
+        Cuboid bounds = new Cuboid(d.minX(), d.bottomY(), d.minZ(), d.maxX(), d.topY(), d.maxZ());
+        return new ArenaGenerator.Plan(theme, size, seed, ox, oz, null, d.bottomY(), bounds, s1, s2, center, ffaSpawns, false, false, null, null, d);
+    }
+
+    /** A masterpiece arena (1.0.15): built column by column like the pro arenas, its floor closed with barriers. */
+    private static ArenaGenerator.Plan masterPlan(ArenaTheme theme, int size, long seed, int ox, int oz, boolean ffa) {
+        int depth = net.practicepvp.build.MasterArenaDesign.DEPTH;
+        int floorY = 64;
+        if (floorY - depth < minFloorY()) {
+            floorY = minFloorY() + depth;
+        }
+
+        int half = net.practicepvp.build.MasterArenaDesign.RADIUS;
+        int cx = ox + half;
+        int cz = oz + half;
+        net.practicepvp.build.MasterArenaDesign d = new net.practicepvp.build.MasterArenaDesign(theme.master, size, seed, cx, floorY, cz, ffa);
+        int[] a1 = d.spawn(0);
+        int[] a2 = d.spawn(1);
+        Pos s1 = new Pos(cx + a1[0] + 0.5, floorY + a1[1], cz + a1[2] + 0.5, -90.0F, 0.0F);
+        Pos s2 = new Pos(cx + a2[0] + 0.5, floorY + a2[1], cz + a2[2] + 0.5, 90.0F, 0.0F);
+        Pos center = new Pos(cx + 0.5, floorY + 3, cz + 0.5, 0.0F, 20.0F);
+        List<Pos> ffaSpawns = new ArrayList<>();
+        if (ffa) {
+            int n = 12;
             for (int i = 0; i < n; i++) {
                 int[] o = d.ffaSpot(i, n);
                 double yaw = Math.toDegrees(Math.atan2(o[0], -o[2]));
@@ -444,7 +481,9 @@ public final class ArenaGenerator {
     }
 
     public static ArenaGenerator.Plan plan(ArenaTheme theme, int size, long seed, int ox, int oz, boolean ffa, int buildHeight, boolean crystal) {
-        if (theme.pro != null) {
+        if (theme.master != null) {
+            return masterPlan(theme, size, seed, ox, oz, ffa);
+        } else if (theme.pro != null) {
             return proPlan(theme, theme.pro, size, seed, ox, oz, ffa);
         } else if (theme.colosseum != null) {
             return colosseumPlan(theme, size, seed, ox, oz, ffa);

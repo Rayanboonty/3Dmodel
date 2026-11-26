@@ -64,6 +64,15 @@ final class WaitingRoom {
             return t.pro;
         }
 
+        if (t.master != null) {
+            return switch (t.master) {
+                case DRAGONSPIRE -> ProArenaDesign.Theme.MEDIEVAL;
+                case KOI_SHRINE -> ProArenaDesign.Theme.SAKURA;
+                case CORSAIR_HARBOR -> ProArenaDesign.Theme.HARBOR;
+                case STORMPEAK -> ProArenaDesign.Theme.FROST;
+            };
+        }
+
         if (t.court != null) {
             return switch (t.court) {
                 case FROSTHOLD -> ProArenaDesign.Theme.FROST;

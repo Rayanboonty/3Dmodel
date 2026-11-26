@@ -58,7 +58,20 @@ public final class Arena {
         return this.worldName == null ? null : Bukkit.getWorld(this.worldName);
     }
 
+    /**
+     * 1.0.15: maps retired from the pack - the masterpiece arenas replace them (Koi Shrine Summit the two sakura maps,
+     * Corsair Harbor the wharf and the palm court). Kept on disk, never picked for a match.
+     */
+    public static final java.util.Set<String> RETIRED = java.util.Set.of("sakuraterrace", "pro_blossom", "pro_palmshore", "pro_corsair",
+        // the sunken-pit court maps and the recoloured castle: the upgraded Ember Citadel, Stonewatch Keep and Frostfang
+        // Bastion (each with a building of its own now) take their places
+        "embersands", "highlandplaza", "frosthold");
+
     public boolean allows(Kit kit) {
+        if (this.id != null && RETIRED.contains(this.id) && kit.arenas.isEmpty()) {
+            return false;
+        }
+
         // mace kits fly high: only the big open colosseums, never the vanilla terrain mace maps (trees, hills)
         if (this.id != null && this.id.startsWith("m_") && kit.arenas.isEmpty()) {
             return false;
@@ -85,6 +98,8 @@ public final class Arena {
             return "ANY";
         } else if (theme == ArenaTheme.FLATLANDS) {
             return "CRYSTAL";
+        } else if (theme.master != null) {
+            return "DESIGNED";
         } else if (theme.pro != null) {
             return theme.pro == net.practicepvp.build.ProArenaDesign.Theme.GRAND ? "MACE" : "DESIGNED";
         } else if (theme.colosseum != null) {

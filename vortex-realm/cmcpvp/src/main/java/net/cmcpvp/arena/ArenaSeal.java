@@ -90,6 +90,61 @@ public final class ArenaSeal {
         return w != null && f.bounds != null && !f.editing ? new Object[]{w, f.bounds} : null;
     }
 
+    // ------------------------------------------------------------------ while an arena is built
+
+    /**
+     * Closes one area right now, as a step of building it (before the map is pasted / generated, so an arena is never
+     * open without its walls - not even while its copies are still being made).
+     */
+    public java.util.concurrent.CompletableFuture<Void> sealNow(World w, Cuboid c) {
+        if (!Cfg.bool(Opt.ARENA_BARRIER_WALLS) || w == null || c == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        String k = key(w.getName(), c);
+        return this.plugin.jobs().submit(this.job(w, c, true)).thenRun(() -> net.cmcpvp.util.Tasks.ensureSync(() -> this.done.set(k, true)));
+    }
+
+    /** After a build: walls that a build step opened again (a gap) are closed; walls that are fine are left alone. */
+    public void verify(Arena a) {
+        if (a == null || !Cfg.bool(Opt.ARENA_BARRIER_WALLS)) {
+            return;
+        }
+
+        net.cmcpvp.util.Tasks.later(100L, () -> {
+            List<Object[]> broken = new ArrayList<>();
+            for (Object[] o : areasOf(a)) {
+                World w = (World)o[0];
+                Cuboid c = (Cuboid)o[1];
+                if (!this.done.getBoolean(key(w.getName(), c)) || this.hasGap(w, c)) {
+                    this.done.set(key(w.getName(), c), null);
+                    broken.add(o);
+                }
+            }
+
+            if (!broken.isEmpty()) {
+                this.enqueue(broken);
+            }
+        });
+    }
+
+    /** The FFA version of {@link #verify(Arena)}. */
+    public void verify(FfaArena f) {
+        Object[] o = f == null ? null : areaOf(f);
+        if (o == null || !Cfg.bool(Opt.ARENA_BARRIER_WALLS)) {
+            return;
+        }
+
+        net.cmcpvp.util.Tasks.later(100L, () -> {
+            World w = (World)o[0];
+            Cuboid c = (Cuboid)o[1];
+            if (!this.done.getBoolean(key(w.getName(), c)) || this.hasGap(w, c)) {
+                this.done.set(key(w.getName(), c), null);
+                this.enqueue(List.<Object[]>of(o));
+            }
+        });
+    }
+
     // ------------------------------------------------------------------ after a rebuild
 
     /** A duel arena was generated or rebuilt: its walls were wiped with the old map, build them again. */

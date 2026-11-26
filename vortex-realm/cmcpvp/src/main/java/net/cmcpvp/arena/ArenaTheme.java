@@ -115,6 +115,11 @@ public enum ArenaTheme {
     HIGHPEAK_COLOSSEUM(net.cmcpvp.build.ProArenaDesign.Theme.GRAND, "Highpeak Colosseum", Material.MACE, Biome.MEADOW),
     SUNKEN_ATLANTIS(net.cmcpvp.build.ProArenaDesign.Theme.ATLANTIS, "Sunken Atlantis", Material.PRISMARINE_BRICKS, Biome.WARM_OCEAN),
     STARFALL_CITADEL(net.cmcpvp.build.ProArenaDesign.Theme.STARFALL, "Starfall Citadel", Material.PURPUR_PILLAR, Biome.END_HIGHLANDS),
+    // 1.0.15: the masterpiece arenas, each one its own place
+    DRAGONSPIRE_KEEP(net.cmcpvp.build.MasterArenaDesign.Style.DRAGONSPIRE, Material.DRAGON_HEAD, Biome.PLAINS),
+    KOI_SHRINE_SUMMIT(net.cmcpvp.build.MasterArenaDesign.Style.KOI_SHRINE, Material.CHERRY_SAPLING, Biome.CHERRY_GROVE),
+    CORSAIR_HARBOR(net.cmcpvp.build.MasterArenaDesign.Style.CORSAIR_HARBOR, Material.OAK_BOAT, Biome.BEACH),
+    STORMPEAK_SANCTUARY(net.cmcpvp.build.MasterArenaDesign.Style.STORMPEAK, Material.BELL, Biome.SNOWY_SLOPES),
     CUSTOM("Custom", Material.STONE, null, 0.0, 0);
 
     public final double sizeScale;
@@ -129,6 +134,8 @@ public enum ArenaTheme {
     public final net.cmcpvp.build.CourtArenaDesign.Style court;
     /** Non-null = a pro arena (3.15.0): a layered build round a flat floor in a whole landscape. */
     public final net.cmcpvp.build.ProArenaDesign.Theme pro;
+    /** Non-null = a masterpiece arena (1.0.15): a whole hand-planned place round a flat floor. */
+    public final net.cmcpvp.build.MasterArenaDesign.Style master;
     public final String display;
     public final Material icon;
     public final Biome biome;
@@ -144,6 +151,7 @@ public enum ArenaTheme {
     private ArenaTheme(net.cmcpvp.build.CourtArenaDesign.Style court, Material icon, Biome biome) {
         this.court = court;
         this.pro = null;
+        this.master = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -157,8 +165,26 @@ public enum ArenaTheme {
         this.vanilla = null;
     }
 
+    private ArenaTheme(net.cmcpvp.build.MasterArenaDesign.Style master, Material icon, Biome biome) {
+        this.master = master;
+        this.pro = null;
+        this.court = null;
+        this.colosseum = null;
+        this.open = null;
+        this.show = null;
+        this.duel = null;
+        this.sizeScale = 1.0;
+        this.display = master.title;
+        this.icon = icon;
+        this.biome = biome;
+        this.amplitude = 0.0;
+        this.mountains = 0;
+        this.vanilla = null;
+    }
+
     private ArenaTheme(net.cmcpvp.build.ProArenaDesign.Theme pro, String display, Material icon, Biome biome) {
         this.pro = pro;
+        this.master = null;
         this.court = null;
         this.colosseum = null;
         this.open = null;
@@ -176,6 +202,7 @@ public enum ArenaTheme {
     private ArenaTheme(net.cmcpvp.build.DuelArenaDesign.Style duel, Material icon, Biome biome) {
         this.court = null;
         this.pro = null;
+        this.master = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -192,6 +219,7 @@ public enum ArenaTheme {
     private ArenaTheme(net.cmcpvp.build.ShowArenaDesign.Style show, Material icon, Biome biome) {
         this.court = null;
         this.pro = null;
+        this.master = null;
         this.colosseum = null;
         this.open = null;
         this.show = show;
@@ -208,6 +236,7 @@ public enum ArenaTheme {
     private ArenaTheme(OpenArenaDesign.Style open, Material icon) {
         this.court = null;
         this.pro = null;
+        this.master = null;
         this.colosseum = null;
         this.open = open;
         this.show = null;
@@ -224,6 +253,7 @@ public enum ArenaTheme {
     private ArenaTheme(String display, Material icon, Biome biome, double amplitude, int mountains, VanillaTerrain.Spec vanilla) {
         this.court = null;
         this.pro = null;
+        this.master = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;
@@ -240,6 +270,7 @@ public enum ArenaTheme {
     private ArenaTheme(ColosseumDesign.Style style, Material icon, Biome biome) {
         this.court = null;
         this.pro = null;
+        this.master = null;
         this.sizeScale = 1.0;
         this.colosseum = style;
         this.open = null;
@@ -256,6 +287,7 @@ public enum ArenaTheme {
     private ArenaTheme(String display, Material icon, Biome biome, double amplitude, int mountains, double sizeScale) {
         this.court = null;
         this.pro = null;
+        this.master = null;
         this.colosseum = null;
         this.open = null;
         this.show = null;

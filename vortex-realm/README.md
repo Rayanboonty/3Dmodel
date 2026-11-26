@@ -1342,6 +1342,23 @@ The SMP's nether and end were treated as not part of the SMP (they're saved as '
 - **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.
 
 
+## CMCPVP 1.0.15
+
+- **Real 3D previews in the map vote.** Each preview is now a true scaled-down copy of the arena, same proportions in every direction. Towers, roofs, arches, stands, trees, water and grass all show as they are; before, the preview was a stretched height map with solid pillars.
+- **Invisible walls come first.** Every arena, each of its copies and every FFA map gets its walls before it is built or rebuilt, so no arena is ever open without them. Afterwards only gaps are closed.
+- **PvP HQ capsule, roomy and see-through.** The pod is 5×5 outside with a 3×3 room four blocks high, clear glass on all four sides, corner posts, a team-colour band, a lit floor and a lantern. At GO the floor swings open as two trapdoors, the glass shatters outward and the roof lifts away; the player drops with no fall damage and every block is put back.
+- **Four masterpiece arenas:**
+  - **Dragonspire Keep:** a castle bailey with a moat, gatehouse, corner towers, timber houses and a black dragon on the keep.
+  - **Koi Shrine Summit:** a pagoda, koi pond, red bridge, bamboo shrine, torii and cherry trees.
+  - **Corsair Harbor:** a galleon at the dock, a harbour town, a lighthouse and a crane.
+  - **Stormpeak Sanctuary:** a monastery, bell tower, prayer flags, rope bridge, stupa and rock spires above the clouds.
+- **Upgraded arenas.**
+  - Frostfang Bastion now has a Nordic longhall with a stave church, Stonewatch Keep a ruined abbey, Ember Citadel a kasbah and Obsidian Forge a volcano and forge.
+  - Titan Colosseum has a collapsed, mossy section.
+  - Every court and pro arena has sculpted trees (boughs, layered crowns, uneven spruces, cherry clouds), standing in groves instead of an even grid.
+  - Designed arenas rebuild once with the new look.
+- **Retired lookalikes:** Sakura Terrace, Blossom Court, Palmshore Court, Corsair's Wharf, Ember Sands, Highland Plaza and Frosthold. The new arenas replace them.
+
 ## CMCPVP 1.0.14
 
 - **Tier Testers (like MCPvP).** Players join a test waitlist with `/tiertest <kit>`. A Tier Tester (new **TESTER** rank, permission `practice.tiertester`; owner, admin and mod have it too) opens `/testqueue` and duels them first to the tier-test length, then picks the result from LT5 to HT1. A tester can't place someone above the best tier they reached in that kit themselves, or more than 3 tiers above the player's current tier (`ranking.tester-max-above`). The automatic Tier Test Challenges are still there.

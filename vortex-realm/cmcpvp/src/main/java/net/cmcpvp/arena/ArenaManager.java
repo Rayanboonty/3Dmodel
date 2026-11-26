@@ -753,7 +753,9 @@ public final class ArenaManager {
                     this.planning.remove(a.id);
                     this.arenas.put(a.id, a);
                     this.save();
-                    return preload(w, plan.bounds()).thenComposeAsync(v -> this.plugin.jobs().submit(ArenaGenerator.buildJob(w, plan)), Tasks.MAIN);
+                    // the invisible walls go up first, then the arena is built inside them
+                    return preload(w, plan.bounds()).thenComposeAsync(v -> this.sealNow(w, plan.bounds()), Tasks.MAIN)
+                        .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaGenerator.buildJob(w, plan)), Tasks.MAIN);
                 }, Tasks.MAIN)
                 .thenComposeAsync(v -> this.captureSnapshot(a), Tasks.MAIN)
                 .thenComposeAsync(v -> {
@@ -807,7 +809,8 @@ public final class ArenaManager {
             .cut(theme, size, origin[0], origin[1], false, deep, null)
             .thenComposeAsync(cut -> {
                 this.applyCut(a, cut);
-                return preload(w, a.bounds).thenComposeAsync(v -> this.plugin.jobs().submit(cut.snapshot().pasteJob(w, 0, 0, true)), Tasks.MAIN);
+                return preload(w, a.bounds).thenComposeAsync(v -> this.sealNow(w, a.bounds), Tasks.MAIN)
+                    .thenComposeAsync(v -> this.plugin.jobs().submit(cut.snapshot().pasteJob(w, 0, 0, true)), Tasks.MAIN);
             }, Tasks.MAIN)
             .thenComposeAsync(v -> {
                 // the map itself is there: it is played on right away, copies join as each one is ready
@@ -915,6 +918,7 @@ public final class ArenaManager {
         Cuboid wipe = wipeArea(w, union);
         CompletableFuture<Void> chain = preload(w, wipe)
             .thenComposeAsync(v -> this.plugin.jobs().submit(clearJob(w, wipe)), Tasks.MAIN)
+            .thenComposeAsync(v -> this.sealNow(w, nb), Tasks.MAIN)
             .thenComposeAsync(v -> this.plugin.jobs().submit(ArenaGenerator.buildJob(w, plan)), Tasks.MAIN)
             .thenComposeAsync(v -> this.captureSnapshot(a), Tasks.MAIN);
         chain = this.repasteCopies(a, w, union, chain);
@@ -943,6 +947,7 @@ public final class ArenaManager {
             Cuboid wipe = wipeArea(w, union);
             CompletableFuture<Void> c = preload(w, wipe)
                 .thenComposeAsync(v -> this.plugin.jobs().submit(clearJob(w, wipe)), Tasks.MAIN)
+                .thenComposeAsync(v -> this.sealNow(w, cut.bounds()), Tasks.MAIN)
                 .thenComposeAsync(v -> this.plugin.jobs().submit(cut.snapshot().pasteJob(w, 0, 0, true)), Tasks.MAIN);
             return this.repasteCopies(a, w, union, c);
         }, Tasks.MAIN);
@@ -966,6 +971,7 @@ public final class ArenaManager {
                 Cuboid copyWipe = wipeArea(w, union.shift(ix.dx, 0, ix.dz));
                 chain = chain.<Void>thenComposeAsync(v -> preload(w, copyWipe), Tasks.MAIN)
                     .thenComposeAsync(v -> this.plugin.jobs().submit(clearJob(w, copyWipe)), Tasks.MAIN)
+                    .thenComposeAsync(v -> this.sealNow(w, a.bounds.shift(ix.dx, 0, ix.dz)), Tasks.MAIN)
                     .thenComposeAsync(v -> this.plugin.jobs().submit(a.snapshot.pasteJob(w, ix.dx, ix.dz, true)), Tasks.MAIN);
             }
         }
@@ -1001,11 +1007,16 @@ public final class ArenaManager {
         return result;
     }
 
-    /** Walls of a rebuilt / new arena (the rebuild wiped the old ones). */
+    /** After a build: any wall a build step opened again is closed (the walls were put up at the start of the build). */
     private void resealLater(Arena a) {
         if (this.plugin.arenaSeal() != null) {
-            this.plugin.arenaSeal().reseal(a);
+            this.plugin.arenaSeal().verify(a);
         }
+    }
+
+    /** The invisible walls of one area, as a step of building it. */
+    private CompletableFuture<Void> sealNow(World w, Cuboid c) {
+        return this.plugin.arenaSeal() == null ? CompletableFuture.completedFuture(null) : this.plugin.arenaSeal().sealNow(w, c);
     }
 
     public CompletableFuture<Integer> rebuildAll() {
@@ -1459,6 +1470,7 @@ public final class ArenaManager {
                         a.instances.add(inst);
                         RegionSnapshot snap = a.snapshot;
                         CompletableFuture<Void> f = chain.<Void>thenComposeAsync(x -> preload(w, a.bounds.shift(dx, 0, dz)), Tasks.MAIN)
+                            .thenComposeAsync(x -> this.sealNow(w, a.bounds.shift(dx, 0, dz)), Tasks.MAIN)
                             .thenComposeAsync(x -> this.plugin.jobs().submit(snap.pasteJob(w, dx, dz, true)), Tasks.MAIN)
                             .handle((x, err) -> {
                                 Tasks.ensureSync(() -> {

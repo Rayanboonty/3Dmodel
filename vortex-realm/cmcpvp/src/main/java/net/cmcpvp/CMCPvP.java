@@ -1270,11 +1270,7 @@ public final class CMCPvP extends JavaPlugin {
         // 3.10.0: the court arenas (they replace the old colosseums and show arenas)
         maps.add(new CMCPvP.PackMap("sultanpalace", ArenaTheme.SULTAN_PALACE, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("titancolosseum", ArenaTheme.TITAN_COLOSSEUM, duelSize, dCopies, false));
-        maps.add(new CMCPvP.PackMap("highlandplaza", ArenaTheme.HIGHLAND_PLAZA, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("gothicharbor", ArenaTheme.GOTHIC_HARBOR, duelSize, dCopies, false));
-        maps.add(new CMCPvP.PackMap("sakuraterrace", ArenaTheme.SAKURA_TERRACE, duelSize, dCopies, false));
-        maps.add(new CMCPvP.PackMap("embersands", ArenaTheme.EMBER_SANDS, duelSize, dCopies, false));
-        maps.add(new CMCPvP.PackMap("frosthold", ArenaTheme.FROSTHOLD, duelSize, dCopies, false));
         // 3.11.0
         maps.add(new CMCPvP.PackMap("tropicalbeach", ArenaTheme.TROPICAL_BEACH, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("jungletemple", ArenaTheme.JUNGLE_TEMPLE, duelSize, dCopies, false));
@@ -1282,17 +1278,19 @@ public final class CMCPvP extends JavaPlugin {
         maps.add(new CMCPvP.PackMap("piratecove", ArenaTheme.PIRATE_COVE, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pharaohtomb", ArenaTheme.PHARAOH_TOMB, duelSize, dCopies, false));
         // 3.15.0: the pro arenas, next to the court arenas above (only the signature arena has the server's name)
+        // 1.0.15: the masterpiece arenas
+        maps.add(new CMCPvP.PackMap("m15_dragonspire", ArenaTheme.DRAGONSPIRE_KEEP, duelSize, dCopies, false));
+        maps.add(new CMCPvP.PackMap("m15_koishrine", ArenaTheme.KOI_SHRINE_SUMMIT, duelSize, dCopies, false));
+        maps.add(new CMCPvP.PackMap("m15_corsair", ArenaTheme.CORSAIR_HARBOR, duelSize, dCopies, false));
+        maps.add(new CMCPvP.PackMap("m15_stormpeak", ArenaTheme.STORMPEAK_SANCTUARY, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_signature", ArenaTheme.SIGNATURE_ARENA, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_frostfang", ArenaTheme.FROSTFANG_BASTION, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_sunspire", ArenaTheme.SUNSPIRE_PALACE, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_stonewatch", ArenaTheme.STONEWATCH_KEEP, duelSize, dCopies, false));
-        maps.add(new CMCPvP.PackMap("pro_blossom", ArenaTheme.BLOSSOM_COURT, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_ember", ArenaTheme.EMBER_CITADEL, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_nightspire", ArenaTheme.NIGHTSPIRE_ABBEY, duelSize, dCopies, false));
-        maps.add(new CMCPvP.PackMap("pro_palmshore", ArenaTheme.PALMSHORE_COURT, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_jade", ArenaTheme.JADE_TEMPLE, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_obsidian", ArenaTheme.OBSIDIAN_FORGE, duelSize, dCopies, false));
-        maps.add(new CMCPvP.PackMap("pro_corsair", ArenaTheme.CORSAIR_WHARF, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_dynasty", ArenaTheme.GOLDEN_DYNASTY, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_gladiator", ArenaTheme.GLADIATOR_PIT, duelSize, dCopies, false));
         maps.add(new CMCPvP.PackMap("pro_atlantis", ArenaTheme.SUNKEN_ATLANTIS, duelSize, dCopies, false));
