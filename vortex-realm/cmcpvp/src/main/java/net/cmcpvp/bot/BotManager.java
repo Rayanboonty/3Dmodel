@@ -55,6 +55,26 @@ public final class BotManager implements Listener, TabExecutor {
 
     public BotManager(CMCPvP plugin) {
         this.plugin = plugin;
+        this.training = new TrainingWorld(plugin);
+        plugin.getServer().getPluginManager().registerEvents(this.training, plugin);
+        // the flat world is made shortly after start-up, so the first session doesn't wait for it
+        net.cmcpvp.util.Tasks.later(200L, this.training::world);
+    }
+
+    /** 1.0.16: the flat world where bot fights and training happen. */
+    private final TrainingWorld training;
+
+    public TrainingWorld training() {
+        return this.training;
+    }
+
+    /** Gives a session's map back: a flat-world cell has its blocks put back, a real map is reset. */
+    void releaseMap(ArenaInstance inst) {
+        if (TrainingWorld.isSlot(inst)) {
+            this.training.release(inst);
+        } else {
+            this.plugin.arenas().release(inst);
+        }
     }
 
     /** One player with one bot (or dummy) on one arena copy. */
@@ -67,6 +87,10 @@ public final class BotManager implements Listener, TabExecutor {
         int ticks;
         int swings;
         boolean over;
+        /** 1.0.16 Stun Slam Lab: more dummies of the same session, the drill, slams counted so far. */
+        final List<PracticeBot> extras = new ArrayList<>();
+        SlamDrill drill;
+        int slamsSeen;
 
         Fight(Player player, Kit kit, PracticeBot bot, ArenaInstance inst, int limit) {
             this.player = player;
@@ -121,7 +145,8 @@ public final class BotManager implements Listener, TabExecutor {
             return false;
         }
 
-        ArenaInstance inst = this.flat(p);
+        // the flat training world, unless the player picked a real map (Bot Hall)
+        ArenaInstance inst = arena == null ? this.flat(p) : null;
         if (inst == null) {
             inst = arena != null && arena.allows(kit) ? this.plugin.arenas().acquire(arena, p) : this.plugin.arenas().acquireAny(kit, p);
         }
@@ -246,6 +271,139 @@ public final class BotManager implements Listener, TabExecutor {
         return true;
     }
 
+    /** 1.0.16: a Stun Slam Lab drill in the flat training world. */
+    public boolean lab(Player p, SlamDrill drill) {
+        if (!this.ready(p)) {
+            return false;
+        }
+
+        if (!Cfg.bool(Opt.BOTS_TRAINING)) {
+            p.sendMessage(Text.mm("<red>Training is turned off on this server."));
+            return false;
+        }
+
+        DummyType type = drill.dummy();
+        Kit kit = this.plugin.kits().get(type.kit);
+        if (kit == null && type.kit.equals("spear_mace")) {
+            kit = this.plugin.kits().get("spearmace");
+        }
+
+        if (kit == null) {
+            kit = this.plugin.kits().get("mace");
+        }
+
+        if (kit == null) {
+            p.sendMessage(Text.mm("<red>The mace kit is missing on this server."));
+            return false;
+        }
+
+        ArenaInstance inst = this.training.acquire(p);
+        if (inst == null) {
+            p.sendMessage(Text.mm("<red>The training world isn't ready yet - try again in a moment."));
+            return false;
+        }
+
+        Session s = this.plugin.sessions().get(p);
+        s.state = PlayerState.BOT;
+        Location spawn = inst.spawn1();
+        Tp.to(p, spawn);
+        p.setGameMode(org.bukkit.GameMode.SURVIVAL);
+        p.setHealth(p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
+        this.plugin.kits().apply(p, kit, this.plugin.profiles().get(p).layouts.get(kit.id), List.of());
+        this.trainingItems(p, type);
+        PracticeBot main = new PracticeBot(this.plugin, spawn.clone().add(8.0, 0.0, 0.0), kit, Difficulty.MEDIUM, type, "<gold>" + drill.display);
+        main.target = p;
+        Fight f = new Fight(p, kit, main, inst, 20 * 60 * 15);
+        f.drill = drill;
+        this.fights.put(p.getUniqueId(), f);
+        this.byBody.put(main.body.getUniqueId(), main);
+        this.layout(f, false);
+        p.sendMessage(Text.mm(" "));
+        p.sendMessage(Text.mm("<#E3172B><b>STUN SLAM LAB</b> <dark_gray>- <white>" + drill.display + " <dark_gray>- <gray>" + drill.what));
+        p.sendMessage(Text.mm("<yellow>Goal: <white>" + drill.goal));
+        p.sendMessage(Text.mm("<gray>Your break → slam time shows after every slam. <click:run_command:'/train lab'><#E3172B>[Other drills]</#E3172B></click> "
+            + "<click:run_command:'/bot leave'><red>[Leave]</red></click>"));
+        p.sendMessage(Text.mm(" "));
+        Snd.play(p, "block.note_block.chime", 0.8F, 1.2F);
+        return true;
+    }
+
+    /** Where a drill's dummies stand (relative to the player's spot), building their platforms; a new one for RANDOM. */
+    private void layout(Fight f, boolean again) {
+        Location base = f.inst.spawn1();
+        java.util.concurrent.ThreadLocalRandom r = java.util.concurrent.ThreadLocalRandom.current();
+        List<double[]> spots = new ArrayList<>();
+        switch (f.drill) {
+            case UPPERCUT -> spots.add(new double[]{5, 5, 3});
+            case LEDGES -> {
+                spots.add(new double[]{7, 4, -4});
+                spots.add(new double[]{12, 8, 5});
+                spots.add(new double[]{5, 11, 10});
+            }
+            case DOUBLE -> {
+                spots.add(new double[]{7, 0, -1});
+                spots.add(new double[]{7, 0, 1});
+            }
+            case RANDOM -> {
+                int n = 1 + r.nextInt(3);
+                for (int i = 0; i < n; i++) {
+                    double a = r.nextDouble() * Math.PI * 2.0;
+                    double dist = 4.0 + r.nextDouble() * 7.0;
+                    int h = new int[]{0, 0, 3, 5, 8, 10}[r.nextInt(6)];
+                    spots.add(new double[]{Math.cos(a) * dist, h, Math.sin(a) * dist});
+                }
+            }
+            default -> spots.add(new double[]{7, 0, 0});
+        }
+
+        // the main dummy takes the first spot; the others are extra dummies of the same session
+        List<PracticeBot> bots = new ArrayList<>();
+        bots.add(f.bot);
+        while (f.extras.size() < spots.size() - 1) {
+            PracticeBot x = new PracticeBot(this.plugin, base, f.kit, Difficulty.MEDIUM, f.drill.dummy(), "<gold>" + f.drill.display);
+            x.target = f.player;
+            f.extras.add(x);
+            this.byBody.put(x.body.getUniqueId(), x);
+        }
+
+        while (f.extras.size() > spots.size() - 1) {
+            PracticeBot x = f.extras.remove(f.extras.size() - 1);
+            this.byBody.remove(x.body.getUniqueId());
+            x.remove();
+        }
+
+        bots.addAll(f.extras);
+        for (int i = 0; i < spots.size(); i++) {
+            double[] o = spots.get(i);
+            Location at = base.clone().add(o[0], o[1], o[2]);
+            int h = (int)o[1];
+            if (h > 0) {
+                // a glass platform (3x3) on a slim pillar, or a floating platform for the uppercut
+                org.bukkit.block.Block top = at.getBlock().getRelative(0, -1, 0);
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        this.training.place(f.inst, top.getRelative(dx, 0, dz), dx == 0 && dz == 0 ? Material.SEA_LANTERN : Material.WHITE_STAINED_GLASS);
+                    }
+                }
+
+                if (f.drill != SlamDrill.UPPERCUT) {
+                    for (int y = 1; y < h; y++) {
+                        this.training.place(f.inst, top.getRelative(0, -y, 0), Material.STONE_BRICK_WALL);
+                    }
+                }
+            }
+
+            PracticeBot b = bots.get(i);
+            b.home = at.clone();
+            b.home.setDirection(base.toVector().subtract(at.toVector()));
+            b.recover(b.home);
+        }
+
+        if (again) {
+            f.player.sendActionBar(Text.mm("<#E3172B>⟳ New layout <gray>- " + spots.size() + " dumm" + (spots.size() == 1 ? "y" : "ies")));
+        }
+    }
+
     /**
      * The floor under a spot near the height {@code near}: the first solid block found going down from a little
      * above it. Barriers don't count (the maps have an invisible roof, which is the "highest block").
@@ -266,10 +424,15 @@ public final class BotManager implements Listener, TabExecutor {
         return near;
     }
 
-    /** A copy of the flat Training Grounds map (bots.flat-maps), or null to use the kit's maps. */
-    private ArenaInstance flat(Player p) {
+    /** A cell of the flat training world (bots.flat-maps), or null to use the kit's maps. */
+    public ArenaInstance flat(Player p) {
         if (!Cfg.bool(Opt.BOTS_FLAT_MAPS)) {
             return null;
+        }
+
+        ArenaInstance cell = this.training.acquire(p);
+        if (cell != null) {
+            return cell;
         }
 
         for (Arena a : this.plugin.arenas().all()) {
@@ -312,7 +475,13 @@ public final class BotManager implements Listener, TabExecutor {
         }
 
         if (type == DummyType.ELYTRA || type == DummyType.ELYTRA_SHIELD) {
+            // the elytra goes on, the kit's chestplate stays in the inventory so it can be swapped in like in a real fight
+            ItemStack old = inv.getChestplate();
             inv.setChestplate(new ItemStack(Material.ELYTRA));
+            if (!Items.isEmpty(old) && old.getType() != Material.ELYTRA) {
+                inv.addItem(old);
+            }
+
             inv.addItem(Items.of(Material.FIREWORK_ROCKET).build().asQuantity(32));
         }
 
@@ -436,6 +605,29 @@ public final class BotManager implements Listener, TabExecutor {
 
                 try {
                     f.bot.tick();
+                    for (PracticeBot x : f.extras) {
+                        if (x.valid()) {
+                            x.tick();
+                        }
+                    }
+
+                    if (f.drill != null) {
+                        int slams = f.bot.slams;
+                        for (PracticeBot x : f.extras) {
+                            slams += x.slams;
+                        }
+
+                        if (slams > f.slamsSeen) {
+                            f.slamsSeen = slams;
+                            if (f.drill == SlamDrill.RANDOM) {
+                                net.cmcpvp.util.Tasks.later(30L, () -> {
+                                    if (!f.over) {
+                                        this.layout(f, true);
+                                    }
+                                });
+                            }
+                        }
+                    }
                 } catch (RuntimeException var5) {
                     this.plugin.getLogger().log(java.util.logging.Level.WARNING, "Practice bot tick failed", (Throwable)var5);
                     this.end(f, null, "error");
@@ -468,7 +660,13 @@ public final class BotManager implements Listener, TabExecutor {
         }
 
         b.remove();
-        this.plugin.arenas().release(f.inst);
+        for (PracticeBot x : f.extras) {
+            this.byBody.remove(x.body.getUniqueId());
+            x.remove();
+        }
+
+        f.extras.clear();
+        this.releaseMap(f.inst);
         Player p = f.player;
         if (p.isOnline()) {
             if (b.dummy == null && !why.equals("left")) {
@@ -692,6 +890,26 @@ public final class BotManager implements Listener, TabExecutor {
         }
     }
 
+    /**
+     * 1.0.16: gliding always follows the chest slot. When the elytra comes off mid-flight (swapped for the chestplate
+     * for a slam), the glide ends on the server at once, so the player falls and can fight normally.
+     */
+    @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.MONITOR)
+    public void onChestSwap(com.destroystokyo.paper.event.player.PlayerArmorChangeEvent e) {
+        Player p = e.getPlayer();
+        if (e.getSlot() == org.bukkit.inventory.EquipmentSlot.CHEST && p.isGliding()) {
+            ItemStack now = e.getNewItem();
+            boolean glider = !Items.isEmpty(now) && (now.getType() == Material.ELYTRA || now.hasData(io.papermc.paper.datacomponent.DataComponentTypes.GLIDER));
+            if (!glider) {
+                net.cmcpvp.util.Tasks.later(1L, () -> {
+                    if (p.isOnline() && p.isGliding()) {
+                        p.setGliding(false);
+                    }
+                });
+            }
+        }
+    }
+
     /** Building during a bot fight or training: inside the map copy, for building kits and crystal kits. */
     public Boolean mayBuild(Player p, Block b) {
         Fight f = this.fights.get(p.getUniqueId());
@@ -853,6 +1071,17 @@ public final class BotManager implements Listener, TabExecutor {
         }
 
         String cmd = command.getName().toLowerCase(Locale.ROOT);
+        if (cmd.equals("train") && args.length > 0 && args[0].equalsIgnoreCase("lab")) {
+            SlamDrill d = args.length > 1 ? SlamDrill.parse(args[1]) : null;
+            if (d == null) {
+                this.arenaUi().labMenu(p);
+            } else {
+                this.lab(p, d);
+            }
+
+            return true;
+        }
+
         if (cmd.equals("train")) {
             DummyType t = args.length > 0 ? DummyType.parse(args[0]) : null;
             if (t == null) {
@@ -889,8 +1118,15 @@ public final class BotManager implements Listener, TabExecutor {
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         List<String> out = new ArrayList<>();
         if (command.getName().equalsIgnoreCase("train")) {
-            for (DummyType t : DummyType.values()) {
-                out.add(t.name().toLowerCase(Locale.ROOT));
+            if (args.length == 2 && args[0].equalsIgnoreCase("lab")) {
+                for (SlamDrill d : SlamDrill.values()) {
+                    out.add(d.name().toLowerCase(Locale.ROOT));
+                }
+            } else {
+                out.add("lab");
+                for (DummyType t : DummyType.values()) {
+                    out.add(t.name().toLowerCase(Locale.ROOT));
+                }
             }
         } else if (args.length == 1) {
             out.add("leave");

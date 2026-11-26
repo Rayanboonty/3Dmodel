@@ -170,7 +170,12 @@ public final class Academy implements Listener, TabExecutor {
             kit = this.plugin.kits().all().stream().filter(k -> k.enabled).findFirst().orElse(null);
         }
 
-        ArenaInstance inst = kit == null ? null : this.plugin.arenas().acquireAny(kit, p);
+        // 1.0.16: lessons happen in the flat training world
+        ArenaInstance inst = this.plugin.bots() == null ? null : this.plugin.bots().flat(p);
+        if (inst == null && kit != null) {
+            inst = this.plugin.arenas().acquireAny(kit, p);
+        }
+
         if (inst == null) {
             for (net.cmcpvp.arena.Arena a : this.plugin.arenas().all()) {
                 if (inst == null && a.ready() && a.freeInstances() > 0L && !net.cmcpvp.arena.Arena.poolOf(a.theme).equals("MOLE")) {
@@ -635,6 +640,7 @@ public final class Academy implements Listener, TabExecutor {
             case HITS -> r.progress = d.hitsTaken();
             case COMBO -> r.progress = d.bestCombo();
             case SHIELD_BREAKS -> r.progress = d.shieldBreaks();
+            case SLAMS -> r.progress = d.slams();
             case SMASH -> r.progress = (int)Math.floor(d.bestSmash());
             case POPS -> r.progress = d.pops();
             case CRYSTAL_DAMAGE -> r.progress = (int)Math.floor(d.damageTaken());
@@ -740,7 +746,11 @@ public final class Academy implements Listener, TabExecutor {
             this.plugin.bots().despawn(r.dummy);
         }
 
-        this.plugin.arenas().release(r.inst);
+        if (net.cmcpvp.bot.TrainingWorld.isSlot(r.inst)) {
+            this.plugin.bots().training().release(r.inst);
+        } else {
+            this.plugin.arenas().release(r.inst);
+        }
         Player p = r.player;
         if (p.isOnline()) {
             if (p.getGameMode() == GameMode.SPECTATOR) {

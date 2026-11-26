@@ -151,9 +151,6 @@ commands:
     description: The welcome screen.
   guide:
     description: The step-by-step guide (/guide stop to hide it).
-  ai:
-    description: "Ask the AI assistant to change the plugin - /ai <request>, /ai reset, /ai key <key> (admin)."
-    aliases: [assistant]
   ss:
     description: "Screenshare: freeze a player to check them on Discord - /ss <player>, /ss end <player> <result>."
     aliases: [screenshare, freeze, admit]
@@ -426,18 +423,6 @@ commands:
     description: "PracticePvP add-on admin: status, tests, reload, rollback, web dashboard."
     aliases: [cmcplus, vpp]
     permission: cmcpvp.admin
-  realm:
-    description: "The Unstable Realm season: your story, votes, journal (admins: /realm help)."
-    aliases: [unstable, story]
-  character:
-    description: "Choose your one-of-a-kind Unstable Realm character."
-    aliases: [characters, char]
-  companion:
-    description: "Your Unstable Realm companion: summon it, then give it orders in chat."
-    aliases: [comp, sidekick]
-  ability:
-    description: "Use your character's power (or Shift + F)."
-    aliases: [power]
   claim:
     description: "SMP land claims: protect your base (no griefing, no explosions)."
     aliases: [claims, base, unclaim]

@@ -13,7 +13,7 @@ NOTES = {
     'VortexRealm': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'PracticePvP': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
-    'CMCPvP': 'CMCPVP 1.0.15: real 3D map previews (a true scaled copy of each arena), invisible walls built first on every arena and FFA map, roomy see-through PvP HQ capsule with a trapdoor floor and shattering glass, 4 new masterpiece arenas (Dragonspire Keep, Koi Shrine Summit, Corsair Harbor, Stormpeak Sanctuary), new main buildings for Frostfang, Stonewatch, Ember Citadel and Obsidian Forge, a ruined Titan Colosseum, sculpted trees everywhere, 7 lookalike maps retired',
+    'CMCPvP': 'CMCPVP 1.0.16: bots rebuilt (real knockback, real 3-block reach with line of sight, reaction time, smooth aim, w-taps, jump-resets, strafes; 6 levels Beginner to Pro and Match my tier), a flat training world (instant, own space per player), the Stun Slam Lab (8 drills: uppercut, ledges, double, air, elytra, spear, random) with break-to-slam timing, elytra mid-air fixes, smaller jar (AI assistant and realm story removed)',
 }
 
 

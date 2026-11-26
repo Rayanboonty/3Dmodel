@@ -38,6 +38,7 @@ public final class Courses {
         CRITS("land {n} critical hits"),
         COMBO("reach a {n}-hit combo"),
         SHIELD_BREAKS("break the shield {n} times"),
+        SLAMS("land {n} stun slams"),
         SMASH("smash for {n}+ damage"),
         POPS("pop {n} totems"),
         CRYSTAL_DAMAGE("deal {n} damage with crystals"),
@@ -112,7 +113,7 @@ public final class Courses {
                 "...then switch to the MACE and smash in the same fall.",
                 "Put axe and mace next to each other on your hotbar.",
                 "It is the hardest mace move: practise the swap speed."
-            ), Demo.STUN_SLAM, DummyType.STUNSLAM, Goal.SHIELD_BREAKS, 2, 90),
+            ), Demo.STUN_SLAM, DummyType.STUNSLAM, Goal.SLAMS, 2, 120),
             new Lesson("mace.density", "Density vs Breach", List.of(
                 "Density: more damage per block fallen - best from very high.",
                 "Breach: ignores part of the armor - best against netherite.",

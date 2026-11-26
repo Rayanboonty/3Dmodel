@@ -273,10 +273,12 @@ public final class BotArenaUI {
             String dk = d.name().toLowerCase(Locale.ROOT);
             tiles.add(new LobbyDialogs.Tile(
                 new ItemStack(switch (d) {
+                    case BEGINNER -> Material.LIGHT_GRAY_DYE;
                     case EASY -> Material.LIME_DYE;
                     case MEDIUM -> Material.YELLOW_DYE;
                     case HARD -> Material.ORANGE_DYE;
                     case EXPERT -> Material.RED_DYE;
+                    case PRO -> Material.NETHERITE_SCRAP;
                 }),
                 Text.mm(d.label + " <b>Bot"),
                 Text.mm("<gray>" + d.about + " <dark_gray>• <green>" + this.data.getInt(base + "wins." + dk) + "W <red>" + this.data.getInt(base + "losses." + dk) + "L"),
@@ -288,6 +290,16 @@ public final class BotArenaUI {
             ));
         }
 
+        // 1.0.16: a bot at your own level - picked from your tier in this kit
+        net.practicepvp.data.KitStats mine = this.plugin.profiles().get(p).statsOrNull(k.id);
+        net.practicepvp.rank.Tier myTier = mine == null ? null : mine.tier();
+        Difficulty matched = Difficulty.forTier(myTier);
+        tiles.add(new LobbyDialogs.Tile(new ItemStack(Material.TARGET), Text.mm("<#E3172B><b>⚖ Match my tier"),
+            Text.mm("<gray>Your tier: ").append(Text.mm(myTier == null ? "<gray>Unranked" : myTier.mm())).append(Text.mm(" <dark_gray>→ ")).append(Text.mm(matched.label)),
+            List.of(Text.mm("<#E3172B><b>⚖ Match my tier"), Text.mm("<gray>A bot that plays at your level")), () -> {
+                p.closeDialog();
+                this.bots.fight(p, k, matched, arena);
+            }));
         tiles.add(new LobbyDialogs.Tile(new ItemStack(Material.NETHER_STAR), Text.mm("<light_purple><b>★ Surprise me"), Text.mm("<gray>A random difficulty"),
             List.of(Text.mm("<light_purple><b>★ Surprise me")), () -> {
                 p.closeDialog();
@@ -323,7 +335,29 @@ public final class BotArenaUI {
             ));
         }
 
+        if (tab.name().equals("AIR")) {
+            tiles.add(0, new LobbyDialogs.Tile(new ItemStack(Material.MACE), Text.mm("<#E3172B><b>⚡ Stun Slam Lab"), Text.mm("<gray>8 drills: above you, ledges, double, air, elytra..."),
+                List.of(Text.mm("<#E3172B><b>⚡ Stun Slam Lab"), Text.mm("<gray>Many dummies and situations"), Text.mm("<green>▶ Open")), () -> this.labMenu(p)));
+        }
+
         this.ui().screen(p, title(tab), tiles, this.header(p, tab), Text.mm("<gray>Nothing here yet."), this.tabs(p, tab, null), 3, this.ui().close(p));
+    }
+
+    /** 1.0.16: the Stun Slam Lab's drills. */
+    void labMenu(Player p) {
+        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
+        for (SlamDrill d : SlamDrill.values()) {
+            tiles.add(new LobbyDialogs.Tile(new ItemStack(d.icon), Text.mm("<#E3172B><b>" + d.display), Text.mm("<gray>" + d.what),
+                List.of(Text.mm("<#E3172B><b>" + d.display), Text.mm("<gray>" + d.what), Text.mm("<yellow>Goal: <white>" + d.goal), Text.mm("<green>▶ Start the drill")),
+                () -> {
+                    p.closeDialog();
+                    this.bots.lab(p, d);
+                }));
+        }
+
+        this.ui().screen(p, Text.mm("<b><white>STUN SLAM</white> <#E3172B>LAB</#E3172B></b>"), tiles,
+            List.of(Text.mm("<gray>Every drill happens in your own space of the flat training world.")), null,
+            List.of(this.ui().btn(p, "<aqua>🎯 Other training", null, () -> this.open(p, Tab.SWORD, null))), 2, this.ui().close(p));
     }
 
     void recordsTab(Player p) {

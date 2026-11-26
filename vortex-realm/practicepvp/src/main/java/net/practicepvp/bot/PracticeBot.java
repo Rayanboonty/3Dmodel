@@ -117,6 +117,8 @@ public final class PracticeBot {
     double anchorDamage;
     int slams;
     long lastBreakAt;
+    /** Fastest break → slam of the session, in ms. */
+    long bestSlamMs;
     double bestFall;
     int pearlsLanded;
     int pearlsThrown;
@@ -169,6 +171,19 @@ public final class PracticeBot {
     Location home;
     /** Own movement: a Mannequin doesn't move by itself, so the bot is stepped every tick (gravity, walls, steps). */
     Vector vel = new Vector();
+    /** 1.0.16: what the bot wants to do this tick (a direction of up to length 1); physics turns it into speed. */
+    double inX;
+    double inZ;
+    boolean sprint;
+    /** What the bot has seen of its target, newest first (it acts on what it saw {@code reaction} ticks ago). */
+    private final java.util.ArrayDeque<Location> seenAt = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<Vector> seenVel = new java.util.ArrayDeque<>();
+    /** Its head: turned toward the aim point at the level's speed, with a slowly drifting error. */
+    float headYaw;
+    float headPitch;
+    boolean headSet;
+    double noiseYaw;
+    double noisePitch;
     double lastDist = 99.0;
     int stuck;
     boolean onGround;
@@ -335,6 +350,9 @@ public final class PracticeBot {
 
             if (dummy != null && dummy.floating()) {
                 m.setGravity(false);
+                // 1.0.16: a floating target is never solid - a player who flew up to it used to land on its head and
+                // hang there in mid-air (looking like flying without an elytra), unable to hit it
+                m.setCollidable(false);
             }
         });
         this.floating = dummy != null && dummy.floating();
@@ -412,6 +430,97 @@ public final class PracticeBot {
         return b.getType().isSolid() && !b.isPassable();
     }
 
+    /**
+     * What the bot wants to do: a wished velocity (the old speeds, 0.28 = a sprint). It becomes a direction and a
+     * strength that physics adds each tick with ground or air acceleration, so knockback is never wiped out.
+     */
+    void input(Vector wish) {
+        double m = Math.hypot(wish.getX(), wish.getZ());
+        if (m < 1.0E-4) {
+            this.inX = 0.0;
+            this.inZ = 0.0;
+            this.sprint = false;
+            return;
+        }
+
+        double k = Math.min(1.0, m / 0.28) / m;
+        this.inX = wish.getX() * k;
+        this.inZ = wish.getZ() * k;
+        this.sprint = m > 0.2;
+    }
+
+    /** Remembers where the target is now (called every tick of a fight). */
+    void see() {
+        if (this.target == null) {
+            return;
+        }
+
+        this.seenAt.addFirst(this.target.getLocation());
+        this.seenVel.addFirst(this.target.getVelocity());
+        while (this.seenAt.size() > 12) {
+            this.seenAt.removeLast();
+            this.seenVel.removeLast();
+        }
+    }
+
+    /** Where the bot believes the target is: as seen {@code reaction} ticks ago, led forward by its speed from Hard up. */
+    Location perceived() {
+        int n = Math.min(this.diff.reaction, this.seenAt.size() - 1);
+        if (n < 0) {
+            return this.target.getLocation();
+        }
+
+        Location at = null;
+        Vector v = null;
+        int i = 0;
+        java.util.Iterator<Vector> vi = this.seenVel.iterator();
+        for (Location l : this.seenAt) {
+            Vector vv = vi.next();
+            if (i++ == n) {
+                at = l.clone();
+                v = vv;
+                break;
+            }
+        }
+
+        if (at == null) {
+            return this.target.getLocation();
+        }
+
+        if (this.diff.skill >= 3 && v != null) {
+            at.add(v.getX() * n, 0.0, v.getZ() * n);
+        }
+
+        return at;
+    }
+
+    /** Distance from the bot's eye to the nearest point of the target's hitbox. */
+    double boxDist() {
+        org.bukkit.util.BoundingBox b = this.target.getBoundingBox();
+        Vector e = this.body.getEyeLocation().toVector();
+        double x = Math.max(b.getMinX(), Math.min(e.getX(), b.getMaxX()));
+        double y = Math.max(b.getMinY(), Math.min(e.getY(), b.getMaxY()));
+        double z = Math.max(b.getMinZ(), Math.min(e.getZ(), b.getMaxZ()));
+        return e.distance(new Vector(x, y, z));
+    }
+
+    /**
+     * A real hit check, like a player's: the ray from the bot's eye along where it looks must touch the target's
+     * hitbox within {@code reach}, with no block in between. A bad aim really misses.
+     */
+    boolean canReach(double reach) {
+        Location eye = this.body.getEyeLocation();
+        Vector dir = eye.getDirection();
+        org.bukkit.util.RayTraceResult r = this.target.getBoundingBox().rayTrace(eye.toVector(), dir, reach);
+        if (r == null) {
+            return false;
+        }
+
+        double dist = r.getHitPosition().distance(eye.toVector());
+        org.bukkit.util.RayTraceResult wall = eye.getWorld().rayTraceBlocks(eye, dir, dist, org.bukkit.FluidCollisionMode.NEVER, true);
+        return wall == null;
+    }
+
     /** One step of movement: gravity, walls (one-block steps are climbed), floor and ceiling. */
     void physics() {
         Location l = this.body.getLocation();
@@ -419,6 +528,14 @@ public final class PracticeBot {
         boolean gliding = this.phase == 4 || this.phase == 5;
         if (!this.floating && !gliding && this.phase != 3) {
             this.vel.setY((this.vel.getY() - 0.08) * 0.98);
+        }
+
+        if (this.phase == 0 && !this.floating) {
+            // like a player: what it already moves with slows by friction, what it wants adds a little each tick
+            double fr = this.onGround ? 0.546 : 0.91;
+            double acc = (this.onGround ? 0.1 : 0.02) * (this.sprint ? 1.3 : 1.0);
+            this.vel.setX(this.vel.getX() * fr + this.inX * acc);
+            this.vel.setZ(this.vel.getZ() * fr + this.inZ * acc);
         }
 
         double nx = l.getX() + this.vel.getX();
@@ -515,6 +632,10 @@ public final class PracticeBot {
         }
 
         this.pearlTick();
+        if (this.dummy == null) {
+            this.see();
+        }
+
         if (this.dummy != null) {
             this.dummyTick();
         } else if (this.target != null && this.target.isOnline() && this.target.getWorld().equals(this.body.getWorld())) {
@@ -640,7 +761,7 @@ public final class PracticeBot {
 
                 Vector side = new Vector(0, 0, 1).multiply(0.16 * this.strafeDir);
                 Vector back = this.home.toVector().subtract(l.toVector()).setY(0).multiply(0.06);
-                this.setVel(side.add(back).setY(this.vel.getY()));
+                this.input(side.add(back));
             }
             case WTAP -> {
                 Player n2 = this.nearestPlayer(16.0);
@@ -658,7 +779,7 @@ public final class PracticeBot {
                     v.add(back.normalize().multiply(0.15));
                 }
 
-                this.setVel(v.setY(this.vel.getY()));
+                this.input(v);
             }
             case BOW -> {
                 if (this.tick % 60 == 0) {
@@ -667,7 +788,7 @@ public final class PracticeBot {
 
                 Vector back = this.home.toVector().subtract(l.toVector()).setY(0);
                 Vector v = new Vector(0, 0, 1).multiply(0.14 * this.strafeDir).add(back.lengthSquared() > 64.0 ? back.normalize().multiply(0.2) : new Vector());
-                this.setVel(v.setY(this.vel.getY()));
+                this.input(v);
                 Player n2 = this.nearestPlayer(48.0);
                 if (n2 != null) {
                     this.lookAt(n2.getEyeLocation(), 0.0);
@@ -684,7 +805,7 @@ public final class PracticeBot {
 
                 Vector side = l.getDirection().setY(0).normalize().crossProduct(new Vector(0, 1, 0)).multiply(0.12 * this.strafeDir);
                 Vector back = this.home.toVector().subtract(l.toVector()).setY(0).multiply(0.05);
-                this.setVel(side.add(back).setY(this.vel.getY()));
+                this.input(side.add(back));
             }
             case PEARL -> {
                 // runs along a line through its start, turning round every few seconds
@@ -695,11 +816,11 @@ public final class PracticeBot {
                 Vector axis = new Vector(1, 0, 0);
                 Vector back = this.home.toVector().subtract(l.toVector()).setY(0);
                 Vector v = axis.multiply(0.2 * this.strafeDir).add(back.lengthSquared() > 100.0 ? back.normalize().multiply(0.25) : new Vector());
-                this.setVel(v.setY(this.vel.getY()));
+                this.input(v);
                 this.lookAt(l.clone().add(v.getX(), 1.6, v.getZ()), 0.0);
             }
             case POT -> {
-                this.setVel(new Vector(0.0, Math.min(0.0, this.vel.getY()), 0.0));
+                this.input(new Vector());
                 if (near != null) {
                     this.lookAt(near.getEyeLocation(), 0.0);
                     // steady chip damage so the player has to keep healing
@@ -717,7 +838,7 @@ public final class PracticeBot {
                 this.lookAt(want.clone().add(-Math.sin(a), 0, Math.cos(a)), 0.0);
             }
             default -> {
-                this.setVel(new Vector(0.0, Math.min(0.0, this.vel.getY()), 0.0));
+                this.input(new Vector());
                 if (near != null) {
                     this.lookAt(near.getEyeLocation(), 0.0);
                 }
@@ -731,15 +852,15 @@ public final class PracticeBot {
 
     private void fightTick() {
         Location me = this.body.getLocation();
-        Location them = this.target.getLocation();
+        // it acts on what it saw a moment ago (its reaction time), not on where the player is this very tick
+        Location them = this.perceived();
         double d = me.distance(them);
-        double aim = this.diff.aimError * (ThreadLocalRandom.current().nextDouble() - 0.5) * 2.0;
         if (this.phase == 0) {
-            this.lookAt(this.target.getEyeLocation(), aim);
+            this.lookAt(them.clone().add(0.0, this.target.getEyeHeight() * 0.85, 0.0), 0.0);
         }
 
         if (this.tick < this.holdUntil) {
-            this.setVel(new Vector(0.0, this.vel.getY(), 0.0));
+            this.input(new Vector());
             return;
         }
 
@@ -851,10 +972,12 @@ public final class PracticeBot {
 
             // d-tap: right after the target's totem popped, the next crystals come as fast as possible
             this.crystalReady = dtap ? 3 : switch (this.diff) {
+                case BEGINNER -> 52;
                 case EASY -> 40;
                 case MEDIUM -> 24;
                 case HARD -> 14;
                 case EXPERT -> 8;
+                case PRO -> 5;
             };
         }
 
@@ -884,11 +1007,17 @@ public final class PracticeBot {
         }
 
         this.move(them, d, false);
-        // stuck behind a cliff or in a hole (no pathfinding): after 1.5s without getting closer, hop next to them
+        // stuck behind a block or in a hole: jump and step aside first; only after 5 s does it hop next to them
         if (d < this.lastDist - 0.5 || d < 4.0) {
             this.lastDist = d;
             this.stuck = 0;
-        } else if (++this.stuck > 30) {
+        } else if (++this.stuck == 30 || this.stuck == 60) {
+            if (this.onGround) {
+                this.vel.setY(0.42);
+            }
+
+            this.strafeDir = -this.strafeDir;
+        } else if (this.stuck > 100) {
             this.stuck = 0;
             this.lastDist = 99.0;
             Vector off = me.toVector().subtract(them.toVector()).setY(0);
@@ -906,8 +1035,8 @@ public final class PracticeBot {
             }
         }
 
-        // melee
-        if (d <= 3.1 && this.attackReady <= 0 && this.tick % Math.max(1, this.diff.reaction) == 0) {
+        // melee: only what its eye-ray really touches, within its reach, with nothing in between
+        if (this.attackReady <= 0 && this.canReach(this.diff.reach)) {
             this.melee(d);
         }
     }
@@ -927,7 +1056,8 @@ public final class PracticeBot {
             this.strafeUntil = this.tick + 15 + ThreadLocalRandom.current().nextInt(30);
         }
 
-        double speed = slow ? 0.12 : 0.27;
+        double speed = slow ? 0.12 : 0.28;
+        double strafe = this.diff.strafe;
         Vector v;
         if (this.wtap > 0) {
             this.wtap--;
@@ -935,10 +1065,12 @@ public final class PracticeBot {
         } else if (this.bow && this.mainWeapon() == null) {
             // a bow-only kit: keep its distance and circle
             v = side.multiply(0.14 * this.strafeDir).add(to.clone().multiply(d < 9.0 ? -0.2 : (d > 14.0 ? 0.2 : 0.0)));
-        } else if (d > 2.6) {
-            v = to.clone().multiply(speed).add(side.multiply(this.diff.skill >= 2 ? 0.08 * this.strafeDir : 0.0));
+        } else if (d > 2.9) {
+            // closing in, strafing more the better it is
+            v = to.clone().multiply(speed).add(side.multiply(0.1 * strafe * this.strafeDir));
         } else {
-            v = side.multiply(0.14 * this.strafeDir).add(to.clone().multiply(d < 1.6 ? -0.1 : 0.02));
+            // in range: circle the target and keep just inside its reach (too close = back off)
+            v = side.multiply(0.2 * strafe * this.strafeDir).add(to.clone().multiply(d < 2.2 ? -0.16 * strafe : 0.06));
         }
 
         double vy = this.vel.getY();
@@ -952,17 +1084,55 @@ public final class PracticeBot {
             }
         }
 
-        this.setVel(new Vector(v.getX(), vy, v.getZ()));
+        this.input(v);
+        this.vel.setY(vy);
     }
 
+    /**
+     * Turns the head toward a point. Fighting bots turn at most their level's degrees per tick and carry an aim error
+     * that drifts slowly (no jitter); training dummies look straight at it.
+     */
     private void lookAt(Location at, double errorDeg) {
         Location me = this.body.getEyeLocation();
         Vector dir = at.toVector().subtract(me.toVector());
-        if (dir.lengthSquared() > 1.0E-6) {
-            float yaw = (float)(Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ())) + errorDeg);
-            float pitch = (float)Math.toDegrees(-Math.atan2(dir.getY(), Math.sqrt(dir.getX() * dir.getX() + dir.getZ() * dir.getZ())));
-            this.body.setRotation(yaw, pitch);
+        if (dir.lengthSquared() <= 1.0E-6) {
+            return;
         }
+
+        float yaw = (float)(Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ())) + errorDeg);
+        float pitch = (float)Math.toDegrees(-Math.atan2(dir.getY(), Math.sqrt(dir.getX() * dir.getX() + dir.getZ() * dir.getZ())));
+        if (this.dummy != null || this.phase != 0) {
+            this.body.setRotation(yaw, pitch);
+            this.headYaw = yaw;
+            this.headPitch = pitch;
+            this.headSet = true;
+            return;
+        }
+
+        java.util.concurrent.ThreadLocalRandom r = ThreadLocalRandom.current();
+        this.noiseYaw = this.noiseYaw * 0.92 + (r.nextDouble() - 0.5) * this.diff.aimError * 0.35;
+        this.noisePitch = this.noisePitch * 0.92 + (r.nextDouble() - 0.5) * this.diff.aimError * 0.2;
+        yaw += (float)this.noiseYaw;
+        pitch += (float)this.noisePitch;
+        if (!this.headSet) {
+            this.headYaw = yaw;
+            this.headPitch = pitch;
+            this.headSet = true;
+        }
+
+        float dy = yaw - this.headYaw;
+        while (dy > 180.0F) {
+            dy -= 360.0F;
+        }
+
+        while (dy < -180.0F) {
+            dy += 360.0F;
+        }
+
+        float max = (float)this.diff.turn;
+        this.headYaw += Math.max(-max, Math.min(max, dy));
+        this.headPitch += Math.max(-max, Math.min(max, pitch - this.headPitch));
+        this.body.setRotation(this.headYaw, Math.max(-90.0F, Math.min(90.0F, this.headPitch)));
     }
 
     // ------------------------------------------------------------------ hitting
@@ -1017,14 +1187,11 @@ public final class PracticeBot {
 
         this.body.getEquipment().setItemInMainHand(w);
         this.body.swingMainHand();
-        this.attackReady = (int)Math.round(cooldownOf(w) * (this.diff == Difficulty.EASY ? 1.3 : 1.0));
+        int clickGap = (int)Math.ceil(20.0 / Math.max(1, this.diff.cps));
+        this.attackReady = Math.max(clickGap, (int)Math.round(cooldownOf(w) * (this.diff.skill <= 1 ? 1.25 : 1.0)));
         if (this.kit.hitDelay >= 0 && this.kit.hitDelay < 10) {
-            // combo kits: hits land as fast as the kit's hit delay allows
-            this.attackReady = Math.max(2, this.kit.hitDelay + (this.diff == Difficulty.EASY ? 3 : (this.diff == Difficulty.MEDIUM ? 1 : 0)));
-        }
-
-        if (ThreadLocalRandom.current().nextDouble() > this.diff.accuracy) {
-            return;
+            // combo kits: hits land as fast as the kit's hit delay and the bot's clicking allow
+            this.attackReady = Math.max(clickGap, this.kit.hitDelay);
         }
 
         double dmg = weaponDamage(w);
@@ -1034,8 +1201,10 @@ public final class PracticeBot {
             t.getWorld().spawnParticle(Particle.CRIT, t.getLocation().add(0.0, 1.0, 0.0), 12, 0.3, 0.4, 0.3, 0.1);
         }
 
-        this.hit(t, dmg, DamageType.MOB_ATTACK, 0.4 + (this.wtap > 0 ? 0.0 : 0.1));
-        if (this.diff.skill >= 2) {
+        boolean sprintHit = this.sprint && this.wtap <= 0;
+        this.hit(t, dmg, DamageType.MOB_ATTACK, sprintHit ? -1.0 : 0.0);
+        if (ThreadLocalRandom.current().nextDouble() < this.diff.wtap) {
+            // a w-tap / s-tap: let go of sprint for a moment so the next hit is a sprint hit again
             this.wtap = 3;
         }
     }
@@ -1055,10 +1224,17 @@ public final class PracticeBot {
         if (dealt > 0.0) {
             this.hitsGiven++;
             this.damageGiven += dealt;
+            // 1.0.16: the damage already pushes like a mob hit; only a sprint hit adds the sprint push (like a player's),
+            // and techniques (smash, lunge, dive) add their own launch - no more double knockback on every hit
             Vector away = t.getLocation().toVector().subtract(this.body.getLocation().toVector()).setY(0);
-            if (away.lengthSquared() > 1.0E-4) {
-                away.normalize().multiply(kb);
-                t.setVelocity(t.getVelocity().multiply(0.5).add(new Vector(away.getX(), 0.36, away.getZ())));
+            if (away.lengthSquared() > 1.0E-4 && kb != 0.0) {
+                away.normalize();
+                if (kb < 0.0) {
+                    t.setVelocity(t.getVelocity().add(new Vector(away.getX() * 0.45, 0.0, away.getZ() * 0.45)));
+                } else {
+                    away.multiply(kb);
+                    t.setVelocity(t.getVelocity().multiply(0.5).add(new Vector(away.getX(), 0.36, away.getZ())));
+                }
             }
         }
     }
@@ -1095,7 +1271,7 @@ public final class PracticeBot {
                     this.setVel(new Vector(to.getX(), this.vel.getY(), to.getZ()));
                 }
 
-                if (d < 3.4 && this.fall() > 1.5) {
+                if (this.boxDist() <= this.diff.reach && this.fall() > 1.5) {
                     this.smash(d);
                     this.phase = 0;
                 } else if (this.onGround || this.phaseTick > 60) {
@@ -1135,7 +1311,7 @@ public final class PracticeBot {
                 this.lookAt(them, 0.0);
                 this.setVel(to.normalize().multiply(1.6));
                 this.peakY = Math.max(this.peakY, this.body.getY() + 10.0);
-                if (d < 3.2) {
+                if (this.boxDist() <= this.diff.reach) {
                     this.smash(d);
                     this.endGlide();
                 } else if (this.onGround || this.phaseTick > 30) {
@@ -1152,7 +1328,8 @@ public final class PracticeBot {
                 }
 
                 me.getWorld().spawnParticle(Particle.SWEEP_ATTACK, me.clone().add(0.0, 1.0, 0.0), 1);
-                if (d < 3.3) {
+                // spears reach a little further than a sword
+                if (this.boxDist() <= this.diff.reach + 1.0) {
                     this.body.swingMainHand();
                     if (ThreadLocalRandom.current().nextDouble() <= this.diff.accuracy) {
                         this.hit(this.target, weaponDamage(this.spearItem) * 1.6, DamageType.MOB_ATTACK, 0.7);
@@ -1478,10 +1655,12 @@ public final class PracticeBot {
         });
         this.spawned.add(c);
         int delay = fast ? 1 : switch (this.diff) {
+            case BEGINNER -> 18;
             case EASY -> 14;
             case MEDIUM -> 8;
             case HARD -> 4;
             case EXPERT -> 1;
+            case PRO -> 0;
         };
         net.practicepvp.util.Tasks.later(delay, () -> {
             if (c.isValid() && this.valid()) {
@@ -1512,7 +1691,7 @@ public final class PracticeBot {
             this.body.getEquipment().setItemInMainHand(new ItemStack(Material.RESPAWN_ANCHOR));
             this.body.swingMainHand();
             Snd.at(b.getLocation(), "block.stone.place", 1.0F, 1.0F);
-            long charge = this.diff == Difficulty.EXPERT ? 2L : 5L;
+            long charge = this.diff.skill >= 4 ? 2L : 5L;
             // charged with glowstone first, then set off
             net.practicepvp.util.Tasks.later(charge, () -> {
                 if (this.valid() && b.getType() == Material.RESPAWN_ANCHOR && b.getBlockData() instanceof org.bukkit.block.data.type.RespawnAnchor ra) {
@@ -1523,7 +1702,7 @@ public final class PracticeBot {
                     Snd.at(b.getLocation(), "block.respawn_anchor.charge", 1.0F, 1.0F);
                 }
             });
-            net.practicepvp.util.Tasks.later(charge + (this.diff == Difficulty.EXPERT ? 2L : 5L), () -> {
+            net.practicepvp.util.Tasks.later(charge + (this.diff.skill >= 4 ? 2L : 5L), () -> {
                 if (this.valid() && b.getType() == Material.RESPAWN_ANCHOR) {
                     b.setType(Material.AIR, false);
                     b.getWorld().createExplosion(b.getLocation().add(0.5, 0.5, 0.5), 5.0F, false, false, this.body);
@@ -1562,10 +1741,12 @@ public final class PracticeBot {
             this.totems--;
             // training: the new totem is there on the next tick (the used one leaves the hand after the event)
             int delay = this.dummy != null ? 1 : switch (this.diff) {
+                case BEGINNER -> 40;
                 case EASY -> 30;
                 case MEDIUM -> 14;
                 case HARD -> 6;
                 case EXPERT -> 2;
+                case PRO -> 1;
             };
             net.practicepvp.util.Tasks.later(delay, () -> {
                 if (this.valid()) {
@@ -1586,8 +1767,21 @@ public final class PracticeBot {
         if (!still && !this.floating) {
             Vector away = this.body.getLocation().toVector().subtract(p.getLocation().toVector()).setY(0);
             if (away.lengthSquared() > 1.0E-4) {
-                away.normalize().multiply(p.isSprinting() ? 0.55 : 0.4);
-                this.vel = new Vector(away.getX(), 0.36, away.getZ());
+                // like vanilla: half of the old motion, plus the push; a sprint hit pushes harder
+                away.normalize();
+                double str = 0.4 + (p.isSprinting() ? 0.25 : 0.0);
+                this.vel.setX(this.vel.getX() * 0.5 + away.getX() * str);
+                this.vel.setZ(this.vel.getZ() * 0.5 + away.getZ() * str);
+                if (this.onGround) {
+                    this.vel.setY(Math.min(0.4, this.vel.getY() * 0.5 + 0.4));
+                    // a jump-reset: jumping right as the hit lands takes some of the push away
+                    if (this.dummy == null && ThreadLocalRandom.current().nextDouble() < this.diff.jumpReset) {
+                        this.vel.setX(this.vel.getX() - away.getX() * 0.18);
+                        this.vel.setZ(this.vel.getZ() - away.getZ() * 0.18);
+                        this.vel.setY(0.42);
+                    }
+                }
+
                 this.onGround = false;
             }
         }
@@ -1617,6 +1811,7 @@ public final class PracticeBot {
             this.shieldBreaks++;
             this.lastBreakAt = now;
             Snd.at(this.body.getLocation(), "item.shield.break", 1.0F, 1.0F);
+            p.sendActionBar(Text.mm("<yellow><b>🛡 Shield broken!</b> <gray>- mace it now"));
         }
 
         if (spearHit) {
@@ -1674,11 +1869,14 @@ public final class PracticeBot {
             this.bestSmash = Math.max(this.bestSmash, damage);
             this.bestFall = Math.max(this.bestFall, p.getFallDistance());
             if (now - this.lastBreakAt < 1500L) {
-                // the shield was broken moments ago in the same fall: a stun slam
+                // the shield was broken moments ago in the same fall: a stun slam (and how fast it followed the break)
+                long ms = now - this.lastBreakAt;
                 this.slams++;
+                this.bestSlamMs = this.bestSlamMs <= 0 ? ms : Math.min(this.bestSlamMs, ms);
                 this.lastBreakAt = 0L;
                 String what = this.floating ? "AIR STUN SLAM!" : (this.dummy == DummyType.SPEAR_SLAM ? "SPEAR STUN SLAM!" : "STUN SLAM!");
-                p.sendActionBar(Text.mm("<gold><b>⚡ " + what + "</b> <gray>" + String.format("%.1f", damage) + " damage"));
+                p.sendActionBar(Text.mm("<gold><b>⚡ " + what + "</b> <white>" + ms + " ms</white> <gray>(best " + this.bestSlamMs + " ms) <dark_gray>• <gray>"
+                    + String.format("%.1f", damage) + " damage"));
                 Snd.play(p, "entity.experience_orb.pickup", 0.8F, 1.4F);
             }
         }

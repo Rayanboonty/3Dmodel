@@ -1238,12 +1238,7 @@ public final class PracticePlugin extends JavaPlugin {
         maps.add(new PracticePlugin.PackMap("c_plains", ArenaTheme.PLAINS, vanillaSize, vCopies, true));
         maps.add(new PracticePlugin.PackMap("royalcourt", ArenaTheme.ROYAL_COURTYARD, duelSize, dCopies, false));
         // 2.1.0: the compact detailed duel maps of the sword kits, and the UHC maps with hills and cover
-        for (ArenaTheme t : ArenaTheme.values()) {
-            if (t == ArenaTheme.TRAINING_GROUNDS) {
-                maps.add(new PracticePlugin.PackMap((t.duel.build ? "uhc_" : "duel_") + t.duel.name().toLowerCase(java.util.Locale.ROOT).replace("uhc_", ""),
-                    t, net.practicepvp.arena.ArenaManager.targetSize(t, false), t == ArenaTheme.TRAINING_GROUNDS ? Math.max(4, copies) : Math.max(2, copies), false));
-            }
-        }
+        // 1.0.16: bots and training use the flat training world (no Training Grounds copies to build any more)
 
         maps.add(new PracticePlugin.PackMap("grand", ArenaTheme.GRAND_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
         // MCPVP's natural maps, all real vanilla terrain

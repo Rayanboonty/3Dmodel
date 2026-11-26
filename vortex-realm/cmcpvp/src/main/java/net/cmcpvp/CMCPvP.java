@@ -21,7 +21,6 @@ import net.cmcpvp.match.SpectatorFeed;
 import net.cmcpvp.social.Regions;
 import net.cmcpvp.social.SocialManager;
 import net.cmcpvp.social.TabColumns;
-import net.cmcpvp.ai.AiCommand;
 import net.cmcpvp.arena.Arena;
 import net.cmcpvp.arena.ArenaEditor;
 import net.cmcpvp.arena.ArenaManager;
@@ -504,10 +503,6 @@ public final class CMCPvP extends JavaPlugin {
                 this.vaultSnapshot("auto", null);
             }
         }));
-        this.module("ai assistant", () -> {
-            this.ai = new AiAgent(this);
-            this.bind("ai", new AiCommand(this, this.ai));
-        });
         this.module("screenshare", () -> {
             this.screenShare = new ScreenShare(this);
             pm.registerEvents(this.screenShare, this);
@@ -653,13 +648,6 @@ public final class CMCPvP extends JavaPlugin {
             net.cmcpvp.smp.SmpClaims claims = new net.cmcpvp.smp.SmpClaims(this);
             this.bind("claim", claims);
             pm.registerEvents(claims, this);
-        });
-        this.module("Unstable Realm season", () -> {
-            this.realm = new net.cmcpvp.realm.Realm(this);
-            this.bind("realm", this.realm);
-            this.bind("character", this.realm);
-            this.bind("ability", this.realm);
-            this.bind("companion", this.realm);
         });
         this.module("SMP elytra wall rescue", () -> pm.registerEvents(new net.cmcpvp.smp.ElytraRescue(this), this));
         this.module("SMP portals", () -> pm.registerEvents(new net.cmcpvp.smp.SmpPortals(this), this));
@@ -891,9 +879,9 @@ public final class CMCPvP extends JavaPlugin {
         }
     }
 
-    private net.cmcpvp.realm.Realm realm;
+    private Object realm;
 
-    public net.cmcpvp.realm.Realm realm() {
+    public Object realm() {
         return this.realm;
     }
 
@@ -905,14 +893,6 @@ public final class CMCPvP extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (this.realm != null) {
-            try {
-                this.realm.save();
-            } catch (Throwable realmError) {
-                this.getLogger().log(java.util.logging.Level.WARNING, "Could not save the Unstable Realm", realmError);
-            }
-        }
-
         if (this.plus != null) {
             try {
                 this.plus.disable();
@@ -1246,12 +1226,7 @@ public final class CMCPvP extends JavaPlugin {
         maps.add(new CMCPvP.PackMap("c_plains", ArenaTheme.PLAINS, vanillaSize, vCopies, true));
         maps.add(new CMCPvP.PackMap("royalcourt", ArenaTheme.ROYAL_COURTYARD, duelSize, dCopies, false));
         // 2.1.0: the compact detailed duel maps of the sword kits, and the UHC maps with hills and cover
-        for (ArenaTheme t : ArenaTheme.values()) {
-            if (t == ArenaTheme.TRAINING_GROUNDS) {
-                maps.add(new CMCPvP.PackMap((t.duel.build ? "uhc_" : "duel_") + t.duel.name().toLowerCase(java.util.Locale.ROOT).replace("uhc_", ""),
-                    t, net.cmcpvp.arena.ArenaManager.targetSize(t, false), t == ArenaTheme.TRAINING_GROUNDS ? Math.max(4, copies) : Math.max(2, copies), false));
-            }
-        }
+        // 1.0.16: bots and training use the flat training world (no Training Grounds copies to build any more)
 
         maps.add(new CMCPvP.PackMap("grand", ArenaTheme.GRAND_COLOSSEUM, Cfg.i(Opt.MACE_ARENA_SIZE), 1, false));
         // MCPVP's natural maps, all real vanilla terrain

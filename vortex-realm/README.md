@@ -1342,6 +1342,32 @@ The SMP's nether and end were treated as not part of the SMP (they're saved as '
 - **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.
 
 
+## CMCPVP 1.0.16 (phase 1 of 4)
+
+- **Bots that fight like players.**
+  - Knockback stays with them and slows down with friction (it used to vanish the next tick). Their movement speeds up and slows down like a player's.
+  - They hit only what a ray from their eye really touches, within 2.8 to 3.0 blocks, never through blocks.
+  - They react to where you were a moment ago, which is their reaction time, and turn their head at a limited speed with a slowly drifting aim.
+  - Better levels w-tap, jump-reset, circle-strafe and keep their distance.
+  - Six levels from Beginner (LT5) to Pro (HT1), plus a **Match my tier** button. Players no longer take double knockback from bot hits.
+- **Flat training world.** Bot fights, training dummies and the Academy happen in `pvp_training`, a plain superflat world. Every player gets their own space with an invisible wall and a training pad, so nothing has to be built first and it starts instantly. Every block changed there is put back afterwards. The Training Grounds arena copies are no longer built.
+- **Stun Slam Lab** (`/train lab`, or the Air tab of the training menu). Eight drills:
+  - Ground;
+  - Uppercut (a dummy 5 blocks above you);
+  - Ledge Run (three pillars at different heights);
+  - Double;
+  - Mid-Air;
+  - Elytra Flyer;
+  - Spear;
+  - Random (a new layout after every slam).
+
+  It shows "Shield broken!" and your break → slam time in ms, with your best time. The Academy's stun-slam lesson now counts slams.
+- **Elytra mid-air fixes:**
+  - floating and gliding targets are no longer solid, so you can't get stuck standing on them in the air;
+  - taking the elytra off mid-flight ends the glide on the server at once;
+  - elytra training keeps your chestplate in the inventory for the swap.
+- **Smaller jar:** the AI assistant and the Unstable Realm story are removed from CMCPVP.
+
 ## CMCPVP 1.0.15
 
 - **Real 3D previews in the map vote.** Each preview is now a true scaled-down copy of the arena, same proportions in every direction. Towers, roofs, arches, stands, trees, water and grass all show as they are; before, the preview was a stretched height map with solid pillars.

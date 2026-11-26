@@ -18,7 +18,7 @@ NAME = 'CMCPVP'
 FEED = 'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json'
 OLD_FEED = 'https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json'
 # C MCPvP has its own version line (1.0.0 = launch); bump it for every C MCPvP release
-EDITION_VERSION = '1.0.15'
+EDITION_VERSION = '1.0.16'
 PERM = re.compile(r'(?<![\w.])practice\.(?=[a-z])')
 
 
@@ -78,6 +78,7 @@ def main():
                 if n != s:
                     wr(p, n)
     patch_specific(jdir)
+    strip_unused(jdir)
     resources()
     pom()
     devortex()
@@ -206,6 +207,75 @@ def patch_specific(jdir):
     s = rep(s, '"Join our Discord!|discord.gg/knHtEeHyk|minecraft:amethyst_shard"', '"Join our Discord!|/links|minecraft:amethyst_shard"', p)
     # red and gold scoreboard prefix for the new brand
     wr(p, s)
+
+
+def strip_unused(jdir):
+    """1.0.16: C MCPvP is practice only - the AI assistant and the Unstable Realm story aren't in its jar.
+
+    Their few outside references are cut with exact patches (rep() fails loudly if the code changed), and a tiny stub
+    keeps the website's AI page compiling (it already handles "no assistant")."""
+    shutil.rmtree(os.path.join(jdir, 'ai'))
+    shutil.rmtree(os.path.join(jdir, 'realm'))
+    os.makedirs(os.path.join(jdir, 'ai'))
+    wr(os.path.join(jdir, 'ai', 'AiAgent.java'), '''package net.cmcpvp.ai;
+
+/** C MCPvP has no in-game AI assistant: just enough for the website code to compile (it is never created). */
+public final class AiAgent {
+    private AiAgent() {
+    }
+
+    public boolean hasKey() {
+        return false;
+    }
+
+    public void reset(String session) {
+    }
+
+    public Reply chat(String session, String who, boolean op, String text) {
+        return new Reply("", java.util.List.of(), false);
+    }
+
+    public record Reply(String text, java.util.List<String> changes, boolean ok) {
+    }
+}
+''')
+    p = jdir + '/CMCPvP.java'
+    s = rd(p)
+    s = rep(s, 'import net.cmcpvp.ai.AiCommand;\n', '', p)
+    s = rep(s, '''        this.module("ai assistant", () -> {
+            this.ai = new AiAgent(this);
+            this.bind("ai", new AiCommand(this, this.ai));
+        });
+''', '', p)
+    s = rep(s, '''        this.module("Unstable Realm season", () -> {
+            this.realm = new net.cmcpvp.realm.Realm(this);
+            this.bind("realm", this.realm);
+            this.bind("character", this.realm);
+            this.bind("ability", this.realm);
+            this.bind("companion", this.realm);
+        });
+''', '', p)
+    s = rep(s, '    private net.cmcpvp.realm.Realm realm;', '    private Object realm;', p)
+    s = rep(s, '    public net.cmcpvp.realm.Realm realm() {', '    public Object realm() {', p)
+    s = rep(s, '''        if (this.realm != null) {
+            try {
+                this.realm.save();
+            } catch (Throwable realmError) {
+                this.getLogger().log(java.util.logging.Level.WARNING, "Could not save the Unstable Realm", realmError);
+            }
+        }
+
+''', '', p)
+    wr(p, s)
+    # their commands leave plugin.yml
+    py = os.path.join(DST, 'src/main/resources/plugin.yml')
+    y = rd(py)
+    for cmd in ('ai', 'realm', 'character', 'companion', 'ability'):
+        y2 = re.sub(r'\n  ' + cmd + r':\n(    [^\n]*\n)+', '\n', y, count=1)
+        if y2 == y:
+            sys.exit('strip_unused: command ' + cmd + ' not found in plugin.yml')
+        y = y2
+    wr(py, y)
 
 
 def resources():
