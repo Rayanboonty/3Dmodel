@@ -29,7 +29,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 public final class Progression implements Listener {
     public static final int XP_PER_LEVEL = 500;
     public static final int PASS_LEVELS = 50;
-    public static final String[] WIN_FX = {"fireworks", "lightning", "totem", "dragon", "hearts", "souls", "flames", "snow"};
+    public static final String[] WIN_FX = {"crown", "pillar", "flag", "confetti", "fireworks", "lightning", "totem", "dragon", "hearts", "souls", "flames", "snow"};
     public static final String[] DEATH_MSG = {"dramatic", "pirate", "knight", "robot", "chef"};
     public static final String[] PETS = {"wolf", "cat", "fox", "axolotl", "parrot", "bee", "frog", "rabbit", "panda", "sniffer"};
     public static final String[] GADGETS = {"leap", "grapple", "fireworks", "paint"};

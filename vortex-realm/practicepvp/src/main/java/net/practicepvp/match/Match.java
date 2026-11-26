@@ -521,7 +521,72 @@ public final class Match {
             this.plugin.getLogger().log(Level.WARNING, "Nametag/visibility update failed", (Throwable)var7);
         }
 
-        this.startRound(true);
+        if (Cfg.bool(Opt.ARENA_FLYOVER) && !this.tierChallenge && this.instance != null && this.round() <= 1) {
+            this.flyover();
+        } else {
+            this.startRound(true);
+        }
+    }
+
+    /**
+     * 1.0.17: the arena flyover. Each player's camera rides an invisible display that glides from high over the
+     * arena down to just behind their spawn (the client smooths the move), then the round starts as usual.
+     */
+    private void flyover() {
+        int ticks = 40;
+        Location mid = this.instance.loc(this.instance.arena.centerOrMid());
+        net.practicepvp.util.Cuboid b = this.instance.bounds();
+        double r = b == null ? 40.0 : Math.max(24.0, Math.min(90.0, (b.maxX() - b.minX()) * 0.42));
+        List<Player> who = this.participantsOnline();
+        List<org.bukkit.entity.ItemDisplay> cams = new ArrayList<>();
+        for (Player p : who) {
+            Location spawn = this.spawnOf(p);
+            if (spawn == null || mid == null) {
+                continue;
+            }
+
+            Vector back = spawn.toVector().subtract(mid.toVector()).setY(0);
+            if (back.lengthSquared() < 1.0E-4) {
+                back = new Vector(1, 0, 0);
+            }
+
+            back.normalize();
+            Location from = mid.clone().add(back.clone().multiply(-r * 0.9)).add(0.0, r * 0.55, 0.0);
+            from.setDirection(mid.toVector().subtract(from.toVector()));
+            Location to = spawn.clone().add(back.clone().multiply(4.0)).add(0.0, 2.6, 0.0);
+            to.setDirection(spawn.toVector().subtract(to.toVector()).multiply(-1).setY(-0.1));
+            org.bukkit.entity.ItemDisplay cam = from.getWorld().spawn(from, org.bukkit.entity.ItemDisplay.class, d -> {
+                d.setPersistent(false);
+                d.setTeleportDuration(ticks);
+            });
+            cams.add(cam);
+            p.setGameMode(GameMode.SPECTATOR);
+            p.teleport(from);
+            Tasks.later(2L, () -> {
+                if (p.isOnline() && cam.isValid()) {
+                    p.setSpectatorTarget(cam);
+                    cam.teleport(to);
+                }
+            });
+        }
+
+        Tasks.later(ticks + 4L, () -> {
+            for (Player p : who) {
+                if (p.isOnline()) {
+                    p.setSpectatorTarget(null);
+                    p.setGameMode(GameMode.SURVIVAL);
+                    Tp.to(p, this.spawnOf(p));
+                }
+            }
+
+            for (org.bukkit.entity.ItemDisplay c : cams) {
+                c.remove();
+            }
+
+            if (this.state() != Match.State.ENDED) {
+                this.startRound(true);
+            }
+        });
     }
 
     public Location spawnOf(Player p) {
@@ -783,6 +848,7 @@ public final class Match {
                 if (killer != null) {
                     PvPProfile kp = this.plugin.profiles().get(killer);
                     Fx.killEffect(kp.get(Setting.KILL_EFFECT), at);
+                    Fx.killStreak(killer.getLocation(), at);
                     Fx.sound(killer, "entity.experience_orb.pickup", 1.0F, 1.6F);
                 }
 
@@ -1522,6 +1588,8 @@ public final class Match {
                             Opt.RankUpStyle style = Cfg.e(Opt.RANKUP_STYLE, Opt.RankUpStyle.class);
                             if (style == Opt.RankUpStyle.DROP) {
                                 RankDrop.play(this.plugin, wp, ex.from(), ex.to(), facing);
+                                // 1.0.17: the tier crest forms round them once the new tier has landed
+                                Tasks.later(150L, () -> net.practicepvp.fx.TierCrest.play(wp, ex.to()));
                             } else if (style == Opt.RankUpStyle.SCREEN && this.plugin.hasPack(wp)) {
                                 RankScreen.play(this.plugin, wp, ex.from(), ex.to());
                             } else if (style == Opt.RankUpStyle.BLOCKS) {

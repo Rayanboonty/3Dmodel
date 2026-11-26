@@ -13,7 +13,7 @@ NOTES = {
     'VortexRealm': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'PracticePvP': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
-    'CMCPvP': 'CMCPVP 1.0.16: bots rebuilt (real knockback, real 3-block reach with line of sight, reaction time, smooth aim, w-taps, jump-resets, strafes; 6 levels Beginner to Pro and Match my tier), a flat training world (instant, own space per player), the Stun Slam Lab (8 drills: uppercut, ledges, double, air, elytra, spear, random) with break-to-slam timing, elytra mid-air fixes, smaller jar (AI assistant and realm story removed)',
+    'CMCPvP': 'CMCPVP 1.0.17: 3D VS card before every duel, arena flyover camera, new kill effects (Shatter, Tornado, Souls Rise) and win poses (Crown default), tier crest on rank-up, one main menu (/menu, hotbar slot 4), profile with points, title, peak tiers and last 5 matches, post-match screen with stats vs opponent and Rematch / Queue again / Replay, red and white scoreboard, queue boss bar with ETA, first-join lobby tour (/tour), streak and tournament toasts, settings search',
 }
 
 

@@ -147,6 +147,7 @@ public final class Analysis implements Listener {
         }
 
         long seconds = (long)m.durationSeconds();
+        Map<UUID, Map<String, String>> sums = new HashMap<>();
         for (MatchTeam t : m.teams) {
             for (UUID u : t.members) {
                 MatchStats st = m.stats(u);
@@ -212,9 +213,25 @@ public final class Analysis implements Listener {
                 }
 
                 d.dirty = true;
+                sums.put(u, sum);
                 Player p = Bukkit.getPlayer(u);
                 if (p != null) {
                     net.cmcpvp.util.Tasks.later(40L, () -> this.sendCard(p, sum, avg));
+                }
+            }
+        }
+
+        // 1.0.17: the post-match screen, side by side with the opponent in a 1v1
+        if (m.isOneVsOne() && sums.size() == 2) {
+            List<UUID> us = new ArrayList<>(sums.keySet());
+            for (int i = 0; i < 2; i++) {
+                UUID me = us.get(i);
+                UUID other = us.get(1 - i);
+                Player p = Bukkit.getPlayer(me);
+                Player op = Bukkit.getPlayer(other);
+                String oname = op != null ? op.getName() : Bukkit.getOfflinePlayer(other).getName();
+                if (p != null) {
+                    net.cmcpvp.util.Tasks.later(50L, () -> PostMatch.show(this.plugin, p, sums.get(me), sums.get(other), oname));
                 }
             }
         }

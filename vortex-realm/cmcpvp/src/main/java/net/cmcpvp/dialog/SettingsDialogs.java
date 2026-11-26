@@ -103,8 +103,46 @@ public final class SettingsDialogs {
                 buttons.add(this.btn(p, "<#FFD84A>☺ <white>Friends", "<gray>Your friends and requests", () -> this.social().openFriends(p)));
             }
 
+            // 1.0.17: search every setting by name or description
+            buttons.add(Dialogs.button(Text.mm("<#E3172B>🔍 <white>Search"), Text.mm("<gray>Type a word above, then click"), 150, this.d.viewAction(p, v -> {
+                String q = v.getText("q");
+                this.search(p, q == null ? "" : q);
+            })));
             ActionButton done = Dialogs.button(Text.mm("<green>Done"), null, 200, this.d.action(p, p::closeDialog));
-            Dialogs.show(p, base(Text.mm("<white>Settings"), body, List.of()), DialogType.multiAction(buttons).columns(2).exitAction(done).build());
+            List<DialogInput> in = List.of(DialogInput.text("q", Text.mm("<gray>Search settings")).initial("").maxLength(32).width(280).build());
+            Dialogs.show(p, base(Text.mm("<white>Settings"), body, in), DialogType.multiAction(buttons).columns(2).exitAction(done).build());
+        }
+    }
+
+    /** The settings whose name or description has every word of the search. */
+    public void search(Player p, String query) {
+        String q = query.trim().toLowerCase(java.util.Locale.ROOT);
+        if (q.isEmpty()) {
+            this.hub(p);
+            return;
+        }
+
+        List<Setting> found = new ArrayList<>();
+        for (Setting s : Setting.values()) {
+            String hay = (s.title + " " + s.description + " " + s.category.name()).toLowerCase(java.util.Locale.ROOT);
+            boolean all = true;
+            for (String w : q.split("\\s+")) {
+                if (!hay.contains(w)) {
+                    all = false;
+                    break;
+                }
+            }
+
+            if (all) {
+                found.add(s);
+            }
+        }
+
+        if (found.isEmpty()) {
+            p.sendMessage(Text.mm("<gray>No setting matches <white>" + Text.esc(query) + "<gray>."));
+            this.hub(p);
+        } else {
+            this.list(p, "Search: " + Text.esc(query), found, () -> this.hub(p));
         }
     }
 

@@ -307,6 +307,9 @@ public final class LobbyListener implements Listener {
                 break;
             case PARTY_LEAVE:
                 this.plugin.parties().leave(p);
+                break;
+            case MENU:
+                this.plugin.mainMenu().open(p);
         }
     }
 

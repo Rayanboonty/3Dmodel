@@ -344,7 +344,43 @@ public final class BoardManager {
         return NamedTextColor.WHITE;
     }
 
+    /** 1.0.17: the red and white CMCPVP scoreboard: gold becomes the brand red, the separators turn dark red. */
+    private static Component recolor(Component c) {
+        net.kyori.adventure.text.format.TextColor col = c.color();
+        if (col != null) {
+            if (col.equals(NamedTextColor.GOLD) || col.equals(NamedTextColor.YELLOW)) {
+                c = c.color(net.kyori.adventure.text.format.TextColor.color(0xE3172B));
+            } else if (col.equals(NamedTextColor.DARK_GRAY) && c.hasDecoration(net.kyori.adventure.text.format.TextDecoration.STRIKETHROUGH)) {
+                c = c.color(net.kyori.adventure.text.format.TextColor.color(0x7A0A14));
+            }
+        }
+
+        if (!c.children().isEmpty()) {
+            List<Component> kids = new java.util.ArrayList<>(c.children().size());
+            for (Component k : c.children()) {
+                kids.add(recolor(k));
+            }
+
+            c = c.children(kids);
+        }
+
+        return c;
+    }
+
+    private static boolean redWhite() {
+        return Cfg.bool(Opt.BOARD_RED_WHITE);
+    }
+
     private Component title() {
+        if (redWhite()) {
+            String name = Cfg.s(Opt.SERVER_NAME);
+            String up = name.toUpperCase(java.util.Locale.ROOT).replace(" ", "");
+            String mini = up.endsWith("PVP") && up.length() > 3
+                ? "<b><white>" + Text.esc(up.substring(0, up.length() - 3)) + "</white><#E3172B>PVP</#E3172B></b>"
+                : "<b><gradient:#FFFFFF:#E3172B>" + Text.esc(name) + "</gradient></b>";
+            return Text.shadow(Text.mm(mini), -12637696);
+        }
+
         String tpl = this.plugin.smpBoard() == null ? null : this.plugin.smpBoard().title("PRACTICE");
         if (tpl != null && !tpl.isBlank()) {
             try {
@@ -440,6 +476,11 @@ public final class BoardManager {
                 }
 
                 List<Component> lines = this.lines(p, s, prof);
+                if (redWhite()) {
+                    lines = new ArrayList<>(lines);
+                    lines.replaceAll(BoardManager::recolor);
+                }
+
                 int n = Math.min(15, lines.size());
 
                 for (int i = 0; i < n; i++) {

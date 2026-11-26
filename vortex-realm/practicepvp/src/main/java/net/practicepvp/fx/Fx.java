@@ -561,7 +561,101 @@ public final class Fx {
                     break;
                 case "smoke":
                     w.spawnParticle(Particle.LARGE_SMOKE, c, 60, 0.4, 0.8, 0.4, 0.03);
+                    break;
+                case "shatter":
+                    // glass shards burst out of the body (block displays that fly and shrink)
+                    shatter(c);
+                    Snd.at(c, "block.glass.break", 1.0F, 0.8F);
+                    break;
+                case "tornado":
+                    tornado(at);
+                    break;
+                case "soulsrise":
+                    soulsRise(at);
             }
+        }
+    }
+
+    /** 1.0.17: glass shards burst out and shrink away. */
+    private static void shatter(Location c) {
+        World w = c.getWorld();
+        java.util.concurrent.ThreadLocalRandom r = java.util.concurrent.ThreadLocalRandom.current();
+        org.bukkit.block.data.BlockData[] glass = {Material.RED_STAINED_GLASS.createBlockData(), Material.WHITE_STAINED_GLASS.createBlockData(), Material.GLASS.createBlockData()};
+        for (int i = 0; i < 14; i++) {
+            org.bukkit.block.data.BlockData g = glass[i % glass.length];
+            org.bukkit.entity.BlockDisplay d = w.spawn(c, org.bukkit.entity.BlockDisplay.class, e -> {
+                e.setPersistent(false);
+                e.setBlock(g);
+                e.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(-0.15F), new org.joml.Quaternionf(), new org.joml.Vector3f(0.3F), new org.joml.Quaternionf()));
+            });
+            float dx = (float)(r.nextDouble() - 0.5) * 3.0F;
+            float dy = (float)r.nextDouble() * 2.0F;
+            float dz = (float)(r.nextDouble() - 0.5) * 3.0F;
+            Tasks.later(1L, () -> {
+                d.setInterpolationDelay(0);
+                d.setInterpolationDuration(14);
+                d.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(dx, dy, dz),
+                    new org.joml.Quaternionf().rotateXYZ(dx, dy, dz), new org.joml.Vector3f(0.02F), new org.joml.Quaternionf()));
+            });
+            Tasks.later(16L, d::remove);
+        }
+
+        w.spawnParticle(Particle.BLOCK, c, 50, 0.3, 0.5, 0.3, 0.1, Material.GLASS.createBlockData());
+    }
+
+    /** 1.0.17: a spinning column of cloud and dust rising from the spot. */
+    private static void tornado(Location at) {
+        int[] t = {0};
+        org.bukkit.scheduler.BukkitTask[] task = new org.bukkit.scheduler.BukkitTask[1];
+        task[0] = Tasks.timer(0L, 1L, () -> {
+            if (t[0]++ > 30) {
+                Tasks.cancel(task[0]);
+                return;
+            }
+
+            for (int k = 0; k < 3; k++) {
+                double y = (t[0] % 10) * 0.35 + k * 1.1;
+                double rr = 0.3 + y * 0.35;
+                double a = t[0] * 0.6 + k * 2.1;
+                at.getWorld().spawnParticle(Particle.CLOUD, at.clone().add(Math.cos(a) * rr, y, Math.sin(a) * rr), 2, 0.05, 0.05, 0.05, 0.0);
+            }
+        });
+        Snd.at(at, "entity.breeze.wind_burst", 0.9F, 0.7F);
+    }
+
+    /** 1.0.17: souls float up in a slow spiral. */
+    private static void soulsRise(Location at) {
+        int[] t = {0};
+        org.bukkit.scheduler.BukkitTask[] task = new org.bukkit.scheduler.BukkitTask[1];
+        task[0] = Tasks.timer(0L, 2L, () -> {
+            if (t[0]++ > 20) {
+                Tasks.cancel(task[0]);
+                return;
+            }
+
+            double a = t[0] * 0.7;
+            at.getWorld().spawnParticle(Particle.SOUL, at.clone().add(Math.cos(a) * 0.6, 0.3 + t[0] * 0.15, Math.sin(a) * 0.6), 2, 0.05, 0.05, 0.05, 0.01);
+            at.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, at.clone().add(-Math.cos(a) * 0.6, 0.3 + t[0] * 0.15, -Math.sin(a) * 0.6), 1, 0.0, 0.0, 0.0, 0.0);
+        });
+        Snd.at(at, "particle.soul_escape", 1.0F, 0.8F);
+    }
+
+    /** 1.0.17: a streak of light from the killer to where the victim fell. */
+    public static void killStreak(Location from, Location to) {
+        if (from == null || to == null || from.getWorld() != to.getWorld()) {
+            return;
+        }
+
+        org.bukkit.util.Vector d = to.toVector().subtract(from.toVector());
+        double len = d.length();
+        if (len < 0.5 || len > 40) {
+            return;
+        }
+
+        d.normalize();
+        for (double s = 0; s < len; s += 0.4) {
+            Location p = from.clone().add(0.0, 1.2, 0.0).add(d.clone().multiply(s));
+            from.getWorld().spawnParticle(Particle.DUST, p, 1, 0.02, 0.02, 0.02, 0.0, new Particle.DustOptions(Color.fromRGB(227, 23, 43), 1.0F));
         }
     }
 

@@ -516,7 +516,13 @@ public final class Welcome implements Listener, TabExecutor {
             this.save();
             Tasks.later(60L, () -> {
                 if (p.isOnline()) {
-                    this.show(p);
+                    // 1.0.17: the lobby tour first, then the welcome screen
+                    if (Cfg.bool(Opt.LOBBY_TOUR) && this.plugin.lobbyTour() != null
+                        && this.plugin.sessions().state(p) == net.practicepvp.session.PlayerState.LOBBY) {
+                        this.plugin.lobbyTour().play(p, () -> this.show(p));
+                    } else {
+                        this.show(p);
+                    }
                 }
             });
         } else {

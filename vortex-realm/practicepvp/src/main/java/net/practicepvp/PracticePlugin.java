@@ -427,6 +427,11 @@ public final class PracticePlugin extends JavaPlugin {
             pm.registerEvents(this.welcome, this);
             this.bind("welcome", this.welcome);
             this.bind("guide", this.welcome);
+            this.mainMenu = new net.practicepvp.lobby.MainMenu(this);
+            this.bind("menu", this.mainMenu);
+            this.lobbyTour = new net.practicepvp.lobby.LobbyTour(this);
+            pm.registerEvents(this.lobbyTour, this);
+            this.bind("tour", this.lobbyTour);
             this.bind("country", this.welcome);
             this.bind("verify", this.welcome);
             Tasks.timer(40L, 20L, this.welcome::tick);
@@ -1756,6 +1761,17 @@ public final class PracticePlugin extends JavaPlugin {
 
     public QueueManager queues() {
         return this.queues;
+    }
+
+    private net.practicepvp.lobby.MainMenu mainMenu;
+    private net.practicepvp.lobby.LobbyTour lobbyTour;
+
+    public net.practicepvp.lobby.LobbyTour lobbyTour() {
+        return this.lobbyTour;
+    }
+
+    public net.practicepvp.lobby.MainMenu mainMenu() {
+        return this.mainMenu;
     }
 
     public MatchManager matches() {

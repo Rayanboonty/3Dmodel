@@ -320,6 +320,8 @@ public final class QueueManager {
                         if (a != null && b != null) {
                             taken.add(a.getUniqueId());
                             taken.add(b.getUniqueId());
+                            this.learn(kit.id, ranked, pair.a().joinedAt(), now);
+                            this.learn(kit.id, ranked, pair.b().joinedAt(), now);
                             boolean challenge = ranked && (pair.a().promo() || pair.b().promo());
                             boolean defense = challenge && (isDefense(pair.a()) || isDefense(pair.b()));
                             int rounds = defense ? Cfg.i(Opt.TIER_DEFENSE_FIRST_TO) : (challenge ? Cfg.i(Opt.TIER_TEST_FIRST_TO) : 0);
@@ -399,7 +401,106 @@ public final class QueueManager {
         };
     }
 
+    // ------------------------------------------------------------------ 1.0.17: ETA and the queue boss bar
+
+    /** Moving average of real waits (seconds) per kit and mode, learnt from the pairs that started. */
+    private final Map<QueueManager.Key, Double> avgWait = new HashMap<>();
+    private final Map<UUID, net.kyori.adventure.bossbar.BossBar> bars = new HashMap<>();
+
+    private void learn(String kit, boolean ranked, long joinedAt, long now) {
+        double w = Math.max(0.0, (now - joinedAt) / 1000.0);
+        this.avgWait.merge(new QueueManager.Key(kit, ranked), w, (old, x) -> old * 0.8 + x * 0.2);
+    }
+
+    /** Expected seconds left for this entry, or -1 if nothing is known yet. */
+    public int eta(QueueManager.Entry en, long now) {
+        Double avg = this.avgWait.get(new QueueManager.Key(en.kit(), en.ranked()));
+        if (avg == null) {
+            return -1;
+        }
+
+        double waited = (now - en.joinedAt()) / 1000.0;
+        return (int)Math.max(1L, Math.round(avg - waited));
+    }
+
+    private int etaOf(Player p) {
+        List<QueueManager.Entry> l = this.byPlayer.get(p.getUniqueId());
+        if (l == null || l.isEmpty()) {
+            return -1;
+        }
+
+        long now = System.currentTimeMillis();
+        int best = -1;
+        for (QueueManager.Entry en : l) {
+            int e = this.eta(en, now);
+            if (e >= 0 && (best < 0 || e < best)) {
+                best = e;
+            }
+        }
+
+        return best;
+    }
+
+    private int searching(List<QueueManager.Entry> l) {
+        int n = 0;
+        for (QueueManager.Entry en : l) {
+            Kit k = this.plugin.kits().get(en.kit());
+            if (k != null) {
+                n += this.size(k, en.ranked());
+            }
+        }
+
+        return n;
+    }
+
+    private void bossBars() {
+        boolean on = Cfg.bool(Opt.QUEUE_BOSS_BAR);
+        for (Map.Entry<UUID, List<QueueManager.Entry>> e : this.byPlayer.entrySet()) {
+            Player p = Bukkit.getPlayer(e.getKey());
+            if (p == null || e.getValue().isEmpty() || !on) {
+                continue;
+            }
+
+            List<QueueManager.Entry> l = e.getValue();
+            Kit k = this.plugin.kits().get(l.get(0).kit());
+            long secs = this.waitedSeconds(p);
+            int eta = this.etaOf(p);
+            boolean ranked = l.get(0).ranked();
+            Component kitPart = l.size() == 1 && k != null ? k.label() : Text.mm("<white>" + l.size() + " kits");
+            Component name = Text.mm((ranked ? "<#E3172B><b>RANKED</b>" : "<white><b>UNRANKED</b>") + " <dark_gray>• ")
+                .append(kitPart)
+                .append(Text.mm(" <dark_gray>• <gray>" + net.cmcpvp.util.Fmt.clock((int)secs) + " <dark_gray>• <gray>ETA <white>"
+                    + (eta < 0 ? "?" : "~" + eta + "s") + " <dark_gray>• <white>" + this.searching(l) + " <gray>searching"));
+            float progress = eta < 0 ? (float)((secs % 10) / 10.0) : (float)Math.min(1.0, secs / Math.max(1.0, secs + eta));
+            net.kyori.adventure.bossbar.BossBar bar = this.bars.get(p.getUniqueId());
+            if (bar == null) {
+                bar = net.kyori.adventure.bossbar.BossBar.bossBar(name, progress, ranked ? net.kyori.adventure.bossbar.BossBar.Color.RED
+                    : net.kyori.adventure.bossbar.BossBar.Color.WHITE, net.kyori.adventure.bossbar.BossBar.Overlay.NOTCHED_10);
+                this.bars.put(p.getUniqueId(), bar);
+                p.showBossBar(bar);
+            } else {
+                bar.name(name);
+                bar.progress(Math.max(0.0F, Math.min(1.0F, progress)));
+            }
+        }
+
+        this.bars.entrySet().removeIf(en -> {
+            List<QueueManager.Entry> l = this.byPlayer.get(en.getKey());
+            if (!on || l == null || l.isEmpty()) {
+                Player p = Bukkit.getPlayer(en.getKey());
+                if (p != null) {
+                    p.hideBossBar(en.getValue());
+                }
+
+                return true;
+            }
+
+            return false;
+        });
+    }
+
     private void actionBars() {
+        this.bossBars();
         Iterator var1 = this.byPlayer.entrySet().iterator();
 
         while (true) {
@@ -457,7 +558,8 @@ public final class QueueManager {
                 }
             }
 
-            p.sendActionBar(bar);
+            int eta = this.etaOf(p);
+            p.sendActionBar(eta < 0 ? bar : bar.append(Text.mm(" <dark_gray>• <gray>ETA <white>~" + eta + "s")));
         }
     }
 

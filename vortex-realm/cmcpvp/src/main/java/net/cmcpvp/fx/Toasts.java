@@ -39,6 +39,11 @@ public final class Toasts {
         all.put("win", json("minecraft:diamond_sword", "Victory!", "#FFD54A", "You won the duel", "challenge"));
         all.put("ranked_win", json("minecraft:netherite_sword", "Ranked Victory!", "#FFAA00", "Rank points earned", "challenge"));
         all.put("streak", json("minecraft:blaze_powder", "On Fire!", "#FF6B35", "Win streak", "goal"));
+        // 1.0.17: win streaks and tournaments
+        all.put("streak_3", json("minecraft:blaze_powder", "On Fire! 3 wins", "#FF6B35", "3 wins in a row", "goal"));
+        all.put("streak_5", json("minecraft:fire_charge", "Unstoppable! 5 wins", "#FF3B2F", "5 wins in a row", "challenge"));
+        all.put("streak_10", json("minecraft:dragon_breath", "LEGENDARY! 10 wins", "#E3172B", "10 wins in a row", "challenge"));
+        all.put("tournament", json("minecraft:golden_sword", "Tournament starting!", "#FFD54A", "Type /event join", "challenge"));
 
         for (Kit k : kits) {
             Material icon = k.iconStack().getType();
@@ -179,6 +184,22 @@ public final class Toasts {
 
     public static void win(Player p, Kit kit, boolean ranked) {
         afterWin(p);
+        if (kit != null) {
+            // the streak is counted when the match is saved: look a moment later
+            Tasks.later(30L, () -> {
+                if (!p.isOnline()) {
+                    return;
+                }
+
+                net.cmcpvp.data.PvPProfile prof = net.cmcpvp.CMCPvP.get().profiles().getIfLoaded(p.getUniqueId());
+                net.cmcpvp.data.KitStats ks = prof == null ? null : prof.statsOrNull(kit.id);
+                int s = ks == null ? 0 : ks.streak;
+                if (s == 3 || s == 5 || s == 10) {
+                    show(p, "streak_" + s);
+                }
+            });
+        }
+
         if (ranked) {
             show(p, "ranked_win");
         } else if (kit != null && Bukkit.getAdvancement(key("win_" + id(kit.id))) != null) {

@@ -201,6 +201,12 @@ public final class EventManager implements TabExecutor {
                     )
             );
             Snd.broadcast("event.raid.horn", 0.6F, 1.2F);
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (this.plugin.sessions().state(p) == PlayerState.LOBBY) {
+                    net.cmcpvp.fx.Toasts.show(p, "tournament");
+                }
+            }
+
             return true;
         }
     }

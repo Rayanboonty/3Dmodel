@@ -1152,6 +1152,26 @@ public final class Opt<T> {
         "Full backups (plugins/CMCPvP-Vault) by themselves every 6 hours, at shutdown and before updates. Off = only when you click Backup Everything in /pvpadmin (saves storage).",
         Material.ENDER_CHEST
     );
+    public static final Opt<Boolean> ARENA_FLYOVER = bool(
+        "match.arena-flyover", true, Opt.Section.MATCH, "Arena Flyover",
+        "Before the first round, the camera glides over the arena down to your spawn (2 seconds).", Material.ELYTRA
+    );
+    public static final Opt<Boolean> BOARD_RED_WHITE = bool(
+        "board.red-white", net.cmcpvp.Edition.PRACTICE_ONLY, Opt.Section.GENERAL, "Red & White Scoreboard",
+        "The scoreboard in the CMCPVP colours: white and red title, red highlights and dark red separators.", Material.RED_BANNER
+    );
+    public static final Opt<Boolean> QUEUE_BOSS_BAR = bool(
+        "queue.boss-bar", true, Opt.Section.MATCH, "Queue Boss Bar",
+        "While searching, a boss bar with the kit, the time waited, the expected wait (ETA) and how many players are searching.", Material.DRAGON_HEAD
+    );
+    public static final Opt<Boolean> LOBBY_TOUR = bool(
+        "lobby.first-join-tour", true, Opt.Section.GENERAL, "First-Join Lobby Tour",
+        "New players get a camera tour of the lobby (about 20 seconds, sneak to skip) before the welcome screen. /tour plays it again.", Material.SPYGLASS
+    );
+    public static final Opt<Boolean> POST_MATCH_SCREEN = bool(
+        "match.post-match-screen", true, Opt.Section.MATCH, "Post-Match Screen",
+        "After a 1v1, a screen with your stats next to the opponent's and buttons to rematch, queue again or watch the replay.", Material.WRITABLE_BOOK
+    );
     public static final Opt<Integer> WAITING_ROOM_SECONDS = integer(
         "match.waiting-room-seconds", 5, Opt.Section.MATCH, "Waiting Room Time",
         "Seconds matched players stay in the waiting room before going on to the map vote with the maps that are ready.", Material.CLOCK, 2, 60, 1

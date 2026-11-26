@@ -61,10 +61,18 @@ public final class Flair implements Listener {
 
         for (UUID u : w.members) {
             Player p = Bukkit.getPlayer(u);
-            String fx = this.selected(u, "win");
-            if (p != null && fx != null) {
+            // 1.0.17: everyone gets a win pose - the crown until they pick another one
+            String chosen = this.selected(u, "win");
+            String fx = chosen == null ? "crown" : chosen;
+            if (p != null) {
                 Location at = p.getLocation();
-                Tasks.later(5L, () -> this.play(fx, at));
+                Tasks.later(5L, () -> {
+                    if (p.isOnline() && this.pose(fx, p)) {
+                        return;
+                    }
+
+                    this.play(fx, at);
+                });
             }
         }
 
@@ -87,6 +95,84 @@ public final class Flair implements Listener {
     private static String name(UUID u) {
         String n = Bukkit.getOfflinePlayer(u).getName();
         return n == null ? "?" : n;
+    }
+
+    /**
+     * 1.0.17: win poses that follow the winner for a few seconds (crown, pillar of light, rising flag, confetti).
+     * False when {@code fx} is a one-shot effect played by {@link #play}.
+     */
+    boolean pose(String fx, Player p) {
+        World w = p.getWorld();
+        int len = 60;
+        int[] t = {0};
+        org.bukkit.scheduler.BukkitTask[] task = new org.bukkit.scheduler.BukkitTask[1];
+        switch (fx) {
+            case "crown" -> {
+                w.playSound(p.getLocation(), "ui.toast.challenge_complete", 0.7F, 1.4F);
+                task[0] = Tasks.timer(0L, 2L, () -> {
+                    if (!p.isOnline() || t[0]++ > len / 2) {
+                        Tasks.cancel(task[0]);
+                        return;
+                    }
+
+                    Location top = p.getLocation().add(0.0, 2.35, 0.0);
+                    for (int i = 0; i < 8; i++) {
+                        double a = i * Math.PI / 4 + t[0] * 0.15;
+                        w.spawnParticle(Particle.DUST, top.clone().add(Math.cos(a) * 0.35, (i % 2) * 0.18, Math.sin(a) * 0.35), 1, 0, 0, 0, 0,
+                            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 200, 40), 0.9F));
+                    }
+                });
+                return true;
+            }
+            case "pillar" -> {
+                w.playSound(p.getLocation(), "block.beacon.activate", 0.8F, 1.2F);
+                task[0] = Tasks.timer(0L, 2L, () -> {
+                    if (!p.isOnline() || t[0]++ > len / 2) {
+                        Tasks.cancel(task[0]);
+                        return;
+                    }
+
+                    Location base = p.getLocation();
+                    for (double y = 0; y < 14; y += 0.5) {
+                        w.spawnParticle(Particle.END_ROD, base.clone().add(0.0, y, 0.0), 1, 0.05, 0.0, 0.05, 0.0);
+                    }
+                });
+                return true;
+            }
+            case "flag" -> {
+                Location at = p.getLocation().add(p.getLocation().getDirection().setY(0).normalize().multiply(-1.2));
+                org.bukkit.entity.ItemDisplay flag = w.spawn(at, org.bukkit.entity.ItemDisplay.class, d -> {
+                    d.setPersistent(false);
+                    d.setItemStack(new org.bukkit.inventory.ItemStack(org.bukkit.Material.RED_BANNER));
+                    d.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(0, -1.5F, 0), new org.joml.Quaternionf(), new org.joml.Vector3f(1.6F), new org.joml.Quaternionf()));
+                });
+                Tasks.later(1L, () -> {
+                    flag.setInterpolationDelay(0);
+                    flag.setInterpolationDuration(20);
+                    flag.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(0, 1.6F, 0), new org.joml.Quaternionf(), new org.joml.Vector3f(1.6F), new org.joml.Quaternionf()));
+                });
+                w.playSound(at, "item.armor.equip_leather", 1.0F, 0.8F);
+                Tasks.later(80L, flag::remove);
+                return true;
+            }
+            case "confetti" -> {
+                org.bukkit.Color[] cs = {org.bukkit.Color.fromRGB(227, 23, 43), org.bukkit.Color.WHITE, org.bukkit.Color.fromRGB(255, 200, 40), org.bukkit.Color.fromRGB(60, 160, 255)};
+                task[0] = Tasks.timer(0L, 4L, () -> {
+                    if (!p.isOnline() || t[0]++ > 10) {
+                        Tasks.cancel(task[0]);
+                        return;
+                    }
+
+                    w.spawnParticle(Particle.DUST, p.getLocation().add(0.0, 3.0, 0.0), 30, 1.4, 0.6, 1.4, 0.0,
+                        new Particle.DustOptions(cs[t[0] % cs.length], 1.2F));
+                });
+                w.playSound(p.getLocation(), "entity.firework_rocket.twinkle", 0.8F, 1.2F);
+                return true;
+            }
+            default -> {
+                return false;
+            }
+        }
     }
 
     public void play(String fx, Location at) {

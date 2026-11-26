@@ -1342,6 +1342,24 @@ The SMP's nether and end were treated as not part of the SMP (they're saved as '
 - **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.
 
 
+## CMCPVP 1.0.17 (phase 2 of 4)
+
+- **3D VS card:** before every duel, both heads slide in with tier, Elo and W/L in the kit, and a big VS pops in between.
+- **Arena flyover:** before the first round the camera glides over the map down to your spawn (`match.arena-flyover`).
+- **Effects:**
+  - new kill effects Shatter, Tornado and Souls Rise, plus a red trail from killer to victim;
+  - win poses (Crown by default, Pillar, Flag, Confetti);
+  - a tier crest of blocks in the tier colour forms round you on rank-up.
+- **Main menu:** a new hotbar item (slot 4) and `/menu` open every mode and screen.
+- **Profile:** now shows tier points, title, peak tiers and the last 5 matches.
+- **Post-match screen:** your stats next to the opponent's, with Rematch, Queue again and Watch replay buttons (`match.post-match-screen`).
+- **Scoreboard:** red and white CMCPVP design (`board.red-white`).
+- **Queue boss bar:** shows the kit, time waited, ETA (learnt from real waits) and players searching; the ETA also goes in the action bar (`queue.boss-bar`).
+- **First-join lobby tour:** a camera tour before the welcome screen; sneak to skip, `/tour` to replay (`lobby.first-join-tour`).
+- **Toasts** for 3/5/10 win streaks and when a tournament starts.
+- **Settings search:** a box on the settings screen.
+
+
 ## CMCPVP 1.0.16 (phase 1 of 4)
 
 - **Bots that fight like players.**

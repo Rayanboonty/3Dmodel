@@ -61,10 +61,12 @@ public final class MatchManager {
                     .append(m.tierChallenge ? Text.mm("<gold>Tier Challenge") : (ranked ? Msg.get("summary.ranked") : Msg.get("summary.unranked")));
                 if (a.isOnline()) {
                     Versus.play(a, b, sub);
+                    net.cmcpvp.fx.VersusCard.play(a, b, kit);
                 }
 
                 if (b.isOnline()) {
                     Versus.play(b, a, sub);
+                    net.cmcpvp.fx.VersusCard.play(b, a, kit);
                 }
             }
         });

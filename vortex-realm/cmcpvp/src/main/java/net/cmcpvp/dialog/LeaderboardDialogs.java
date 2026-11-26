@@ -386,12 +386,15 @@ public final class LeaderboardDialogs {
                                 .supply(
                                     c -> new Object[]{
                                         overall ? this.plugin().db().rankOverall(c, points) : this.plugin().db().rankOf(c, board, points),
-                                        this.plugin().db().rival(c, target, overall ? null : board)
+                                        this.plugin().db().rival(c, target, overall ? null : board),
+                                        this.plugin().db().recentMatchesOf(c, target, 5)
                                     }
                                 )
                                 .whenComplete((res, err2) -> Tasks.ensureSync(() -> {
                                     if (viewer.isOnline()) {
-                                        this.showProfile(viewer, pr, name, board, err2 == null ? (int[])res[0] : null, err2 == null ? (Object[])res[1] : null);
+                                        @SuppressWarnings("unchecked")
+                                        List<Database.RecentMatch> recent = err2 == null ? (List<Database.RecentMatch>)res[2] : List.of();
+                                        this.showProfile(viewer, pr, name, board, err2 == null ? (int[])res[0] : null, err2 == null ? (Object[])res[1] : null, recent);
                                     }
                                 }));
                         } else {
@@ -403,7 +406,7 @@ public final class LeaderboardDialogs {
         );
     }
 
-    private void showProfile(Player p, PvPProfile pr, String name, String board, int[] rank, Object[] rival) {
+    private void showProfile(Player p, PvPProfile pr, String name, String board, int[] rank, Object[] rival, List<Database.RecentMatch> recent) {
         if (!ClientVersion.supportsDialogs(p)) {
             new StatsMenu(this.plugin(), p, pr.uuid, name).open();
         } else {
@@ -498,6 +501,43 @@ public final class LeaderboardDialogs {
                         )
                 )
             );
+            // 1.0.17: tier points, title, peak tiers and the last five matches
+            int tp = pr.tierPoints();
+            body.add(line("<gray>Tier Points: <white>" + tp + " <dark_gray>• <" + Tier.titleColor(tp) + "><b>" + Tier.title(tp) + "</b>"));
+            StringBuilder peaks = new StringBuilder();
+            for (Entry<String, KitStats> e : pr.kits.entrySet()) {
+                Tier pk = e.getValue().peak();
+                if (pk != null && (overall || e.getKey().equals(board))) {
+                    Kit kx = this.plugin().kits().get(e.getKey());
+                    if (peaks.length() > 0) {
+                        peaks.append(" <dark_gray>• ");
+                    }
+
+                    peaks.append("<white>").append(Text.esc(kx == null ? e.getKey() : kx.displayName)).append(" ").append(pk.mm());
+                }
+            }
+
+            if (peaks.length() > 0) {
+                body.add(line("<gray>Peak Tiers: " + peaks));
+            }
+
+            if (recent != null && !recent.isEmpty()) {
+                StringBuilder last = new StringBuilder("<gray>Last matches:");
+                for (Database.RecentMatch m : recent) {
+                    boolean won = name.equalsIgnoreCase(m.winner());
+                    String other = won ? m.loser() : m.winner();
+                    Kit kx = this.plugin().kits().get(m.kit());
+                    last.append("\n").append(won ? "<#3BE13B><b>W</b>" : "<#FF4D4D><b>L</b>").append(" <white>vs ").append(Text.esc(other == null ? "?" : other))
+                        .append(" <dark_gray>• <gray>").append(Text.esc(kx == null ? String.valueOf(m.kit()) : kx.displayName))
+                        .append(m.score() == null ? "" : " <white>" + Text.esc(m.score()));
+                    if (m.ranked() && m.eloChange() != 0) {
+                        last.append(won ? " <#3BE13B>+" : " <#FF4D4D>-").append(Math.abs(m.eloChange()));
+                    }
+                }
+
+                body.add(line(last.toString()));
+            }
+
             List<String> ids = new ArrayList<>();
             ids.add("overall");
 

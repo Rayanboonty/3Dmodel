@@ -25,6 +25,16 @@ public final class Hotbar {
         this.plugin = plugin;
     }
 
+    /** 1.0.17: the main menu item. */
+    private static final Hotbar.Def MENU_DEF = new Hotbar.Def(
+        Hotbar.Action.MENU,
+        3,
+        Material.HEART_OF_THE_SEA,
+        "<b><white>CMC</white><#E3172B>PVP</#E3172B> <white>Menu</white></b>",
+        List.of("<gray>Every mode and screen", "<gray>in one place.", "", "<green>▶ Click to open"),
+        true
+    );
+
     private static Map<Hotbar.Layout, List<Hotbar.Def>> defaults() {
         Map<Hotbar.Layout, List<Hotbar.Def>> d = new EnumMap<>(Hotbar.Layout.class);
         Hotbar.Def leaderboards = new Hotbar.Def(
@@ -69,6 +79,7 @@ public final class Hotbar {
                     ),
                     false
                 ),
+                MENU_DEF,
                 new Hotbar.Def(
                     Hotbar.Action.FFA,
                     2,
@@ -179,7 +190,7 @@ public final class Hotbar {
                 .setHeader(
                     List.of(
                         "Hotbar items. slot 0-8, material, name/lore in MiniMessage.",
-                        "Actions: ranked, unranked, ffa, party-create, spectate, leaderboards, kit-editor, settings,",
+                        "Actions: menu, ranked, unranked, ffa, party-create, spectate, leaderboards, kit-editor, settings,",
                         "leave-queue, party-games, party-info, party-invite, party-leave.",
                         "Remove an entry to remove the item. Restart or /pvpadmin reload to apply."
                     )
@@ -198,7 +209,7 @@ public final class Hotbar {
                 }
             }
 
-            y.set("version", 7);
+            y.set("version", 8);
             changed = true;
         }
 
@@ -230,6 +241,17 @@ public final class Hotbar {
         if (y.getInt("version", 1) < 7) {
             y.set("lobby.unranked.lore", defs.get(Hotbar.Layout.LOBBY).get(0).lore);
             y.set("version", 7);
+            changed = true;
+        }
+
+        if (y.getInt("version", 1) < 8) {
+            // 1.0.17: the main menu item on the free slot 3
+            y.set("lobby.menu.slot", MENU_DEF.slot);
+            y.set("lobby.menu.material", MENU_DEF.material.name());
+            y.set("lobby.menu.name", MENU_DEF.name);
+            y.set("lobby.menu.lore", MENU_DEF.lore);
+            y.set("lobby.menu.glint", MENU_DEF.glint);
+            y.set("version", 8);
             changed = true;
         }
 
@@ -301,7 +323,8 @@ public final class Hotbar {
         PARTY_GAMES,
         PARTY_INFO,
         PARTY_INVITE,
-        PARTY_LEAVE;
+        PARTY_LEAVE,
+        MENU;
 
         public static Hotbar.Action parse(String s) {
             try {

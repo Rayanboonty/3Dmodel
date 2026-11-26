@@ -149,6 +149,11 @@ commands:
     aliases: [flag]
   welcome:
     description: The welcome screen.
+  tour:
+    description: A camera tour of the lobby (sneak to skip).
+  menu:
+    description: The main menu.
+    aliases: [mainmenu, m]
   guide:
     description: The step-by-step guide (/guide stop to hide it).
   ai:

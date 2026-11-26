@@ -434,6 +434,11 @@ public final class CMCPvP extends JavaPlugin {
             pm.registerEvents(this.welcome, this);
             this.bind("welcome", this.welcome);
             this.bind("guide", this.welcome);
+            this.mainMenu = new net.cmcpvp.lobby.MainMenu(this);
+            this.bind("menu", this.mainMenu);
+            this.lobbyTour = new net.cmcpvp.lobby.LobbyTour(this);
+            pm.registerEvents(this.lobbyTour, this);
+            this.bind("tour", this.lobbyTour);
             this.bind("country", this.welcome);
             this.bind("verify", this.welcome);
             Tasks.timer(40L, 20L, this.welcome::tick);
@@ -1744,6 +1749,17 @@ public final class CMCPvP extends JavaPlugin {
 
     public QueueManager queues() {
         return this.queues;
+    }
+
+    private net.cmcpvp.lobby.MainMenu mainMenu;
+    private net.cmcpvp.lobby.LobbyTour lobbyTour;
+
+    public net.cmcpvp.lobby.LobbyTour lobbyTour() {
+        return this.lobbyTour;
+    }
+
+    public net.cmcpvp.lobby.MainMenu mainMenu() {
+        return this.mainMenu;
     }
 
     public MatchManager matches() {

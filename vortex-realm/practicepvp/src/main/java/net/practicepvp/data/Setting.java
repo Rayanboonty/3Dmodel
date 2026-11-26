@@ -103,7 +103,10 @@ public enum Setting {
         "hearts:Hearts",
         "totem:Totem",
         "souls:Souls",
-        "smoke:Smoke"
+        "smoke:Smoke",
+        "shatter:Shatter",
+        "tornado:Tornado",
+        "soulsrise:Souls Rise"
     ),
     TRAIL(
         Setting.Category.VISUAL,

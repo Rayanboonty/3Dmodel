@@ -1,9 +1,9 @@
 {
   "CMCPvP": {
-    "version": "1.0.16",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.16.jar",
-    "sha256": "69fa3af2c6d79bada48f0d423e5dc184aef5833115fa351f6ef825701abc4a04",
-    "notes": "CMCPVP 1.0.16: bots rebuilt (real knockback, real 3-block reach with line of sight, reaction time, smooth aim, w-taps, jump-resets, strafes; 6 levels Beginner to Pro and Match my tier), a flat training world (instant, own space per player), the Stun Slam Lab (8 drills: uppercut, ledges, double, air, elytra, spear, random) with break-to-slam timing, elytra mid-air fixes, smaller jar (AI assistant and realm story removed)"
+    "version": "1.0.17",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.17.jar",
+    "sha256": "6412ad662d98771e07a82961b66b3a9351066620e29a13b41ebbd2c011bde809",
+    "notes": "CMCPVP 1.0.17: 3D VS card before every duel, arena flyover camera, new kill effects (Shatter, Tornado, Souls Rise) and win poses (Crown default), tier crest on rank-up, one main menu (/menu, hotbar slot 4), profile with points, title, peak tiers and last 5 matches, post-match screen with stats vs opponent and Rematch / Queue again / Replay, red and white scoreboard, queue boss bar with ETA, first-join lobby tour (/tour), streak and tournament toasts, settings search"
   },
   "PracticePvP": {
     "version": "2.14.10",
