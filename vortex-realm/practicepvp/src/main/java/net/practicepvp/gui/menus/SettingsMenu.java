@@ -80,7 +80,7 @@ public final class SettingsMenu extends Menu {
         int idx = 0;
 
         for (Setting s : Setting.values()) {
-            if (s.category == this.tab && idx < slots.length) {
+            if (s.category == this.tab && !s.hidden() && idx < slots.length) {
                 this.set(slots[idx++], this.settingItem(s, prof), type -> this.cycle(s, prof, type));
             }
         }

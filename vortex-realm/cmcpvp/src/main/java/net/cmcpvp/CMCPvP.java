@@ -660,7 +660,8 @@ public final class CMCPvP extends JavaPlugin {
             this.lobbyFx = new net.cmcpvp.lobby.LobbyFx(this);
             pm.registerEvents(this.lobbyFx, this);
         });
-        this.module("pets, shoulder pets and wings", () -> {
+        // 1.0.18: the practice-only build (CMCPVP) has no pets, shoulder pets or wings
+        if (!Edition.PRACTICE_ONLY) this.module("pets, shoulder pets and wings", () -> {
             this.companions = new net.cmcpvp.cosmetics.Companions(this);
             pm.registerEvents(this.companions, this);
             this.companions.start();
@@ -912,6 +913,10 @@ public final class CMCPvP extends JavaPlugin {
 
         if (this.companions != null) {
             this.companions.stop();
+        }
+
+        if (this.lobbyTour != null) {
+            this.lobbyTour.shutdown();
         }
 
         if (this.vexBot != null) {

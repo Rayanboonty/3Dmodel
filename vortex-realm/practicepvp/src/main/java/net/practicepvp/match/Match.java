@@ -568,14 +568,35 @@ public final class Match {
                     cam.teleport(to);
                 }
             });
+            // 1.0.18: sneaking leaves the camera - put them back on it
+            for (long t = 8L; t < ticks; t += 6L) {
+                Tasks.later(t, () -> {
+                    if (p.isOnline() && cam.isValid() && p.getGameMode() == GameMode.SPECTATOR && p.getSpectatorTarget() == null
+                        && this.state() != Match.State.ENDED) {
+                        p.setSpectatorTarget(cam);
+                    }
+                });
+            }
         }
 
         Tasks.later(ticks + 4L, () -> {
             for (Player p : who) {
-                if (p.isOnline()) {
+                if (!p.isOnline()) {
+                    continue;
+                }
+
+                if (p.getSpectatorTarget() != null) {
                     p.setSpectatorTarget(null);
+                }
+
+                // 1.0.18: only back to the spawn if they are still fighting in this match (never pulled back from the lobby)
+                boolean still = this.state() != Match.State.ENDED && this.teamOf(p.getUniqueId()) != null
+                    && this.plugin.sessions().state(p) == net.practicepvp.session.PlayerState.MATCH;
+                if (still) {
                     p.setGameMode(GameMode.SURVIVAL);
                     Tp.to(p, this.spawnOf(p));
+                } else if (p.getGameMode() == GameMode.SPECTATOR && this.plugin.sessions().state(p) != net.practicepvp.session.PlayerState.MATCH) {
+                    p.setGameMode(GameMode.ADVENTURE);
                 }
             }
 
@@ -1588,8 +1609,6 @@ public final class Match {
                             Opt.RankUpStyle style = Cfg.e(Opt.RANKUP_STYLE, Opt.RankUpStyle.class);
                             if (style == Opt.RankUpStyle.DROP) {
                                 RankDrop.play(this.plugin, wp, ex.from(), ex.to(), facing);
-                                // 1.0.17: the tier crest forms round them once the new tier has landed
-                                Tasks.later(150L, () -> net.practicepvp.fx.TierCrest.play(wp, ex.to()));
                             } else if (style == Opt.RankUpStyle.SCREEN && this.plugin.hasPack(wp)) {
                                 RankScreen.play(this.plugin, wp, ex.from(), ex.to());
                             } else if (style == Opt.RankUpStyle.BLOCKS) {

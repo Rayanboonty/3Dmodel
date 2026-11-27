@@ -18,7 +18,7 @@ NAME = 'CMCPVP'
 FEED = 'https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/update.json'
 OLD_FEED = 'https://raw.githubusercontent.com/mroudani-cyber/claud/ccr-7054e872-gpe1kq/cmcpvp-handoff/update.json'
 # C MCPvP has its own version line (1.0.0 = launch); bump it for every C MCPvP release
-EDITION_VERSION = '1.0.17'
+EDITION_VERSION = '1.0.18'
 PERM = re.compile(r'(?<![\w.])practice\.(?=[a-z])')
 
 
@@ -270,11 +270,13 @@ public final class AiAgent {
     # their commands leave plugin.yml
     py = os.path.join(DST, 'src/main/resources/plugin.yml')
     y = rd(py)
-    for cmd in ('ai', 'realm', 'character', 'companion', 'ability'):
+    for cmd in ('ai', 'realm', 'character', 'companion', 'ability', 'pet'):
         y2 = re.sub(r'\n  ' + cmd + r':\n(    [^\n]*\n)+', '\n', y, count=1)
         if y2 == y:
             sys.exit('strip_unused: command ' + cmd + ' not found in plugin.yml')
         y = y2
+    # 1.0.18: no pets in C MCPvP
+    y = y.replace('"Your win effects, death messages, pets and gadgets."', '"Your win effects, death messages and gadgets."')
     wr(py, y)
 
 

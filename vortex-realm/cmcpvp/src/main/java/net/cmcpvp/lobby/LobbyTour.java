@@ -105,7 +105,7 @@ public final class LobbyTour implements Listener, CommandExecutor {
 
         if (out.isEmpty()) {
             String[][] gen = {
-                {"<b><white>CMC</white><#E3172B>PVP</#E3172B>", "Welcome to the lobby"}, {"<#E3172B><b>QUEUE UP", "Use the menu item in your hotbar"},
+                {"<b><white>CMC</white><#E3172B>PVP</#E3172B>", "Welcome to the lobby"}, {"<#E3172B><b>QUEUE UP", "Type /menu to see everything"},
                 {"<white><b>CLIMB", "Win to climb from LT5 to HT1"}
             };
             for (int i = 0; i < gen.length; i++) {
@@ -161,6 +161,12 @@ public final class LobbyTour implements Listener, CommandExecutor {
         for (Stop s : stops) {
             Location to = eye(s.look(), sp);
             Tasks.later(t, () -> {
+                // 1.0.18: a queue pop or a duel ends the tour at once
+                if (!run.done && p.isOnline() && this.plugin.sessions().state(p) != net.cmcpvp.session.PlayerState.LOBBY) {
+                    this.finish(p, false);
+                    return;
+                }
+
                 if (!run.done && cam.isValid()) {
                     cam.teleport(to);
                 }
@@ -194,7 +200,7 @@ public final class LobbyTour implements Listener, CommandExecutor {
             p.teleport(run.back);
             p.clearTitle();
             if (natural) {
-                p.showTitle(Title.title(Text.mm("<b><white>CMC</white><#E3172B>PVP</#E3172B>"), Text.mm("<gray>Open the <white>menu</white> in your hotbar to play"),
+                p.showTitle(Title.title(Text.mm("<b><white>CMC</white><#E3172B>PVP</#E3172B>"), Text.mm("<gray>Type <white>/menu</white> to play"),
                     Title.Times.times(java.time.Duration.ofMillis(250), java.time.Duration.ofMillis(2000), java.time.Duration.ofMillis(500))));
             }
         }
@@ -202,6 +208,23 @@ public final class LobbyTour implements Listener, CommandExecutor {
         run.cam.remove();
         if (run.after != null && p.isOnline()) {
             Tasks.later(natural ? 30L : 5L, run.after);
+        }
+    }
+
+    /** Puts everyone on a tour back (plugin stop / reload). */
+    public void shutdown() {
+        for (UUID u : new ArrayList<>(this.runs.keySet())) {
+            Player p = org.bukkit.Bukkit.getPlayer(u);
+            Run run = this.runs.remove(u);
+            if (run != null) {
+                run.done = true;
+                run.cam.remove();
+                if (p != null) {
+                    p.setSpectatorTarget(null);
+                    p.setGameMode(run.mode == GameMode.SPECTATOR ? GameMode.ADVENTURE : run.mode);
+                    p.teleport(run.back);
+                }
+            }
         }
     }
 

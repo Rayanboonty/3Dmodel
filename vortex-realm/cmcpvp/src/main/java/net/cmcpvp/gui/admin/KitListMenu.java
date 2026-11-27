@@ -39,10 +39,13 @@ public final class KitListMenu extends Menu {
         int[] slots = Ui.innerSlots(6);
         int i = 0;
 
-        for (Kit k : this.plugin.kits().sorted()) {
+        // 1.0.18: in the order players see them; left click edits, right click moves later, shift+right earlier
+        for (Kit k : this.plugin.kits().byOrder()) {
             if (i >= slots.length) {
                 break;
             }
+
+            int pos = i + 1;
 
             this.set(
                 slots[i++],
@@ -53,12 +56,22 @@ public final class KitListMenu extends Menu {
                         "<gray>Tab: " + k.category.color + k.category.title,
                         "<gray>Ranked " + yn(k.ranked) + " <gray>Unranked " + yn(k.unranked) + " <gray>FFA " + yn(k.ffa),
                         "<gray>Build " + yn(k.build) + " <gray>Regen " + yn(k.regen) + " <gray>Hunger " + yn(k.hunger),
+                        "<gray>Position: <white>#" + pos,
                         "",
-                        "<yellow>▶ Click to edit"
+                        "<yellow>▶ Left click to edit",
+                        "<yellow>▶ Right click: move later",
+                        "<yellow>▶ Shift + right click: move earlier"
                     )
                     .hideAll()
                     .build(),
-                c -> new KitListMenu.KitEditMenu(this.plugin, this.viewer, k).open()
+                c -> {
+                    if (c == org.bukkit.event.inventory.ClickType.RIGHT || c == org.bukkit.event.inventory.ClickType.SHIFT_RIGHT) {
+                        this.plugin.kits().move(k, c == org.bukkit.event.inventory.ClickType.SHIFT_RIGHT ? -1 : 1);
+                        this.redraw();
+                    } else {
+                        new KitListMenu.KitEditMenu(this.plugin, this.viewer, k).open();
+                    }
+                }
             );
         }
 
@@ -508,6 +521,22 @@ public final class KitListMenu extends Menu {
                     .build(),
                 c -> new KitListMenu.KitVotesMenu(this.plugin, this.viewer, this.k).open()
             );
+            // 1.0.18: the group tab and the position in the menus
+            this.set(47, Items.of(Material.BOOKSHELF).name("<gold><b>Group: " + this.k.category.color + this.k.category.title)
+                .lore("<gray>The queue tab this kit is in.", "", "<yellow>▶ Click for the next group").build(), c -> {
+                KitCategory[] all = KitCategory.values();
+                this.k.category = all[(this.k.category.ordinal() + 1) % all.length];
+                this.changed();
+            });
+            int pos = this.plugin.kits().byOrder().indexOf(this.k) + 1;
+            this.set(48, Items.of(Material.SPECTRAL_ARROW).name("<gold><b>◀ Show Earlier").lore("<gray>Position: <white>#" + pos, "<gray>Kits higher up show first", "<gray>in the queue and FFA menus.").build(), c -> {
+                this.plugin.kits().move(this.k, -1);
+                this.redraw();
+            });
+            this.set(50, Items.of(Material.ARROW).name("<gold><b>Show Later ▶").lore("<gray>Position: <white>#" + pos).build(), c -> {
+                this.plugin.kits().move(this.k, 1);
+                this.redraw();
+            });
             this.set(49, Ui.back(), c -> new KitListMenu(this.plugin, this.viewer).open());
         }
 

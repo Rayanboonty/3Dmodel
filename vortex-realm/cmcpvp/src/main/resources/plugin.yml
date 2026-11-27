@@ -347,11 +347,8 @@ commands:
     description: "The 7-day reward calendar."
     aliases: [dailyreward, rewards]
   vfx:
-    description: "Your win effects, death messages, pets and gadgets."
+    description: "Your win effects, death messages and gadgets."
     aliases: [effects, killeffects, winfx]
-  pet:
-    description: "Pick a hub pet."
-    aliases: [pets]
   gadget:
     description: "Pick a hub gadget."
     aliases: [gadgets]

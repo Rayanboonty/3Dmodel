@@ -165,6 +165,11 @@ public enum Setting {
     PING_EQ(Setting.Category.GAMEPLAY, "Ping Equalizer", Material.REPEATER, "Tick the Ping Equalizer by default when you send a duel.", 0, "off:Off", "on:On"),
     REGION(Setting.Category.SOCIAL, "Region", Material.RECOVERY_COMPASS, "Your preferred server region.", 0, "auto:Automatic");
 
+    /** 1.0.18: settings this build doesn't have (no wings or shoulder pets in C MCPvP). */
+    public boolean hidden() {
+        return this == OWN_COSMETICS && net.practicepvp.Edition.PRACTICE_ONLY;
+    }
+
     public final Setting.Category category;
     public final String title;
     public final Material icon;

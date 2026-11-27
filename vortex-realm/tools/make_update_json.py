@@ -13,7 +13,7 @@ NOTES = {
     'VortexRealm': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'PracticePvP': 'Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there',
     'VortexSMP': 'VortexSMP is now part of VortexRealm - remove this plugin',
-    'CMCPvP': 'CMCPVP 1.0.17: 3D VS card before every duel, arena flyover camera, new kill effects (Shatter, Tornado, Souls Rise) and win poses (Crown default), tier crest on rank-up, one main menu (/menu, hotbar slot 4), profile with points, title, peak tiers and last 5 matches, post-match screen with stats vs opponent and Rematch / Queue again / Replay, red and white scoreboard, queue boss bar with ETA, first-join lobby tour (/tour), streak and tournament toasts, settings search',
+    'CMCPvP': 'CMCPVP 1.0.18: rank-up ring removed, /menu is a command only (no hotbar item), pets, shoulder pets and wings removed (PvP only), admin editors in /pvpadmin -> Layout & Placement (main menu buttons, lobby hotbar, scoreboard lines, holograms, leaderboards, NPCs), kit group and order editing (featured kits show first), search every setting and edit list settings in game, flyover and lobby tour fixes',
 }
 
 

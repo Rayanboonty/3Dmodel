@@ -25,16 +25,6 @@ public final class Hotbar {
         this.plugin = plugin;
     }
 
-    /** 1.0.17: the main menu item. */
-    private static final Hotbar.Def MENU_DEF = new Hotbar.Def(
-        Hotbar.Action.MENU,
-        3,
-        Material.HEART_OF_THE_SEA,
-        "<b><white>CMC</white><#E3172B>PVP</#E3172B> <white>Menu</white></b>",
-        List.of("<gray>Every mode and screen", "<gray>in one place.", "", "<green>▶ Click to open"),
-        true
-    );
-
     private static Map<Hotbar.Layout, List<Hotbar.Def>> defaults() {
         Map<Hotbar.Layout, List<Hotbar.Def>> d = new EnumMap<>(Hotbar.Layout.class);
         Hotbar.Def leaderboards = new Hotbar.Def(
@@ -79,7 +69,6 @@ public final class Hotbar {
                     ),
                     false
                 ),
-                MENU_DEF,
                 new Hotbar.Def(
                     Hotbar.Action.FFA,
                     2,
@@ -190,7 +179,7 @@ public final class Hotbar {
                 .setHeader(
                     List.of(
                         "Hotbar items. slot 0-8, material, name/lore in MiniMessage.",
-                        "Actions: menu, ranked, unranked, ffa, party-create, spectate, leaderboards, kit-editor, settings,",
+                        "Actions: ranked, unranked, ffa, party-create, spectate, leaderboards, kit-editor, settings,",
                         "leave-queue, party-games, party-info, party-invite, party-leave.",
                         "Remove an entry to remove the item. Restart or /pvpadmin reload to apply."
                     )
@@ -209,7 +198,7 @@ public final class Hotbar {
                 }
             }
 
-            y.set("version", 8);
+            y.set("version", 9);
             changed = true;
         }
 
@@ -244,14 +233,10 @@ public final class Hotbar {
             changed = true;
         }
 
-        if (y.getInt("version", 1) < 8) {
-            // 1.0.17: the main menu item on the free slot 3
-            y.set("lobby.menu.slot", MENU_DEF.slot);
-            y.set("lobby.menu.material", MENU_DEF.material.name());
-            y.set("lobby.menu.name", MENU_DEF.name);
-            y.set("lobby.menu.lore", MENU_DEF.lore);
-            y.set("lobby.menu.glint", MENU_DEF.glint);
-            y.set("version", 8);
+        if (y.getInt("version", 1) < 9) {
+            // 1.0.18: the main menu is the /menu command only (1.0.17 put an item on slot 3)
+            y.set("lobby.menu", null);
+            y.set("version", 9);
             changed = true;
         }
 
@@ -301,6 +286,77 @@ public final class Hotbar {
         }
     }
 
+    // ------------------------------------------------------------------ 1.0.18: editing from /pvpadmin
+
+    private static String key(Hotbar.Layout l) {
+        return l.name().toLowerCase(Locale.ROOT).replace('_', '-');
+    }
+
+    private static String key(Hotbar.Action a) {
+        return a.name().toLowerCase(Locale.ROOT).replace('_', '-');
+    }
+
+    /** Changes one field (slot, material, name, lore, glint) of one item, or removes it with field null. Saves and reloads. */
+    public void change(Hotbar.Layout l, Hotbar.Action a, String field, Object value) {
+        File file = new File(this.plugin.getDataFolder(), "hotbar.yml");
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(file);
+        String base = key(l) + "." + key(a);
+        if (field == null) {
+            y.set(base, null);
+        } else {
+            y.set(base + "." + field, value);
+        }
+
+        try {
+            y.save(file);
+        } catch (IOException e) {
+            this.plugin.getLogger().log(Level.WARNING, "Could not write hotbar.yml", (Throwable)e);
+        }
+
+        this.load();
+    }
+
+    /** Puts a default item back (or adds it) with its default look. */
+    public void restore(Hotbar.Layout l, Hotbar.Action a) {
+        for (Hotbar.Def d : defaults().getOrDefault(l, List.of())) {
+            if (d.action == a) {
+                File file = new File(this.plugin.getDataFolder(), "hotbar.yml");
+                YamlConfiguration y = YamlConfiguration.loadConfiguration(file);
+                String b = key(l) + "." + key(a) + ".";
+                y.set(b + "slot", d.slot);
+                y.set(b + "material", d.material.name());
+                y.set(b + "name", d.name);
+                y.set(b + "lore", d.lore);
+                y.set(b + "glint", d.glint);
+                try {
+                    y.save(file);
+                } catch (IOException e) {
+                    this.plugin.getLogger().log(Level.WARNING, "Could not write hotbar.yml", (Throwable)e);
+                }
+
+                this.load();
+                return;
+            }
+        }
+    }
+
+    /** The default items of a layout that aren't in it now. */
+    public List<Hotbar.Action> missing(Hotbar.Layout l) {
+        List<Hotbar.Action> out = new ArrayList<>();
+        for (Hotbar.Def d : defaults().getOrDefault(l, List.of())) {
+            boolean there = false;
+            for (Hotbar.Entry e : this.layout(l)) {
+                there |= e.action() == d.action;
+            }
+
+            if (!there) {
+                out.add(d.action);
+            }
+        }
+
+        return out;
+    }
+
     public List<Hotbar.Entry> layout(Hotbar.Layout l) {
         return this.layouts.getOrDefault(l, List.of());
     }
@@ -323,8 +379,7 @@ public final class Hotbar {
         PARTY_GAMES,
         PARTY_INFO,
         PARTY_INVITE,
-        PARTY_LEAVE,
-        MENU;
+        PARTY_LEAVE;
 
         public static Hotbar.Action parse(String s) {
             try {

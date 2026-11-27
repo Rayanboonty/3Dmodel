@@ -509,6 +509,32 @@ public final class KitManager {
         return list;
     }
 
+    /** 1.0.18: every kit in the order the admin set (Featured tab, the admin kit list). */
+    public List<Kit> byOrder() {
+        List<Kit> list = new ArrayList<>(this.kits.values());
+        list.sort(Comparator.<Kit>comparingInt(k -> k.order).thenComparingInt(k -> k.category.ordinal()).thenComparing(k -> k.id));
+        return list;
+    }
+
+    /** Moves a kit one place earlier (dir < 0) or later (dir > 0) in the admin order, then saves. */
+    public boolean move(Kit k, int dir) {
+        List<Kit> list = this.byOrder();
+        int i = list.indexOf(k);
+        int j = i + (dir < 0 ? -1 : 1);
+        if (i < 0 || j < 0 || j >= list.size()) {
+            return false;
+        }
+
+        list.set(i, list.get(j));
+        list.set(j, k);
+        for (int n = 0; n < list.size(); n++) {
+            list.get(n).order = n;
+        }
+
+        this.save();
+        return true;
+    }
+
     public List<Kit> byCategory(KitCategory cat) {
         List<Kit> out = new ArrayList<>();
 

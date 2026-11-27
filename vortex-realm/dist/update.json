@@ -1,9 +1,9 @@
 {
   "CMCPvP": {
-    "version": "1.0.17",
-    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.17.jar",
-    "sha256": "6412ad662d98771e07a82961b66b3a9351066620e29a13b41ebbd2c011bde809",
-    "notes": "CMCPVP 1.0.17: 3D VS card before every duel, arena flyover camera, new kill effects (Shatter, Tornado, Souls Rise) and win poses (Crown default), tier crest on rank-up, one main menu (/menu, hotbar slot 4), profile with points, title, peak tiers and last 5 matches, post-match screen with stats vs opponent and Rematch / Queue again / Replay, red and white scoreboard, queue boss bar with ETA, first-join lobby tour (/tour), streak and tournament toasts, settings search"
+    "version": "1.0.18",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.18.jar",
+    "sha256": "d4161e9870adc7e47be8038a313d8d7d7bb79586cb98e54eaaa371606abd91e7",
+    "notes": "CMCPVP 1.0.18: rank-up ring removed, /menu is a command only (no hotbar item), pets, shoulder pets and wings removed (PvP only), admin editors in /pvpadmin -> Layout & Placement (main menu buttons, lobby hotbar, scoreboard lines, holograms, leaderboards, NPCs), kit group and order editing (featured kits show first), search every setting and edit list settings in game, flyover and lobby tour fixes"
   },
   "PracticePvP": {
     "version": "2.14.10",

@@ -109,7 +109,7 @@ public final class HubFun implements Listener {
             boolean hub = this.inHub(p);
             String pet = this.plus.flair().selected(u, "pet");
             Entity e = this.pets.get(u);
-            if (!this.plus.config().on("pets") || !hub || pet == null || p.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
+            if (net.practicepvp.Edition.PRACTICE_ONLY || !this.plus.config().on("pets") || !hub || pet == null || p.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
                 if (e != null) {
                     e.remove();
                     this.pets.remove(u);

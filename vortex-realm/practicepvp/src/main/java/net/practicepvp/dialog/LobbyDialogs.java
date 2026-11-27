@@ -402,7 +402,7 @@ public final class LobbyDialogs {
             List<LobbyDialogs.Tile> tiles = new ArrayList<>();
 
             for (Setting s : Setting.values()) {
-                if (s.category == tab) {
+                if (s.category == tab && !s.hidden()) {
                     String current = prof.get(s);
                     String currentLabel = current;
                     List<Component> hover = new ArrayList<>();

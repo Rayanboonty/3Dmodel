@@ -272,6 +272,10 @@ public final class Flair implements Listener {
 
     public void menu(Player p, String group) {
         PlayerData d = this.plus.store().get(p);
+        if (net.practicepvp.Edition.PRACTICE_ONLY && "pet".equals(group)) {
+            group = "win";
+        }
+
         String[] all = switch (group) {
             case "death" -> Progression.DEATH_MSG;
             case "pet" -> Progression.PETS;
@@ -283,9 +287,10 @@ public final class Flair implements Listener {
             default -> "win";
         };
         Gui.open(this.plugin, p, "<dark_gray>Cosmetics - " + Progression.nice(g0.equals("win") ? "win effects" : g0 + "s"), 5, g -> {
-            String[] groups = {"win", "death", "pet", "gadget"};
-            Material[] icons = {Material.FIREWORK_ROCKET, Material.SKELETON_SKULL, Material.BONE, Material.BLAZE_ROD};
-            for (int i = 0; i < 4; i++) {
+            String[] groups = net.practicepvp.Edition.PRACTICE_ONLY ? new String[]{"win", "death", "gadget"} : new String[]{"win", "death", "pet", "gadget"};
+            Material[] icons = net.practicepvp.Edition.PRACTICE_ONLY ? new Material[]{Material.FIREWORK_ROCKET, Material.SKELETON_SKULL, Material.BLAZE_ROD}
+                : new Material[]{Material.FIREWORK_ROCKET, Material.SKELETON_SKULL, Material.BONE, Material.BLAZE_ROD};
+            for (int i = 0; i < groups.length; i++) {
                 String gr = groups[i];
                 g.item(1 + i * 2, Items.of(icons[i]).name((gr.equals(g0) ? "<green>▶ " : "<yellow>") + Progression.nice(gr.equals("win") ? "win effects" : gr + "s")).glint(gr.equals(g0)).hideAll().build(),
                     c -> this.menu(p, gr));

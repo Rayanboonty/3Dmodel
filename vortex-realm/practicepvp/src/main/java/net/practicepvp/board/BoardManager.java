@@ -348,7 +348,7 @@ public final class BoardManager {
     private static Component recolor(Component c) {
         net.kyori.adventure.text.format.TextColor col = c.color();
         if (col != null) {
-            if (col.equals(NamedTextColor.GOLD) || col.equals(NamedTextColor.YELLOW)) {
+            if (col.equals(NamedTextColor.GOLD)) {
                 c = c.color(net.kyori.adventure.text.format.TextColor.color(0xE3172B));
             } else if (col.equals(NamedTextColor.DARK_GRAY) && c.hasDecoration(net.kyori.adventure.text.format.TextDecoration.STRIKETHROUGH)) {
                 c = c.color(net.kyori.adventure.text.format.TextColor.color(0x7A0A14));
@@ -365,6 +365,39 @@ public final class BoardManager {
         }
 
         return c;
+    }
+
+    /** 1.0.18: lines the admin hid (/pvpadmin -> Layout -> Scoreboard): any line whose text has one of the words. */
+    private static List<Component> hide(List<Component> lines) {
+        List<String> hidden = Cfg.get(Opt.BOARD_HIDDEN);
+        if (hidden == null || hidden.isEmpty()) {
+            return lines;
+        }
+
+        List<Component> out = new ArrayList<>(lines.size());
+        for (Component c : lines) {
+            String plain = Text.plain(c).trim().toLowerCase(java.util.Locale.ROOT);
+            boolean drop = false;
+            for (String h : hidden) {
+                if (!h.isBlank() && !plain.isEmpty() && plain.contains(h.toLowerCase(java.util.Locale.ROOT))) {
+                    drop = true;
+                    break;
+                }
+            }
+
+            if (!drop) {
+                out.add(c);
+            }
+        }
+
+        return out;
+    }
+
+    /** The lines this player sees now, before hiding (for the scoreboard editor). */
+    public List<Component> preview(Player p) {
+        net.practicepvp.session.Session s = this.plugin.sessions().get(p);
+        PvPProfile prof = this.plugin.profiles().get(p);
+        return this.lines(p, s, prof);
     }
 
     private static boolean redWhite() {
@@ -475,7 +508,7 @@ public final class BoardManager {
                     b.title = title;
                 }
 
-                List<Component> lines = this.lines(p, s, prof);
+                List<Component> lines = hide(this.lines(p, s, prof));
                 if (redWhite()) {
                     lines = new ArrayList<>(lines);
                     lines.replaceAll(BoardManager::recolor);

@@ -1342,6 +1342,30 @@ The SMP's nether and end were treated as not part of the SMP (they're saved as '
 - **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.
 
 
+## CMCPVP 1.0.18
+
+- **Removed:**
+  - the ring of blocks that popped round you on rank-up;
+  - the menu item in the hotbar (the menu is `/menu` only);
+  - pets, shoulder pets and wings (the server is PvP only).
+- **Kits** (`/pvpadmin` → Kits, or `/kits edit <kit>`):
+  - edit contents, icon, name and rules, plus the new **Group** button;
+  - **◀ Show Earlier / Show Later ▶** sets the order kits appear in;
+  - in the kit list, right click moves a kit later and shift + right click moves it earlier;
+  - the first queue tab now shows **Featured Kits** in your order (`queue.popular-first` switches back to most played);
+  - FFA follows the same order.
+- **Layout & Placement** (`/pvpadmin`):
+  - **Main Menu:** move, hide or show `/menu` buttons, and choose 1 to 3 columns;
+  - **Lobby Hotbar:** for the lobby, party and queue layouts, change each item's slot (◀ ▶), use the item in your hand, rename it, remove it or put it back;
+  - **Scoreboard:** click a line to hide or show it, change the title, and turn red and white or the whole sidebar on or off;
+  - **Holograms, Leaderboard, NPCs, Decorations:** move them to you, face you, edit text and size.
+- **Settings:** search every setting, and edit list settings in game (one line per entry).
+- **Fixes:**
+  - the arena flyover can't leave anyone in spectator, and sneaking puts you back on the camera;
+  - the lobby tour stops if your queue pops and is undone on restart;
+  - the red scoreboard keeps yellow warnings yellow.
+
+
 ## CMCPVP 1.0.17 (phase 2 of 4)
 
 - **3D VS card:** before every duel, both heads slide in with tier, Elo and W/L in the kit, and a big VS pops in between.

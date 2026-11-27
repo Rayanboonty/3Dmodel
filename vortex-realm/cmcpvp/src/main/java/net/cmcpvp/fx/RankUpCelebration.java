@@ -53,7 +53,6 @@ public final class RankUpCelebration {
             chatCard(p, from, to, modeLabel, points, kitId, placement);
             chime(p);
             if (!busy) {
-                TierCrest.play(p, to);
                 Component sub = (from == null ? Text.mm("<gray>Unranked") : BoardManager.tierTag(from))
                     .append(Text.mm(" <dark_gray>➜</dark_gray> "))
                     .append(BoardManager.tierTag(to))

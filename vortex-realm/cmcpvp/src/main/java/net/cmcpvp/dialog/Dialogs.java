@@ -313,7 +313,7 @@ public final class Dialogs {
                 icon = Text.mm("<green>✦");
                 break;
             default:
-                label = "<white>Most Played Kits";
+                label = Cfg.bool(Opt.QUEUE_POPULAR_FIRST) ? "<white>Most Played Kits" : "<white>Featured Kits";
         }
 
         Component text = tab == current ? Text.mm("<white><b><i>" + Text.plain(Text.mm(label)) + "</i></b>") : Text.mm(label);
@@ -343,7 +343,9 @@ public final class Dialogs {
             case SKILL -> pool.stream().filter(kx -> kx.category == KitCategory.SKILL).toList();
             case VANILLA -> pool.stream().filter(kx -> kx.category == KitCategory.VANILLA).toList();
             case OTHER -> pool.stream().filter(kx -> kx.category == KitCategory.OTHER).toList();
-            default -> pool.stream()
+            default -> !Cfg.bool(Opt.QUEUE_POPULAR_FIRST)
+                ? pool.stream().sorted(Comparator.<Kit>comparingInt(kx -> kx.order).thenComparingInt(kx -> kx.category.ordinal())).limit(6L).toList()
+                : pool.stream()
                 .sorted(
                     Comparator.<Kit>comparingInt(kx -> -(this.plugin.queues().size(kx) + this.plugin.matches().playing(kx)))
                         .thenComparingInt(kx -> kx.category.ordinal())
@@ -614,6 +616,8 @@ public final class Dialogs {
                 }
             }
 
+            // 1.0.18: FFA kits in the admin's kit order (/pvpadmin -> Kits)
+            open.sort(Comparator.comparingInt(a -> this.plugin.ffa().kitOf(a).order));
             body.add(DialogBody.plainMessage(Text.mm("<#E3172B><b>FREE FOR ALL</b></#E3172B>  <dark_gray>▪</dark_gray>  <white>" + total + "</white> <gray>fighting now"), 300));
             List<ActionButton> buttons = new ArrayList<>();
             int most = 1;
@@ -802,6 +806,33 @@ public final class Dialogs {
                 .afterAction(DialogAfterAction.NONE)
                 .inputs(List.of(input))
                 .build();
+            show(p, base, DialogType.confirmation(ok, cancel));
+        }
+    }
+
+    /** 1.0.18: a big text box, one entry per line (list settings). */
+    public void lines(Player p, Component title, String label, List<String> initial, Consumer<List<String>> done) {
+        if (this.formsSupported(p)) {
+            DialogInput input = DialogInput.text("value", Text.mm("<gray>" + Text.esc(label)))
+                .initial(String.join("\n", initial))
+                .maxLength(8000)
+                .width(300)
+                .multiline(io.papermc.paper.registry.data.dialog.input.TextDialogInput.MultilineOptions.create(64, 160))
+                .build();
+            ActionButton ok = button(Text.mm("<green><b>Save"), null, 120, this.formAction(p, view -> {
+                String v = view.getText("value");
+                p.closeDialog();
+                List<String> out = new ArrayList<>();
+                for (String line : (v == null ? "" : v).split("\\r?\\n")) {
+                    if (!line.isBlank()) {
+                        out.add(line.strip());
+                    }
+                }
+
+                done.accept(out);
+            }));
+            ActionButton cancel = button(Text.mm("<red>Cancel"), null, 120, this.action(p, p::closeDialog));
+            DialogBase base = DialogBase.builder(title).canCloseWithEscape(true).pause(false).afterAction(DialogAfterAction.NONE).inputs(List.of(input)).build();
             show(p, base, DialogType.confirmation(ok, cancel));
         }
     }

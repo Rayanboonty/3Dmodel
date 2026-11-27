@@ -544,7 +544,7 @@ public final class PlusCommands implements TabExecutor {
                     opts.add("stop");
                 }
                 case "arcade" -> opts.addAll(List.of("join", "leave"));
-                case "vfx" -> opts.addAll(List.of("win", "death", "pet", "gadget"));
+                case "vfx" -> opts.addAll(net.cmcpvp.Edition.PRACTICE_ONLY ? List.of("win", "death", "gadget") : List.of("win", "death", "pet", "gadget"));
                 case "parkour" -> opts.addAll(List.of("top", "checkpoint", "quit", "build", "remove"));
                 case "ecoevent" -> opts.addAll(List.of("airdrop", "meteor", "koth"));
                 case "crate" -> opts.add("give");

@@ -829,51 +829,55 @@ public final class Cosmetics implements Listener, CommandExecutor, org.bukkit.co
                 () -> this.shield(p)
             )
         );
-        // 3.11.0: pets, shoulder pets and wings, unlocked by time played
-        double hours = net.cmcpvp.cosmetics.Companions.hoursPlayed(p);
-        for (CosmeticModels.Kind k : CosmeticModels.Kind.values()) {
-            String key = key(k);
-            CosmeticModels.Model cur = CosmeticModels.get(d.extra.get(key));
-            int open = 0;
-            List<CosmeticModels.Model> list = CosmeticModels.of(k);
-            for (CosmeticModels.Model m : list) {
-                open += this.plugin.companions() != null && this.plugin.companions().unlocked(p, m) ? 1 : 0;
-            }
-
-            tiles.add(
-                tile(
-                    new ItemStack(cur != null ? icon(cur) : (k == CosmeticModels.Kind.PET ? Material.BONE : (k == CosmeticModels.Kind.WINGS ? Material.ELYTRA : Material.FEATHER))),
-                    "<gold><b>" + kindName(k),
-                    cur == null ? "<gray>None <dark_gray>• <gray>" + open + "/" + list.size() + " unlocked" : "<white>" + cur.name() + " <dark_gray>• <gray>" + open + "/" + list.size() + " unlocked",
-                    List.of(
-                        "<gray>" + (k == CosmeticModels.Kind.PET ? "A chubby pet that follows you and rolls" : (k == CosmeticModels.Kind.WINGS ? "Animated wings on your back" : "A tiny pet on your shoulder")),
-                        "<gray>Play more to unlock more <dark_gray>(you: <white>" + String.format(java.util.Locale.ROOT, "%.1f", hours) + "h</white>)",
-                        "",
-                        "<green>▶ Click to choose"
-                    ),
-                    () -> this.models(p, k)
-                )
-            );
-        }
-
-        // 3.13.3: a collar and a lead for the pet
-        String collar = d.extra.get("collar");
-        tiles.add(tile(new ItemStack(collar == null ? Material.STRING : java.util.Objects.requireNonNullElse(Material.matchMaterial(collar + "_wool"), Material.STRING)),
-            "<gold><b>Pet Collar", collar == null ? "<gray>No collar" : "<white>" + nice(collar) + " collar",
-            List.of("<gray>A coloured collar with a gold tag", "<gray>on the pet that follows you.", "", "<green>▶ Click to choose"), () -> this.collars(p)));
-        boolean lead = "on".equals(d.extra.get("lead"));
-        tiles.add(tile(new ItemStack(Material.LEAD), "<gold><b>Pet Lead", lead ? "<green>On: you walk your pet" : "<gray>Off",
-            List.of("<gray>A lead from your hand to", "<gray>your pet's collar.", "", "<green>▶ Click to turn " + (lead ? "off" : "on")), () -> {
-                if (lead) {
-                    d.extra.remove("lead");
-                } else {
-                    d.extra.put("lead", "on");
+        // 1.0.18: no pets, shoulder pets or wings in the practice-only build (CMCPVP)
+        if (!net.cmcpvp.Edition.PRACTICE_ONLY) {
+            // 3.11.0: pets, shoulder pets and wings, unlocked by time played
+            double hours = net.cmcpvp.cosmetics.Companions.hoursPlayed(p);
+            for (CosmeticModels.Kind k : CosmeticModels.Kind.values()) {
+                String key = key(k);
+                CosmeticModels.Model cur = CosmeticModels.get(d.extra.get(key));
+                int open = 0;
+                List<CosmeticModels.Model> list = CosmeticModels.of(k);
+                for (CosmeticModels.Model m : list) {
+                    open += this.plugin.companions() != null && this.plugin.companions().unlocked(p, m) ? 1 : 0;
                 }
 
-                this.save(p.getUniqueId());
-                Snd.play(p, "entity.leash_knot.place", 0.8F, 1.0F);
-                this.open(p);
-            }));
+                tiles.add(
+                    tile(
+                        new ItemStack(cur != null ? icon(cur) : (k == CosmeticModels.Kind.PET ? Material.BONE : (k == CosmeticModels.Kind.WINGS ? Material.ELYTRA : Material.FEATHER))),
+                        "<gold><b>" + kindName(k),
+                        cur == null ? "<gray>None <dark_gray>• <gray>" + open + "/" + list.size() + " unlocked" : "<white>" + cur.name() + " <dark_gray>• <gray>" + open + "/" + list.size() + " unlocked",
+                        List.of(
+                            "<gray>" + (k == CosmeticModels.Kind.PET ? "A chubby pet that follows you and rolls" : (k == CosmeticModels.Kind.WINGS ? "Animated wings on your back" : "A tiny pet on your shoulder")),
+                            "<gray>Play more to unlock more <dark_gray>(you: <white>" + String.format(java.util.Locale.ROOT, "%.1f", hours) + "h</white>)",
+                            "",
+                            "<green>▶ Click to choose"
+                        ),
+                        () -> this.models(p, k)
+                    )
+                );
+            }
+
+            // 3.13.3: a collar and a lead for the pet
+            String collar = d.extra.get("collar");
+            tiles.add(tile(new ItemStack(collar == null ? Material.STRING : java.util.Objects.requireNonNullElse(Material.matchMaterial(collar + "_wool"), Material.STRING)),
+                "<gold><b>Pet Collar", collar == null ? "<gray>No collar" : "<white>" + nice(collar) + " collar",
+                List.of("<gray>A coloured collar with a gold tag", "<gray>on the pet that follows you.", "", "<green>▶ Click to choose"), () -> this.collars(p)));
+            boolean lead = "on".equals(d.extra.get("lead"));
+            tiles.add(tile(new ItemStack(Material.LEAD), "<gold><b>Pet Lead", lead ? "<green>On: you walk your pet" : "<gray>Off",
+                List.of("<gray>A lead from your hand to", "<gray>your pet's collar.", "", "<green>▶ Click to turn " + (lead ? "off" : "on")), () -> {
+                    if (lead) {
+                        d.extra.remove("lead");
+                    } else {
+                        d.extra.put("lead", "on");
+                    }
+
+                    this.save(p.getUniqueId());
+                    Snd.play(p, "entity.leash_knot.place", 0.8F, 1.0F);
+                    this.open(p);
+                }));
+        }
+
         tiles.add(
             tile(new ItemStack(Material.BARRIER), "<red><b>Reset Everything", "<gray>No trims, plain shield", List.of("<red>Removes all your cosmetics."), () -> {
                 this.data.put(p.getUniqueId(), new Cosmetics.Data());

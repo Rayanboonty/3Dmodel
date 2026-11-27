@@ -664,7 +664,8 @@ public final class PracticePlugin extends JavaPlugin {
             this.lobbyFx = new net.practicepvp.lobby.LobbyFx(this);
             pm.registerEvents(this.lobbyFx, this);
         });
-        this.module("pets, shoulder pets and wings", () -> {
+        // 1.0.18: the practice-only build (C MCPvP) has no pets, shoulder pets or wings
+        if (!Edition.PRACTICE_ONLY) this.module("pets, shoulder pets and wings", () -> {
             this.companions = new net.practicepvp.cosmetics.Companions(this);
             pm.registerEvents(this.companions, this);
             this.companions.start();
@@ -924,6 +925,10 @@ public final class PracticePlugin extends JavaPlugin {
 
         if (this.companions != null) {
             this.companions.stop();
+        }
+
+        if (this.lobbyTour != null) {
+            this.lobbyTour.shutdown();
         }
 
         if (this.vexBot != null) {

@@ -100,6 +100,10 @@ public final class PlusModule {
         PlusCommands cmds = new PlusCommands(this.plugin, this);
         int missing = 0;
         for (String c : COMMANDS) {
+            if (net.practicepvp.Edition.PRACTICE_ONLY && c.equals("pet")) {
+                continue;
+            }
+
             PluginCommand pc = this.plugin.getCommand(c);
             if (pc == null) {
                 missing++;
@@ -307,6 +311,10 @@ public final class PlusModule {
         this.check(t, "web", this.web.selfCheck());
         int missing = 0;
         for (String c : COMMANDS) {
+            if (net.practicepvp.Edition.PRACTICE_ONLY && c.equals("pet")) {
+                continue;
+            }
+
             PluginCommand pc = this.plugin.getCommand(c);
             if (pc == null || !(pc.getExecutor() instanceof PlusCommands)) {
                 missing++;

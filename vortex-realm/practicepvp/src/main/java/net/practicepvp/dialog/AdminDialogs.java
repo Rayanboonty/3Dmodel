@@ -261,6 +261,17 @@ public final class AdminDialogs {
         );
         tiles.add(
             tile(
+                Material.PAINTING,
+                "<gold><b>Layout & Placement",
+                "<gray>Menu, hotbar, scoreboard, holograms, NPCs",
+                () -> new LayoutDialogs(this.plugin, this.plugin.dialogs()).open(p),
+                "Move and change everything players see:",
+                "/menu buttons, hotbar items, scoreboard lines,",
+                "holograms, leaderboards, NPCs and kits."
+            )
+        );
+        tiles.add(
+            tile(
                 Material.GRASS_BLOCK,
                 "<gold><b>Duel Arenas",
                 "<gray>" + this.plugin.arenas().all().size() + " maps",
@@ -2446,34 +2457,14 @@ public final class AdminDialogs {
                     tiles,
                     List.of(),
                     null,
-                    List.of(this.ui.btn(p, "<gray>« Admin Panel", null, () -> this.main(p))),
+                    List.of(this.ui.btn(p, "<aqua>🔍 Search every setting", null, () -> this.searchPrompt(p)), this.ui.btn(p, "<gray>« Admin Panel", null, () -> this.main(p))),
                     1,
                     this.ui.close(p)
                 );
         } else {
             for (Opt<?> o : Opt.all()) {
                 if (o.gui && o.section == section) {
-                    Object v = Cfg.get(o);
-                    List<Component> hover = new ArrayList<>();
-                    hover.add(Text.mm("<gold><b>" + Text.esc(o.name)));
-                    hover.add(Text.mm("<gray>" + Text.esc(o.desc)));
-                    hover.add(Component.empty());
-                    if (!v.equals(o.def)) {
-                        hover.add(Text.mm("<dark_gray>Default: " + Text.esc(String.valueOf(o.def))));
-                    }
-
-                    hover.add(Text.mm("<dark_gray>" + o.path));
-
-                    hover.add(Text.mm(switch (o.type) {
-                        case BOOL -> "<green>▶ Click to toggle";
-                        case ENUM -> "<green>▶ Click for the next value";
-                        default -> "<green>▶ Click to change";
-                    }));
-                    tiles.add(
-                        new LobbyDialogs.Tile(
-                            new ItemStack(o.icon), Text.mm("<gold><b>" + Text.esc(o.name)), Text.mm(value(o, v)), hover, () -> this.edit(p, o)
-                        )
-                    );
+                    tiles.add(this.optTile(p, o));
                 }
             }
 
@@ -2494,10 +2485,70 @@ public final class AdminDialogs {
         }
     }
 
+    private LobbyDialogs.Tile optTile(Player p, Opt<?> o) {
+        Object v = Cfg.get(o);
+        List<Component> hover = new ArrayList<>();
+        hover.add(Text.mm("<gold><b>" + Text.esc(o.name)));
+        hover.add(Text.mm("<gray>" + Text.esc(o.desc)));
+        hover.add(Component.empty());
+        if (!v.equals(o.def)) {
+            hover.add(Text.mm("<dark_gray>Default: " + Text.esc(String.valueOf(o.def))));
+        }
+
+        hover.add(Text.mm("<dark_gray>" + o.path));
+        hover.add(Text.mm(switch (o.type) {
+            case BOOL -> "<green>▶ Click to toggle";
+            case ENUM -> "<green>▶ Click for the next value";
+            case STRING_LIST -> "<green>▶ Click to edit the lines";
+            default -> "<green>▶ Click to change";
+        }));
+        return new LobbyDialogs.Tile(new ItemStack(o.icon), Text.mm("<gold><b>" + Text.esc(o.name)), Text.mm(value(o, v)), hover, () -> this.edit(p, o));
+    }
+
+    /** 1.0.18: every setting whose name, description or path has all the words. */
+    public void searchSettings(Player p, String query) {
+        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (q.isEmpty()) {
+            this.settings(p, null);
+            return;
+        }
+
+        List<LobbyDialogs.Tile> tiles = new ArrayList<>();
+        for (Opt<?> o : Opt.all()) {
+            if (!o.gui || net.practicepvp.Edition.PRACTICE_ONLY && (o.section == Opt.Section.SMP || o.section == Opt.Section.NETWORK)) {
+                continue;
+            }
+
+            String hay = (o.name + " " + o.desc + " " + o.path + " " + o.section.title).toLowerCase(Locale.ROOT);
+            boolean all = true;
+            for (String w : q.split("\\s+")) {
+                if (!hay.contains(w)) {
+                    all = false;
+                    break;
+                }
+            }
+
+            if (all && tiles.size() < 60) {
+                tiles.add(this.optTile(p, o));
+            }
+        }
+
+        this.lastSearch.put(p.getUniqueId(), query);
+        this.ui.screen(p, LobbyDialogs.title("Settings", "Search: " + Text.esc(query)), tiles, List.of(), Text.mm("<gray>Nothing matches."),
+            List.of(this.ui.btn(p, "<aqua>🔍 New search", null, () -> this.searchPrompt(p)), this.ui.btn(p, "<gray>« Categories", null, () -> this.settings(p, null))), 2, this.ui.close(p));
+    }
+
+    private final java.util.Map<java.util.UUID, String> lastSearch = new java.util.HashMap<>();
+
+    private void searchPrompt(Player p) {
+        this.plugin.dialogs().text(p, Text.mm("<gold><b>Search settings"), "Words to find", "", 40, q -> this.searchSettings(p, q));
+    }
+
     private static String value(Opt<?> o, Object v) {
         return switch (o.type) {
             case BOOL -> Boolean.TRUE.equals(v) ? "<green><b>ON" : "<red><b>OFF";
             case STRING -> String.valueOf(v).isEmpty() ? "<dark_gray>(empty)" : "<white>" + Text.esc(String.valueOf(v));
+            case STRING_LIST -> v instanceof List<?> l ? "<white>" + l.size() + " line" + (l.size() == 1 ? "" : "s") : "<dark_gray>(empty)";
             default -> "<white>" + Text.esc(String.valueOf(v));
         };
     }
@@ -2522,6 +2573,14 @@ public final class AdminDialogs {
 
                 Cfg.set(o, values[(i + 1) % values.length].name());
                 this.done(p, o, back);
+                break;
+            case STRING_LIST:
+                @SuppressWarnings("unchecked")
+                List<String> cur0 = v instanceof List<?> l ? (List<String>)l : List.of();
+                this.plugin.dialogs().lines(p, Text.mm("<gold><b>" + Text.esc(o.name)), "One entry per line", cur0, list -> {
+                    Cfg.set(o, list);
+                    this.done(p, o, back);
+                });
                 break;
             case STRING:
                 this.plugin.dialogs().text(p, Text.mm("<gold><b>" + Text.esc(o.name)), o.name, String.valueOf(v), 256, s -> {

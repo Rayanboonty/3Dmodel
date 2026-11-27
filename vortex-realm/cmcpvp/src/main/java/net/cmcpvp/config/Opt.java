@@ -91,6 +91,38 @@ public final class Opt<T> {
         "The green check next to verified players' names (nametag, tab, chat).",
         Material.EMERALD
     );
+    // 1.0.18: the /menu layout (edited in /pvpadmin -> Layout & Placement)
+    public static final Opt<List<String>> MENU_LAYOUT = new Opt<>(
+        "menu.layout",
+        Opt.Type.STRING_LIST,
+        List.of("ranked", "unranked", "ffa", "party", "bots", "tiertest", "profile", "leaderboards", "kiteditor", "cosmetics", "settings", "tournaments", "spectate", "tour"),
+        Opt.Section.LOBBY,
+        "Main Menu Buttons",
+        "The /menu buttons in order (ids: ranked unranked ffa party bots tiertest profile leaderboards kiteditor cosmetics settings tournaments spectate tour). Remove a line to hide one.",
+        Material.HEART_OF_THE_SEA,
+        0.0,
+        0.0,
+        1.0,
+        null,
+        true
+    );
+    public static final Opt<List<String>> BOARD_HIDDEN = new Opt<>(
+        "board.hidden-lines",
+        Opt.Type.STRING_LIST,
+        List.of(),
+        Opt.Section.GENERAL,
+        "Hidden Scoreboard Lines",
+        "Scoreboard lines that contain one of these words are hidden (e.g. ping, online). Easiest from /pvpadmin -> Layout -> Scoreboard.",
+        Material.OAK_SIGN,
+        0.0,
+        0.0,
+        1.0,
+        null,
+        true
+    );
+    public static final Opt<Integer> MENU_COLUMNS = integer(
+        "menu.columns", 2, Opt.Section.LOBBY, "Main Menu Columns", "How many buttons side by side in /menu (1 to 3).", Material.CHISELED_BOOKSHELF, 1, 3, 1
+    );
     public static final Opt<List<String>> WELCOME_COUNTRIES = new Opt<>(
         "extras.welcome.quick-countries",
         Opt.Type.STRING_LIST,
@@ -1160,6 +1192,10 @@ public final class Opt<T> {
         "board.red-white", net.cmcpvp.Edition.PRACTICE_ONLY, Opt.Section.GENERAL, "Red & White Scoreboard",
         "The scoreboard in the CMCPVP colours: white and red title, red highlights and dark red separators.", Material.RED_BANNER
     );
+    public static final Opt<Boolean> QUEUE_POPULAR_FIRST = bool(
+        "queue.popular-first", !net.cmcpvp.Edition.PRACTICE_ONLY, Opt.Section.QUEUE, "Most Played First",
+        "On = the first queue tab shows the kits with the most players. Off = it shows the first 6 kits in your order (/pvpadmin → Kits, ◀ ▶ to move).", Material.BLAZE_POWDER
+    );
     public static final Opt<Boolean> QUEUE_BOSS_BAR = bool(
         "queue.boss-bar", true, Opt.Section.MATCH, "Queue Boss Bar",
         "While searching, a boss bar with the kit, the time waited, the expected wait (ETA) and how many players are searching.", Material.DRAGON_HEAD
@@ -2227,7 +2263,8 @@ public final class Opt<T> {
         this.max = max;
         this.step = step;
         this.enumClass = enumClass;
-        this.gui = gui;
+        // 1.0.18: the practice-only build (CMCPVP) has no pets or wings, so their options aren't shown
+        this.gui = gui && !(net.cmcpvp.Edition.PRACTICE_ONLY && path.startsWith("cosmetics."));
         ALL.add(this);
     }
 

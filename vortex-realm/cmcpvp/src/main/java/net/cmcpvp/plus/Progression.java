@@ -427,8 +427,11 @@ public final class Progression implements Listener {
             all.add("win:" + s);
         }
 
-        for (String s : PETS) {
-            all.add("pet:" + s);
+        // 1.0.18: no pets in the practice-only build (CMCPVP)
+        if (!net.cmcpvp.Edition.PRACTICE_ONLY) {
+            for (String s : PETS) {
+                all.add("pet:" + s);
+            }
         }
 
         for (String s : DEATH_MSG) {

@@ -124,6 +124,10 @@ public final class SettingsDialogs {
 
         List<Setting> found = new ArrayList<>();
         for (Setting s : Setting.values()) {
+            if (s.hidden()) {
+                continue;
+            }
+
             String hay = (s.title + " " + s.description + " " + s.category.name()).toLowerCase(java.util.Locale.ROOT);
             boolean all = true;
             for (String w : q.split("\\s+")) {
