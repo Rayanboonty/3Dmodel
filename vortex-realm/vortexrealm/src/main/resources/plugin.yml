@@ -1,0 +1,519 @@
+name: VortexRealm
+version: '${project.version}'
+main: net.vortexrealm.VortexRealm
+api-version: '1.21.11'
+description: Vortex Realm - MCPVP-style practice (ranked duels, LT5-HT1 tiers, Tier Tests and Tier Defense, friends, MCPVP tab), FFA, parties, practice bots, hub and server selector for the network, web panel.
+authors: [Vortex Realm]
+website: https://vortexrealm.net
+softdepend: [PlaceholderAPI, Vulcan, GrimAC, LuckPerms, Vault, VexBot]
+
+commands:
+  lobby:
+    description: Go to the PvP lobby (or leave what you're doing).
+  leave:
+    description: Leave your queue, match, FFA or spectating.
+  leavepvp:
+    description: Go back to the SMP world.
+  queue:
+    description: Open the queue menu or join a queue.
+    aliases: [q]
+    usage: /queue [ranked|unranked] [kit]
+  ranked:
+    description: Open the ranked queue menu.
+  unranked:
+    description: Open the unranked queue menu.
+  duel:
+    description: Duel a player.
+    aliases: [1v1, fight]
+    usage: /duel <player> [kit]
+  party:
+    description: Party commands.
+    aliases: [p]
+  partychat:
+    description: Chat with your party.
+    aliases: [pc]
+  spectate:
+    description: Spectate a match.
+    aliases: [spec]
+  leaderboard:
+    description: Top players per kit.
+    aliases: [lb, leaderboards]
+  stats:
+    description: Your (or another player's) ranks and stats.
+    aliases: [profile, elo]
+  settings:
+    description: Your PvP settings.
+    aliases: [prefs, options]
+  kiteditor:
+    description: Arrange your kits.
+    aliases: [editkit, layout]
+  ffa:
+    description: Join a free-for-all arena.
+  pvpinv:
+    description: View a post-match inventory.
+  rematch:
+    description: Rematch your last opponent.
+  rankup:
+    description: Start your promotion series.
+  ping:
+    description: Show ping.
+  pvpadmin:
+    description: Vortex Realm admin panel.
+    aliases: [pa, practiceadmin]
+    permission: vortex.admin
+  kits:
+    description: Kit management.
+    permission: vortex.admin
+  staff:
+    description: PvP staff tools.
+  staffchat:
+    description: PvP staff chat.
+    aliases: [sc]
+  playtime:
+    description: Your (or another player's) play time.
+    aliases: [pt]
+  links:
+    description: Discord, store and website links.
+    aliases: [discord, store]
+  worlds:
+    description: Server selector (Practice, the SMP server...).
+    aliases: [selector, servers]
+  practice:
+    description: Travel to PvP Practice.
+  hub:
+    description: Travel to the server hub.
+  smp:
+    description: Go to the SMP server (another host of the network).
+    aliases: [survival]
+  npc:
+    description: Lobby NPCs (skins, actions, auras).
+    aliases: [npcs]
+    permission: vortex.admin
+  msg:
+    description: Private message.
+    aliases: [tell, w, whisper, m, t, pm, dm]
+  reply:
+    description: Reply to your last private message.
+    aliases: [r]
+  ignore:
+    description: Ignore a player (chat, messages, requests).
+  msgtoggle:
+    description: Turn private messages on or off.
+  socialspy:
+    description: See private messages and every mode's chat (staff).
+    aliases: [spy]
+  mutechat:
+    description: Mute / unmute the chat (staff).
+  clearchat:
+    description: Clear the chat (staff).
+    aliases: [cc]
+  mute:
+    description: Mute a player (staff). /mute <player> [10m|2h|1d|perm] [reason]
+  unmute:
+    description: Unmute a player (staff).
+  mutes:
+    description: List muted players (staff).
+  chatfilter:
+    description: Open the chat moderation menu (staff).
+    aliases: [swearfilter, chatmod]
+  learn:
+    description: The Academy - cinematic lessons for every gamemode (/learn [course|lesson], /learn skip, /learn stop).
+    aliases: [academy, lessons, tutorial]
+  bot:
+    description: Fight a practice bot - /bot [kit] [easy|medium|hard|expert], /bot leave.
+    aliases: [bots, practicebot]
+  train:
+    description: Training dummies - /train [shield|crystal|combo|mace|elytra].
+    aliases: [dummy, training]
+  alts:
+    description: Staff - accounts that joined from the same IP as a player.
+    aliases: [altcheck]
+  cosmetics:
+    description: Armor trims and shield designs for your kits.
+    aliases: [trims, shielddesign]
+  event:
+    description: Tournaments - join, watch the bracket, host one (staff).
+    aliases: [events, tournament, tourney]
+  rank:
+    description: Give players server ranks (Owner, Admin, MVP, VIP...).
+    aliases: [ranks, setrank]
+    permission: vortex.admin
+  country:
+    description: Pick the country shown next to your name.
+    aliases: [flag]
+  welcome:
+    description: The welcome screen.
+  guide:
+    description: The step-by-step guide (/guide stop to hide it).
+  ai:
+    description: "Ask the AI assistant to change the plugin - /ai <request>, /ai reset, /ai key <key> (admin)."
+    aliases: [assistant]
+  ss:
+    description: "Screenshare: freeze a player to check them on Discord - /ss <player>, /ss end <player> <result>."
+    aliases: [screenshare, freeze, admit]
+  sentinel:
+    description: "Sentinel anti-cheat alerts and player checks (staff)."
+    aliases: [ac, anticheat]
+  deco:
+    description: Place and edit 3D decorations (admin).
+    aliases: [decorations, decor]
+    permission: vortex.admin
+  wallimage:
+    description: Put a picture on a wall (admin) - /wallimage <link> [width] | remove.
+    aliases: [wallimg, picture]
+    permission: vortex.admin
+  webadmin:
+    description: A private login link to the web admin panel.
+    permission: vortex.admin
+  holo:
+    description: Holograms - floating text for the hub (welcome, Discord, tier tests, tournaments). Admin.
+    aliases: [hologram, holograms]
+    permission: vortex.admin
+  website:
+    description: The server website (leaderboards, tier list, ranks).
+    aliases: [web, site]
+  verify:
+    description: "Answer the quick human check. Staff can use /verify <player> [off]."
+  hackerpool:
+    description: Put a cheater in the hacker pool (they only play other pooled players).
+    aliases: [hp, pool]
+    permission: vortex.staff
+  report:
+    description: Report a player for cheating.
+  reports:
+    description: Open player reports (staff).
+    permission: vortex.staff
+  clientinfo:
+    description: A player's client brand, mods and click stats (staff).
+    aliases: [ci]
+    permission: vortex.staff
+  friend:
+    description: "Friends - /friend [add|accept|deny|remove|list|requests] <player>."
+    aliases: [friends]
+  follow:
+    description: Follow a player (they show up in your Following group).
+  unfollow:
+    description: Stop following a player.
+  status:
+    description: "Your status - /status <online|invisible|dnd>."
+    aliases: [dnd, appearoffline]
+  challenge:
+    description: Send a ranked Tier Challenge (big Tier Score impact).
+    aliases: [tierchallenge, tc]
+    usage: /challenge <player>
+  region:
+    description: Pick the server region closest to you.
+    aliases: [regions]
+
+  # ---- the SMP (it was the VortexSMP plugin)
+  setspawn:
+    description: Set the SMP spawn where you stand.
+    permission: vortexsmp.admin
+  oldstuff:
+    description: Take the items you had on the old SMP.
+    aliases: [olditems]
+  link:
+    description: Link your Discord account (your invites earn drills).
+  drill:
+    description: Drill pickaxes (2x2, 3x3, 4x4) earned with Discord invites.
+    aliases: [drills]
+  trade:
+    description: Trade safely with a player near you.
+  market:
+    description: Trade offers - post what you give and what you want.
+    aliases: [offers, trades]
+  smpadmin:
+    description: SMP control panel (players, positions, inventories, logout spots, web map).
+    aliases: [sa]
+    permission: vortexsmp.admin
+  craft:
+    description: Portable crafting table.
+    aliases: [wb, workbench]
+  enderchest:
+    description: Open your ender chest.
+    aliases: [ec]
+  trash:
+    description: Throw items away.
+    aliases: [disposal]
+  hat:
+    description: Wear the item in your hand.
+  nightvision:
+    description: Toggle night vision.
+    aliases: [nv]
+  near:
+    description: Players near you.
+  spawn:
+    description: The SMP spawn (in the SMP) or the lobby.
+  sethome:
+    description: Set a home.
+  home:
+    description: Teleport to a home.
+    aliases: [h]
+  delhome:
+    description: Delete a home.
+  homes:
+    description: Your homes.
+  back:
+    description: Back to where you were (or died).
+  rtp:
+    description: Random safe spot in this world.
+    aliases: [wild, randomtp]
+  tpa:
+    description: Ask to teleport to a player.
+  tpahere:
+    description: Ask a player to teleport to you.
+  tpaccept:
+    description: Accept a teleport request.
+    aliases: [tpyes]
+  tpdeny:
+    description: Deny a teleport request.
+    aliases: [tpno]
+  tpacancel:
+    description: Cancel your teleport requests.
+  tptoggle:
+    description: Turn teleport requests on or off.
+  warp:
+    description: Go to a warp.
+  warps:
+    description: The server warps.
+  setwarp:
+    description: Create a warp here (icon = item in hand).
+    permission: vortexsmp.warps.admin
+  delwarp:
+    description: Delete a warp.
+    permission: vortexsmp.warps.admin
+
+  namecolor:
+    description: Pick the colour of your name in chat.
+    aliases: [color, colour, namecolour]
+  season:
+    description: The current SMP season.
+    aliases: [seasons]
+
+  # ---- PracticePvP add-on systems ----
+  ladder:
+    description: "Your rank card (Coal to Netherite) per kit and overall, or someone else's."
+    aliases: [division, myrank, card]
+  rseason:
+    description: "Season info, the Hall of Fame (/season hof) and season end (admin)."
+    aliases: [rankedseason, hof]
+  clan:
+    description: "Clans: create, invite, chat, wars, top."
+    aliases: [clans, guild, g]
+  clanchat:
+    description: "Talk in your clan chat."
+    aliases: [cch, gc]
+  duo:
+    description: "Ranked 2v2 with a duo partner."
+    aliases: [2v2, duos]
+  partywar:
+    description: "Challenge another party to a team fight."
+    aliases: [pvp-party, pw]
+  lastmatch:
+    description: "Analysis of your last matches."
+    aliases: [analysis, lm]
+  replay:
+    description: "Watch match replays."
+    aliases: [replays, rp]
+  skilldrill:
+    description: "Training drills: CPS, aim, W-tap, pearl, crystal, mace."
+    aliases: [practice-drill, trainingdrill]
+  coach:
+    description: "Coach a friend: spectate with a live overlay and save notes into the replay."
+  arcade:
+    description: "Arcade games: sumo, boxing, spleef, OITC, KOTH, bridge, parkour race."
+    aliases: [minigames, games]
+  pass:
+    description: "The battle pass."
+    aliases: [battlepass, bp]
+  missions:
+    description: "Daily, weekly and season missions."
+    aliases: [quests, challenges]
+  achievements:
+    description: "Your achievements."
+    aliases: [ach, achievement]
+  titles:
+    description: "Pick the title shown with your name."
+    aliases: [title]
+  daily:
+    description: "The 7-day reward calendar."
+    aliases: [dailyreward, rewards]
+  vfx:
+    description: "Your win effects, death messages, pets and gadgets."
+    aliases: [effects, killeffects, winfx]
+  pet:
+    description: "Pick a hub pet."
+    aliases: [pets]
+  gadget:
+    description: "Pick a hub gadget."
+    aliases: [gadgets]
+  parkour:
+    description: "The hub parkour."
+    aliases: [pk]
+  hud:
+    description: "Turn the match HUD on or off."
+  live:
+    description: "Show a LIVE badge with your stream link."
+    aliases: [stream]
+  streamer:
+    description: "Streamer mode: hides IPs and coordinates in the chat you see."
+    aliases: [streamermode]
+  dverify:
+    description: "Link your Discord account."
+    aliases: [discordlink, verifydiscord]
+  creator:
+    description: "Creator program (list; add/remove for admins)."
+    aliases: [creators]
+  code:
+    description: "Support a creator with their code."
+    aliases: [supportcode]
+  mentor:
+    description: "Mentor a new player, or accept a mentor."
+    aliases: [mentors]
+  fspec:
+    description: "Watch a friend's match."
+    aliases: [friendspec, watchfriend]
+  cinematic:
+    description: "Cinematic orbit camera on a match."
+    aliases: [cine, streamcam]
+  evidence:
+    description: "Reports and flags with their replays (staff)."
+    aliases: [reportevidence]
+    permission: vortex.staff
+  sslog:
+    description: "Screenshare log (staff)."
+    aliases: [sshistory]
+    permission: vortex.staff
+  alerts:
+    description: "Turn Fair+ alerts on or off (staff)."
+    aliases: [fairalerts]
+    permission: vortex.staff
+  bounty:
+    description: "Bounties on FFA streaks."
+    aliases: [bounties]
+  kitvote:
+    description: "Vote for the player-made kit of the week, or submit yours."
+    aliases: [kotw]
+  motw:
+    description: "The match of the week."
+    aliases: [matchoftheweek]
+  weeklycup:
+    description: "Weekly tournament champions (host: admin)."
+    aliases: [cup, weekly]
+  crate:
+    description: "Open crates with keys."
+    aliases: [crates]
+  bid:
+    description: "The bid house: timed auctions."
+    aliases: [bids, bidhouse]
+  deal:
+    description: "Today's deal in the shard shop."
+    aliases: [dailydeal]
+  ecoevent:
+    description: "Start an Eco SMP event: airdrop, meteor, koth (admin)."
+    aliases: [ecoevents]
+    permission: vortex.admin
+  ecowipe:
+    description: "Eco season wipe with rewards (admin)."
+    permission: vortex.admin
+  plus:
+    description: "PracticePvP add-on admin: status, tests, reload, rollback, web dashboard."
+    aliases: [vortexplus, vpp]
+    permission: vortex.admin
+  legacyhall:
+    description: "The 1.8 Legacy Hall: old-school kits with 1.8 combat. Admins: /legacyhall build."
+    aliases: [legacy, oldkits]
+  realm:
+    description: "The Unstable Realm season: your story, votes, journal (admins: /realm help)."
+    aliases: [unstable, story]
+  character:
+    description: "Choose your one-of-a-kind Unstable Realm character."
+    aliases: [characters, char]
+  companion:
+    description: "Your Unstable Realm companion: summon it, then give it orders in chat."
+    aliases: [comp, sidekick]
+  ability:
+    description: "Use your character's power (or Shift + F)."
+    aliases: [power]
+  claim:
+    description: "SMP land claims: protect your base (no griefing, no explosions)."
+    aliases: [claims, base, unclaim]
+  kit:
+    description: "SMP kits: a starter kit and better kits for higher ranks."
+    aliases: [smpkit, smpkits]
+  vortex:
+    description: "Vortex Realm info - /vortex migrate moves PracticePvP data."
+    aliases: [vr, vortexrealm]
+
+permissions:
+  # ---- PracticePvP add-on permissions ----
+  vortex.pass.premium:
+    description: "Premium battle pass track."
+    default: false
+  vortex.cosmetics.all:
+    description: "Every cosmetic unlocked."
+    default: op
+  vortex.alerts:
+    description: "Fair+ anti-cheat alerts."
+    default: op
+  vortex.live:
+    description: "Can show a LIVE badge (/live)."
+    default: op
+  vortex.coach:
+    description: "Can coach anyone (not only friends)."
+    default: op
+  vortexsmp.admin:
+    description: Every admin command (/smpadmin, /setspawn, /vortexsmp, warps).
+    default: op
+    children:
+      vortexsmp.warps.admin: true
+      vortexsmp.teleport.bypass: true
+      vortexsmp.staff: true
+  vortexsmp.staff:
+    description: See staff details in /smpadmin.
+    default: op
+  vortexsmp.warps.admin:
+    description: /setwarp and /delwarp.
+    default: op
+  vortexsmp.teleport.bypass:
+    description: No teleport warmup or cooldown.
+    default: op
+  vortexsmp.homes.unlimited:
+    description: Unlimited homes.
+    default: op
+  vortex.admin:
+    description: All admin features.
+    default: op
+  vortex.staff:
+    description: PvP staff (staff chat, spectate any match). Given by the staff role picked in /pvpadmin.
+    default: op
+  vortex.staff.mod:
+    description: PvP moderator tools (end matches, send players to the lobby).
+    default: op
+  vortex.lobbyfly:
+    description: Fly in the lobby (when enabled in settings).
+    default: op
+  vortex.cosmetics:
+    description: Kill effects and projectile trails.
+    default: true
+  vortex.staff.alts:
+    description: Use /alts and get alerts about alts of banned players.
+    default: op
+  vortex.cosmetics.trims:
+    description: Armor trims on kit armor.
+    default: true
+  vortex.cosmetics.shield:
+    description: A custom shield design on kit shields.
+    default: true
+  vortex.chat.bypass:
+    description: Ignore chat cooldown, anti-spam and chat mute.
+    default: op
+  vortex.chat.filter.bypass:
+    description: Not checked by the swear filter.
+    default: false
+  vortex.famous:
+    description: Counts as Famous in request filters and the Creators tab column (or give a rank listed in social.famous-ranks).
+    default: false
+  vortex.friends.unlimited:
+    description: No friend limit.
+    default: op

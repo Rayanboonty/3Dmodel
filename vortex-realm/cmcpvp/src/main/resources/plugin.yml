@@ -1,0 +1,506 @@
+name: CMCPvP
+version: '${project.version}'
+main: net.cmcpvp.CMCPvP
+api-version: '1.21.11'
+description: CMCPVP - Cracked Minecraft PvP. Practice only - ranked and unranked duels, LT5-HT1 tiers, FFA, parties, bots, events.
+authors: [CMCPVP]
+website: https://cmcpvp.net
+softdepend: [PlaceholderAPI, Vulcan, GrimAC, LuckPerms, Vault, VexBot]
+
+commands:
+  lobby:
+    description: Go to the PvP lobby (or leave what you're doing).
+  leave:
+    description: Leave your queue, match, FFA or spectating.
+  leavepvp:
+    description: Go back to the SMP world.
+  queue:
+    description: Open the queue menu or join a queue.
+    aliases: [q]
+    usage: /queue [ranked|unranked] [kit]
+  ranked:
+    description: Open the ranked queue menu.
+  unranked:
+    description: Open the unranked queue menu.
+  duel:
+    description: Duel a player.
+    aliases: [1v1, fight]
+    usage: /duel <player> [kit]
+  party:
+    description: Party commands.
+    aliases: [p]
+  partychat:
+    description: Chat with your party.
+    aliases: [pc]
+  spectate:
+    description: Spectate a match.
+    aliases: [spec]
+  leaderboard:
+    description: Top players per kit.
+    aliases: [lb, leaderboards]
+  stats:
+    description: Your (or another player's) ranks and stats.
+    aliases: [profile, elo]
+  settings:
+    description: Your PvP settings.
+    aliases: [prefs, options]
+  kiteditor:
+    description: Arrange your kits.
+    aliases: [editkit, layout]
+  ffa:
+    description: Join a free-for-all arena.
+  pvpinv:
+    description: View a post-match inventory.
+  rematch:
+    description: Rematch your last opponent.
+  rankup:
+    description: Start your promotion series.
+  tiertest:
+    description: Wait for a Tier Tester to test you in a kit.
+    aliases: [requesttest]
+  testqueue:
+    description: Tier Testers - the tier test waitlist.
+    aliases: [tq]
+  ping:
+    description: Show ping.
+  pvpadmin:
+    description: PracticePvP admin panel.
+    aliases: [pa, practiceadmin]
+    permission: cmcpvp.admin
+  kits:
+    description: Kit management.
+    permission: cmcpvp.admin
+  staff:
+    description: PvP staff tools.
+  staffchat:
+    description: PvP staff chat.
+    aliases: [sc]
+  playtime:
+    description: Your (or another player's) play time.
+    aliases: [pt]
+  links:
+    description: Discord, store and website links.
+    aliases: [discord, store]
+  worlds:
+    description: Server selector (Practice, the SMP server...).
+    aliases: [selector, servers]
+  practice:
+    description: Travel to PvP Practice.
+  hub:
+    description: Travel to the server hub.
+  smp:
+    description: Go to the SMP server (another host of the network).
+    aliases: [survival]
+  npc:
+    description: Lobby NPCs (skins, actions, auras).
+    aliases: [npcs]
+    permission: cmcpvp.admin
+  msg:
+    description: Private message.
+    aliases: [tell, w, whisper, m, t, pm, dm]
+  reply:
+    description: Reply to your last private message.
+    aliases: [r]
+  ignore:
+    description: Ignore a player (chat, messages, requests).
+  msgtoggle:
+    description: Turn private messages on or off.
+  socialspy:
+    description: See private messages and every mode's chat (staff).
+    aliases: [spy]
+  mutechat:
+    description: Mute / unmute the chat (staff).
+  clearchat:
+    description: Clear the chat (staff).
+    aliases: [cc]
+  mute:
+    description: Mute a player (staff). /mute <player> [10m|2h|1d|perm] [reason]
+  unmute:
+    description: Unmute a player (staff).
+  mutes:
+    description: List muted players (staff).
+  chatfilter:
+    description: Open the chat moderation menu (staff).
+    aliases: [swearfilter, chatmod]
+  learn:
+    description: The Academy - cinematic lessons for every gamemode (/learn [course|lesson], /learn skip, /learn stop).
+    aliases: [academy, lessons, tutorial]
+  bot:
+    description: Fight a practice bot - /bot [kit] [easy|medium|hard|expert], /bot leave.
+    aliases: [bots, practicebot]
+  train:
+    description: Training dummies - /train [shield|crystal|combo|mace|elytra].
+    aliases: [dummy, training]
+  alts:
+    description: Staff - accounts that joined from the same IP as a player.
+    aliases: [altcheck]
+  cosmetics:
+    description: Armor trims and shield designs for your kits.
+    aliases: [trims, shielddesign]
+  event:
+    description: Tournaments - join, watch the bracket, host one (staff).
+    aliases: [events, tournament, tourney]
+  rank:
+    description: Give players server ranks (Owner, Admin, MVP, VIP...).
+    aliases: [ranks, setrank]
+    permission: cmcpvp.admin
+  country:
+    description: Pick the country shown next to your name.
+    aliases: [flag]
+  welcome:
+    description: The welcome screen.
+  tour:
+    description: A camera tour of the lobby (sneak to skip).
+  menu:
+    description: The main menu.
+    aliases: [mainmenu, m]
+  guide:
+    description: The step-by-step guide (/guide stop to hide it).
+  ss:
+    description: "Screenshare: freeze a player to check them on Discord - /ss <player>, /ss end <player> <result>."
+    aliases: [screenshare, freeze, admit]
+  sentinel:
+    description: "Sentinel anti-cheat alerts and player checks (staff)."
+    aliases: [ac, anticheat]
+  deco:
+    description: Place and edit 3D decorations (admin).
+    aliases: [decorations, decor]
+    permission: cmcpvp.admin
+  wallimage:
+    description: Put a picture on a wall (admin) - /wallimage <link> [width] | remove.
+    aliases: [wallimg, picture]
+    permission: cmcpvp.admin
+  webadmin:
+    description: A private login link to the web admin panel.
+    permission: cmcpvp.admin
+  holo:
+    description: Holograms - floating text for the hub (welcome, Discord, tier tests, tournaments). Admin.
+    aliases: [hologram, holograms]
+    permission: cmcpvp.admin
+  website:
+    description: The server website (leaderboards, tier list, ranks).
+    aliases: [web, site]
+  verify:
+    description: "Answer the quick human check. Staff can use /verify <player> [off]."
+  hackerpool:
+    description: Put a cheater in the hacker pool (they only play other pooled players).
+    aliases: [hp, pool]
+    permission: cmcpvp.staff
+  report:
+    description: Report a player for cheating.
+  reports:
+    description: Open player reports (staff).
+    permission: cmcpvp.staff
+  clientinfo:
+    description: A player's client brand, mods and click stats (staff).
+    aliases: [ci]
+    permission: cmcpvp.staff
+  friend:
+    description: "Friends - /friend [add|accept|deny|remove|list|requests] <player>."
+    aliases: [friends]
+  follow:
+    description: Follow a player (they show up in your Following group).
+  unfollow:
+    description: Stop following a player.
+  status:
+    description: "Your status - /status <online|invisible|dnd>."
+    aliases: [dnd, appearoffline]
+  challenge:
+    description: Send a ranked Tier Challenge (big Tier Score impact).
+    aliases: [tierchallenge, tc]
+    usage: /challenge <player>
+  region:
+    description: Pick the server region closest to you.
+    aliases: [regions]
+
+  # ---- the SMP (it was the CmcSmp plugin)
+  setspawn:
+    description: Set the SMP spawn where you stand.
+    permission: cmcsmp.admin
+  oldstuff:
+    description: Take the items you had on the old SMP.
+    aliases: [olditems]
+  link:
+    description: Link your Discord account (your invites earn drills).
+  drill:
+    description: Drill pickaxes (2x2, 3x3, 4x4) earned with Discord invites.
+    aliases: [drills]
+  trade:
+    description: Trade safely with a player near you.
+  market:
+    description: Trade offers - post what you give and what you want.
+    aliases: [offers, trades]
+  smpadmin:
+    description: SMP control panel (players, positions, inventories, logout spots, web map).
+    aliases: [sa]
+    permission: cmcsmp.admin
+  craft:
+    description: Portable crafting table.
+    aliases: [wb, workbench]
+  enderchest:
+    description: Open your ender chest.
+    aliases: [ec]
+  trash:
+    description: Throw items away.
+    aliases: [disposal]
+  hat:
+    description: Wear the item in your hand.
+  nightvision:
+    description: Toggle night vision.
+    aliases: [nv]
+  near:
+    description: Players near you.
+  spawn:
+    description: The SMP spawn (in the SMP) or the lobby.
+  sethome:
+    description: Set a home.
+  home:
+    description: Teleport to a home.
+    aliases: [h]
+  delhome:
+    description: Delete a home.
+  homes:
+    description: Your homes.
+  back:
+    description: Back to where you were (or died).
+  rtp:
+    description: Random safe spot in this world.
+    aliases: [wild, randomtp]
+  tpa:
+    description: Ask to teleport to a player.
+  tpahere:
+    description: Ask a player to teleport to you.
+  tpaccept:
+    description: Accept a teleport request.
+    aliases: [tpyes]
+  tpdeny:
+    description: Deny a teleport request.
+    aliases: [tpno]
+  tpacancel:
+    description: Cancel your teleport requests.
+  tptoggle:
+    description: Turn teleport requests on or off.
+  warp:
+    description: Go to a warp.
+  warps:
+    description: The server warps.
+  setwarp:
+    description: Create a warp here (icon = item in hand).
+    permission: cmcsmp.warps.admin
+  delwarp:
+    description: Delete a warp.
+    permission: cmcsmp.warps.admin
+
+  namecolor:
+    description: Pick the colour of your name in chat.
+    aliases: [color, colour, namecolour]
+  season:
+    description: The current SMP season.
+    aliases: [seasons]
+
+  # ---- PracticePvP add-on systems ----
+  ladder:
+    description: "Your rank card (Coal to Netherite) per kit and overall, or someone else's."
+    aliases: [division, myrank, card]
+  rseason:
+    description: "Season info, the Hall of Fame (/season hof) and season end (admin)."
+    aliases: [rankedseason, hof]
+  clan:
+    description: "Clans: create, invite, chat, wars, top."
+    aliases: [clans, guild, g]
+  clanchat:
+    description: "Talk in your clan chat."
+    aliases: [cch, gc]
+  duo:
+    description: "Ranked 2v2 with a duo partner."
+    aliases: [2v2, duos]
+  partywar:
+    description: "Challenge another party to a team fight."
+    aliases: [pvp-party, pw]
+  lastmatch:
+    description: "Analysis of your last matches."
+    aliases: [analysis, lm]
+  replay:
+    description: "Watch match replays."
+    aliases: [replays, rp]
+  skilldrill:
+    description: "Training drills: CPS, aim, W-tap, pearl, crystal, mace."
+    aliases: [practice-drill, trainingdrill]
+  coach:
+    description: "Coach a friend: spectate with a live overlay and save notes into the replay."
+  arcade:
+    description: "Arcade games: sumo, boxing, spleef, OITC, KOTH, bridge, parkour race."
+    aliases: [minigames, games]
+  pass:
+    description: "The battle pass."
+    aliases: [battlepass, bp]
+  missions:
+    description: "Daily, weekly and season missions."
+    aliases: [quests, challenges]
+  achievements:
+    description: "Your achievements."
+    aliases: [ach, achievement]
+  titles:
+    description: "Pick the title shown with your name."
+    aliases: [title]
+  daily:
+    description: "The 7-day reward calendar."
+    aliases: [dailyreward, rewards]
+  vfx:
+    description: "Your win effects, death messages and gadgets."
+    aliases: [effects, killeffects, winfx]
+  gadget:
+    description: "Pick a hub gadget."
+    aliases: [gadgets]
+  parkour:
+    description: "The hub parkour."
+    aliases: [pk]
+  hud:
+    description: "Turn the match HUD on or off."
+  live:
+    description: "Show a LIVE badge with your stream link."
+    aliases: [stream]
+  streamer:
+    description: "Streamer mode: hides IPs and coordinates in the chat you see."
+    aliases: [streamermode]
+  dverify:
+    description: "Link your Discord account."
+    aliases: [discordlink, verifydiscord]
+  creator:
+    description: "Creator program (list; add/remove for admins)."
+    aliases: [creators]
+  code:
+    description: "Support a creator with their code."
+    aliases: [supportcode]
+  mentor:
+    description: "Mentor a new player, or accept a mentor."
+    aliases: [mentors]
+  fspec:
+    description: "Watch a friend's match."
+    aliases: [friendspec, watchfriend]
+  cinematic:
+    description: "Cinematic orbit camera on a match."
+    aliases: [cine, streamcam]
+  evidence:
+    description: "Reports and flags with their replays (staff)."
+    aliases: [reportevidence]
+    permission: cmcpvp.staff
+  sslog:
+    description: "Screenshare log (staff)."
+    aliases: [sshistory]
+    permission: cmcpvp.staff
+  alerts:
+    description: "Turn Fair+ alerts on or off (staff)."
+    aliases: [fairalerts]
+    permission: cmcpvp.staff
+  bounty:
+    description: "Bounties on FFA streaks."
+    aliases: [bounties]
+  kitvote:
+    description: "Vote for the player-made kit of the week, or submit yours."
+    aliases: [kotw]
+  motw:
+    description: "The match of the week."
+    aliases: [matchoftheweek]
+  weeklycup:
+    description: "Weekly tournament champions (host: admin)."
+    aliases: [cup, weekly]
+  crate:
+    description: "Open crates with keys."
+    aliases: [crates]
+  bid:
+    description: "The bid house: timed auctions."
+    aliases: [bids, bidhouse]
+  deal:
+    description: "Today's deal in the shard shop."
+    aliases: [dailydeal]
+  ecoevent:
+    description: "Start an Eco SMP event: airdrop, meteor, koth (admin)."
+    aliases: [ecoevents]
+    permission: cmcpvp.admin
+  ecowipe:
+    description: "Eco season wipe with rewards (admin)."
+    permission: cmcpvp.admin
+  plus:
+    description: "PracticePvP add-on admin: status, tests, reload, rollback, web dashboard."
+    aliases: [cmcplus, vpp]
+    permission: cmcpvp.admin
+  claim:
+    description: "SMP land claims: protect your base (no griefing, no explosions)."
+    aliases: [claims, base, unclaim]
+  kit:
+    description: "SMP kits: a starter kit and better kits for higher ranks."
+    aliases: [smpkit, smpkits]
+
+permissions:
+  # ---- PracticePvP add-on permissions ----
+  cmcpvp.pass.premium:
+    description: "Premium battle pass track."
+    default: false
+  cmcpvp.cosmetics.all:
+    description: "Every cosmetic unlocked."
+    default: op
+  cmcpvp.alerts:
+    description: "Fair+ anti-cheat alerts."
+    default: op
+  cmcpvp.live:
+    description: "Can show a LIVE badge (/live)."
+    default: op
+  cmcpvp.coach:
+    description: "Can coach anyone (not only friends)."
+    default: op
+  cmcsmp.admin:
+    description: Every admin command (/smpadmin, /setspawn, /cmcsmp, warps).
+    default: op
+    children:
+      cmcsmp.warps.admin: true
+      cmcsmp.teleport.bypass: true
+      cmcsmp.staff: true
+  cmcsmp.staff:
+    description: See staff details in /smpadmin.
+    default: op
+  cmcsmp.warps.admin:
+    description: /setwarp and /delwarp.
+    default: op
+  cmcsmp.teleport.bypass:
+    description: No teleport warmup or cooldown.
+    default: op
+  cmcsmp.homes.unlimited:
+    description: Unlimited homes.
+    default: op
+  cmcpvp.admin:
+    description: All admin features.
+    default: op
+  cmcpvp.staff:
+    description: PvP staff (staff chat, spectate any match). Given by the staff role picked in /pvpadmin.
+    default: op
+  cmcpvp.staff.mod:
+    description: PvP moderator tools (end matches, send players to the lobby).
+    default: op
+  cmcpvp.lobbyfly:
+    description: Fly in the lobby (when enabled in settings).
+    default: op
+  cmcpvp.cosmetics:
+    description: Kill effects and projectile trails.
+    default: true
+  cmcpvp.staff.alts:
+    description: Use /alts and get alerts about alts of banned players.
+    default: op
+  cmcpvp.cosmetics.trims:
+    description: Armor trims on kit armor.
+    default: true
+  cmcpvp.cosmetics.shield:
+    description: A custom shield design on kit shields.
+    default: true
+  cmcpvp.chat.bypass:
+    description: Ignore chat cooldown, anti-spam and chat mute.
+    default: op
+  cmcpvp.chat.filter.bypass:
+    description: Not checked by the swear filter.
+    default: false
+  cmcpvp.famous:
+    description: Counts as Famous in request filters and the Creators tab column (or give a rank listed in social.famous-ranks).
+    default: false
+  cmcpvp.friends.unlimited:
+    description: No friend limit.
+    default: op

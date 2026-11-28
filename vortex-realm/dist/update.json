@@ -1,0 +1,26 @@
+{
+  "CMCPvP": {
+    "version": "1.0.18",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/CMCPvP-1.0.18.jar",
+    "sha256": "d4161e9870adc7e47be8038a313d8d7d7bb79586cb98e54eaaa371606abd91e7",
+    "notes": "CMCPVP 1.0.18: rank-up ring removed, /menu is a command only (no hotbar item), pets, shoulder pets and wings removed (PvP only), admin editors in /pvpadmin -> Layout & Placement (main menu buttons, lobby hotbar, scoreboard lines, holograms, leaderboards, NPCs), kit group and order editing (featured kits show first), search every setting and edit list settings in game, flyover and lobby tour fixes"
+  },
+  "PracticePvP": {
+    "version": "2.14.10",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/PracticePvP-2.14.10.jar",
+    "sha256": "685eac983694a717d07140fbe29a0f9a9aaff3beff3d3653e7d010747bc6ea09",
+    "notes": "Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there"
+  },
+  "VortexRealm": {
+    "version": "3.14.10",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexRealm-3.14.10.jar",
+    "sha256": "b6766af0ab1d0a25e79ad0b4df5bacf255156eea559811650f434c4922f5183f",
+    "notes": "Fix: the SMP nether and end count as part of the SMP again, so /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims and the SMP rules all work there"
+  },
+  "VortexSMP": {
+    "version": "1.6.0",
+    "url": "https://raw.githubusercontent.com/Rayanboonty/3Dmodel/refs/heads/claude/vortex-realm-pvp-plugin-2x1tq1/vortex-realm/dist/VortexSMP-1.6.0.jar",
+    "sha256": "1b66747e5c2088dfb25f6028bc37b639e7e690569256543f1a5bd15d82ea3425",
+    "notes": "VortexSMP is now part of VortexRealm - remove this plugin"
+  }
+}

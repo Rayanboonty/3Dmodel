@@ -1,0 +1,16 @@
+  # ---- VortexPvP add-on permissions ----
+  vortexpvp.pass.premium:
+    description: "Premium battle pass track."
+    default: false
+  vortexpvp.cosmetics.all:
+    description: "Every cosmetic unlocked."
+    default: op
+  vortexpvp.alerts:
+    description: "Fair+ anti-cheat alerts."
+    default: op
+  vortexpvp.live:
+    description: "Can show a LIVE badge (/live)."
+    default: op
+  vortexpvp.coach:
+    description: "Can coach anyone (not only friends)."
+    default: op

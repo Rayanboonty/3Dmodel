@@ -1,0 +1,1466 @@
+# Vortex Realm – MCPVP-style practice plugins
+
+This folder has **two plugins with full source code** for a Paper **1.21.11** server (Java 21):
+
+| Jar | What it is | Use it when |
+|---|---|---|
+| `dist/PracticePvP-1.8.0.jar` | Your existing PracticePvP plugin, upgraded. Everything it already did is still there, plus all the new MCPVP features below. Same plugin name and the same `plugins/PracticePvP` data folder, so arenas, kits, ranks, the database and settings keep working. | You want to update your live server and keep everything as it is. |
+| `dist/VortexRealm-2.7.0.jar` | The new **VortexRealm** plugin: the same engine and features under its own name and package (`net.vortexrealm`), `plugins/VortexRealm` data folder, `vortex.*` permissions, `vr_*` database tables and `%vortex_…%` placeholders. On its first start it copies your PracticePvP data over automatically. | You want a clean Vortex Realm identity. |
+
+> Install **one** of them, not both. VortexRealm switches itself off if PracticePvP is also installed.
+
+**Also here:** `dist/VortexPvP-1.0.2.jar` (frozen, no longer updated) is a separate **test build** with about 50 new systems on top of the same engine. These include:
+- rank ladder, seasons, clans and ranked 2v2;
+- replays, drills and arcade games;
+- battle pass, missions and achievements;
+- Discord, Eco SMP extras and more.
+
+It is meant for a test server. See **[README-VortexPvP.md](README-VortexPvP.md)**.
+
+## Install / upgrade
+
+1. Stop the server and back up `plugins/PracticePvP`.
+2. **Upgrade in place:** replace the old `PracticePvP-*.jar` with `PracticePvP-1.8.0.jar` (or the old `VortexRealm-*.jar` with `VortexRealm-2.7.0.jar`). That's all: everything is carried over by itself (see below).
+   **Or switch to VortexRealm:** remove the PracticePvP jar and add `VortexRealm-2.7.0.jar`. On the first start, configs, arenas, kits, ranks and the SQLite database are copied from `plugins/PracticePvP` to `plugins/VortexRealm`. Tables are renamed `pp_*` → `vr_*` and permission nodes in the copied yml files `practice.*` → `vortex.*`. Your old folder is left untouched. With MySQL, run `/vortex migrate` once, then restart.
+3. Start the server. The new arena pack (vanilla maps, deep crystal maps and the new designed arenas) generates in the background, one map after another; players can keep playing meanwhile. Your old generated arenas are converted afterwards (bigger, no walls, vanilla terrain where it applies). Hand-edited arenas are left alone.
+4. Build the new **Royal Castle** hub if you want it:
+   - `/pvpadmin` → **Hub Setup**, which builds it in the hub world;
+   - or stand where it should go: `/pvpadmin` → **Builds** → *Royal Castle* → **Preview (3D)**, then **Build here**.
+
+   Nothing is rebuilt automatically, so your current hub stays until you choose.
+5. Optional: put a resource pack-capable client on the server to see flags and icons; set `online-mode=true` so tab heads show skins.
+
+The jars bundle everything they need. PlaceholderAPI, LuckPerms, GrimAC, Vulcan and **Vault** are optional (soft dependencies).
+
+## New in 2.6.1 / 3.6.1: SMP on a free host
+Free hosts (Tick Hosting, Aternos, Minehut free...) put an empty server to sleep and some need a manual renewal; their
+rules don't allow bots that keep a server online, so the plugins don't include one (it couldn't renew it either).
+Instead the Practice lobby handles a sleeping SMP well - `/pvpadmin` → Server Selector → SMP:
+- **Sleep Note**: shown while the SMP is offline, e.g. "Ask in #smp-start on Discord" or a link (clickable). The
+  selector and NPC then show **● Asleep** and players get the note instead of a failed connection.
+- **Wake On Join**: for hosts that start a sleeping server when someone connects - players are sent anyway, with a
+  "waking it up" message.
+For a real 24/7 SMP: Tick Hosting's paid plan, or a second small server at Bao Host.
+
+## New in 2.6.0 / 3.6.0: winter lobby
+`/pvpadmin winter on` snows the whole lobby in: snow on the ground, roofs, walls and trees, snowy grass, frozen water,
+plants under the snow, a few snowmen and snow falling around the players. `/pvpadmin winter off` thaws it - every
+block it changed is written down first (`winter-blocks.txt.gz`), so the lobby comes back exactly as it was.
+`/pvpadmin winter auto` makes it winter by itself from 1 December to 15 January. Settings → Lobby: **Winter Lobby**
+(`lobby.season`: OFF / WINTER / AUTO), Winter Radius, Falling Snow. Works with any lobby; a lobby upgrade
+(`/pvpadmin hub upgrade`) snows the new lobby in again when winter is on.
+
+## New in 2.5.0 / 3.5.0: gardens and the old Bot Practice hall
+- The Town Square has far fewer houses: none next to the spawn, about six near the walls, plus the tavern, guild
+  hall, smithy, chapel and windmill. The other plots are **small fenced gardens** with wheat, carrots, potatoes,
+  beetroot, pumpkins and melons, water channels, a scarecrow, a beehive, a composter or tool shed, flowers and a bench.
+- The **Bot Practice hall is back to its first look**: the round rock hall with one biome wall per bot map (badlands,
+  desert, plains, snow, cherry, mushroom, crimson, end...) and the search, training and Academy NPCs in the middle,
+  now inside the Town Square (west of the plaza, BOTS board over the entrance). The Bot Arena menu stays the same.
+- Servers on 3.4.0 download this update by themselves. Apply the new lobby with `/pvpadmin hub upgrade`.
+
+## New in 2.4.0 / 3.4.0: castle-town lobby, auto-updates, nearest-region servers
+
+### The Town Square is now a castle town
+- A curtain wall around the whole town with twelve towers (round towers with tile cones, square towers with
+  hipped roofs), a walkable wall-walk, a **gatehouse** with twin drum towers, portcullis, banners and a drawbridge over
+  a dry ditch, and two side gates.
+- **The keep** at the end of the market street: a grand stair, a buttressed great hall with tall windows, rose windows
+  and a slate roof, four corner turrets and a tall donjon. Inside: throne dais, long tables, chandeliers, hearth. The
+  bailey has a well, a garden and a stable; a **castle park** (lawns, hedges, gravel walk, pond, benches) replaces the
+  houses that stood next to it.
+- A two-tier **fountain** in a compass rose in the plaza, a tavern and a guild hall on the market street, a smithy, a
+  chapel with a bell tower and churchyard, market stalls, a windmill, and three rings of timber-framed houses (jetties,
+  shutters, flower boxes, chimneys, dormers), bracket street lamps, carts and crates.
+- The KITS/SHOP stands, the NPC pedestals, the spawn, the bots yard and the event hill stay exactly where they were.
+
+**Upgrade your lobby in one click:** `/pvpadmin` → Builds → Town Square → **⬆ Upgrade lobby** (or `/pvpadmin hub upgrade`).
+It finds your lobby (also ones built with older versions), saves a full backup, rebuilds it in the same place and puts
+the NPCs and the bots yard back - no duplicates. Anything you built by hand inside the lobby area is replaced.
+`/pvpadmin hub build <style> [radius]` builds a lobby where you stand.
+
+### Auto-updates (no more uploading jars)
+Every server checks for a new version every 30 minutes (`updates.*` in config.yml, Settings → Network):
+1. It reads `update.json` from GitHub (`updates.sources`; add your own website after it, comma separated).
+2. It downloads the new jar, **checks its SHA-256**, and puts it in `plugins/update/` - the server swaps it in on the
+   next start.
+3. It restarts at a good moment (`updates.restart`): **as soon as nobody is online, or at the restart hour** (05:00 by
+   default) with a 5-minute countdown, after running matches finish. A **full backup** is saved first.
+4. On start the new version carries everything over (ranks, stats, kits, NPCs, settings) and prints the usual report.
+
+**Turn on auto-restart in your host panel** (Bao Host: Startup / "Auto restart"), so the server comes back after the
+update restart. Commands: `/pvpadmin update` (status), `check`, `now`, `on`, `off`.
+
+### Nearest region: one network, servers in the USA, Europe and Asia
+Run the same plugin on one server per region and list them in `regions.yml`:
+```yaml
+current: na          # this server's region
+auto: AUTO           # OFF, SUGGEST (clickable message) or AUTO (moved on join)
+ip-lookup: true      # continent from the player's IP (ipwho.is) when they haven't picked a country
+regions:
+  na: {name: North America, location: "Miami, Florida", host: '', port: 25565, flag: us, continents: [NA, SA]}
+  eu: {name: Europe, location: Frankfurt, host: eu.yourdomain.net, port: 25565, flag: de, continents: [EU, AF]}
+  as: {name: Asia, location: Singapore, host: as.yourdomain.net, port: 25565, flag: sg, continents: [AS, OC]}
+sync:
+  role: primary      # on the main server; 'replica' on the others
+  primary-url: ''    # on replicas: the main server's website, e.g. http://us.yourdomain.net:8123
+  key: ...           # made for you on the primary - copy the same key to every replica
+```
+- A player joining a region that isn't nearest to them is moved (AUTO) or told (SUGGEST). A region picked in
+  `/region` always wins. Every server needs `accepts-transfers=true` in server.properties.
+- **Same server everywhere:** replicas copy server ranks, kits and countries from the primary every minute, and ranks
+  or countries given on a replica are sent to the primary. Point every region at **one MySQL database**
+  (`database.type: MYSQL`) so stats, ELO and match history are shared too.
+- **Best for players:** use **GeoDNS** so `play.yourdomain.net` already answers with the nearest region's IP (Cloudflare
+  Load Balancing with geo steering, or AWS Route 53 geolocation records). Then players connect straight to their
+  nearest server and the plugin's auto region only fixes the rest.
+
+## New in 2.3.0 / 3.3.0: arena cleanup, faster match found, votes, kit editor, AI full access
+- Only vanilla, show-arena and colosseum maps are kept (the open and small themed duel maps are removed on start).
+  Vanilla maps 200, mace maps big (320), sword kits back to the classic size.
+- Match found, map vote and countdown are faster; the map vote text is centred and wraps by real width.
+- New pre-match votes: **play first to N rounds**, **no natural regen**, **knockback N%**; `match.max-votes`.
+- Kit editor: knockback %, hit delay, pearl / wind charge cooldowns, which maps a kit plays on, the rounds vote and a
+  votes editor. **Copy A Kit** (or `/kits copy <from> <id> [name]`) to make your own kits.
+- AI assistant: operators' AI can run any server command, edit every part of a kit, manage arenas, read the log and
+  edit any plugin's config. `/ai mode online|local|both`, `/ai setup local` (free local model with Ollama).
+
+## New in 2.2.0 / 3.2.0: bot training overhaul, new Bot Arena screen, bots in the Town Square
+
+- **Flat maps for bots.** Every bot fight and training now happens on the new flat **Training Grounds** map, never on the biome maps:
+  - a 72-block grid floor so distances are easy to read;
+  - distance marks every 4 blocks;
+  - an obsidian pad where the dummies stand, so crystals and anchors go right on it;
+  - room above for elytra and mid-air training.
+  - The map is made automatically (4 copies), even with `auto-generate-arenas: false`.
+  - Set `bots.flat-maps: false` to use the kit maps instead.
+- **Training dummies really stand still.** Hits, crystals and wind charges don't move them. On the test server they moved 0.00 blocks after 6 hits each.
+- **D-tap fixed.** The dummy has no hit cooldown after a pop and its new totem is back in one tick, so the second crystal really pops. Two crystals 0.5 s apart counted as a d-tap (fastest 485 ms). The d-tap training sword has Knockback I, and you get extra obsidian and crystals.
+- **Stun slam fixed.** The axe and the mace are put in your hotbar for the stun slam trainings.
+- **8 new training forms** (19 in total):
+  - Mid-Air Stun Slam: the dummy hovers 7 blocks up with a shield;
+  - Elytra Shield Flyer: a gliding elytra dummy with a shield;
+  - Spear Stun Slam: break the shield with a spear lunge, then slam;
+  - Spear + Mace Combo;
+  - Lunge Target: counts lunges and their distance;
+  - W-Tap Target: counts sprint-hit streaks;
+  - Crit Dummy;
+  - Archery Target: 22 blocks away, counts the longest shot.
+- **New Bot Arena screen**, inspired by the big practice servers:
+  - a header with your record (W/L, Expert wins, best streak) and the **featured training of the day**;
+  - tabs **⚔ Fight · 🗡 Sword · 🪂 Air & Elytra · 🔱 Spear · 💎 Crystal · 📜 Records**;
+  - **▶ Quick Play** (your last bot), Search and Academy;
+  - a kit grid with what each bot does;
+  - difficulty cards with your W/L per difficulty, plus "★ Surprise me";
+  - training cards with your best result;
+  - Records shows your best and the server's top 3 for every training (saved in `bot-records.yml`). A new personal best is announced.
+- **Bots in the Town Square hub.** The Town Square hub (the one with the giant chestplate and trophy) now has a **Training Grounds wing**:
+  - a walled yard with a "BOTS" gate and a target sign;
+  - six bot-map alcoves with their mobs;
+  - three NPCs: find a gamemode, training, academy;
+  - a dummy yard with hay dummies and targets.
+  - The mobs and NPCs are placed when the hub is built (`bots.hall-in-hub`).
+  - `/pvpadmin bothall` still builds the separate hall where you stand.
+- **On/off switches** in `/pvpadmin` → Settings → Practice Bots & Training: `bots.enabled` (fights), `bots.training` (dummies), `bots.flat-maps`, `bots.hall-in-hub`.
+- **Bug fix:** on maps with an invisible roof, bots, dummies and Academy lessons could be placed on top of the roof. They now always stand on the real floor.
+- With auto-generate off, the start no longer checks every arena's blocks at once, which loaded many chunks and caused a lag spike on small servers.
+
+## New in 2.1.0 / 3.1.0: compact detailed duel maps, a new Mole PvP map
+
+**12 new duel arenas, built to be played, not just looked at.** These are original designs in the style of the big practice servers.
+
+**Sword maps (72 blocks):** Temple Ruins, Sakura Garden, Nether Bastion, Frozen Harbor, Desert Bazaar, Castle Courtyard, Mushroom Hollow, End Citadel.
+- The players spawn **28 blocks apart** on raised pads under arches with banners and a hanging lantern.
+- The floor is flat and clear of obstacles, with real detail:
+  - a mix of 3-5 blocks;
+  - a medallion in the centre and a walk to each spawn;
+  - a border band;
+  - flower beds in the corners.
+- Around the floor:
+  - a trimmed low wall with posts and lights, and corner pillars;
+  - plants and props along the wall;
+  - a water, lava or ice channel.
+- Scenery outside an invisible barrier keeps the view full: trees, cliffs, towers, temples, torii gates, giant mushrooms, end islands, a lighthouse.
+
+**UHC maps (90 blocks):** Meadow Hills, Red Canyon, Taiga Valley, Overgrown Ruins.
+- Low hills, trees, rocks and ruined walls to build around.
+- Diggable ground 22 blocks deep, and the players spawn 44 blocks apart.
+
+**Which kits play where:**
+- sword, pot, NoDebuff, combo, gapple, shield and NethPot play only on the new sword maps;
+- UHC and Build UHC play only on the UHC maps;
+- the other kits (axe, bow, SMP...) get the new maps on top of their old ones;
+- the bigger designed maps are now 110 blocks instead of 192 (only if you never changed `arena.duel-size`).
+
+**Sizes and generation:**
+- The sizes are in `arena.duel-compact-size` (72) and `arena.duel-build-size` (90).
+- The new maps are made automatically when the first player joins, **even with `general.auto-generate-arenas: false`**, because they are small (about 10-20 s each).
+
+**Mole PvP: "Mole Hollow".** The old 401-block mine with a surface camp is gone.
+- The map is solid rock, 81×81 and 46 deep, with **no surface**: real stone, tuff and deepslate layers, ores, gravel and granite pockets, and a few small dripstone caves.
+- Each player starts in a small furnished base (bed, chest, furnace, crafting table, lanterns, banner) sealed in the rock, **26 blocks from the enemy**. Dig to find them.
+- A bedrock roof and floor keep the fight underground, and the sonar pings every 20 s.
+- FFA has 12 bases in a 101-block map.
+
+**Old maps are refreshed.** Every generated arena is rebuilt in the background with the new settings, one at a time; hand-edited ones are left alone. The old Mole map is rebuilt into Mole Hollow.
+
+## New in 2.0.0 / 3.0.0: the SMP is its own server
+
+- The Practice plugin keeps the hub, duels, FFA and bots. Everything SMP moved to the new **VortexSMP** plugin (see `README-VortexSMP.md`): economy, homes, tpa, claims, combat tag and the separate inventories.
+- **Server selector `SERVER` entries.** Players are sent to another host with the built-in transfer (set `accepts-transfers=true` on both servers) or through Velocity/BungeeCord (`network.mode: PROXY`).
+  - Set the SMP address in `/pvpadmin` → Server Selector → SURVIVAL SMP → Host & Port. Use Test Connection to check it.
+  - `/smp`, the selector and SMP NPCs then send players there.
+  - Live player counts come from a server-list ping.
+- **Safe upgrade:**
+  - worlds with an old SMP mode are left alone;
+  - a player still carrying old SMP items gets them saved to `inventories/groups/<uuid>/` before the hub gives its items;
+  - VortexSMP can import those files.
+
+## New in 1.8.0 / 2.7.0: practice bots for every mode
+
+Practice bots and training dummies are switched on. `/bot` opens the menu, `/bot <kit> <easy|medium|hard|expert>` starts a fight, `/train` opens the dummies.
+
+**The bot plays each kit with the kit's own items:**
+- **Crystal / End Game:** obsidian and crystals, the **d-tap** (a second crystal straight after your totem pops, at Hard and Expert), and anchors charged with glowstone.
+- **Mace / Spear Mace:** wind-charge launches into a mace smash, the **stun slam** (axe breaks your shield, the mace lands in the same fall), and the elytra dive when the kit has an elytra.
+- **Spear:** the spear charge from a few blocks away. **Trident:** trident throws from range.
+- **UHC / Build UHC:** fishing rod pulls, lava at your feet (picked up again), water when it is on fire.
+- **SMP kits / Late Game:** cobwebs at your feet. **Cart:** TNT minecarts on a rail next to you. **Creeper:** creeper eggs.
+- **Pot kits:** only real healing potions are thrown; strength, speed and fire-resistance potions are drunk at the start.
+- **Bow:** keeps its distance and shoots. **Combo:** hits at the kit's fast hit delay.
+- **Everywhere:** crits, strafing, w-taps, shield blocking, axe shield-breaks, golden apples, pearls (in from far away, out when low), a totem swapped into the off hand when low.
+- The bot waits during the 3-2-1 countdown. Mole PvP has no bot yet (bots can't dig).
+
+**Training dummies (`/train <name>`), each with live stats over its head:**
+- `dtap`: counts d-taps and the fastest time between two pops.
+- `anchor`: anchor damage (you get anchors and glowstone).
+- `stunslam`: counts a shield break followed by a mace smash in the same fall.
+- `mace`: best smash and fall height. `elytra`: a flying target.
+- `pearl`: a running target; counts pearls landed within 3 blocks.
+- `pot`: chips your health so you practise healing.
+- `spear`: best spear hit. `combo`: combos and sprint hits. `shield`, `crystal`: as before.
+
+**Also:** the bot menu lists exactly what the bot does with each kit, the Bot Practice hall is open, and the Academy has a new d-tap lesson.
+
+## New in 1.7.4 / 2.6.4: bring an old plugin folder back - everything, in one go
+
+Switching plugins (PracticePvP → VortexRealm, or to VortexPvP) or updating now keeps everything as it was, and an old plugin folder can be brought back at any time.
+
+**Import an old plugin folder:**
+1. Put the old folder in `plugins/VortexRealm/import/`, or a `.zip` / `.tar.gz` of it. A hosting panel archive works as it is. If the old folder is still in `plugins/`, `/pvpadmin import from PracticePvP` does this for you.
+2. Restart. A full backup of the current data is saved first (`before-import`). Then:
+   - **Server setup comes back as it was:** worlds and hub, PvP lobby and spawns, NPCs, holograms, decorations, image walls, arenas, kits, ranks and rank kits, menus, tab, scoreboards, the shop and every setting.
+   - **Player data is merged, and nothing current is overwritten:**
+     - Missing homes, claims (renumbered if needed), last locations, players, stats, kit layouts, friends, cosmetics and matches are added.
+     - A player whose stats or money were reset by the switch gets the old values **plus** what they earned since.
+     - Lost ender chests and inventories are handed back the next time the player is in that world.
+   - **The database is read with its newest changes.** The `data.db-wal` file next to `data.db` holds them, and switching plugins used to leave it behind.
+3. What it did is in `import/LAST-IMPORT.txt` and in `/pvpadmin import`. The imported files stay in `import/done-…`.
+
+**Also:**
+- Entities, blocks and items the old plugin tagged keep working after a switch: bot hall, NPCs, image walls, spawner stacks, hub items and shop spawners.
+- Backups now always include the database's newest changes.
+- Switching from PracticePvP copies `data.db-wal` too.
+
+## New in 1.7.3 / 2.6.3: ender chests kept when switching plugins, and a restore tool
+
+**The bug.** Switching from PracticePvP to VortexRealm could empty players' SMP ender chests and inventories.
+- Each plugin marks which saved inventory a player carries, under its own name. VortexRealm didn't recognise PracticePvP's marker.
+- So a player who joined in the hub had their saved survival inventory and ender chest overwritten by the hub's (empty) one.
+- The backup didn't help either. PracticePvP's backups sit in `plugins/VortexRealm-Vault` and VortexRealm only looked in its own folder. It also took no backup on its very first start.
+
+**Fixed:**
+- The new plugin takes the old plugin's markers over, so nothing gets mixed up. This works for PracticePvP ↔ VortexRealm ↔ VortexPvP.
+- A saved inventory is never written over by items of unknown origin. Those go to a separate `…-unsorted-…yml` file instead.
+- Every save keeps the previous copy as `<group>.prev.yml`.
+- The first start on existing data always takes a `first-start` backup.
+
+**Getting lost items back (`/smpadmin restore`, also works from the console):**
+- `/smpadmin restore all-from-old`: shows every player whose ender chest was lost in the switch. The items come from the untouched `plugins/PracticePvP` folder.
+- `/smpadmin restore all-from-old confirm`: gives them back. They are added to the free slots, and nothing a player has now is replaced. Online players get them at once; the others when they next enter that world.
+- `/smpadmin restore <player>`: lists everything saved for one player. Sources are the old plugin folder, previous saves, and the backups of every plugin's vault, each with item counts.
+  - `/smpadmin restore <player> <#> preview` shows the contents.
+  - `/smpadmin restore <player> <#> enderchest|inventory|all` restores them. What the player had before is saved first, as `…-before-restore-…yml`.
+
+## New in 1.7.2 / 2.6.2
+
+- **Country flags as images in the tab list**: players with the server pack now see the real flag image next to every name in the normal tab list too (it showed the letters, e.g. "MA", unless the pack was set to required). Players without the pack still see the letters. The stats hologram shows the image as well.
+- **/rtp in the End** lands on a random outer End island (1100+ blocks out) away from portals and gateways, instead of the exit portal that sent players back to the hub. If no island is found it uses the obsidian entry platform.
+- **FFA first**: every FFA arena (also the vanilla-terrain ones: Crystal, BuildUHC, SpearMace) is made before the duel maps.
+
+## New in 1.7.1 / 2.6.1
+
+**Arenas switch on, FFA never stuck at "Generating..."**
+- A duel map switches on as soon as the map itself is built; its copies join one by one as each is ready (before, the whole map stayed off until every copy was done).
+- The arena pack makes the quick ones first: FFA arenas on designed maps (seconds each), then designed duel maps, then the vanilla-terrain maps (those take minutes each, because Minecraft has to generate the terrain).
+- The generated terrain is kept for the whole pack instead of being deleted and generated again for every vanilla map, which made the pack many times slower.
+- An FFA arena always leaves "Generating..." - if building it fails (even before it starts), it is cleaned up and made again on the next start instead of staying stuck and off.
+- If a map takes more than 25 minutes, the pack logs what it is doing and moves on to the next one (that map is made again on the next start).
+- The console shows each map of the pack as it starts and finishes; the FFA and duel lists show "Generating now", "Waiting its turn in the arena pack 3/12" or "Off".
+
+## New in 1.7.0 / 2.6.0
+
+**Lightweight**
+- The jar went from 33 MB to 3 MB: the AI no longer bundles a provider SDK (Kotlin, Jackson, OkHttp...), it talks to the APIs itself.
+- Start-up about twice as fast: arena snapshots load in parallel in the background (start-up checks wait for them).
+- The animated tab header renders a quarter as often by default (`tab.animation-ticks`, 4) and measures its width at most every 2 seconds per player.
+- Holograms and animated decorations are not animated when nobody is within 48 blocks.
+
+**AI assistant: every provider, or a local model**
+- Works with Anthropic (Claude), OpenAI, Google Gemini, OpenRouter, Groq, Mistral, DeepSeek, xAI (Grok), Together, Cerebras, and local models through Ollama, LM Studio or any OpenAI-compatible server.
+- `/ai key <key>` tells the provider from the key (sk-ant-, AIza, gsk_, xai-, sk-or-...); `/ai key <provider> <key>` sets one by name; `/ai providers` lists them. Keys can also come from environment variables (OPENAI_API_KEY, GEMINI_API_KEY...).
+- `ai.provider: auto` (default) tries every provider that has a key in turn if one fails, then a local model on the same machine. `ai.model` empty = each provider's default; `ai.base-url` points to a local model or a proxy.
+
+**Match found pop**: back to the first version's animation: the totem pop with the kit's item, then the kit's weapon pops up in front of you (setting *Duel Found Effect* = `BOTH`; servers on TOTEM/ICON move back by themselves).
+
+**Builds rebuilt like a pro builder**
+- **Eco Spawn** is now a floating island: rolling hills with stone cliffs, a deep eroded underside with rock spikes and hanging roots, a tiered quartz fountain, a stream that runs off the edge as a waterfall, timber-framed market houses with pitched roofs, chimneys, flower boxes and striped awnings (the NPCs stand at their counters), a sunken colosseum Warzone with tiered seats, buttresses and an arched gate, an amethyst geode AFK zone with a crystal spire, big branching trees, winding lantern-lit paths and small floating islets.
+- New hub style **Vortex Isles** (`/pvpadmin` → Builds → Hubs & Spawns): the Vortex Spire (an obsidian core wound by amethyst and purpur ribbons, floating rings, a beacon crown) on a stepped plaza with a twisting sun-ray floor, eight domed gamemode shrines with columns and coloured bands for the NPCs, and the same island, waterfall, trees and islets.
+
+**Fixes**: builds load their chunks before placing blocks (no more "block change off the main thread" errors when building into new chunks).
+
+## New in 1.6.0 / 2.5.0
+
+**Eco Spawn** (`/ecospawn` where you stand, or `/pvpadmin` → Builds → *Eco Spawn* with a 3D preview; build it in the Eco SMP world)
+- A 121 x 121 plaza with a fountain and market stalls: **Shop**, **Sell**, **Shard Shop**, **Auction House** and **Orders** NPCs (click them). `/spawn` lands on it.
+- **Warzone** to the north: a walled pit with cover where PvP is always on. Everywhere else on the spawn PvP is off, and nobody can break or build (admins in creative can).
+- **AFK zone** in the south-east: a sunken amethyst garden. Standing in it gives 1 shard every 60 seconds (`shards.afk-seconds` / `shards.afk-amount` in eco.yml), with a countdown in the action bar. `/afk` takes you there.
+
+**Shards and Shard Shop**
+- Shards from playtime, the AFK zone and kills (3 per kill, not again for the same player within 5 minutes).
+- The shard shop has spawners (pig, cow, zombie, skeleton, spider, creeper, blaze, iron golem; they keep their mob when placed) and enchanted books (mending, unbreaking, protection, sharpness, efficiency, fortune), plus a button to the AFK zone.
+
+**Sell fixed**
+- 80+ more items can be sold: blocks of diamond/iron/gold/emerald/etc. (9 x the item), raw ores, every log, crops, mob drops, stone types.
+- Shulker boxes and bundles with items inside are never sold (their contents came back as nothing before), damaged tools sell for what is left of them.
+- A sell price at or above the shop's price is lowered by itself, so nothing can be bought and sold for profit.
+
+**Shop**: many more blocks (every plank, stone family, sandstone, prismarine, end stone, blackstone, copper, quartz...) and three new categories: **Colours** (all concretes, wools, terracottas, stained glass, powders), **Decoration** and **Redstone**. Existing shops keep their prices; only missing items are added.
+
+**Also**
+- Match found: the MCPVP pop, the totem animation with the kit's item (setting *Duel Found Effect* = `TOTEM`).
+- Map vote: the name under each biome block no longer overlaps the block when it turns or is hovered.
+- Tab: the server logo is centred exactly; `tab.logo-offset` (pixels) nudges it if your pack's logo needs it.
+
+## New in 1.5.3 / 2.4.3
+
+**Enable All Arenas really switches every arena on**
+- It checks the map itself (the floor under the spawns) instead of guessing. Every arena whose map is there is switched on, even if its snapshot was missing (it is taken again) or a copy was left half-built (it is reset).
+- A void map is built again on the spot and switches on when done. Only maps that are really being generated are listed as "still being generated", with the pack progress.
+- Anything that can't be switched on says why (no spawns set, world not loaded...).
+- A copy that fails to build is removed instead of blocking its map.
+
+## New in 1.5.2 / 2.4.2
+
+**Void arenas are made again** (Mole Mines and any other map)
+- A map whose build was cut short by a restart had its spawns saved but no blocks, so players were sent into the void. On every start the plugin now finds these unfinished maps (duel and FFA), removes them and builds them again. The console lists them.
+- 1.5.1 could switch such a map on; that can't happen any more (a map only counts as finished once its blocks are all placed).
+
+**Every arena is made and switched on, on start-up and on the first join**
+- Every map of the arena pack and an FFA arena for every FFA kit are checked on every start and again when the first player joins: missing or void ones are generated, finished ones are switched on (FFA too).
+- FFA arenas are now made right after the first few duel maps instead of after the whole pack.
+- Admins who join while maps are still being made see how many are ready.
+
+**Match found pop is back to the original**
+- The totem pop with the kit's item, then the kit's weapon pops up at its original size (setting *Duel Found Effect* = `BOTH`). Servers on the 1.4.0 default (`ICON`) move back to it by themselves. The other styles are still in `/pvpadmin` → Settings → Visuals.
+
+## New in 1.5.1 / 2.4.1
+
+**Arenas left "off" are switched on**
+- A restart while the arena pack was still generating maps left those arenas saved as off. On the first start of 1.5.1 every finished arena (duel and FFA) that was left off like this is switched on, and the console tells you how many.
+- From now on, a map whose generation is cut short is either switched on (if it finished) or made again on the next start. It is never left off.
+- `/pvpadmin arenas enableall` (console too), or the **Enable All Arenas** button in `/pvpadmin` → Duel Arenas / FFA Arenas, switches on every finished arena at once. It also lists any that are still generating; those turn on by themselves when done.
+
+## New in 1.5.0 / 2.4.0
+
+**Mole PvP** (kit `mole`, duels, queue and FFA)
+- An underground digging mode. You spawn in a sealed chamber deep under the ground, dig your way through, and hunt the other player.
+- **The kit:** netherite pickaxe and diamond shovel (Efficiency V), iron armor, diamond sword, bow, golden apples, cobblestone, torches and a water bucket.
+- **Sonar:** every 30 s, the action bar tells you roughly where the enemy is ("~40 blocks north-east, 12 below").
+- **Sudden death** after 8 minutes: everyone glows and the sonar pings every 5 s.
+- **Its own map, Mole Mines,** 401 × 401 blocks and 82 deep, the biggest map on the server:
+  - real rock layers with ores, granite, diorite and gravel pockets;
+  - three levels of old mine shafts (oak frames, rails, lanterns, ladders between the levels);
+  - two amethyst crystal caverns lit by glowstone and froglights;
+  - an underground lake, and lava falls behind tinted glass;
+  - a mining camp on top: the mine entrance, cranes, tents and a viewing deck.
+  - Bedrock under every column. Barriers keep the fight underground.
+
+**Practice bots and training dummies: coming soon.** `/bot` and `/train` already answer "Coming soon", and so do the map mobs in the Bot Practice hall. The bots will arrive in a later update.
+
+**The Academy** (`/learn`): a course for each gamemode:
+- Sword, Axe & Shield, Mace, Elytra Mace, Crystal PvP, Potions, UHC, Mole PvP.
+- 21 lessons in all, one tip or skill each, for example crits, w-tapping, shield breaks, the stun slam, density vs breach, the elytra dive, obsidian placement, anchors, totem swaps, pot timing and tunnelling.
+- **Every lesson:**
+  1. **Film:** a smooth camera circles a coach who shows the move. The tips appear one by one as titles and on a floating panel.
+  2. **Slow-motion replay** of the key moment, from close up.
+  3. **Your turn:** the kit plus a training dummy, and a goal to reach in time (e.g. "break the shield 3 times", "smash for 14+ damage", "pop 2 totems", "dig 30 blocks"). Passing saves the lesson; your progress shows as bars.
+- `/learn skip` jumps to the practice part. The course list has a **search** box.
+
+**Bot Practice hall** (`/pvpadmin` → Builds → *Bot Practice Hall*, or `/pvpadmin bothall`)
+- A hall cut into the rock, with an alcove per map. Each alcove has a wall in the biome's blocks (badlands stripes, desert sandstone, snow and ice, cherry, crimson, end…), a carved pedestal with that biome's mob, and the map's name floating above.
+- **Clicking a map mob** shows "Bots coming soon". The **Academy** NPC in the middle already works.
+- It has a 3D preview. `/pvpadmin bothall remove` takes the mobs and NPCs away.
+
+**/alts** (staff: mods and admins)
+- `/alts <player>` lists every account that joined from the same IP. For each: online/offline, banned/muted, how many IPs are shared, last seen, and **[Check]** / **[Punish]** buttons.
+- Staff get an alert when an alt of a banned player joins.
+- IPs are stored only as salted hashes (the salt is in `alts-salt.yml`).
+
+## Earlier: 1.4.0 / 2.3.0
+
+**Every arena and every FFA, generated and switched on**
+- The arena pack runs again on servers that already have one (pack 6). It adds every map that was missing:
+  - Cherry Grove, Crimson Forest, Mushroom Fields and the Champions colosseum;
+  - the three new show arenas below.
+  - A vanilla biome the server's seed simply doesn't have near spawn (Pale Garden on the test seed) is skipped once, with a warning. It is not retried on every start.
+- **Every FFA kit gets a decorated FFA arena:**
+
+  | Kit | FFA arena |
+  |---|---|
+  | combo | Oasis |
+  | axe | Gladiator |
+  | trident | Frost Palace |
+  | gapple | Volcano |
+  | nodebuff | Deep Dark |
+  | builduhc | Plains |
+
+  Any FFA kit you add later gets one too. On the update, every finished FFA arena is switched on.
+- `/pvpadmin generate ffa … <size>` now goes up to 448. **Generate All Missing** also makes the missing FFA arenas.
+
+**Three new show arenas** (designed pool: sword, UHC, pot kits; they have 3D previews in the map vote)
+
+| Arena | Look |
+|---|---|
+| **Desert Palace** | Sand floor, red / yellow / cream walls, blue pillars, orange onion-dome towers, a palace with golden gates, a balcony and minarets |
+| **Olympus** | Sand floor, eight rows of sandstone seats, a ring of tall quartz arches with red banners, and a giant stone warrior with a spear and a round shield |
+| **Timber Fort** | Packed-earth floor, a stone wall with a lantern walkway, timber-frame houses with red roofs and balconies, a red-and-white striped tent gatehouse, a rock outcrop with pines |
+
+All three stand on bedrock in every column.
+
+**Vanilla biome maps are now truly vanilla, just without caves**
+- The site picker no longer looks for flat, treeless ground. It used to mark spots down for trees and hills, so maps came out bare.
+- Now a map is the biome as it really is: forests, hills, cherry trees, snowy peaks.
+- Only the caves are filled:
+  - underground air, cave water and lava, moss and dripleaves become the rock around them;
+  - ravines and cave mouths are closed.
+- Ores, gravel and dirt pockets, geodes, frozen lakes and rivers stay exactly as vanilla has them.
+- Every biome map is re-cut by itself after the update, on a new site. The designed arenas are not touched.
+
+**Hub: Royal Castle** (the new one-click default in **Hub Setup**; the old hubs are still there)
+- **A walled castle on a hilly floating island:**
+  - curtain walls with battlements and banners;
+  - four round corner towers with slate cones;
+  - a gatehouse with a raised portcullis;
+  - a keep with turrets and a tall great tower.
+- **The courtyard:** lawns with hedges and flowers, a tiered fountain, the NPCs along the main path and the leaderboard holograms.
+- **Around the castle:**
+  - woods and hills;
+  - a lake with a waterfall;
+  - a fort on the east hill, joined to the castle by an arched stone bridge, with a hall for FFA and events;
+  - a watchtower on the west hill;
+  - just three market stalls.
+
+**Builds panel with 3D previews** (`/pvpadmin` → **Builds**)
+- Every hub / spawn style and every small build is a tile.
+- Click one, then **Preview (3D)**: a miniature of the design floats in front of you for 30 seconds and turns slowly. Only you see it.
+  - About 800 pieces for the castle, built in the background in about 2 seconds.
+- Then **Build here**. `/pvpadmin preview <style>` and `/pvpadmin stoppreview` work from chat too.
+
+**Armor trims and shield designs** (`/cosmetics`, the Settings menu, or the kit editor)
+- **Armor trim:** any pattern in any material, on all the armor of your kits. Each kit can have its own trim, or none.
+- **Shield:** a base colour plus up to 6 banner layers, or a ready-made design: Vortex, Flame, Royal, Skull, Creeper, Frost, Crusader, Nether.
+- Applied whenever a kit is given (duels, FFA, refills). Saved per player.
+- Also from chat: `/cosmetics trim <pattern> <material> [kit]`, `/cosmetics shield <design>`.
+- **Trims right in the kit editor:**
+  - while arranging a kit (`/kiteditor`, or `/kiteditor <kit>` to go straight to one), click any armor piece;
+  - pick a pattern, then a material, and you're back on your layout;
+  - each kit keeps its own trim, or "No Trim", or "Same as Every Kit";
+  - the editor shows the armor with its trim.
+
+**Homes by role:** players 3, helpers 4, mods 5, admins 10 (`smp.homes.*`). Rank permissions `practice.homes.<n>` still raise the limit.
+
+**Match-found pop:** the kit's icon pops up at a **medium size** (the crystal was huge). It is the new default; the old totem and sword pops are still options.
+
+**SMP commands fixed**
+- `/tpa` and `/tpahere` take the exact name: `/tpa Bob` never reaches Bobby.
+- **A request is only used up when the teleport really happens.** If the teleport is cancelled (moving, damage, combat, cooldown), both players are told. The request stays open with an **[ACCEPT AGAIN]** button.
+- `/tpaccept` works while you are in combat, as long as you are not the one who teleports.
+- When a request expires, both players are told. An expired request can't be accepted any more.
+- Tab completion lists the players in the same mode's overworld, nether and end, and hides players with invisible status.
+- `/rtp overworld|nether|end`.
+- A teleport into someone else's claim is blocked.
+
+**Tab list: everything lines up, and 11 designs**
+- **Columns:** every column starts with a section title on the top row. A section never breaks across two columns.
+- **Rows:** names line up inside each section, after the widest dot / flag / rank. Elo and stat values line up too.
+- **Dividers:** sized to the widest line of the header and footer.
+- **5 new designs:**
+
+  | Design | Look |
+  |---|---|
+  | **Royal** | Purple and gold, ♛ crowned title, Court / Nobles / Guards / Allies columns |
+  | **Ocean** | Aqua gradients and wave dividers, On Board / Captains / Fleet |
+  | **Retro Arcade** | ▓▒░ 8-bit banner, 1UP / HI-SCORE columns, INSERT COIN footer |
+  | **Monochrome Pro** | White and grey, thin rules, your Elo / tier / rank first |
+  | **Autumn** | Orange-to-red ✿ gradients, Harvest / Golden Leaves / Hearth |
+
+## Earlier: 1.3.1 / 2.2.1
+
+**Map vote: room between the biome blocks** (cpvp, cart, mace, spear, creeper and every other biome-map kit)
+- The biome blocks are spread wider. Neighbours are now **0.95 blocks apart instead of 0.70**: at least 21° on the arc, and more when the names are long.
+- **Long names wrap onto two lines** at the space nearest the middle (*Badlands / Red Desert*, *Mushroom / Fields*), so the labels never run into each other.
+  - A two-line label sits one line lower, so it never touches its block.
+- The two rows are **1.0 block apart instead of 0.66**, so a hovered top block and its label stay clear of the row below.
+- The final-two pick is spread out the same way.
+- Boards with 3D arena previews (sword, UHC, pot kits) already had their own wider spacing and are unchanged.
+
+**Tab list: 6 designs, picked by the admin** (`/pvpadmin` → **Tab Design**, or `/pvpadmin tabdesign <id>` from the console)
+
+| Design | Inspired by | Look |
+|---|---|---|
+| **Classic** (default) | MCPVP | Your current tab, unchanged: animated logo, Staff · Friends · Online · Top · kit columns with heads, flags, status dots and ranks |
+| **Competitive** | Practice servers | Gold server name over a rule, slate `▌` section bars, every leaderboard row shows **tier and Elo**. The footer shows *your* Elo, tier and leaderboard rank, plus live matches and players in queue |
+| **Network** | Big minigame networks | A bold yellow server name and "You are playing on *ip*". **No fake columns**: the normal player list, sorted by rank colour. Footer with Discord, store and players online |
+| **Minimal** | Clean SMP servers | One line of header and one of footer. **One column** of names with ping only: no skins, flags, dots or ranks. Works in every world |
+| **Neon** | Arcade / cyber servers | A fast magenta→cyan animated logo, glowing `· · ·` dividers between sections, and ★ ⚡ ♥ ✚ gradient section titles |
+| **Stats Wall** | Clans and leagues | **All four columns are leaderboards** (Elo, most wins, best streak, FFA kills) with the value next to every name. Footer with live matches, queue, players online and TPS. Works in every world |
+
+- Each design is a whole look:
+  - header and footer;
+  - logo colours and animation speed, and the gradient of each mode;
+  - which list is shown (the 4-column grid, one column, or the normal player list);
+  - the section titles;
+  - how a row looks (heads, flags, status dots, ranks, tier and Elo, ping bars).
+- Choosing a design writes its header, footer and colours into `tab.yml`; the old file is kept as `tab-backup.yml`.
+  - It also sets the column options (`tab.columns.*`) and `tab.design`.
+  - Your own logo text is kept. Edits you make on top of a design stay until you pick another one.
+- The hover on each tile in the picker shows what the design looks like.
+- New footer placeholders for your own `tab.yml`:
+
+  | Placeholder | Shows |
+  |---|---|
+  | `<my_elo>` | the viewer's Elo in their best kit |
+  | `<my_tier>` | their tier in that kit |
+  | `<my_rank>` | their leaderboard place in that kit |
+  | `<matches>` | matches being played |
+  | `<queued>` | players in a queue |
+
+- New column sections: `top_wins`, `top_streak` and `top_ffa`. They are read from the database once a minute in the background.
+- Updating keeps your current tab: `tab.design` starts as `CLASSIC` and nothing in `tab.yml` changes until you pick a design.
+
+## Earlier: 1.3.0 / 2.2.0
+
+**Updating keeps everything: just replace the jar**
+- **Before anything loads, a full backup is taken** in `plugins/VortexRealm-Vault/`. It includes every setting, kit, arena, world, NPC, hologram, rank and the database. It now also includes every player's **inventory, ender chest, XP, advancements and statistics** from every world (`playerdata`).
+  - The same backup runs every 6 hours and at shutdown, too.
+- **Settings:** all your values are kept, and new options are added with their defaults. An old value this version can't read is kept under `old-settings:` in `config.yml` instead of being dropped.
+- **Kits:** your kits are never overwritten.
+  - New kits from an update are added.
+  - Default kits you never edited get the new default items, and keep your queue switches, order and arenas.
+  - If you edited a default kit, yours stays. The new default is added next to it as `<kit>_new`, switched off.
+  - A kit you deleted stays deleted.
+- **Players:** stats, ranks, kit layouts, friends, economy and the PvP/SMP inventories are updated in place. Nothing is reset.
+- **NPCs, holograms, messages, worlds, the hub and regions** are kept. New message lines are added without touching edited ones.
+- **Switching to VortexRealm:** if both plugin folders exist, anything VortexRealm is missing is copied over from PracticePvP: files that don't exist yet and database rows it lacks. Nothing on the VortexRealm side is overwritten.
+- **After the update** the console and every admin who joins get a short report of what was carried over. `/pvpadmin` → Data Vault has *Last Update Report*, *Snapshot Now* and *Restore* (restores plugin data and player inventories at the next start).
+
+**Arenas: deeper, no caves, bedrock under every one**
+- Every arena ends on uneven bedrock, so digging down never reaches the void. That covers biome maps, deep crystal maps, End islands, designed arenas, colosseums and the floating plazas, whose whole underside is now bedrock.
+- Biome maps are deeper (duel ground 34 → 48 blocks, FFA 44 → 56; crystal stays 100) and still have no caves, ores or geodes.
+- Existing arenas are rebuilt automatically in the background after the update. Hand-edited arenas are left alone.
+
+**Swear filter and mutes** (`/pvpadmin` → Chat Moderation, or `/chatfilter`)
+- **What it catches:** swearing in chat, `/msg`, `/r`, party chat, signs and anvil names, including tricks like `f.u.c.k`, `f u c k`, `fuuuck`, `sh1t` and accents.
+  - English, French and Spanish words are included.
+  - Allowed words like *class*, *assassin* and *computer* are never hit.
+- **What happens:** the message is blocked (or sent as `****` if you prefer), the player is told, and staff get an alert.
+  - **Auto-mute:** 2 minutes, then 10, then 30 for repeat offences within 24 hours.
+  - Muted players can't chat or `/msg` and see the time left. Mutes survive restarts.
+- **Commands:** `/mute <player> [10m|2h|1d|perm] [reason]`, `/unmute`, `/mutes`.
+- **The Chat Moderation screen** lets you edit everything without a file:
+  - filter on/off, block or censor, mute steps, reset window, staff alerts;
+  - blocked words and allowed words;
+  - muted players (unmute or extend);
+  - recent offences;
+  - a message tester.
+
+**NPCs: many more options** (`/npc` → an NPC → *Look…*, *Name Tag…*, *Behaviour…*)
+- **Look:** armor (copies yours), off-hand item, size 0.5–2×, pose (standing, sneaking, lying, sleeping, gliding), and an idle animation (waves, looks around, turns slowly, cheers).
+- **Skin:** a player name, or *Skin = My Skin*, which saves your textures in the file so no online lookup is needed.
+- **Name tag:** style (classic, glass, neon, ember, hologram, none), background colour and opacity, text size, height, and an animated gradient title.
+- **Behaviour:** click sound, click cooldown, a permission needed to use it, your own greeting text and radius, and the floating item (on/off, any item).
+- **Copy NPC Here** duplicates an NPC with every setting.
+
+**Leaderboard holograms: fully customisable** (`/pvpadmin` → Leaderboard Hologram → New / Edit nearest / Remove nearest)
+- **What it shows:** any kit or overall, or **several kits taking turns** with a page-flip animation. Ranked by Elo, wins, win %, best streak, FFA kills or FFA K/D, with 3–20 rows.
+- **How it looks:** 9 designs, your own title (`<kit>` and `<stat>` work), colours for #1, #2, #3 and the rest, accent, background opacity, size and line width. Tier and wins/losses can be shown or hidden.
+- **Placement:** turns to the viewer or faces one way (*Face Me*), move, up/down, copy, and the refresh time.
+
+**New hologram designs** (leaderboards and text holograms)
+- **Podium:** the top 3 stand as players in their own skins on gold, silver and bronze pedestals, with name plates and the rest of the list above.
+- **Framed Board:** a dark oak frame with gold corners and lanterns.
+- **Sci-Fi Hologram:** a cyan projection with a scanning line, a flicker and a projector beam.
+- **Royal:** gold trim, a purple card and a spinning crown with sparkles.
+- **Marquee:** a title that scrolls like a stadium screen, with striped rows.
+- **Orbit:** the kits' items circle the card.
+
+**New hub: Practice Town** (`/pvpadmin` → Hub Setup, or *Build Spawn Here* → *Practice Town*)
+- A chill, MCPVP-style town, not flat and not Vortex-themed:
+  - a cobbled plaza with a tiered fountain and a sword statue;
+  - four lamp-lit streets with benches and trees;
+  - a market street with striped stalls and bunting;
+  - soft hills, groves and flower meadows around it.
+- **A building for every mode, each with its NPC at the door:**
+  - Duels Hall (sparring rings, banners);
+  - Ranked Arena (a small colosseum with gold trim);
+  - FFA Pit (sunken sand ring);
+  - Leaderboard Hall (podium and framed boards placed automatically);
+  - Kit Workshop (anvils, smithing);
+  - Events Stage (amphitheatre);
+  - Shop (awning, counter);
+  - Spectate Tower.
+- **Extras:** a pond with a bridge, a parkour course and a training yard. A welcome board, a tiers hologram, a Discord marquee and a floating crown are placed for you.
+- It is the new default for the hub and the PvP lobby. **Nothing is rebuilt by itself**: your current hub stays until you click Hub Setup.
+
+**Fixes**
+- Holograms and NPCs that appeared in the same moment a player arrived could stay invisible until the player walked away. They now wait until the player's game has loaded that spot.
+- The colosseums' surrounding hills and outer wall now end on bedrock too (they used to stop in stone over the void).
+
+## Earlier: 1.2.1 / 2.1.1
+
+**Duel maps: vanilla terrain, no caves**
+- The biome maps keep the vanilla **surface**: hills, trees, grass and flowers. Everything under it is now solid:
+  - no caves, cave openings, ravines or holes, at any depth;
+  - no ores, gravel or clay pockets, dripstone or sculk; the rock below is plain stone, deepslate or netherrack, with dirt and sand bands under the surface as in vanilla;
+  - deep trenches and cave mouths at the surface are filled up to the ground around them, topped with the same block (grass, sand, snow, terracotta).
+- Existing biome and crystal maps are re-cut automatically on the first start, in the background: about 1½ minutes per map, so roughly 20 minutes for all 12. Each map stays out of the rotation until it is done, so for a while after the update fewer maps are offered.
+
+**Map vote: biome selection or 3D arena selection**
+- **Crystal, cart, mace, spear and creeper** pick between the **biome maps**: each map is its biome block (grass, snow, sand, red sand, terracotta, end stone) with the biome as its name ("Snowy Plains", not "Snowy Plains (Crystal)").
+- **Sword, UHC, Build UHC, pot, nethpot, nodebuff, combo, gapple and shield** pick between the **designed arenas**. Each one shows as a **detailed 3D miniature** of the real arena:
+  - built from the arena itself: walls, towers, trees, water and floor patterns, with up to 56×56 detail;
+  - turned toward you and tilted so you see the top and two sides;
+  - looking at one grows it, leans it toward you and turns it so you can see every side; your opponent's hover grows too;
+  - a banned arena folds into a small block that flies into the circle;
+  - the picked arena glides to the middle and turns slowly.
+- Mace kits now play the biome maps. To give them the Grand Colosseum back, set `arena-type: VANILLA,MACE` for the kit in `kits.yml`.
+- `match.map-ban-3d-preview`: `FLAT_KITS` (default) shows the 3D arena selection for the designed arenas, `ALL` for every map, `OFF` for none.
+- `match.map-preview-detail`: `LOW` / `NORMAL` / `HIGH` = at most 140 / 240 / 400 display parts per miniature. Each player sees only their own board.
+
+**Smoother animations**
+- Map vote elements (cubes, labels, title, header, vote items) update every tick instead of every second tick, so eased curves keep their shape.
+- Hovered cubes pop with a small overshoot. Maps slide into the free places with an ease-in-out after a ban.
+- The 3D miniatures move, grow and turn as one piece: every few ticks each part gets one new target, and the client glides between them.
+- The spinning item over hub NPCs turns and bobs in small steps, so it never pauses.
+
+**Fixes**
+- **The map vote's text never showed in 1.2.0:** map names, the "A VS B" title, the header and the map cubes did not appear. There were two causes:
+  - the board was spawned in the same tick as the teleport, before the client had those chunks, so the server never sent it;
+  - texts without a rotation never grew from their spawn size.
+  Both are fixed and confirmed on a live client.
+- With `map-ban-3d-preview: ALL`, valleys on biome maps no longer leave holes in the miniature, and deep maps are no longer mostly underground rock.
+
+## Earlier: 1.2.0 / 2.1.0
+
+**Arenas**
+- **100% vanilla maps, made for PvP.** Crystal, spear, creeper, cart and spear-mace fight on real vanilla terrain, cut from the world generator with a fixed seed. Every server gets the same maps.
+  - The maps are MCPVP's set: **Plains, Snowy Plains, Desert, Badlands Red Desert, Badlands Mountains, The End Island** (obsidian pillars) and **Outer End Islands** (chorus).
+  - Each site is searched for: pure biome, no lava, little water, fair flat spawns, few trees.
+  - Optimised for PvP: caves under the surface are filled, frozen lakes and rivers become snowy ground (no slippery ice, no flooding), and leaves never decay.
+  - Two different maps never use the same place.
+- **Crystal maps are all deep** (Plains, Snowy Plains, Desert, Red Desert and Crystal Flats), with room to dig and bomb.
+- **No walls, twice as big:**
+  - duels 192 (was 96), FFA 256 (was 128), mace 400 (was 230), vanilla maps 256;
+  - the world border is the edge;
+  - colosseums are bigger and have no invisible barrier columns.
+- **8 new designed arenas** for the sword kits: Sakura Dojo, Ancient Ruins, Desert Oasis, Frozen Palace, Volcanic Crater, Deep Dark Plaza, Mushroom Isle and Sky Castle Courtyard. All are open floating plazas.
+- **Kits pick their pool:**
+  - sword, pot, nethpot, nodebuff, combo, shield and gapple play the designed arenas;
+  - crystal plays the deep maps;
+  - mace plays the grand colosseum plus a mix of the others;
+  - the other kits play a mix of vanilla and designed maps;
+  - `arena-type` in `kits.yml` takes a list (`VANILLA,DESIGNED`, `CRYSTAL`, `MACE`).
+- **Auto copies:** a map that has been full for 20 s gets another copy, up to `arena.max-copies`.
+- **Tournaments:** the host picks the start (**Elevator** / Cage / Freeze) and can switch off gates and fences completely.
+
+**Animations (MCPVP screen recording)**
+- **Map ban rebuilt:**
+  - tilted map cubes in two arcs, eased on every tick (nothing jumps or snaps);
+  - hovering grows the cube with a green "CLICK TO BAN" fade, and you see your opponent's hover live;
+  - banned maps fly into a slowly turning circle while the others slide into the free places;
+  - the last player who didn't ban picks the final map, which tumbles in the centre;
+  - preference votes have Yes and No sprites;
+  - at the end the circle widens, recedes and shrinks away.
+- **"A VS B" title:** a light band with a trailing shadow sweeps through each name in the name's own colour. The same sweep plays on the match intro, where the names glide in pixel by pixel and VS pops.
+- **XP score and points text** is anchored in one place. It no longer follows you, it keeps clear of the other player, and it re-appears in front of you if you are sent to the lobby mid-animation.
+- **Match end:** the winner can walk around and the loser becomes a spectator whose camera turns smoothly to the winner. The same happens between rounds. The victory screen lasts 5 s.
+- **DEATHMATCH – Next kill wins!** at double match point, an MCPVP **ROUND REPORT** card after each round, and a lobby broadcast for Tier Tests, Tier Defenses and Tier Challenges with a **[Spectate]** button.
+- Smooth camera turns in the rank-up animations.
+
+**Tab and logo**
+- The tab adapts to the server: one short column with few players (leaderboards grow with the player count; kit boards appear from 4 players), up to 4 columns of 20 with sections lined up.
+- There is a new **Online** section, and the Friends section only shows when friends are online.
+- During the map vote the tab has no rows, like MCPVP.
+- The **VR logo** is in the resource pack and shows at the top of the tab (header line `<logo>` in `tab.yml`).
+
+**SMP, hub and economy**
+- **Every SMP world has its own nether and end** (`<world>_nether`, `<world>_the_end`). Nether and end portals lead there and back, for items and mobs too, and the dragon's exit brings you back to that SMP world.
+- **Dying in SMP respawns you at your bed** (same mode) **or at the hub**, never in the PvP lobby.
+- **Castle Market hub:**
+  - a fountain plaza and four lamp-lit avenues;
+  - a market street of striped-awning stalls under bunting;
+  - four small castles with gates, towers and a keep;
+  - stone arches and gardens;
+  - no houses.
+  It is the new default for the hub and the PvP lobby.
+- **Economy (DonutSMP style):**
+  - money in K/M/B;
+  - `/pay` asks to confirm large amounts;
+  - `/bal`, `/baltop`, `/sell`, `/worth`, `/shop`, `/ah`, `/orders`;
+  - **Shards** for playtime and kills, spent in the `/shards` shop;
+  - choose which SMP modes use the economy in `eco.yml` → `worlds`.
+- **Vault:** the built-in economy is offered to other plugins through Vault. With `provider: auto` (the default), an economy plugin you already have (EssentialsX, CMI…) is used instead, so all plugins share one balance. `builtin` always uses ours; `external` only uses the other plugin's.
+
+**Fixes**
+- Cage starts (sword) were cut 4 s short by the stuck-countdown guard.
+- Stale-match cleanup could fire before the victory screen ended, so tournaments replayed pairs.
+- Arena resets waited behind generation.
+- FFA arenas were never generated when the first start was interrupted.
+- Arena updates could start while the pack was still generating.
+- Entering `world_nether` from an SMP main world sent players to the PvP lobby.
+- "No key layers" errors on flat worlds.
+
+## Earlier: 1.1.0 / 2.0.0 (from the MCPVP screenshots)
+
+**Friends, status and privacy**
+- `/friend add|accept|deny|remove|list|requests <player>`, `/follow`, `/unfollow`, plus a Friends screen with online status, where each friend is, and buttons to duel, message, spectate, invite to party or remove.
+- **Status**: ● Online / ● Invisible / ● Do Not Disturb (`/status`, or Settings → Privacy → Requests).
+  - *Invisible*: you appear offline in friends lists and the tab, and nobody can send you duel requests.
+  - *Do Not Disturb*: only the groups you tick can reach you.
+- **Requests – <status>** screen: who may send you party invites, duels, messages and friend requests.
+  - Groups: Friends / Following / Followers / Famous / Noobs (everyone else).
+  - A **Tier** minimum and an **Overall Ranking** slider, both applied to everyone else (the Noobs group).
+  - Separate rules for Online and for Do Not Disturb.
+- **Settings hub** (`/settings` or the lobby item): Privacy (Requests, Teleports, Location, Visibility), Chat, Name Tag, Gameplay (all the old settings), Regions and Friends.
+
+**Duels like MCPVP**
+- `/duel <player>` opens **"Select a kit to challenge … in!"** with the **Weapons / Vanilla / Skills / Most Played** tabs. The duel screen then shows `#rank | You 🏳 VS Them`, a **First To** slider, an **Experimental Ping Equalizer** checkbox, **View Advanced Options** (map, spectators) and **Send Duel**.
+- **Tier Challenge**: `/challenge <player>` starts a *ranked* first-to-3 with a bigger Tier Score swing.
+  - The screen shows "HT5 | A VS B", First To and Location, the Tier Score warning, and **Ping Equalizer** and **I understand** checkboxes. The challenged player must tick "I understand" too.
+  - Leaving counts as a loss, and there is a per-pair cooldown.
+- **Ping Equalizer** (experimental): the player with the lower ping gets a small, capped delay so both play with a similar round trip. It is removed when the match ends.
+
+**Tiers**
+- **Tier Defense Challenge**: when your points fall below your tier, the next ranked queue asks:
+  - The prompt reads "*You are queuing for a Tier Defense Challenge in Sword. First to 5 … Win to defend your tier. If you lose, you rank down to HT4*", with Accept Challenge / Queue Normally.
+  - Winning keeps the tier and losing drops it. After a few normal matches without defending, you drop automatically (configurable).
+- The existing Tier Test Challenge, placements and LT5–HT1 ladder are unchanged.
+
+**Matches**
+- **Map vote with turns**:
+  - A floating green banner shows "**A VS B – MAP VOTE – YOUR TURN: BAN 1/2 8s**" (or "OPPONENT'S TURN"), and chat shows "Dream banned Snowy Plains."
+  - A player who runs out of time skips their bans.
+- **Match intro**: the two names slide in and meet at a pulsing **VS**.
+- **Spectators**: "👁 X started spectating." / "stopped spectating." for everyone in the match. Spectators talk to the match as `<👁 name> message`. Players can block spectators per duel. Staff spectate silently (configurable).
+- **End map**: end stone with obsidian pillars, iron-bar cages and chorus plants.
+
+**Tab, nametags and lobby**
+- **MCPVP tab**:
+  - 4 columns × 20 rows: Staff, Friends (with status dots), Creators, Top Players and the top players of chosen kits (End Game, Sword, Spear, Mace by default), with heads and flags.
+  - Footer: "**N Online · Lowest Ping Host: Miami, Florida**".
+  - It falls back to the normal tab automatically if the server version doesn't support it.
+- **Nametag**: `⚔ LT4 #13428 | Name 🏳` (overall position and flag can each be hidden). Optionally, your overall position is shown as your **XP level** in the lobby.
+- **Regions** (`/region`, Settings → Regions): set up in `regions.yml`. Picking another region moves the player there with the vanilla transfer packet; the target server needs `accepts-transfers=true`.
+- Vortex Realm branding: the purple-to-cyan animated tab logo (your custom colors are kept).
+
+## Commands (new)
+
+| Command | Use |
+|---|---|
+| `/friend …` (`/friends`) | add, accept, deny, remove, list, requests |
+| `/follow <player>`, `/unfollow <player>` | follow / stop following |
+| `/status [online\|invisible\|dnd]` | change status (no argument opens Settings) |
+| `/challenge <player> [kit]` | send a ranked Tier Challenge |
+| `/region [id]` | pick a server region |
+| `/rankup <kit> defend\|normal` | answer a Tier Defense Challenge from chat |
+| `/vortex [migrate]` | *(VortexRealm only)* version / move PracticePvP data |
+| `/shards` | your shards and the shard shop (economy worlds) |
+| `/pay <player> <amount> [confirm]` | amounts like `250k`, `1.5m`; large amounts ask to confirm |
+| `/mute <player> [10m\|2h\|1d\|perm] [reason]`, `/unmute <player>`, `/mutes` | staff: mute, unmute, list muted players |
+| `/chatfilter` (`/chatmod`) | staff: the Chat Moderation screen (swear filter, words, mutes) |
+| `/bot [kit] [difficulty]`, `/bot leave` | fight a practice bot |
+| `/train [shield\|crystal\|combo\|mace\|elytra]` | training dummies |
+| `/learn [course\|lesson]`, `/learn skip`, `/learn stop` | the Academy |
+| `/alts <player>` | staff: accounts on the same IP |
+| `/afk` | go to the AFK zone of the Eco Spawn (shards while you stay inside) |
+| `/ecospawn [remove]` | admin: build the Eco Spawn where you stand (or `/ecospawn <world> <x> <y> <z>` from the console) |
+| `/pvpadmin arenas enableall` | admin: switch on every finished duel and FFA arena |
+| `/pvpadmin bothall [remove]` | admin: build the Bot Practice hall where you stand |
+| `/pvpadmin tabdesign <classic\|competitive\|network\|minimal\|neon\|stats_wall>` | admin: switch the tab design (console too) |
+
+All the old commands still work (`/duel`, `/queue`, `/ffa`, `/party`, `/spectate`, `/settings`, `/pvpadmin`, SMP, economy, claims, `/ai`, `/ss`…).
+
+## Permissions (new)
+
+PracticePvP uses `practice.*` and VortexRealm uses `vortex.*`. The suffixes are the same:
+
+- `….famous`: counts as Famous (the Creators column and request filters). Server ranks listed in `social.famous-ranks` count too.
+- `….friends.unlimited`: no friend limit.
+- `….staff`: bypasses request privacy and sees Invisible players. Can also `/mute`, `/unmute`, `/mutes`, `/chatfilter`, and gets swear-filter alerts.
+- `….chat.filter.bypass`: not checked by the swear filter (off for everyone by default, ops included).
+
+## New config options (`config.yml`, also in `/pvpadmin` → settings)
+
+| Path | Default | |
+|---|---|---|
+| `social.enabled` | true | friends, follows, status, privacy |
+| `social.max-friends` | 200 | |
+| `social.famous-ranks` | media,partner,youtube,creator,famous | |
+| `tab.columns.enabled` | true | MCPVP 4-column tab |
+| `tab.columns.where` | pvp | `pvp` or `everywhere` |
+| `tab.columns.sections` | staff,friends,creators,online,top,endgame,sword,spear,mace | section order; any kit id works |
+| `tab.columns.section-size` | 8 | |
+| `tab.design` | CLASSIC | set by the Tab Design picker |
+| `duels.max-first-to` | 5 | |
+| `duels.ping-equalizer.enabled` / `.max-delay-ms` | true / 120 | |
+| `spectators.join-messages` / `.chat` / `.hide-staff` | true / true / true | |
+| `match.map-ban-turns` / `match.map-ban-turn-seconds` | true / 15 | |
+| `match.map-ban-3d-preview` | FLAT_KITS | 3D arena miniatures for the designed arenas (`ALL`, `OFF`) |
+| `match.map-preview-detail` | NORMAL | 140 / 240 / 400 parts per miniature (`LOW`, `NORMAL`, `HIGH`) |
+| `chat.filter.enabled` / `.action` / `.auto-mute` | true / BLOCK / true | swear filter; `CENSOR` sends the message as **** |
+| `chat.filter.mute-steps` / `.reset-hours` / `.notify-staff` | 2,10,30 / 24 / true | mute minutes per offence, when offences are forgotten |
+| `arena.duel-depth` / `arena.ffa-depth` / `arena.crystal-depth` | 48 / 56 / 100 | ground under arenas; every arena ends on bedrock |
+| `match.max-bans-per-player` | 2 | |
+| `ranking.tier-defense.enabled` / `.from` / `.first-to` / `.grace-matches` | true / LT4 / 5 / 5 | |
+| `ranking.tier-challenge.enabled` / `.first-to` / `.multiplier` / `.cooldown-minutes` | true / 3 / 2.0 / 30 | |
+
+| `arena.vanilla.enabled` / `.size` / `.seed` | true / 256 / VortexRealm | vanilla maps; the seed decides which terrain you get |
+| `arena.vanilla.fill-caves` / `.structures` / `.copies` | true / false / 1 | filled caves, no villages, copies to start with |
+| `arena.auto-copies` / `arena.max-copies` | true / 4 | extra copies of busy maps |
+| `arena.colosseum-barriers` | false | the old invisible barrier columns |
+| `arena.duel-size` / `arena.ffa-size` / `arena.mace-arena-size` | 192 / 256 / 400 | twice as big; values still on the old defaults are raised on update |
+| `events.tournament-start-mode` / `events.tournament-gates` | ELEVATOR / false | |
+| `match.end-delay-ticks` | 100 | victory screen (winner moves, loser spectates) |
+| `smp.own-dimensions` | true | `<world>_nether` / `<world>_the_end` per SMP world |
+| `smp.respawn-at-bed` | true | otherwise SMP deaths go to the hub |
+| `eco.yml` → `provider` / `worlds` / `pay-confirm-above` / `shards.*` | auto / [ECO] / 100000 | Vault provider, economy worlds, shard rates and shop |
+
+`regions.yml` lists the regions (name, city label, host, port, flag). `current` is this server's region.
+
+## Building from source
+
+```
+cd vortex-realm
+mvn package            # builds both plugins
+# practicepvp/target/PracticePvP-1.3.0.jar
+# vortexrealm/target/VortexRealm-2.2.0.jar
+```
+
+Requires JDK 21 and Maven. The source of 1.0.0 was recovered from the jar with Vineflower. Every class was checked against the original bytecode, and the few places where the decompiler had changed behaviour were fixed.
+
+## How it was tested
+
+1.4.0 / 2.3.0, on Paper 1.21.11:
+- **Bot tests (mineflayer):**
+  - homes cap at 3 / 4 / 5 / 10 for player / helper / mod / admin;
+  - the crystal pop peaks at 0.62 and the sword at 0.89 (it was 1.55);
+  - after `/cosmetics trim silence netherite` and `/cosmetics shield skull`, the duel kit's netherite armor carries the trim and its shield the skull banner;
+  - `/pvpadmin preview royal_castle` sends 797 pieces to the admin and none to other players.
+  - **tpa:**
+    - `/tpa Bob` doesn't reach Bobby;
+    - a cancelled teleport keeps the request open, and accepting again teleports;
+    - tpahere moves the receiver;
+    - tab completion finds a player in the nether;
+    - `/tpaccept` works while the receiver is in combat.
+  - All 11 tab designs apply and render their header and footer, with no errors (52/52 checks).
+- **Arena pack 6 on an upgraded server:**
+  - the 3 show arenas, Champions, Crimson, Mushroom Fields, Cherry Grove and the FFA arenas were generated;
+  - Pale Garden isn't near spawn on the test seed, so it was skipped once.
+- **Biome maps re-cut with the new rules:**
+  - on bedrock in 100% of columns, with no caves;
+  - ores, gravel pockets and geodes kept;
+  - Cherry Grove keeps its forest and its snowy peak.
+- **Not checkable headless:** how it looks on a real client screen. The renders in `previews/` stand in for that.
+
+
+1.3.1 / 2.2.1, on Paper 1.21.11:
+- **Self test:** 155 passed, 0 failed (VortexRealm: 154 / 0). The new checks:
+  - every tab design renders its header, footer and section titles with no raw tags left;
+  - every biome label fits between its neighbours at the spacing its board uses (11 maps).
+- **Bot test** (two bots on the server), 30/30 passed:
+
+  | Design | Fake tab entries | Checked |
+  |---|---|---|
+  | Classic | 10 | applies, no errors |
+  | Competitive | 7 | header, the "Your Elo" footer |
+  | Network | 0 (normal list) | header, store footer |
+  | Minimal | 3 (one column) | header, no skins |
+  | Neon | 10 | header |
+  | Stats Wall | 14 | header, the live-matches footer |
+
+  - Creeper map vote: 7 biome blocks on two rows. The closest neighbours are **0.95 blocks** apart (0.70 in 1.3.0), the rows are 1.0 apart, and the long names come as two lines.
+- **Not checked headless:** how the designs and the spacing look on a real client screen. Skins in the tab can't be checked on an offline-mode test server.
+
+1.3.0 / 2.2.0, on Paper 1.21.11:
+- **Upgrade from 1.2.1 with real data** (edited kits, layouts, PvP/SMP inventories, ranks, economy):
+  - all 277 old settings kept (only the two arena depths moved on purpose, 6 options added);
+  - an edited mace kit kept, with `mace_new` added beside it;
+  - a deleted kit stayed deleted;
+  - database rows and every inventory file unchanged;
+  - the backup before the update held 11 player inventory files.
+  VortexRealm 2.1.1 → 2.2.0 did the same (15 player files) and passes its self test.
+- **Bedrock:** every rebuilt arena was checked column by column for what it ends on.
+
+  | Arena | Columns on bedrock before | After |
+  |---|---|---|
+  | Biome maps (Plains, Snowy) | — | 100% |
+  | Deep crystal map | 80% | 100% |
+  | Floating designed plaza (Sakura) | 31% | 100% |
+  | Colosseum | — | 100% |
+  | Grand Colosseum | 65% | 100% |
+  | End island | 0% | 100% |
+
+  Still no holes and no ores under the surface.
+- **Self test** 148–162 checks pass; the count changes with how many 3D previews are built at that moment. That includes 10 swear variants caught and 11 normal sentences allowed ("nice class", "assassin build", "je vais prendre une douche", "il faut communiquer"…).
+- **Bot test** (mineflayer):
+  - a clean message goes through; `f.u.c.k` is blocked;
+  - the first offence mutes for 2 minutes, the second for 10;
+  - a muted player can't chat or `/msg`, and can again after `/unmute`;
+  - an NPC with armor, a shield and 1.5× size reaches the client with its equipment and scale;
+  - Podium and Framed Board leaderboards arrive complete (12 block displays, 6 text displays, 3 item displays, the podium players as mannequins).
+- **Practice Town hub:** built offline from the same code and checked from top-down and isometric renders. All 168 block types and states it uses are valid in 1.21.11. Its 8 NPC spots and 7 hologram/decoration spots are where intended.
+- **Not judged:** how the hub, the new hologram designs and the NPC animations look to a player. A headless bot can't see them, and they weren't built in a live world.
+
+1.2.1 / 2.1.1, on Paper 1.21.11:
+- **Biome maps:** every block of the re-cut snapshots was counted. Plains, for example:
+  - holes under the surface: 270 → 0;
+  - ore blocks: 76,826 → 0;
+  - gravel, clay, geode and dripstone pockets: about 92,000 → 181 (surface gravel patches);
+  - trees unchanged: 1,126 leaf and 91 log blocks.
+  A cross-section render shows plain stone with the vanilla granite, diorite and andesite bands.
+- **3D previews:** built from all 28 real arenas and rendered offline from the same parts.
+  - Designed arenas use 130–240 parts at NORMAL detail, on a 24×24 to 56×56 grid.
+  - A build takes about 0.1 s off the main thread (about 1 s for a 256-wide biome map in `ALL` mode).
+- **Bot test** (mineflayer, live server):
+  - A sword duel's map vote sends each player their own 7 miniatures (1,517 parts, 3,034 on the server), and every part grows to full size.
+  - The title, header and 7 labels arrive at full size.
+  - Looking at a miniature and clicking bans it.
+  - A creeper duel shows 7 biome cubes and no miniatures. Biome names have no "(Crystal)".
+  - No display entities are left after either match.
+- **Upgrade:** a VortexRealm 2.1.0 server updated to 2.1.1 gets `match.map-preview-detail` added to its config and passes `/pvpadmin selftest` 134/134. That includes the kit pools and nine 3D previews within budget.
+- How smooth the motion looks can't be judged by a headless bot; it was checked for errors and leftovers, not by eye.
+
+1.2.0 / 2.1.0, on Paper 1.21.11:
+- **Fresh server:**
+  - all 28 duel maps and 5 FFA arenas generate;
+  - the vanilla maps were checked from top-down renders of their snapshots: real terrain, no lava, deep crystal floors, no walls;
+  - `/pvpadmin selftest` passes 122/122, including the logo, pixel spaces, Vault provider, SMP dimensions and a map for every kit.
+- **Upgrade:** a VortexRealm 2.0.0 server with old arenas updates its config (v7 → v8), starts the new arena pack and passes the self test.
+- **Bot test** (mineflayer, 20 checks). Confirmed working:
+  - the tab with 1 and 2 players, and no rows during the map vote;
+  - duel, map ban and round report;
+  - the loser spectating and the winner moving;
+  - the return to the lobby;
+  - the nether portal in an SMP world leading to `smp_nether`, and an SMP death respawning in `hub`;
+  - `/bal`, the `/pay` confirmation and `/shards`.
+
+  Two checks could not be verified: whether the FIGHT title appears, because the bot library doesn't report titles.
+- The animations (smoothness, light sweep, orbit) can't be judged by a headless bot. They were checked for errors and leftover entities, not by eye.
+
+1.1.0 / 2.0.0:
+
+- Booted on Paper 1.21.11 (build 132):
+  - The plugin enables with no errors and generates all starter arenas.
+  - `/pvpadmin selftest` passes, including the new checks: privacy filters, Tier Defense pairing, friends tables, tab packets, Ping Equalizer and Regions.
+- Three headless bot players (mineflayer) checked friends, Invisible blocking duels, DND filters, duel requests, match start through the turn-based map ban, spectator lines and chat, and the 80-entry tab.
+
+Dialog screens (settings, duel, challenge) need a real 1.21.6+ client to click through. Older clients get the classic chest menus.
+
+
+## 3.7.0 / 2.7.0 — the SMP back on this server
+
+Put **VortexRealm 3.7.0** and **VortexSMP 1.6.0** on the same server. `smp.same-server: true` is on by default.
+- The selector's SMP button (and `/smp`) takes players to the SMP world from `worlds.yml`, not to another server. Every other SMP world (ECO...) gets its own selector entry.
+- Each world group (hub, survival, eco...) keeps its own inventory, ender chest, XP and health. The first time a player enters the SMP, they get their **old saved SMP inventory and ender chest** back, at their last spot (landing on solid ground).
+- **Backups:** on every world switch, on logout, on shutdown and every `smp.backup-minutes` (default 10). The newest `smp.backup-keep` (default 30) are kept per player and world, in `inventories/backups/<uuid>/`.
+  `/pvpadmin invbackup <player>` lists them; click **[restore]** to put one back. An online player gets it right away; otherwise it loads the next time they enter that world.
+- Deaths in the SMP respawn in the SMP (bed, anchor or SMP spawn). Practice commands (queue, duel, ffa...) are blocked inside the SMP: use `/practice` first.
+- VortexSMP switches into same-server mode by itself:
+  - homes, tpa, rtp, warps, back, combat tag, the sidebar, `/craft`, `/ec`, `/trade` and `/market` work in the SMP worlds;
+  - `/hub` and `/spawn` outside the SMP go to the lobby;
+  - old homes are imported once from the VortexRealm folder (VortexRealm handles the inventories).
+- To go back to a separate SMP server: set `smp.same-server: false`.
+
+
+## 3.8.0 / 2.8.0 — all-in-one SMP + Practice (one plugin)
+
+The SMP is part of VortexRealm again, like the old plugin. **Remove VortexSMP**: if it's still installed, VortexRealm renames its jar the first time it starts. After one restart only VortexRealm runs, and the old VortexSMP homes, warps, market, drills and Discord links are copied into `plugins/VortexRealm/smp/`.
+
+- **SMP commands** (they work in the SMP worlds of `worlds.yml`): `/home /sethome /homes /delhome /spawn /back /rtp /tpa /tpahere /tpaccept /tpdeny /tptoggle /warp /warps /craft /ec /hat /trash /nv /near /trade /market /drill /link /smpadmin`. `/spawn` outside the SMP goes to the lobby. SMP settings are in `smp/config.yml`.
+- **Inventories:** each world group (hub, survival, eco...) keeps its own inventory, ender chest and XP. Backups are made on every switch, on logout and every 10 minutes. `/pvpadmin invbackup <player>` lists them; click **[restore]** to put one back.
+- **Import old SMP stuff:**
+  1. Put an old VortexRealm / PracticePvP folder (or a `.zip` of it) in `plugins/VortexRealm/import/` and restart, or run `/pvpadmin smp import run`.
+  2. Homes and warps are added.
+  3. SMP inventories and ender chests are loaded for players who have none here yet. Otherwise the imported copy is put in their backups (one click to restore). Old backups and last spots come along too.
+  4. Nothing is overwritten, and the inventories folder is zipped first.
+- `/pvpadmin smp` shows the SMP status, `reload`, `import` and the keep-online `bot`.
+- **Tab fix:** names next to flag icons no longer show as empty boxes.
+
+
+## 3.8.1 / 2.8.1 — SMP fixes and the SMP page
+
+- **The SMP always starts.** If the old VortexSMP jar is still installed, it's switched off and renamed, and VortexRealm's SMP runs right away.
+- **`/home`, `/homes`, `/back` and `/rtp` work from the lobby.** They take the player into the SMP, and their SMP inventory loads.
+- **Old homes and warps always come in** (only what's missing) from the old plugin files and from `plugins/VortexSMP`.
+- **Join backup:** each new version backs up what every player carries the first time it sees them, before anything can switch it.
+- **`/pvpadmin` → SMP:**
+  - turn the SMP on or off;
+  - **SMP Settings** (homes, tpa, rtp, warps, teleports, combat tag, market, trade, drills, backups), now in `config.yml` under `smp.`;
+  - SMP worlds;
+  - **Bring Back SMP Data:** pick a Data Vault backup (one is made before every update), the old plugin files or the VortexSMP folder. You see what it has, then bring back everything (only what's missing) or replace with it. Inventories and ender chests come back too, including what players were carrying.
+  - **Player Inventories:** every player's backups, with one-click restore.
+- **Console:** `/pvpadmin smp restore`, then `/pvpadmin smp restore <n> preview|missing|replace`.
+
+
+## 3.8.2 / 2.8.2 — restore the old plugin's SMP
+
+1. Upload the old plugin folder or its `.zip` anywhere on the server: the server folder, `plugins/` or `plugins/VortexRealm/`.
+2. Go to `/pvpadmin` → **SMP** → **Bring Back SMP Data** and pick **Old plugin: <your zip>**.
+3. Click **Restore everything as it was**.
+
+Every player gets the SMP inventory, ender chest and XP from the old plugin: online players right away, the others when they join (also when they logged out inside the SMP). Old homes and warps come back too. What players had before is kept in **SMP → Player Inventories**, and a Data Vault backup is taken first.
+
+Console: `pvpadmin smp restore`, then `pvpadmin smp restore <n> all`.
+
+
+## 3.8.3 / 2.8.3 — closed arenas
+
+Every duel, FFA and bot arena is closed with **invisible barrier walls**, one block outside the arena, from under the floor up to the top of the world. There's no roof, so mace and wind-charge jumps still work, but nobody can walk, pearl or fly out.
+
+- The walls are built in the background on startup (about a minute) and for new arena copies.
+- Resets never remove them.
+- Terrain and builds are never replaced.
+- Setting: Settings → Arenas & Reset → **Invisible Arena Walls**.
+- Commands: `/pvpadmin walls` (rebuild them all) and `/pvpadmin walls off` (remove them).
+
+
+## 3.9.0 / 2.9.0 — Club Spawn lobby
+
+There's a new lobby style, **Club Spawn**: the MCPVP.CLUB spawn map (by Xter/SFFredd), converted block by block from the uploaded Bedrock world.
+
+- **Build it:** stand where you want it and run `/pvpadmin hub build club_spawn`, or pick it in `/pvpadmin` → Lobby builds.
+- **What you get:** the spawn is set on the main plaza, and 8 NPC spots are placed around it.
+
+
+## 3.9.1 / 2.9.1 — backups only when you want them
+
+- **Automatic backups are off.** The plugin no longer backs up by itself every 6 hours, at shutdown or before updates, and on the first start it deletes the old automatic backups to free storage. Backups you made with the button stay. To turn automatic backups back on: Settings → General → **Automatic Backups**.
+- **Backup Everything button** in `/pvpadmin` (and on the SMP page): one click saves everything from the SMP and Practice. That's settings, kits, arenas, ranks, stats, homes, and every player's inventory, ender chest and XP. It goes into `plugins/VortexRealm-Vault/`. The 3 newest are kept, and you restore them in Data Vault. Console: `pvpadmin backupall`.
+
+
+## 3.9.2 / 2.9.2 — out-of-memory fix
+
+The arena walls go 20 blocks above each arena instead of to the top of the world, and they are built one arena at a time with a pause in between. Vanilla maps are skipped. On the first start, every generated arena (not the vanilla ones) is rebuilt from zero, one by one, then gets its walls.
+
+
+## 3.10.0 / 2.10.0 — new arenas, walls everywhere, SMP nether & end backups
+
+**8 new arenas**, built block by block in the style of the big PvP servers. Each one is a flat fighting floor inside a detailed build that is all backdrop. An invisible wall over the floor edge keeps fights on the floor.
+
+| Arena | What it looks like |
+|---|---|
+| Royal Courtyard | grass court, grey castle wings with recessed gothic windows, vines and banners, a gatehouse, a great hall, round towers with red roofs, a pond |
+| Frosthold Keep | the castle in snow: blue roofs, ice-blue windows, frozen pools, snowy pines |
+| Sultan's Palace | sand court, two-storey red and gold arcades, domed kiosks and palms on the roofs, a three-tier palace with golden niches, blue columns and a great onion dome, minarets |
+| Titan Colosseum | sand floor with pools, stands with blue aisles, a ring of tall columns and arches with red banners, a giant stone guardian with spear and shield, a royal box |
+| Highland Plaza | swirl-paved floor, teal panels between lantern pillars, stepped rock cliffs with pines, a timber lodge and a watchtower |
+| Sakura Terrace | pink and white swirl floor, cherry trees on the cliffs, a four-tier pagoda, a torii gate |
+| Ember Sands | sand floor with a dark geometric inlay, terracotta panels, pale cliffs, dead trees, a red dragon with spread wings, an aqueduct |
+| Gothic Harbor | gothic town houses with purple windows and copper roofs, a cathedral with a rose window and spires, a sea gate, pools |
+
+- They replace the old colosseums and show arenas. The Grand Colosseum (mace), the Champions Colosseum (tournaments) and Mole Mines stay.
+- The new maps are made by themselves on the next start, one at a time. The FFA kits that had an old look get a new FFA map.
+- Pictures: `previews/court-*.png`.
+
+**Invisible walls on every arena.** FFA arenas and vanilla maps had none: walls were skipped for vanilla maps, and the default FFA map is a vanilla Plains map. Rebuilding an arena also wiped its walls, and they never came back.
+
+- Now every duel, FFA and bot arena is closed, vanilla maps included.
+- Every rebuild or new copy gets its walls again right away.
+- Every 5 minutes, the arenas players are in are checked and any gap is closed.
+- On the first start all walls are checked once.
+
+**Regenerate designed arenas:** `/pvpadmin regenerate confirm`, or the *Regenerate Designed Arenas* button in `/pvpadmin`. Every generated duel and FFA arena that is not a vanilla map is deleted and built again from zero, one at a time, with its walls. Vanilla maps stay as they are. The *Invisible Arena Walls* button rebuilds the walls of every arena.
+
+**SMP nether & end in backups.** If the SMP world isn't the server's main world, its portals lead to the default `world_nether` / `world_the_end`. Those worlds didn't count as SMP, so nothing there was backed up.
+
+- They are now linked to the SMP by themselves: same inventory, backups every few minutes.
+- `/pvpadmin smp link <world> [smp world]`, `/pvpadmin smp unlink <world>`, `/pvpadmin smp links`.
+- *Nether & End* button on the SMP page.
+
+
+## 3.11.0 / 2.11.0 — pets & wings, 5 new arenas, walls to the sky, no water, everyone equal in SMP
+
+**Pets, shoulder pets and wings.** Open `/cosmetics` to pick them. Each one unlocks after a set amount of time played on the server.
+
+| Kind | Cosmetics (hours to unlock) |
+|---|---|
+| Pets that follow you | Chonky Dog 1, Chonky Cat 2, Chonky Bunny 4, Chonky Pig 6, Chonky Penguin 10, Chonky Panda 16, Chonky Fox 24 |
+| Shoulder pets | Parrot 0.5, Tiny Cat 3, Tiny Dog 5, Bee 8, Axolotl 12, Tiny Penguin 20 |
+| Wings | Angel 2, Butterfly 6, Bat 12, Frost 20, Dragon 35, Phoenix 50, Void 75, Golden 100 |
+
+How they behave:
+- **Pets** waddle behind you, wag their tails and look at you. The chubby ones roll out when you summon them and roll after you like a ball when you run. While waiting they sometimes roll or hop, with hearts.
+- **Wings** flap, and flap faster when you sprint or jump.
+- **Shoulder pets** bob and look around; the parrot flutters when you jump.
+
+Technical notes:
+- Everything is built from block displays: no resource pack needed, no hitboxes, and other plugins' teleports aren't affected.
+- They show in the lobby, hub and SMP. Settings → Visuals & Effects has *Wings in Fights*, *Pet Smoothness* and *Pet View Distance*.
+- `practice.cosmetics.all` (`vortex.cosmetics.all`) unlocks everything.
+- **Showcases for the lobby:** `/pvpadmin showcase add <cosmetic>` puts one where you stand, with its name and unlock time. `remove` removes the nearest one; `list` lists them all.
+- Pictures: `previews/cosmetics-pets.png`, `previews/cosmetics-wings.png`.
+
+**5 new arenas:**
+
+| Arena | What it looks like |
+|---|---|
+| Tropical Beach | sand floor with a sun mosaic, a bamboo wall, umbrellas and loungers, a lagoon (glass, not water), huts on stilts, a tiki bar, a striped lighthouse, palms |
+| Jungle Temple | a mossy carved court, ruined walls with vines, a step pyramid with a temple on top, a giant stone head, huge jungle trees |
+| Volcano Forge | a blackstone floor with glowing cracks, a 60-block volcano with glowing streams and smoke, a dwarven forge hall, basalt columns |
+| Pirate Cove | a palisade, rocky cliffs, a pirate ship with full sails and a skull flag, a dock, treasure in a cave |
+| Pharaoh's Tomb | a sandstone court with gold and lapis inlays, a painted colonnade, a pylon gate, a steep golden-topped pyramid, a sphinx, obelisks |
+
+**Invisible walls go up to the top of the world**, still built one arena at a time.
+
+**No water in the arenas:**
+- The court arenas have no pools any more.
+- New vanilla maps fill lakes and rivers with ground.
+- On the first start, every existing arena has its water filled once (lily pads and underwater plants removed, waterlogged blocks drained). Its reset copy is saved again, so resets don't bring the water back.
+
+**Everyone equal in the SMP** (Settings → SMP → *Everyone Equal in SMP*, on by default):
+- Inside SMP worlds only player commands work, even for ops and the owner.
+- Survival only, no flying.
+- Rank perks (more homes, teleport bypass, admin rights) are off while there.
+- Rank names still show. Admin work is done from the lobby or the console.
+
+**Name colours:**
+- `/namecolor` (also `/color`) opens a palette of 18 colours; `/namecolor #hex` sets any colour; `/namecolor reset` goes back to the rank colour.
+- Admins set anyone's: `/namecolor <player> <#hex|reset>`.
+
+**SMP seasons:**
+- Players see the current season with `/season`, and a short line when they come into the SMP.
+- Admins write the next one with `/season new <name>`, `theme <text>`, `rule <text>` and `days <n>`, then `/season start` announces it with a title and sound.
+- `/season ideas` lists 10 ready-made seasons; `/season idea <n>` loads one.
+
+**Match start:**
+- Every count shows as "✪ 3 ✪" with a ring of light closing in round the player.
+- "✪ FIGHT! ✪" fires a burst ring with sparks and a sweep.
+
+**5 more leaderboard designs:** Medals, Gradient, Minimal, Trophy Wall, Esports.
+
+**Server plan:** `docs/SERVER-PLAN.md` — the Discord layout, staff ranks and applications, boards, season ideas and the upgrade roadmap.
+
+
+## 3.11.1 / 2.11.1 — auto-update fixed
+
+The updater now asks **every** update address and installs the newest version any of them offers. Before, it stopped at the first address that answered, so an address that was behind (the GitHub one) hid newer versions.
+
+- The built-in addresses are always asked, whatever *Update Sources* says, so a server can't be cut off from updates any more.
+- Check now: `/pvpadmin update check`. Install right away: `/pvpadmin update now` (otherwise it restarts when the server is empty, or at night).
+
+
+## 3.12.0 / 2.12.0 — 40+ new systems (the VortexPvP add-on is now part of VortexRealm)
+
+Every system of the VortexPvP test build (`README-VortexPvP.md` has the full details) now runs inside VortexRealm itself.
+
+- **Settings:** `plugins/VortexRealm/plus/config.yml` has an `enabled` switch for every system. `/plus reload` applies changes and `/plus status` shows what runs.
+- **Ranked:** rank ladder Coal→Netherite with divisions (`/ladder`), promotion series and demotion shield, fair ranked (repeat-win damping, alt check, ping equaliser), ranked seasons with a Hall of Fame (`/rseason`), clans and clan wars (`/clan`), ranked 2v2 (`/duo`), party wars (`/partywar`), the Weekly Cup, streak announcements, head-to-head and rivals.
+- **Getting better:** post-match analysis (`/lastmatch`), replays (`/replay`), training drills (`/skilldrill`), coach mode (`/coach`), match HUD (`/hud`).
+- **Things to do:** arcade (`/arcade`), FFA bounties and kill-streak rewards, missions (`/missions`), battle pass (`/pass`), ~300 achievements (`/achievements`), titles (`/titles`), daily rewards (`/daily`), kit vote (`/kitvote`), Match of the Week (`/motw`).
+- **Looks:** win effects and death messages (`/vfx`), gadgets (`/gadget`), hub parkour (`/parkour`), a punching dummy in queue, seasonal hub decorations, cinematic spectator (`/cinematic`). `/pet` now opens the new pets.
+- **Community:** creator codes (`/creator`, `/code`), LIVE badge and streamer mode (`/live`, `/streamer`), mentors (`/mentor`), friend spectate (`/fspec`), Discord verify (`/dverify`).
+- **Staff:** Fair+ checks, report evidence replays (`/evidence`), screenshare log (`/sslog`), alerts (`/alerts`).
+- **Renamed to avoid clashes:** ranked seasons → `/rseason` (`/season` stays the SMP season), training drills → `/skilldrill` (`/drill` stays the SMP drill), Discord verify → `/dverify` (`/link` stays).
+- **Removed:** the Eco SMP extras (crates, chest shops, bid house), because that SMP mode is gone. Rewards are paid in coins.
+
+## 3.13.0 / 2.13.0 — 1.8 kits, the Legacy Hall, new arcade arenas, VexBot
+
+- **1.8 combat** for kits with "1.8 Combat" on (kit editor): no attack cooldown, no sweep, 1.8 knockback (push, sprint push, lift in the air; every number in Settings → Matches), sword blocking with the 1.8 pose (hold right click, halves damage), rod knockback, instant soup, 1.8 regeneration, no off-hand. Arcade games use it too (setting).
+- **Eight 1.8 kits:** NoDebuff 1.8, Debuff, Gapple 1.8, Soup, Archer, Combo 1.8, BuildUHC 1.8 (with golden heads) and Classic, in a new **1.8 Kits** queue tab. Added on update without touching edited kits.
+- **The 1.8 Legacy Hall:** a white quartz temple with prismarine accents at the end of the dirt path south-west of the Club Spawn plaza: eight kit fighters on pedestals (click: unranked, ranked, bot, edit layout) and a stage with Sumo, The Bridge, Boxing and Spleef. New Club Spawn builds include it; on a spawn that is already built run **`/legacyhall build`**. Players use **`/legacyhall`** (or `/legacy`).
+- **New arcade arenas:** Sumo sky dojo (15x15 ring with a hanging roof), a boxing ring with stands, The Bridge with team castles and drop-in goals, a frozen spleef stadium, a ruined OITC courtyard and a KOTH temple hill. Rebuilt by themselves after the update.
+- **VexBot:** Settings → Bots → "VexBot Bots" makes bot fights use the VexBot plugin's bots (install the VexBot build made for your Minecraft version). Off or missing = the built-in bots.
+- **Cosmetics:** trims per armor piece, sword skins (unlocked by time played), leather armor colour.
+- **Settings:** Auto GG, kill sounds, death recap, fight HUD (combo, reach, CPS), more hit sounds.
+- **For builders:** `schematics/` (.schem for WorldEdit/FAWE), `datapack/vortex_practice` (barrier ceilings, spawns, gamerules), JUnit tests (`mvn test`), `docs/PROJECT-STRUCTURE.md`.
+
+## 3.13.1 / 2.13.1 — SMP worlds can be set again
+
+- **World Manager:** a world's page lists Survival SMP, Lifesteal SMP, Strength SMP and Ranked SMP again (they were hidden), and so does the mode choice when you create or load a world. Picking one turns on Settings → SMP → "SMP On This Server" by itself if it was off (before, the world silently became "Nothing").
+
+## 3.13.2 / 2.13.2 — SMP player commands back
+
+- **Everyone Equal in SMP** now blocks only what it should: admin and staff commands, cheats (gamemode, give, tp, fly, god, heal, time, weather...), WorldEdit and permission plugins. Every normal player command works in the SMP again: `/enderchest` (`/ec`), `/craft` (`/wb`), `/hat`, `/nightvision`, `/homes`, `/near`, clans, missions, daily rewards, the battle pass and so on. Before, it only let a short list through.
+
+## 3.13.3 / 2.13.3 — wings stick to you, pet collars and leads
+
+- **Wings and shoulder pets ride the player** now, so the game moves them with you every frame: no more lagging behind or swinging into your view when you run or turn. They come off for a moment by themselves for portals and world changes (a player with riders can't change worlds) and only go on a few seconds after an AuthMe login. Settings → Visuals → "Wings Stick To Players" turns it off if another plugin's teleports to other worlds ever fail.
+- **New setting for players:** "Your Wings & Shoulder Pet": shown or hidden from yourself (others always see them).
+- **Pet collars:** `/cosmetics` → Pet Collar, 16 colours with a gold tag.
+- **Pet lead:** `/cosmetics` → Pet Lead: a lead from your hand to your pet's collar. It never drops a lead item and can't be untied by other players.
+
+## 3.13.4 / 2.13.4 — more detailed wings and pets
+
+- **Feathered wings** (Angel, Frost, Phoenix, Golden): a two-part arm, an alula, two rows of coverts, a shadow layer of secondaries and seven primaries with coloured tips.
+- **Bat and Dragon wings:** a darker inner membrane, claws at the wrist and finger tips; the dragon gets a horn.
+- **Butterfly and Void wings:** veins across both wings.
+- **Pets:** a little ":3" mouth under the nose.
+
+## 3.13.5 / 2.13.5 — capsule start, SMP kits and spectate, fixes
+
+- **Capsule start (PvP HQ style):** each player waits in a glass block above their spawn (red / blue); at GO it splits in two, the halves swing away and you drop onto the map with no fall damage. It is the new start animation (Settings → Matches → Start Animation; servers on the elevator are moved to it once). Per arena too (arena editor).
+- **Elevator:** steadier (puts you back on the platform sooner when lag pulls you off).
+- **Fix:** logging out during The Bridge (or any arcade game) put you back in the game with its items, and the lobby kept them. Now you are cleared and sent to the lobby.
+- **1.8 tab:** The Bridge, Sumo, Boxing, Spleef, OITC and KOTH are listed there too (click to queue).
+- **No "Punch me" dummy** while you queue for a 1.8 kit.
+- **Wings** follow what you do: slow breathing when standing, tucked when walking, swept back when sprinting, real flaps only in the air. Bat and dragon wings sit lower and move half as much.
+- **SMP staff spectate:** `/spectate <player>` in the SMP (helpers and up) puts you in spectator, hidden from everyone who isn't staff, tab list included. `/spectate` again to come back.
+- **SMP kits:** `/kit`: Starter (once, everyone), VIP, MVP/Legend, Diamond (staff, creators, top ranks), Moderator (enchanted diamond), Netherite (owner, admin: full netherite with mending, elytra, totem). 24 h cooldowns, a menu with the items shown as pictures.
+- **SMP nether and end:** World Manager → an SMP world → "Create Nether" / "Create The End". They are linked (same inventory, backed up) and the SMP's portals lead to them.
+- **Lighter arena building:** block work only uses the time a tick has spare (no lag on a busy server), runs faster while nobody is online and pauses when memory is nearly full.
+
+## 3.13.6 / 2.13.6 — no more shutting down when empty
+
+- **Fix:** when an update was downloaded, the server "restarted" as soon as nobody (or only the keep-online bot) was online. Without a restart script that only stops the server, and many hosts leave it off. Now it restarts by itself only when `spigot.yml` has a restart script that exists; otherwise the update waits in the update folder and goes in at your next normal restart (or `/pvpadmin update` to do it now).
+- The keep-online bot (`/pvpadmin smp bot on`) is still there; the SMP lock and the cosmetics now leave it alone.
+
+## 3.13.7 / 2.13.7 — fix
+
+- **Fix:** "SMP kits" and "1.8 legacy hall" failed to start (ClassCastException ... TabCompleter): their commands now have tab completion, and a command without it no longer stops its part from starting.
+
+## 3.13.8 / 2.13.8 — out of memory at startup
+
+- **Fix:** the one-time "water out of the arenas" pass (from 3.11) runs a minute after start and only marked itself done at the very end: if memory ran out in the middle, the next start did it all again. Now every arena is marked as it finishes (a restart goes on with the next one) and it waits while memory is over 70% full.
+- All arena building pauses while memory is over 82% full, so the garbage collector can catch up instead of the server crashing.
+- Host tip: on a 6 GB server give Java about 5 GB (`-Xmx5G`), not all 6: Java needs some memory outside that for itself.
+
+## 3.13.9 / 2.13.9 — arenas checked when used, not at startup
+
+- **Fix (memory, exit code 137):** at startup every copy of every arena was compared with its saved snapshot at the same time, which loads all their chunks at once. Now nothing is checked at startup:
+  - a duel arena copy is checked (and repaired if needed) the first time a duel uses it after a restart; the players wait at their spawn ("Preparing the arena") and then the start animation runs;
+  - an FFA arena is checked when its first player joins after a restart, and empty FFA arenas are no longer regenerated on the timer;
+  - once a copy is checked it is not checked again until the next restart (it is still repaired after each match, as before);
+  - checks run one at a time across the whole server.
+
+## 3.13.10 / 2.13.10 — The Bridge scores, no maps in sight
+
+- **The Bridge:** dropping into the other team's goal hole scores right away (it used to count only when you stood on the coloured glass at the bottom, so you could fall and die instead). The goals glow with portal particles in their team colour.
+- **No other maps in view:** while you fight (duel, FFA, bot, arcade) you only get the chunks of your own arena, so the arena copies and arcade plots next to it are out of sight; back in the lobby your view distance returns. Settings → Arenas → "Hide Other Arenas".
+
+## 3.13.11 / 2.13.11 — Bridge fix, no queue dummy, SMP spectate for mods, auto nether & end
+
+- **The Bridge:** a drop into a goal now counts as soon as the goal glass is under you, even if the arena sits a little off its saved centre. The goal particles are centred on the holes.
+- **No "punch me" dummy:** the punching dummy no longer appears while you queue, for any kit.
+- **SMP `/spectate` for staff by rank:** helpers, mods, devs, admins and the owner (server rank) and `/staff` members can use `/spectate` in the SMP to watch and report.
+- **SMP nether & end automatically:** every SMP world gets its own `<world>_nether` and `<world>_the_end`, created and linked at startup or when a world is set to an SMP mode.
+
+## 3.13.12 / 2.13.12 — /pvpadmin always works for the owner
+
+- **Admin commands after the SMP:** the SMP takes admin perks away while you're in it. Sometimes they didn't come back when you left (for example after `/spectate` then `/hub`), so `/pvpadmin` stopped working until you rejoined. Now they come back the moment you type a command outside the SMP, and a check every 2 seconds catches anyone still locked. Leaving the SMP while spectating ends the spectate.
+- **Staff commands in a duel:** ops can always use `/pvpadmin`, `/staff` and the other staff commands during a duel.
+
+## 3.13.13 / 2.13.13 — Smarter market trades
+
+- **Type what you want, typos are fine:** after you put your items in `/market` → *Post an offer*, just type in chat what you want. `dimond 64`, `netherit sword`, `god apple 5`, `2 stacks of pearls`, `a stack of obby`, `10 dia and 1 mace` all work. Nicknames like gapple, pearls, obby, xp, totem, crystal, anchor, elytra and shulker are understood too.
+- **See it before it's posted:** a confirm screen shows the **real item icons** of what you give and what you asked for. *Confirm* posts it, *Change* lets you type again, *Cancel* gives your items back.
+- **Scam-proof as before:** your items stay with the server until someone fills the offer, then both sides get their items.
+
+## 3.13.14 / 2.13.14 — Bigger capsule start, kit cooldowns by rank, Booster & Developer kits
+
+- **Capsule start:** players now wait in a roomy **3×3 glass room** instead of being squeezed into one block. It rises as high as the map allows, **up to 20 blocks** above the spawn (lower under roofs or trees), and the drop is safe (no fall damage).
+- **Kit cooldowns depend on rank:** owner/admin every **1h**, dev **2h**, mod **3h**, helper **4h**, support **5h**, booster **6h**, builder/media/partner **8h**, supreme/frost/legend **12h**, everyone else **24h**. The Starter kit stays once-only.
+- **New kits:** **Booster** (enchanted diamond, elytra, rockets, golden apples, a pink shulker) and **Developer** (diamond Prot IV, netherite tools with Mending, elytra, rockets, building blocks).
+- **New rank: Booster** (pink) for Discord server boosters: `/rank set <player> booster`.
+
+## 3.13.15 / 2.13.15 — Live server status on Discord
+
+- **Live status panel:** the server keeps one message in a Discord channel up to date: **🟢 ONLINE • 5 / 100 players**, the IP, who is playing, and a card with each player's **skin** (up to 9). When the server stops, the panel shows **🔴 OFFLINE**. No bot needed.
+- **Setup:** in `plugins/VortexRealm/plus/config.yml` set `discord.status-webhook` to a webhook of the channel (Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL), then `/plus reload` or restart.
+
+### 3.13.16 - SMP claims
+`/claim` protects a square base around you (default radius 40 = 81 x 81 blocks, change `settings.radius` in `smp-claims.yml`). Inside, only the owner and trusted players can break, build, open chests, use doors, buckets, frames and animals. Creepers, TNT, crystals, anchors, withers, endermen, fire and lava never break claimed blocks. PvP still works. Commands: `/claim`, `/claim show`, `/claim info`, `/claim trust|untrust <player>`, `/claim list`, `/claim remove`; ops: `/claim bypass`, `/claim delete`. No claims within 150 blocks of spawn.
+
+### 3.13.17 - Coming soon: Unstable Realm
+`/season` and entering the SMP now show the next season as **coming soon**. Admins edit it with `/season soon <name>`, `/season soon theme <text>`, `/season soon rule <text|clear>`, `/season soon off`. Players see it with `/season soon`. The full season plan is in `docs/UNSTABLE-REALM-PLAN.md`.
+
+### 3.14.0 - The Unstable Realm season
+An original story season for the SMP, off until an op types `/realm start`. Eight one-of-a-kind characters (`/character`, Shift+F powers), a five-chapter story that advances by server goals, a personal five-part questline per character with cutscenes and choices, server votes that change the ending, five NPCs that remember each player, AI fighters (with revenge Avengers), Rift Nights, meteors, the Jester's Carnival, capital sieges and the three-phase Unmaker boss. Setup in `docs/UNSTABLE-REALM-GUIDE.md`; all text in `realm-story.yml`.
+
+### 3.14.1 - SMP safety fixes
+- `/back` after a death now picks the nearest safe spot (never back inside the wall you suffocated in or the lava you burned in).
+- Got stuck inside blocks right after flying with an elytra, or after a lag/anti-cheat pull-back? You're moved to the nearest free spot instead of suffocating.
+
+### 3.14.2 - Capsule for every main kit, spectate fixes
+- Sword, NoDebuff, Pot, NethPot, Combo, Gapple, UHC and BuildUHC duels start in the **capsule** (no more cage). Change the list in `match.capsule-kits`.
+- The capsule animation is rebuilt: it materialises from the centre, has a glowing ring and six orbiting team-coloured shards that speed up, pulses with rising sounds in the last 3 seconds, cracks at 1, then bursts into flying glass with fireworks and a soft landing.
+- `/spectate <player>` works in the nether and the end, and the camera follows the player through portals.
+- Staff spectate can't be abused: staff can't hurt or pick up the drops of anyone they spectated for 30 minutes, only /spectate, messages and moderation commands work while spectating, leaving returns them to where they started, and every spectate is written to `smp-spectate-log.txt` and shown to online ops.
+
+### 3.14.3 - /back after End deaths
+- `/back` after dying in the End or the nether now takes you back there. The trip to the respawn point no longer overwrites your death spot.
+- Died in the End's void? `/back` takes you to the main island instead of dropping you into the void again.
+
+### 3.14.4 - Unstable Realm preview
+`/realm preview` runs the whole season only for you (`/realm preview add|remove <player>` for more testers, `/realm preview off` to stop). Everyone else sees nothing: NPCs and fighters are hidden from them, fighters ignore them, and messages and titles only go to testers. After testing, `/realm reset confirm` then `/realm start`.
+
+### 3.14.5 - The Unstable Realm world
+Upload a world folder, then `/realm world set <folder>`: it becomes the Unstable Realm world (new world mode with its own inventory, nether and end) and the season runs only there. `/realm world tp` to go there, `/realm world clear` to go back to the normal SMP. Only ops and preview testers can enter it before `/realm start`.
+
+### 3.14.6 - Death backups
+Every SMP death now saves a backup of the inventory first. Restore it in /pvpadmin -> SMP -> Player Inventories.
+
+### 3.14.7 - Companions
+`/companion` summons a sidekick in the Unstable Realm. Give it orders in chat starting with its name ("Bran, follow me", "guard here", "attack that", "defend me", "go there"). With an AI key set in /ai it understands free speech and answers in character, but it can only choose its own actions (never commands).
+
+### 3.14.8 - Fixes
+- `/selector` can't crash any more: an entry with a bad icon uses a grass block, and if the dialog fails the plain menu opens.
+- `/realm world set <folder>` refuses to turn a world that is already the hub, PvP or an SMP into the season world (add `force` if you really mean it).
+
+### 3.14.9 - New character menu
+`/character` is rebuilt in the MCPVP style: a framed menu with each character as a head, passive / power / weakness in the lore, TAKEN markers, a green/red confirm screen, and buttons for Who is who and your Journal. Paste a head's Value code from minecraft-heads.com into `realm-story.yml -> roles.<id>.head` to give a character any custom head.
+
+### 3.14.10 - Nether and End fixed
+The SMP's nether and end were treated as not part of the SMP (they're saved as 'Nothing' and linked to the SMP, and the 'Nothing' hid the link). Now /rtp, /tpa, /tpahere, /home, /sethome, /back, /spectate, claims, kits and the SMP rules work in them like in the overworld.
+
+
+## C MCPvP 1.0.11
+
+- **Fix:** every designed arena and FFA arena failed to generate ("Block job show-... failed"). A chunk-section check read one section past the top of the world. They build again.
+- **New logo:** the CMC PvP logo replaces the old Vortex Realm logo, in the tab (smaller, with "CMC" and "PVP" together) and on the website. The source picture is `tools/cmcpvp-art/logo-source.png`.
+- **No automatic lobby NPC placement** (from 1.0.10). Place NPCs by hand with `/npc`. The booths that 1.0.9 built are removed once.
+- **Updates now come from this repo:** C MCPvP reads `dist/update.json` here, which its default update sources already include.
+
+
+## CMCPVP 1.0.18
+
+- **Removed:**
+  - the ring of blocks that popped round you on rank-up;
+  - the menu item in the hotbar (the menu is `/menu` only);
+  - pets, shoulder pets and wings (the server is PvP only).
+- **Kits** (`/pvpadmin` → Kits, or `/kits edit <kit>`):
+  - edit contents, icon, name and rules, plus the new **Group** button;
+  - **◀ Show Earlier / Show Later ▶** sets the order kits appear in;
+  - in the kit list, right click moves a kit later and shift + right click moves it earlier;
+  - the first queue tab now shows **Featured Kits** in your order (`queue.popular-first` switches back to most played);
+  - FFA follows the same order.
+- **Layout & Placement** (`/pvpadmin`):
+  - **Main Menu:** move, hide or show `/menu` buttons, and choose 1 to 3 columns;
+  - **Lobby Hotbar:** for the lobby, party and queue layouts, change each item's slot (◀ ▶), use the item in your hand, rename it, remove it or put it back;
+  - **Scoreboard:** click a line to hide or show it, change the title, and turn red and white or the whole sidebar on or off;
+  - **Holograms, Leaderboard, NPCs, Decorations:** move them to you, face you, edit text and size.
+- **Settings:** search every setting, and edit list settings in game (one line per entry).
+- **Fixes:**
+  - the arena flyover can't leave anyone in spectator, and sneaking puts you back on the camera;
+  - the lobby tour stops if your queue pops and is undone on restart;
+  - the red scoreboard keeps yellow warnings yellow.
+
+
+## CMCPVP 1.0.17 (phase 2 of 4)
+
+- **3D VS card:** before every duel, both heads slide in with tier, Elo and W/L in the kit, and a big VS pops in between.
+- **Arena flyover:** before the first round the camera glides over the map down to your spawn (`match.arena-flyover`).
+- **Effects:**
+  - new kill effects Shatter, Tornado and Souls Rise, plus a red trail from killer to victim;
+  - win poses (Crown by default, Pillar, Flag, Confetti);
+  - a tier crest of blocks in the tier colour forms round you on rank-up.
+- **Main menu:** a new hotbar item (slot 4) and `/menu` open every mode and screen.
+- **Profile:** now shows tier points, title, peak tiers and the last 5 matches.
+- **Post-match screen:** your stats next to the opponent's, with Rematch, Queue again and Watch replay buttons (`match.post-match-screen`).
+- **Scoreboard:** red and white CMCPVP design (`board.red-white`).
+- **Queue boss bar:** shows the kit, time waited, ETA (learnt from real waits) and players searching; the ETA also goes in the action bar (`queue.boss-bar`).
+- **First-join lobby tour:** a camera tour before the welcome screen; sneak to skip, `/tour` to replay (`lobby.first-join-tour`).
+- **Toasts** for 3/5/10 win streaks and when a tournament starts.
+- **Settings search:** a box on the settings screen.
+
+
+## CMCPVP 1.0.16 (phase 1 of 4)
+
+- **Bots that fight like players.**
+  - Knockback stays with them and slows down with friction (it used to vanish the next tick). Their movement speeds up and slows down like a player's.
+  - They hit only what a ray from their eye really touches, within 2.8 to 3.0 blocks, never through blocks.
+  - They react to where you were a moment ago, which is their reaction time, and turn their head at a limited speed with a slowly drifting aim.
+  - Better levels w-tap, jump-reset, circle-strafe and keep their distance.
+  - Six levels from Beginner (LT5) to Pro (HT1), plus a **Match my tier** button. Players no longer take double knockback from bot hits.
+- **Flat training world.** Bot fights, training dummies and the Academy happen in `pvp_training`, a plain superflat world. Every player gets their own space with an invisible wall and a training pad, so nothing has to be built first and it starts instantly. Every block changed there is put back afterwards. The Training Grounds arena copies are no longer built.
+- **Stun Slam Lab** (`/train lab`, or the Air tab of the training menu). Eight drills:
+  - Ground;
+  - Uppercut (a dummy 5 blocks above you);
+  - Ledge Run (three pillars at different heights);
+  - Double;
+  - Mid-Air;
+  - Elytra Flyer;
+  - Spear;
+  - Random (a new layout after every slam).
+
+  It shows "Shield broken!" and your break → slam time in ms, with your best time. The Academy's stun-slam lesson now counts slams.
+- **Elytra mid-air fixes:**
+  - floating and gliding targets are no longer solid, so you can't get stuck standing on them in the air;
+  - taking the elytra off mid-flight ends the glide on the server at once;
+  - elytra training keeps your chestplate in the inventory for the swap.
+- **Smaller jar:** the AI assistant and the Unstable Realm story are removed from CMCPVP.
+
+## CMCPVP 1.0.15
+
+- **Real 3D previews in the map vote.** Each preview is now a true scaled-down copy of the arena, same proportions in every direction. Towers, roofs, arches, stands, trees, water and grass all show as they are; before, the preview was a stretched height map with solid pillars.
+- **Invisible walls come first.** Every arena, each of its copies and every FFA map gets its walls before it is built or rebuilt, so no arena is ever open without them. Afterwards only gaps are closed.
+- **PvP HQ capsule, roomy and see-through.** The pod is 5×5 outside with a 3×3 room four blocks high, clear glass on all four sides, corner posts, a team-colour band, a lit floor and a lantern. At GO the floor swings open as two trapdoors, the glass shatters outward and the roof lifts away; the player drops with no fall damage and every block is put back.
+- **Four masterpiece arenas:**
+  - **Dragonspire Keep:** a castle bailey with a moat, gatehouse, corner towers, timber houses and a black dragon on the keep.
+  - **Koi Shrine Summit:** a pagoda, koi pond, red bridge, bamboo shrine, torii and cherry trees.
+  - **Corsair Harbor:** a galleon at the dock, a harbour town, a lighthouse and a crane.
+  - **Stormpeak Sanctuary:** a monastery, bell tower, prayer flags, rope bridge, stupa and rock spires above the clouds.
+- **Upgraded arenas.**
+  - Frostfang Bastion now has a Nordic longhall with a stave church, Stonewatch Keep a ruined abbey, Ember Citadel a kasbah and Obsidian Forge a volcano and forge.
+  - Titan Colosseum has a collapsed, mossy section.
+  - Every court and pro arena has sculpted trees (boughs, layered crowns, uneven spruces, cherry clouds), standing in groves instead of an even grid.
+  - Designed arenas rebuild once with the new look.
+- **Retired lookalikes:** Sakura Terrace, Blossom Court, Palmshore Court, Corsair's Wharf, Ember Sands, Highland Plaza and Frosthold. The new arenas replace them.
+
+## CMCPVP 1.0.14
+
+- **Tier Testers (like MCPvP).** Players join a test waitlist with `/tiertest <kit>`. A Tier Tester (new **TESTER** rank, permission `practice.tiertester`; owner, admin and mod have it too) opens `/testqueue` and duels them first to the tier-test length, then picks the result from LT5 to HT1. A tester can't place someone above the best tier they reached in that kit themselves, or more than 3 tiers above the player's current tier (`ranking.tester-max-above`). The automatic Tier Test Challenges are still there.
+- **Retest cooldown.** 7 days per kit after any tier test (`ranking.tier-test-cooldown-days`).
+- **5 placement matches** instead of 10. Servers still on 10 move to 5 by themselves.
+- **Rank decay (like PvPHQ).** From HT3 up, after 14 days without a ranked match in a kit, players lose 20 points a week. Decay never takes a tier away. All values are in `ranking.decay-*`.
+- **Peak tier and MCTiers points.** HT1 = 60 points down to LT5 = 1, added up across kits for an overall title (Combat Cadet up to Combat Grandmaster). Shown in the tab and on the website.
+- **Show Own Tier** setting, to hide your tier from the tab, chat and nametag.
+- **Kit groups like MCPvP:** Skill (Sword, Shield, Pot, Spear, Mace), Vanilla (Early, Late, End Game) and Community (the rest).
+- **Website.** Profiles open at `/@name`, with tier points, peak tiers, win rate and recent matches. Leaderboards get a kit search and filters by continent (with world-map pictures) and by country.
+- **Continent pictures** drawn from the real world map (Natural Earth) in the country picker for players with the resource pack (`tools/cmcpvp-art/continents.py`).
+
+## CMCPVP 1.0.13
+
+- **One tab, always.** The tab is the CMCPVP design: "CMCPVP" glued together, CMC white, PVP red, with every label red and every value white. An old `tab.yml` or the old "C MCPvP" server name can't change it any more; the name is corrected by itself.
+- **New FFA board.** Each kit has its item in its own square button, with the kit's box (name, live player bar, count) next to it. There is one row per kit, the logo sits on top, and "Random Arena" is at the bottom.
+- **Faster, lighter arenas.** The decorative landscape ring around each arena is off by default. Arenas build about twice as fast and use much less memory. `arena.landscape: true` turns the ring back on.
+
+## CMCPVP 1.0.12
+
+- **Website works on hosts:** it opens on the game address itself (`http://your-ip:your-game-port/`). The reply used to get a Minecraft length prefix in front of it, so browsers showed nothing.
+- **The name is CMCPVP everywhere**, with no "Vortex" left anywhere: messages, menus, worlds and pack names.
+  - Permission nodes that had "vortex" in them now use "cmcpvp" (for example `vortex.rank.*` → `cmcpvp.rank.*`). Update LuckPerms if you used them.
+  - The vanilla-terrain world is now `cmcpvp_terrain`.
+- **PvP HQ capsule start:**
+  - a dark brick pod hanging on chains, a lantern inside, a window toward the opponent;
+  - **PUNCH TO READY UP** (✔/✘ over the hotbar): when both punch, the count drops to 3;
+  - at GO the pod breaks apart and you drop in with no fall damage.
+- **Waiting room:** at most 5 seconds (`match.waiting-room-seconds`), then straight to the map vote with the ready maps. Every kit gets a ready map soon after start-up. The room uses full glass blocks now.
+- **3D previews** for every map in the vote, at the finest detail. They're built right after each map is, so they're ready the first time.
+- **New FFA board:** the logo on top, one button per kit with its icon, name and a live player bar, plus a Random Arena button.
+- **Auto Splash:** splash potions you throw go straight down at your feet for the full heal.
+  - It's on for every kit: Kit Editor → Auto Splash, or `auto-splash` in kits.yml.
+  - Players can turn it off in /settings.
+- **Mace and spear-mace** play only in the big open colosseums (no more vanilla maps with trees).
+- **One tab:** the Competitive design in the logo colours (CMC white, PVP red). The "Lowest Ping Host: Miami, Florida" line is gone.
+- **SMP, server selector, regions, World Manager and Hub Setup** are gone from the menus, settings and commands.

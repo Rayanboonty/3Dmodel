@@ -1,0 +1,522 @@
+<title>Vortex Admin</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex">
+<link rel="icon" href="logo-mark.png" type="image/png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600;700&family=Outfit:wght@400;500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap">
+<style>
+/* Layout: a control room - a rail of stations on the left, a status strip on top, one console in the middle. */
+:root {
+  color-scheme: dark;
+  --bg: #070A14; --bg-2: #0B1020; --panel: #0F1528; --panel-2: #141C35; --line: #1D2744; --line-2: #2A3762;
+  --text: #ECEFF8; --muted: #8E98B6; --dim: #59638A;
+  --ember: #FF3D1F; --ember-2: #FF7A1A; --amber: #FFB547; --good: #3DDC84; --warn: #FFC93C; --bad: #FF5A5A;
+  --f-display: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --f-body: "Outfit", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --f-ui: "Chakra Petch", "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --f-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 15px/1.5 var(--f-body); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--amber); }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 6px; }
+code { font-family: var(--f-mono); font-size: 12.5px; color: var(--amber); }
+.app { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100%; }
+aside { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 4px; padding: calc(18px + env(safe-area-inset-top, 0px)) 12px 14px max(12px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(180deg, var(--panel), var(--bg-2)); border-right: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 12px; padding: 4px 10px 18px; }
+.brand img { height: 40px; width: auto; filter: drop-shadow(0 3px 8px #000a); }
+.brand div { display: flex; flex-direction: column; }
+.brand b { font: 700 26px/1 var(--f-display); letter-spacing: 1px; background: linear-gradient(90deg, #fff, var(--amber) 50%, var(--ember)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand span { font: 600 10px/1 var(--f-ui); letter-spacing: 4px; color: var(--muted); margin-top: 6px; }
+nav { display: grid; gap: 2px; overflow-y: auto; }
+nav .grp { font: 600 10.5px/1 var(--f-ui); letter-spacing: 2.5px; color: var(--dim); padding: 14px 12px 6px; text-transform: uppercase; }
+nav button { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; background: none; border: 0; color: var(--muted); padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  font: 600 14px/1 var(--f-ui); letter-spacing: .3px; transition: background .15s, color .15s; }
+nav button svg { width: 17px; height: 17px; flex: none; }
+nav button:hover { background: var(--panel-2); color: var(--text); }
+nav button.on { background: color-mix(in srgb, var(--ember) 14%, var(--panel-2)); color: #fff; box-shadow: inset 2px 0 0 var(--ember-2); }
+nav button .ai { margin-left: auto; font: 700 9.5px/1 var(--f-ui); padding: 4px 6px; border-radius: 5px; color: #1a0d00; background: linear-gradient(90deg, var(--amber), var(--ember-2)); }
+.me { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
+.me img { width: 34px; height: 34px; border-radius: 8px; image-rendering: pixelated; }
+.me b { display: block; font-size: 14px; } .me a { font-size: 12px; color: var(--muted); }
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: calc(14px + env(safe-area-inset-top, 0px)) max(26px, env(safe-area-inset-right, 0px)) 14px 26px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top h1 { margin: 0; font: 700 24px/1.1 var(--f-display); letter-spacing: .5px; flex: 1; min-width: 180px; }
+.pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border-radius: 99px; border: 1px solid var(--line-2); background: var(--panel); font: 600 12.5px/1 var(--f-ui); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+.pill.warn i { background: var(--warn); } .pill.bad i { background: var(--bad); }
+main { padding: 24px max(26px, env(safe-area-inset-right, 0px)) 40px 26px; min-width: 0; }
+.sub { color: var(--muted); margin: 0 0 18px; max-width: 80ch; }
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 0; }
+.kpi span { font: 600 11px/1 var(--f-ui); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.kpi b { display: block; margin-top: 10px; font: 700 28px/1 var(--f-ui); font-variant-numeric: tabular-nums; }
+.kpi small { color: var(--dim); font: 600 12px/1 var(--f-ui); }
+.kpi canvas { width: 100%; height: 42px; margin-top: 10px; display: block; }
+.ok { color: var(--good); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.btn { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--panel-2); cursor: pointer;
+  font: 600 13px/1 var(--f-ui); letter-spacing: .4px; transition: border-color .15s, transform .15s, background .15s; white-space: nowrap; }
+.btn:hover { border-color: var(--amber); }
+.btn svg { width: 15px; height: 15px; flex: none; }
+.btn:active { transform: translateY(1px); }
+.btn.hot { border: 0; color: #fff; background: linear-gradient(180deg, #FF5A30, #D92A12); box-shadow: 0 8px 20px -10px var(--ember); }
+.btn.red { color: var(--bad); }
+.btn.sm { height: 30px; padding: 0 10px; font-size: 12px; }
+input, select, textarea { background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px; outline: none; min-width: 0; }
+input:focus, select:focus, textarea:focus { border-color: var(--ember-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ember) 16%, transparent); }
+textarea { width: 100%; min-height: 76px; resize: vertical; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+table { width: 100%; border-collapse: collapse; min-width: 640px; }
+th { text-align: left; font: 600 11px/1 var(--f-ui); letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); padding: 12px 14px; border-bottom: 1px solid var(--line); }
+td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: color-mix(in srgb, var(--panel-2) 60%, transparent); }
+.who { display: flex; align-items: center; gap: 10px; } .who img { width: 30px; height: 30px; border-radius: 7px; image-rendering: pixelated; }
+.tag { display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 5px; font: 800 10.5px/1 var(--f-ui); letter-spacing: .8px; color: #fff; }
+.switch { position: relative; width: 42px; height: 24px; border-radius: 99px; background: #2A3355; border: 0; cursor: pointer; flex: none; transition: background .2s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .2s; }
+.switch.on { background: var(--good); } .switch.on::after { left: 21px; }
+.sec { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+.sec > h3 { margin: 0; display: flex; align-items: center; gap: 10px; padding: 13px 16px; font: 600 15px/1.2 var(--f-ui); letter-spacing: .4px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.sec .in { padding: 16px; }
+.set { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 300px); gap: 16px; padding: 13px 16px; border-bottom: 1px solid var(--line); align-items: center; }
+.set:last-child { border-bottom: 0; }
+.set .n { font-weight: 600; } .set .d { color: var(--muted); font-size: 13px; } .set .p { color: var(--dim); font: 12px var(--f-mono); }
+.set input, .set select { width: 100%; }
+.settings { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 16px; align-items: start; }
+.secnav { position: sticky; top: 90px; display: grid; gap: 2px; max-height: calc(100vh - 110px); overflow-y: auto; }
+.secnav button { text-align: left; background: none; border: 0; color: var(--muted); padding: 8px 10px; border-radius: 8px; cursor: pointer; font: 600 13px/1.2 var(--f-ui); }
+.secnav button:hover { background: var(--panel); color: var(--text); }
+.kitgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.kit header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.kit header img { width: 30px; height: 30px; image-rendering: pixelated; }
+.kit header b { font: 700 17px/1.1 var(--f-display); }
+.kit .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.kit .opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 600 13px/1 var(--f-ui); color: var(--muted); }
+.kit footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font: 600 12px/1.4 var(--f-ui); color: var(--dim); }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.form label { display: grid; gap: 6px; font: 600 12px/1 var(--f-ui); letter-spacing: .6px; color: var(--muted); }
+.form .wide { grid-column: 1 / -1; }
+details.sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 13px 16px; background: var(--panel-2); font: 600 15px/1.2 var(--f-ui); }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary::after { content: "+"; margin-left: auto; color: var(--dim); font-size: 20px; }
+details.sec[open] > summary::after { content: "−"; }
+/* rank panel: permissions / members / access */
+.rp { border-top: 1px solid var(--line); padding-top: 14px; }
+.rtabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.rtabs button { border: 1px solid var(--line-2); background: var(--bg-2); color: var(--muted); border-radius: 99px; padding: 7px 13px; cursor: pointer; font: 600 12.5px/1 var(--f-ui); }
+.rtabs button.on { color: #fff; border-color: var(--ember-2); background: color-mix(in srgb, var(--ember) 18%, var(--bg-2)); }
+.plist { max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.prow:last-child { border-bottom: 0; }
+.prow code { overflow-wrap: anywhere; } .prow .muted { font-size: 12.5px; margin-top: 2px; }
+.prow .from { margin-left: 8px; font: 600 10.5px/1 var(--f-ui); color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); border-radius: 5px; padding: 2px 5px; }
+.prow .pg { font: 600 11px/1 var(--f-ui); color: var(--dim); letter-spacing: .5px; white-space: nowrap; }
+.mlist { display: grid; gap: 6px; }
+.mlist .mrow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); flex-wrap: wrap; }
+.mlist .mrow img { width: 26px; height: 26px; border-radius: 6px; image-rendering: pixelated; }
+.rh { margin: 14px 0 8px; font: 600 11px/1 var(--f-ui); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.chips2 { display: flex; gap: 6px; flex-wrap: wrap; } .chips2 code { padding: 4px 7px; border-radius: 6px; background: var(--bg-2); border: 1px solid var(--line); }
+.agrp { margin-bottom: 10px; } .agrp > b { display: block; font: 600 13px/1 var(--f-ui); margin-bottom: 6px; }
+.arow { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 13.5px; flex-wrap: wrap; }
+pre { margin: 0; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; white-space: pre-wrap; max-height: 320px; overflow: auto; font: 12.5px/1.5 var(--f-mono); }
+.choices { display: flex; gap: 8px; flex-wrap: wrap; }
+/* ---------------------------------------------------------------- AI command center */
+.cc { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; height: calc(100vh - 150px); min-height: 520px; }
+.chat { display: flex; flex-direction: column; min-height: 0; background: radial-gradient(80% 50% at 50% 0%, color-mix(in srgb, var(--ember) 10%, transparent), transparent), var(--panel);
+  border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.log { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.msg { max-width: 82%; padding: 12px 15px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; animation: pop .25s ease-out; }
+@keyframes pop { from { transform: translateY(6px); opacity: .4; } }
+.msg.you { align-self: flex-end; background: linear-gradient(180deg, color-mix(in srgb, var(--ember) 30%, var(--panel-2)), color-mix(in srgb, var(--ember) 18%, var(--panel-2))); border: 1px solid color-mix(in srgb, var(--ember) 40%, transparent); }
+.msg.ai { align-self: flex-start; background: var(--bg-2); border: 1px solid var(--line-2); }
+.msg.ai .by { display: flex; align-items: center; gap: 8px; font: 700 11px/1 var(--f-ui); letter-spacing: 2px; color: var(--amber); margin-bottom: 8px; }
+.msg.ai .by i { width: 18px; height: 18px; border-radius: 6px; background: conic-gradient(from 0deg, var(--ember), var(--amber), var(--ember)); }
+.changes { margin-top: 10px; display: grid; gap: 6px; }
+.changes div { display: flex; gap: 8px; font: 12.5px/1.4 var(--f-mono); color: var(--amber); padding: 7px 9px; border-radius: 8px; background: color-mix(in srgb, var(--amber) 8%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 22%, transparent); }
+.thinking { display: inline-flex; gap: 5px; } .thinking i { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); animation: dot 1s infinite; }
+.thinking i:nth-child(2) { animation-delay: .15s; } .thinking i:nth-child(3) { animation-delay: .3s; }
+@keyframes dot { 50% { transform: translateY(-5px); opacity: .5; } }
+.compose { display: flex; gap: 10px; padding: 14px; border-top: 1px solid var(--line); background: var(--bg-2); align-items: flex-end; }
+.compose textarea { min-height: 48px; max-height: 160px; flex: 1; border-radius: 12px; }
+.empty { margin: auto; text-align: center; max-width: 440px; color: var(--muted); }
+.empty .orb { width: 70px; height: 70px; margin: 0 auto 14px; border-radius: 22px; background: conic-gradient(from 90deg, var(--ember), var(--amber), var(--ember-2), var(--ember)); animation: spin 6s linear infinite; box-shadow: 0 0 40px -6px var(--ember); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty h2 { color: var(--text); font: 700 22px/1.2 var(--f-display); margin: 0 0 6px; }
+.side { display: grid; gap: 12px; align-content: start; overflow-y: auto; }
+.side h4 { margin: 0 0 10px; font: 600 11px/1 var(--f-ui); letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+.chips { display: grid; gap: 6px; }
+.chips button { text-align: left; background: var(--bg-2); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 9px 11px; cursor: pointer; font-size: 13.5px; transition: border-color .15s; }
+.chips button:hover { border-color: var(--amber); }
+.can { display: grid; gap: 7px; font-size: 13.5px; color: var(--muted); }
+.can div { display: flex; gap: 8px; } .can svg { width: 15px; height: 15px; color: var(--good); flex: none; margin-top: 3px; }
+.recent { display: grid; gap: 6px; font: 12px/1.4 var(--f-mono); color: var(--amber); }
+.login { max-width: 440px; margin: 16vh auto; text-align: center; padding: 30px; }
+.toast { position: fixed; right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 30; background: var(--panel-2); border: 1px solid var(--line-2); padding: 11px 16px; border-radius: 11px;
+  font: 600 13.5px/1.3 var(--f-ui); opacity: 0; translate: 0 10px; transition: opacity .2s, translate .2s; pointer-events: none; max-width: 360px; }
+.toast.on { opacity: 1; translate: 0 0; }
+.menu { display: none; }
+@media (max-width: 1100px) { .cc { grid-template-columns: 1fr; height: auto; } .chat { height: 70vh; } .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .settings { grid-template-columns: 1fr; } .secnav { display: none; } }
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  aside { position: fixed; z-index: 20; inset: 0 auto 0 0; width: 260px; transform: translateX(-100%); transition: transform .25s; }
+  aside.open { transform: none; box-shadow: 0 0 0 100vmax #0009; }
+  .menu { display: inline-flex; }
+  .top { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .set, .form { grid-template-columns: 1fr; }
+  .msg { max-width: 94%; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div id="root"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const head = n => `https://mc-heads.net/avatar/${encodeURIComponent(n)}/40`;
+const I = {
+  ai: '<path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>',
+  dash: '<path d="M3 3h8v8H3zm10 0h8v5h-8zM3 13h8v8H3zm10-3h8v11h-8z"/>',
+  players: '<path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 10a7 7 0 0 1 14 0zm15-10a3 3 0 1 0 0-6v6zm1 2a6 6 0 0 1 4 8h-3a8 8 0 0 0-2.5-7.8z"/>',
+  settings: '<path d="M10.3 2h3.4l.6 2.6 2.2 1 2.3-1.4 2.4 2.4-1.4 2.3 1 2.2 2.6.6v3.4l-2.6.6-1 2.2 1.4 2.3-2.4 2.4-2.3-1.4-2.2 1-.6 2.6h-3.4l-.6-2.6-2.2-1-2.3 1.4-2.4-2.4 1.4-2.3-1-2.2L1 13.7v-3.4l2.6-.6 1-2.2-1.4-2.3 2.4-2.4 2.3 1.4 2.2-1zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>',
+  kits: '<path d="M14.5 3l6.5 6.5-9 9-3-3-3 3L4 16.5l3-3-3-3L13 1.5zM3 21l2-2"/>',
+  ranks: '<path d="M12 2l3 6 6 1-4.5 4.4 1 6.6-5.5-3-5.5 3 1-6.6L3 9l6-1z"/>',
+  backups: '<path d="M4 4h16v5H4zm0 7h16v9H4zm4 3h8"/>',
+  reports: '<path d="M5 3h10l4 4v14H5zm4 7h6m-6 4h6"/>',
+  tools: '<path d="M14 6a4 4 0 0 1 5.6 4.6L22 13l-3 3-2.4-2.4A4 4 0 0 1 12 8L4 16l-1 5 5-1 8-8"/>'
+};
+const ico = k => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${I[k] || ""}</svg>`;
+const OKSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>';
+function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2400); }
+async function get(p) { const r = await fetch("/api/admin/" + p, {credentials: "same-origin"}); if (r.status === 401) { showLogin(); throw new Error("login"); } return r.json(); }
+async function post(p, body, quiet) {
+  const r = await fetch("/api/admin/" + p, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Requested-With": "vortex"}, body: JSON.stringify(body || {})});
+  if (r.status === 401) { showLogin(); throw new Error("login"); }
+  const j = await r.json(); if (!quiet) { if (j.error) toast(j.error); else if (j.message) toast(j.message); } return j;
+}
+function showLogin(msg) {
+  $("#root").innerHTML = `<div class="card login"><div class="empty"><div class="orb"></div><h2>Vortex Admin</h2><p>${esc(msg || "Type /webadmin in game and open the link it gives you. The link works once and logs you in for two hours.")}</p></div></div>`;
+}
+
+const PAGES = [["ai", "AI Command Center", "Control"], ["dash", "Dashboard", "Control"], ["players", "Players", "Server"], ["reports", "Reports", "Server"],
+  ["settings", "Settings", "Plugin"], ["kits", "Kits", "Plugin"], ["ranks", "Ranks & Permissions", "Plugin"], ["backups", "Backups", "Plugin"], ["tools", "Tools", "Plugin"]];
+let me = null, statusTimer = 0;
+const tpsHistory = [];
+
+function shell(page) {
+  const title = (PAGES.find(p => p[0] === page) || PAGES[0])[1];
+  let grp = "";
+  $("#root").innerHTML = `<div class="app"><aside id="aside"><div class="brand"><img src="logo-mark.png" alt="" width="241" height="176"><div><b>VORTEX</b><span>ADMIN PANEL</span></div></div>
+    <nav>${PAGES.map(([id, n, g]) => { const h = g !== grp ? `<div class="grp">${g}</div>` : ""; grp = g;
+      return h + `<button data-p="${id}" class="${id === page ? "on" : ""}" type="button">${ico(id === "dash" ? "dash" : id)}${n}${id === "ai" ? '<span class="ai">AI</span>' : ""}</button>`; }).join("")}
+      <button type="button" onclick="window.open('/', '_blank')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg>Public website</button></nav>
+    <div class="me"><img src="${head(me.name)}" alt=""><div style="min-width:0"><b>${esc(me.name)}</b><a href="#" id="logout">Log out</a></div></div></aside>
+    <div style="min-width:0"><header class="top"><button class="btn menu" id="menu" type="button" aria-label="Menu">☰</button><h1>${esc(title)}</h1>
+      <span class="pill" id="pTps"><i></i>TPS -</span><span class="pill" id="pOnline">- online</span><span class="pill" id="pMatch">- matches</span></header>
+    <main id="main"></main></div></div>`;
+  $$("nav button[data-p]").forEach(b => b.onclick = () => { location.hash = b.dataset.p; });
+  $("#logout").onclick = async e => { e.preventDefault(); await post("logout", {}, true); showLogin("Logged out."); };
+  $("#menu").onclick = () => $("#aside").classList.toggle("open");
+}
+async function pollStatus() {
+  try {
+    const s = await get("status");
+    tpsHistory.push(Math.min(20, s.tps)); if (tpsHistory.length > 60) tpsHistory.shift();
+    const t = $("#pTps"); if (t) { t.className = "pill " + (s.tps >= 18 ? "" : s.tps >= 15 ? "warn" : "bad"); t.innerHTML = `<i></i>TPS ${s.tps.toFixed(1)}`; }
+    if ($("#pOnline")) $("#pOnline").textContent = `${s.online}/${s.max} online`;
+    if ($("#pMatch")) $("#pMatch").textContent = `${s.matches} matches · ${s.queued} queued`;
+    if (location.hash.slice(1) === "dash" || !location.hash) drawDash(s);
+  } catch (e) { /* login handled */ }
+}
+
+/* ---------------------------------------------------------------- AI command center */
+const aiLog = [];
+const recent = [];
+function ai() {
+  $("#main").innerHTML = `<div class="cc">
+    <section class="chat"><div class="log" id="log"></div>
+      <form class="compose" id="aiForm"><textarea id="aiIn" placeholder="Tell the AI what to change - e.g. turn on same-tier matching for 60 seconds and give MVP the lobby fly" aria-label="Message"></textarea>
+        <button class="btn hot" type="submit" id="send">Send</button><button class="btn" type="button" id="aiNew" title="New conversation">New</button></form></section>
+    <div class="side">
+      <div class="card"><h4>Try asking</h4><div class="chips">${["What's the server status right now?", "Turn off FFA for every kit", "Make ranked matches first to 3 rounds",
+        "Give VIP the lobby fly permission", "Who is online and in the hacker pool?", "Set the hub world to Hub mode", "Show the open reports", "Save a full backup now"].map(t => `<button type="button" data-q="${esc(t)}">${esc(t)}</button>`).join("")}</div></div>
+      <div class="card"><h4>It can</h4><div class="can">${["Find and change any setting", "Turn kits and queues on or off", "Edit ranks, perks, prices and permissions", "Kick, verify, heal and move players",
+        "Broadcast, read reports, switch scoreboards", "Set world modes, back up and restore", me.op ? "Run any PracticePvP command" : "Run commands (operators only)"].map(t => `<div>${OKSVG}<span>${esc(t)}</span></div>`).join("")}</div></div>
+      <div class="card"><h4>Changed this session</h4><div class="recent" id="recent">${recent.length ? recent.map(c => `<div>✎ ${esc(c)}</div>`).join("") : '<span class="muted" style="font-family:var(--f-body)">Nothing yet. A full backup is saved before the first change.</span>'}</div></div>
+    </div></div>`;
+  const draw = () => {
+    $("#log").innerHTML = aiLog.length ? aiLog.map(m => m.who === "you" ? `<div class="msg you">${esc(m.text)}</div>`
+      : `<div class="msg ai"><div class="by"><i></i>VORTEX AI</div>${m.wait ? '<span class="thinking"><i></i><i></i><i></i></span>' : esc(m.text)}${m.changes && m.changes.length ? `<div class="changes">${m.changes.map(c => `<div>✎ <span>${esc(c)}</span></div>`).join("")}</div>` : ""}</div>`).join("")
+      : `<div class="empty"><div class="orb"></div><h2>What should I change?</h2><p>Ask in plain words, in any language. I can read and change the whole plugin: settings, kits, ranks, players, worlds, backups and commands.</p></div>`;
+    $("#log").scrollTop = $("#log").scrollHeight;
+  };
+  const send = async text => {
+    text = text.trim(); if (!text || $("#send").disabled) return;
+    aiLog.push({who: "you", text}); aiLog.push({who: "ai", wait: true}); draw(); $("#aiIn").value = ""; $("#send").disabled = true;
+    try {
+      const r = await post("ai", {message: text}, true);
+      aiLog.pop(); aiLog.push({who: "ai", text: r.reply || r.error || "No answer.", changes: r.changes || []});
+      (r.changes || []).forEach(c => recent.unshift(c));
+      if ($("#recent") && recent.length) $("#recent").innerHTML = recent.slice(0, 20).map(c => `<div>✎ ${esc(c)}</div>`).join("");
+    } catch (e) { aiLog.pop(); aiLog.push({who: "ai", text: "Couldn't reach the server. Check it's online and try again."}); }
+    $("#send").disabled = false; draw();
+  };
+  $("#aiForm").onsubmit = e => { e.preventDefault(); send($("#aiIn").value); };
+  $("#aiIn").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("#aiIn").value); } };
+  $("#aiNew").onclick = async () => { await post("ai", {reset: true}, true); aiLog.length = 0; draw(); toast("New conversation"); };
+  $$("[data-q]").forEach(b => b.onclick = () => send(b.dataset.q));
+  draw(); $("#aiIn").focus();
+}
+
+/* ---------------------------------------------------------------- dashboard */
+const fmt = s => { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + h + "h " + m + "m"; };
+async function dash() {
+  $("#main").innerHTML = `<p class="sub" id="dsub">Loading...</p><div class="cards" id="kpis"></div><div id="failed"></div>
+    <div class="sec"><h3>Quick actions</h3><div class="in row"><button class="btn" onclick="location.hash='ai'">${ico("ai")}Ask the AI</button><button class="btn" data-bk="full">${ico("backups")}Full backup now</button>
+      <button class="btn" onclick="location.hash='players'">${ico("players")}Players</button><button class="btn" onclick="window.open('/', '_blank')">Open the website</button></div></div>`;
+  $$("[data-bk]").forEach(b => b.onclick = () => post("backup", {kind: b.dataset.bk}));
+  const s = await get("status"); tpsHistory.push(Math.min(20, s.tps)); drawDash(s);
+}
+function drawDash(s) {
+  if (!$("#kpis")) return;
+  $("#dsub").innerHTML = `${esc(s.server)} · plugin ${esc(s.version)} · up ${fmt(s.uptime)} · resource pack ${s.packReady ? '<span class="ok">ready</span>' : '<span class="bad">not ready</span>'}`;
+  const kpi = (label, val, note, cls, spark) => `<div class="card kpi"><span>${label}</span><b class="${cls || ""}">${val}</b><small>${note || ""}</small>${spark ? '<canvas id="spark"></canvas>' : ""}</div>`;
+  $("#kpis").innerHTML = kpi("TPS", s.tps.toFixed(1), s.mspt.toFixed(1) + " ms per tick", s.tps >= 18 ? "ok" : "bad", true) + kpi("Online", `${s.online}<small style="font-size:16px"> / ${s.max}</small>`, "players")
+    + kpi("Fighting", s.matches, `${s.queued} queued · ${s.ffa} in FFA`) + kpi("Memory", `${s.memUsed}<small style="font-size:16px"> MB</small>`, `of ${s.memMax} MB`, s.memUsed / s.memMax > .85 ? "bad" : "")
+    + kpi("Kits", s.kits, "gamemodes") + kpi("Arenas", s.arenas, "maps") + kpi("Reports", s.reports, "open", s.reports ? "bad" : "") + kpi("Uptime", fmt(s.uptime).split(" ").slice(0, 2).join(" "), "since start");
+  $("#failed").innerHTML = s.failed && s.failed.length ? `<div class="sec"><h3 class="bad">Parts that failed to start</h3><div class="in">${s.failed.map(f => `<div class="bad">✖ ${esc(f)}</div>`).join("")}<p class="muted">The full error is in logs/latest.log.</p></div></div>`
+    : `<div class="card" style="margin-bottom:14px"><span class="ok">✔</span> Every part of the plugin started fine.</div>`;
+  const cv = $("#spark"); if (!cv) return;
+  const d = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight; cv.width = w * d; cv.height = h * d; const g = cv.getContext("2d"); g.scale(d, d);
+  const pts = tpsHistory.length > 1 ? tpsHistory : [s.tps, s.tps];
+  const x = i => i / (pts.length - 1) * w, y = v => h - 3 - (Math.max(0, v - 10) / 10) * (h - 6);
+  g.beginPath(); pts.forEach((v, i) => i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v))); g.lineTo(w, h); g.lineTo(0, h); g.closePath();
+  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "rgba(61,220,132,.35)"); gr.addColorStop(1, "rgba(61,220,132,0)"); g.fillStyle = gr; g.fill();
+  g.beginPath(); pts.forEach((v, i) => i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v))); g.strokeStyle = "#3DDC84"; g.lineWidth = 2; g.stroke();
+  const lx = x(pts.length - 1), ly = y(pts[pts.length - 1]); g.fillStyle = "#3DDC84"; g.beginPath(); g.arc(lx - 2, ly, 3, 0, 7); g.fill();
+}
+
+/* ---------------------------------------------------------------- players */
+async function players() {
+  const list = await get("players");
+  $("#main").innerHTML = `<p class="sub">${list.length} online. Kick asks for a reason first.</p><div class="tbl"><table><thead><tr><th>Player</th><th>Rank</th><th>Where</th><th>Ping</th><th></th></tr></thead><tbody>
+    ${list.map(p => `<tr><td><div class="who"><img src="${head(p.name)}" alt=""><div><b>${esc(p.name)}</b> ${p.verified ? '<span class="ok">✔</span>' : '<span class="muted">unverified</span>'} ${p.pooled ? '<span class="bad">hacker pool</span>' : ""}<div class="muted" style="font-size:12.5px">${esc(p.country || "")}</div></div></div></td>
+      <td>${p.rank ? `<span class="tag" style="background:linear-gradient(90deg,${esc(p.rank.from)},${esc(p.rank.to)})">${esc(p.rank.label)}</span>` : '<span class="muted">default</span>'}</td>
+      <td>${esc(p.state)}<div class="muted" style="font-size:12.5px">${esc(p.world)}</div></td><td style="font-variant-numeric:tabular-nums">${p.ping} ms</td>
+      <td><div class="row" style="justify-content:flex-end"><button class="btn sm" data-a="lobby" data-n="${esc(p.name)}">Lobby</button><button class="btn sm" data-a="heal" data-n="${esc(p.name)}">Heal</button>
+        <button class="btn sm" data-a="${p.verified ? "unverify" : "verify"}" data-n="${esc(p.name)}">${p.verified ? "Unverify" : "Verify"}</button><button class="btn sm red" data-kick="${esc(p.name)}">Kick</button></div>
+        <form class="row" data-kf="${esc(p.name)}" hidden style="margin-top:8px;justify-content:flex-end"><input name="reason" placeholder="Reason (optional)" id="kr-${esc(p.name)}"><button class="btn sm red">Kick now</button></form></td></tr>`).join("")
+      || `<tr><td colspan="5" class="muted">Nobody online.</td></tr>`}</tbody></table></div>`;
+  $$("[data-a]").forEach(b => b.onclick = async () => { await post("player", {name: b.dataset.n, action: b.dataset.a}); players(); });
+  $$("[data-kick]").forEach(b => b.onclick = () => { const f = document.querySelector(`[data-kf="${CSS.escape(b.dataset.kick)}"]`); f.hidden = !f.hidden; });
+  $$("[data-kf]").forEach(f => f.onsubmit = async e => { e.preventDefault(); await post("player", {name: f.dataset.kf, action: "kick", reason: f.reason.value}); players(); });
+}
+
+/* ---------------------------------------------------------------- settings */
+async function settings() {
+  const list = await get("settings");
+  const secs = {}; list.forEach(o => (secs[o.section] = secs[o.section] || []).push(o));
+  const ids = Object.keys(secs).map((s, i) => ["sec" + i, s]);
+  $("#main").innerHTML = `<p class="sub">Every option of the plugin. Changes save and apply at once. Can't find one? Ask the AI.</p>
+    <div class="row" style="margin-bottom:14px"><input id="filter" placeholder="Search ${list.length} settings..." style="flex:1;max-width:460px" aria-label="Search settings"><span class="muted" id="fcount"></span></div>
+    <div class="settings"><div class="secnav">${ids.map(([id, s]) => `<button type="button" data-go="${id}">${esc(s)}</button>`).join("")}</div>
+    <div>${ids.map(([id, s]) => `<div class="sec" id="${id}" data-sec><h3>${esc(s)}<span class="muted" style="margin-left:auto;font-size:12px">${secs[s].length}</span></h3>${secs[s].map(field).join("")}</div>`).join("")}</div></div>`;
+  $$("[data-go]").forEach(b => b.onclick = () => document.getElementById(b.dataset.go).scrollIntoView({behavior: "smooth", block: "start"}));
+  $("#filter").oninput = () => { const q = $("#filter").value.toLowerCase(); let n = 0;
+    $$(".set").forEach(el => { const hit = el.dataset.q.includes(q); el.hidden = !hit; if (hit) n++; });
+    $$("[data-sec]").forEach(s => s.hidden = !s.querySelector(".set:not([hidden])"));
+    $("#fcount").textContent = q ? n + " found" : ""; };
+  $$(".switch[data-path]").forEach(b => b.onclick = async () => { const v = !b.classList.contains("on"); const r = await post("setting", {path: b.dataset.path, value: v}); if (r.ok) b.classList.toggle("on", !!r.value); });
+  $$("[data-save]").forEach(el => el.onchange = async () => {
+    let v = el.value; const t = el.dataset.type;
+    if (t === "INT") v = parseInt(v); else if (t === "DOUBLE") v = parseFloat(v);
+    else if (t === "STRING_LIST") v = v.split("\n"); else if (t === "INT_LIST") v = v.split(/[,\s]+/).filter(Boolean).map(Number);
+    const r = await post("setting", {path: el.dataset.save, value: v});
+    if (r.ok && t !== "STRING_LIST" && t !== "INT_LIST") el.value = r.value;
+  });
+}
+function field(o) {
+  let input;
+  const id = "s-" + o.path.replace(/[^a-z0-9]/gi, "-");
+  if (o.type === "BOOL") input = `<button class="switch ${o.value ? "on" : ""}" data-path="${esc(o.path)}" aria-label="${esc(o.name)}" type="button" id="${id}"></button>`;
+  else if (o.options) input = `<select data-save="${esc(o.path)}" data-type="ENUM" id="${id}">${o.options.map(x => `<option ${x === o.value ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
+  else if (o.type === "STRING_LIST") input = `<textarea data-save="${esc(o.path)}" data-type="STRING_LIST" id="${id}">${esc((o.value || []).join("\n"))}</textarea>`;
+  else if (o.type === "INT_LIST") input = `<input data-save="${esc(o.path)}" data-type="INT_LIST" value="${esc((o.value || []).join(", "))}" id="${id}">`;
+  else if (o.type === "INT" || o.type === "DOUBLE") input = `<input type="number" step="${o.type === "INT" ? 1 : 0.05}" min="${o.min}" max="${o.max}" data-save="${esc(o.path)}" data-type="${o.type}" value="${o.value}" id="${id}">`;
+  else input = `<input ${o.secret ? 'type="password"' : ""} data-save="${esc(o.path)}" data-type="STRING" value="${esc(o.value)}" id="${id}">`;
+  return `<div class="set" data-q="${esc((o.name + " " + o.desc + " " + o.path).toLowerCase())}"><div style="min-width:0"><div class="n">${esc(o.name)}</div><div class="d">${esc(o.desc)}</div><div class="p">${esc(o.path)}</div></div><div>${input}</div></div>`;
+}
+
+/* ---------------------------------------------------------------- kits */
+async function kits() {
+  const list = await get("kits");
+  const tex = id => `https://assets.mcasset.cloud/1.21.4/assets/minecraft/textures/item/${encodeURIComponent(id)}.png`;
+  const sw = (k, f, label) => `<div class="opt">${label}<button class="switch ${k[f] ? "on" : ""}" data-k="${esc(k.id)}" data-f="${f}" type="button" aria-label="${esc(k.name)} ${label}"></button></div>`;
+  $("#main").innerHTML = `<p class="sub">Turn gamemodes and their queues on or off. Edit what's inside a kit in game (/pvpadmin → Kits).</p>
+    <div class="kitgrid">${list.map(k => `<div class="card kit"><header><img src="${tex(k.icon)}" alt="" onerror="this.style.visibility='hidden'"><div style="min-width:0"><b style="color:${esc(k.color)}">${esc(k.name)}</b>
+      <div class="muted" style="font-size:12.5px">${esc(k.id)} · ${esc(k.category)} · first to ${k.rounds}${k.build ? " · building" : ""}</div></div></header>
+      <div class="opts">${sw(k, "enabled", "Enabled")}${sw(k, "ranked", "Ranked")}${sw(k, "unranked", "Casual")}${sw(k, "ffa", "FFA")}</div>
+      <footer>${k.arenas} arenas · ${k.playing} playing · ${k.queued} queued</footer></div>`).join("")}</div>`;
+  $$(".switch[data-k]").forEach(b => b.onclick = async () => { const v = !b.classList.contains("on"); const r = await post("kit", {id: b.dataset.k, field: b.dataset.f, value: v}); if (r.ok) b.classList.toggle("on", v); });
+}
+
+/* ---------------------------------------------------------------- ranks */
+async function ranks() {
+  const list = await get("ranks");
+  $("#main").innerHTML = `<p class="sub">Each rank gives its own permission <code>vortex.rank.&lt;id&gt;</code> plus the ones you list (applied live). <code>-node</code> takes one away. A rank can inherit another.</p>
+    <div class="card" style="margin-bottom:14px"><form class="row" id="give"><b>Give a rank</b><input id="rsName" placeholder="Player name" required><select id="rsRank">${list.map(r => `<option value="${esc(r.id)}">${esc(r.id)}</option>`).join("")}</select><button class="btn hot">Give</button>
+      <span style="flex:1"></span><input id="newRank" placeholder="new-rank-id"><button class="btn" type="button" id="newGo">+ New rank</button></form></div>
+    ${list.map(r => `<details class="sec"><summary>${r.label ? `<span class="tag" style="background:linear-gradient(90deg,${esc(r.from)},${esc(r.to)})">${esc(r.label)}</span>` : "<b>default</b>"}<span class="muted" style="font-size:13px">${esc(r.id)} · weight ${r.weight}${r.staff ? " · staff" : ""}${r.price ? " · " + esc(r.price) : ""}</span></summary>
+      <div class="in form">
+        <label>Label<input data-r="${esc(r.id)}" data-f="label" value="${esc(r.label)}"></label>
+        <label>Gradient (from / to)<div class="row"><input data-r="${esc(r.id)}" data-f="from" value="${esc(r.from)}" style="width:120px"><input data-r="${esc(r.id)}" data-f="to" value="${esc(r.to)}" style="width:120px"></div></label>
+        <label>Name colour<input data-r="${esc(r.id)}" data-f="nameColor" value="${esc(r.nameColor)}"></label>
+        <label>Weight (higher = top of tab)<input type="number" data-r="${esc(r.id)}" data-f="weight" value="${r.weight}"></label>
+        <label>Icon (item name, or glyph:play)<input data-r="${esc(r.id)}" data-f="icon" value="${esc(r.icon)}"></label>
+        <label>Inherits<select data-r="${esc(r.id)}" data-f="inherit"><option value="">none</option>${list.filter(o => o.id !== r.id).map(o => `<option ${o.id === r.inherit ? "selected" : ""}>${esc(o.id)}</option>`).join("")}</select></label>
+        <label>Price on the website (empty = not sold)<input data-r="${esc(r.id)}" data-f="price" value="${esc(r.price)}"></label>
+        <label>Staff rank<select data-r="${esc(r.id)}" data-f="staff"><option value="false">no</option><option value="true" ${r.staff ? "selected" : ""}>yes</option></select></label>
+        <label class="wide">Description<input data-r="${esc(r.id)}" data-f="description" value="${esc(r.description)}"></label>
+        <label class="wide">Perks on the website (one per line)<textarea data-r="${esc(r.id)}" data-f="perks">${esc(r.perks.join("\n"))}</textarea></label>
+        <div class="wide rp" data-rp="${esc(r.id)}"><div class="muted">Loading permissions…</div></div>
+        ${r.id !== "default" ? `<div class="wide row"><button class="btn red" type="button" data-del="${esc(r.id)}">Delete rank</button><span class="muted" data-confirm="${esc(r.id)}" hidden>Sure? <button class="btn sm red" type="button" data-really="${esc(r.id)}">Yes, delete</button></span></div>` : ""}
+      </div></details>`).join("")}`;
+  $$("[data-r]").forEach(el => el.onchange = () => post("rank", {id: el.dataset.r, field: el.dataset.f, value: el.value}));
+  // the permissions / members / access panel loads when a rank is opened
+  $$("details.sec").forEach(d => d.addEventListener("toggle", () => { const el = d.querySelector("[data-rp]"); if (d.open && el && !el.dataset.done) { el.dataset.done = 1; rankPanel(el, el.dataset.rp, "perms"); } }));
+  $$("[data-del]").forEach(b => b.onclick = () => { document.querySelector(`[data-confirm="${CSS.escape(b.dataset.del)}"]`).hidden = false; });
+  $$("[data-really]").forEach(b => b.onclick = async () => { await post("rank", {id: b.dataset.really, field: "delete"}); ranks(); });
+  $("#give").onsubmit = async e => { e.preventDefault(); await post("rankset", {player: $("#rsName").value.trim(), rank: $("#rsRank").value}); };
+  $("#newGo").onclick = async () => { await post("rank", {id: $("#newRank").value.trim(), field: "create"}); ranks(); };
+}
+
+/* one rank: every permission on the server (switches), who has it, what its players can use */
+let permCatalog = null;
+async function rankPanel(el, id, tab, keep) {
+  if (!permCatalog) permCatalog = await get("permissions");
+  const info = await post("rankaccess", {id}, true);
+  if (info.error) { el.innerHTML = `<div class="bad">${esc(info.error)}</div>`; return; }
+  const tabs = [["perms", "Permissions"], ["members", "Members (" + info.members.length + ")"], ["access", "What they can access"]];
+  const head = `<div class="rtabs">${tabs.map(([k, n]) => `<button type="button" class="${k === tab ? "on" : ""}" data-tab="${k}">${esc(n)}</button>`).join("")}</div>`;
+  const given = info.gives || {};
+  let body = "";
+  if (tab === "perms") {
+    const total = Object.keys(given).filter(n => !n.startsWith("vortex.rank.")).length;
+    const all = given["*"] !== undefined;
+    body = `<div class="row" style="margin:10px 0"><input class="rpq" placeholder="Search ${permCatalog.reduce((s, g) => s + g.nodes.length, 0)} permissions…" value="${esc(keep && keep.q || "")}" style="flex:1;min-width:200px" aria-label="Search permissions">
+        <select class="rpg" aria-label="Plugin"><option value="">Every plugin</option>${permCatalog.map(g => `<option ${keep && keep.g === g.name ? "selected" : ""}>${esc(g.name)}</option>`).join("")}</select>
+        <span class="muted">${total} given</span><button type="button" class="btn sm ${all ? "red" : ""}" data-all>${all ? "Take away everything (*)" : "Give everything (*)"}</button></div>
+      <div class="plist"></div>
+      <form class="row custom" style="margin-top:10px"><input name="node" placeholder="Any other permission, e.g. essentials.fly or worldedit.*" style="flex:1;min-width:220px" aria-label="Custom permission">
+        <button class="btn sm hot" name="give">Give</button><button class="btn sm red" type="button" data-deny>Take away</button></form>`;
+  } else if (tab === "members") {
+    body = `<form class="row add" style="margin:10px 0"><input name="player" placeholder="Player name" required aria-label="Player name"><button class="btn sm hot">Give the rank</button></form>
+      <div class="mlist">${info.members.length ? info.members.map(m => `<div class="mrow"><img src="${head(m.name)}" alt=""><b>${esc(m.name)}</b><span class="${m.online ? "ok" : "muted"}">${m.online ? "online" : "offline"}</span>
+        <span class="muted" style="flex:1">${esc(m.how)}</span>${m.how === "/rank set" ? `<button class="btn sm red" type="button" data-rm="${esc(m.name)}">Take away</button>` : ""}</div>`).join("") : '<div class="muted">Nobody has this rank yet.</div>'}</div>`;
+  } else {
+    const groups = {}; info.permissions.forEach(p => (groups[p.group] = groups[p.group] || []).push(p));
+    body = `<p class="muted" style="margin:10px 0">Players of this rank can use <b style="color:var(--text)">${info.allCommands}</b> commands. Here is what they get on top of a default player.</p>
+      <h4 class="rh">Commands this rank adds (${info.commands.length})</h4><div class="chips2">${info.commands.map(c => `<code>${esc(c)}</code>`).join("") || '<span class="muted">None - the same commands as everyone.</span>'}</div>
+      <h4 class="rh">Permissions this rank adds (${info.permissions.length})</h4>${Object.entries(groups).map(([g, list]) => `<div class="agrp"><b>${esc(g)}</b>${list.map(p => `<div class="arow"><span class="ok">✔</span><code>${esc(p.node)}</code><span class="muted">${esc(p.desc)}</span></div>`).join("")}</div>`).join("") || '<div class="muted">Nothing more than a default player.</div>'}
+      ${info.unknown.length ? `<p class="muted">Not on this server (plugin missing?): <code>${esc(info.unknown.join(", "))}</code></p>` : ""}`;
+  }
+  el.innerHTML = head + body;
+  el.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => rankPanel(el, id, b.dataset.tab));
+  if (tab === "perms") {
+    const draw = () => {
+      const q = el.querySelector(".rpq").value.trim().toLowerCase(), g = el.querySelector(".rpg").value;
+      const rows = [];
+      for (const grp of permCatalog) {
+        if (g && grp.name !== g) continue;
+        for (const n of grp.nodes) {
+          if (q && !(n.node.toLowerCase().includes(q) || n.desc.toLowerCase().includes(q))) continue;
+          rows.push([grp.name, n]);
+          if (rows.length >= 300) break;
+        }
+        if (rows.length >= 300) break;
+      }
+      el.querySelector(".plist").innerHTML = rows.map(([gn, n]) => { const on = given[n.node] !== undefined, src = given[n.node];
+        return `<div class="prow"><div style="min-width:0"><code>${esc(n.node)}</code>${src ? `<span class="from">from ${esc(src)}</span>` : ""}<div class="muted">${esc(n.desc || "")}</div></div><span class="pg">${esc(gn)}</span>
+          <button class="switch ${on ? "on" : ""}" type="button" data-node="${esc(n.node)}" aria-label="${esc(n.node)}"></button></div>`; }).join("")
+        + (rows.length >= 300 ? '<div class="muted" style="padding:8px">First 300 shown - search to narrow it down.</div>' : "") || '<div class="muted" style="padding:8px">No permission matches.</div>';
+      el.querySelectorAll("[data-node]").forEach(b => b.onclick = async () => {
+        const on = !b.classList.contains("on");
+        await post("rankperm", {id, node: b.dataset.node, value: on}, true);
+        toast((on ? "Given: " : "Taken away: ") + b.dataset.node);
+        rankPanel(el, id, "perms", {q: el.querySelector(".rpq").value, g: el.querySelector(".rpg").value});
+      });
+    };
+    el.querySelector(".rpq").oninput = draw; el.querySelector(".rpg").onchange = draw; draw();
+    el.querySelector("[data-all]").onclick = async () => { await post("rankperm", {id, node: "*", value: given["*"] !== undefined ? null : true}); rankPanel(el, id, "perms"); };
+    const f = el.querySelector(".custom");
+    f.onsubmit = async e => { e.preventDefault(); if (!f.node.value.trim()) return; await post("rankperm", {id, node: f.node.value.trim(), value: true}); rankPanel(el, id, "perms"); };
+    el.querySelector("[data-deny]").onclick = async () => { if (!f.node.value.trim()) return; await post("rankperm", {id, node: f.node.value.trim(), value: false}); rankPanel(el, id, "perms"); };
+  } else if (tab === "members") {
+    const f = el.querySelector(".add");
+    f.onsubmit = async e => { e.preventDefault(); await post("rankmember", {id, player: f.player.value.trim()}); rankPanel(el, id, "members"); };
+    el.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { await post("rankmember", {id, player: b.dataset.rm, remove: true}); rankPanel(el, id, "members"); });
+  }
+}
+
+/* ---------------------------------------------------------------- backups / reports / tools */
+async function backups() {
+  const b = await get("backups");
+  const block = (kind, title, desc, files, canRestore) => `<div class="sec"><h3>${title}<button class="btn sm hot" style="margin-left:auto" data-bk="${kind}" type="button">Back up now</button></h3><div class="in"><p class="muted" style="margin-top:0">${desc}</p>
+    ${files.length ? `<div class="tbl"><table style="min-width:0"><tbody>${files.slice(0, 10).map(f => `<tr><td><code style="color:var(--text)">${esc(f)}</code></td><td style="text-align:right">${canRestore ? `<button class="btn sm" data-rs="${kind}" data-f="${esc(f)}" type="button">Restore</button>
+      <span data-rc="${esc(kind + f)}" hidden> <button class="btn sm red" data-rr="${kind}" data-f="${esc(f)}" type="button">Yes, restore</button></span>` : ""}</td></tr>`).join("")}</tbody></table></div>` : '<div class="muted">No backups yet.</div>'}</div></div>`;
+  $("#main").innerHTML = `<p class="sub">Everything is kept outside the plugin folder (plugins/VortexRealm-Vault), so updates never lose it. Restoring backs up the current state first.</p>
+    ${block("full", "All-in-One Backup", "Ranks, kits and settings in one file, plus every player's tier, points and records. Restores live.", b.full || [], true)}
+    ${block("kits", "Kits", "Every kit with its contents, icon, rules and arenas.", b.kits || [], true)}
+    ${block("settings", "Settings", "Every settings file: config, messages, ranks, hotbar, scoreboards, selector, economy, tab, NPCs, decorations.", b.settings || [], true)}
+    ${block("vault", "Full Data Vault", "A snapshot of the whole plugin folder with the database. Restoring needs a restart.", b.vault || [], true)}
+    ${block("ranks", "Rank Backups", "Every player's ranks per kit. Restore with /pvpadmin restore in game.", b.ranks || [], false)}`;
+  $$("[data-bk]").forEach(x => x.onclick = async () => { await post("backup", {kind: x.dataset.bk}); setTimeout(backups, 1500); });
+  $$("[data-rs]").forEach(x => x.onclick = () => { document.querySelector(`[data-rc="${CSS.escape(x.dataset.rs + x.dataset.f)}"]`).hidden = false; });
+  $$("[data-rr]").forEach(x => x.onclick = async () => { await post("restore", {kind: x.dataset.rr, file: x.dataset.f}); backups(); });
+}
+async function reports() {
+  const list = await get("reports");
+  $("#main").innerHTML = `<p class="sub">${list.length} open. Handle them in game with /reports, or ask the AI about them.</p>
+    <div class="tbl"><table><thead><tr><th>#</th><th>Player</th><th>Reason</th><th>By</th><th>When</th></tr></thead><tbody>
+    ${list.map(r => `<tr><td>${r.id}</td><td><div class="who"><img src="${head(r.target)}" alt=""><div><b>${esc(r.target)}</b><div class="muted" style="font-size:12.5px">${esc(r.where)}</div></div></div></td><td>${esc(r.reason)}</td><td>${esc(r.by)}</td><td>${new Date(r.at).toLocaleString()}</td></tr>`).join("")
+      || `<tr><td colspan="5" class="muted">No open reports. Nice.</td></tr>`}</tbody></table></div>`;
+}
+async function tools() {
+  $("#main").innerHTML = `<p class="sub">Broadcast, scoreboard designs${me.op ? " and the console" : ""}.</p>
+    <div class="sec"><h3>Broadcast</h3><form class="in row" id="bcf"><input id="bc" style="flex:1" placeholder="Message to everyone online" required><button class="btn hot">Send</button></form></div>
+    <div class="sec"><h3>Scoreboard design</h3><div class="in choices">${["CLASSIC", "MINIMAL", "BOXED", "MCPVP", "NEON", "COMPACT", "ELEGANT", "DONUT"].map(d => `<button class="btn" data-sb="${d}" type="button">${d[0] + d.slice(1).toLowerCase()}</button>`).join("")}</div></div>
+    ${me.op ? `<div class="sec"><h3>Console</h3><div class="in" style="display:grid;gap:10px"><form class="row" id="cmdf"><input id="cmd" style="flex:1" placeholder="Command, e.g. pvpadmin health" required><button class="btn hot">Run</button></form><pre id="out">Output appears here.</pre></div></div>` : ""}`;
+  $("#bcf").onsubmit = async e => { e.preventDefault(); await post("broadcast", {message: $("#bc").value}); $("#bc").value = ""; };
+  $$("[data-sb]").forEach(b => b.onclick = () => post("scoreboard", {design: b.dataset.sb}));
+  if (me.op) $("#cmdf").onsubmit = async e => { e.preventDefault(); const r = await post("command", {command: $("#cmd").value}, true); $("#out").textContent = r.output || r.error || ""; };
+}
+
+/* ---------------------------------------------------------------- start */
+const VIEWS = {ai, dash, players, settings, kits, ranks, backups, reports, tools};
+async function route() {
+  const page = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : "ai";
+  shell(page);
+  try { await VIEWS[page](); } catch (e) { if (e.message !== "login") $("#main").innerHTML = `<div class="card bad">${esc(e.message)}</div>`; }
+  pollStatus();
+}
+(async () => {
+  const m = location.hash.match(/^#t=([0-9a-f]+)$/);
+  if (m) {
+    const r = await fetch("/api/admin/login", {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token: m[1]})});
+    const j = await r.json(); history.replaceState(null, "", "/admin#ai");
+    if (j.error) { showLogin(j.error); return; }
+  }
+  try { me = await get("me"); } catch (e) { return; }
+  addEventListener("hashchange", route);
+  route();
+  statusTimer = setInterval(pollStatus, 8000);
+})();
+</script>
