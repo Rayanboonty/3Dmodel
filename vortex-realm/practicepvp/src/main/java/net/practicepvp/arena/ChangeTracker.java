@@ -62,6 +62,11 @@ public final class ChangeTracker {
         }
     }
 
+    /** 1.0.19: true if this block was changed during the session (placed, broken, flowed into...). */
+    public boolean touched(Block b) {
+        return this.changes.containsKey(Locs.pack(b.getX(), b.getY(), b.getZ()));
+    }
+
     public boolean isEmpty() {
         return this.changes.isEmpty();
     }

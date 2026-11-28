@@ -155,6 +155,11 @@ public final class TrainingWorld implements Listener {
         }
     }
 
+    /** The block changes of a session cell (null for a real arena). */
+    public ChangeTracker trackerOf(ArenaInstance i) {
+        return isSlot(i) ? this.changes.get(slotOf(i)) : null;
+    }
+
     /** Places a block for a session (Stun Slam Lab platforms...): written down so it goes away afterwards. */
     public void place(ArenaInstance i, Block b, Material m) {
         if (isSlot(i)) {

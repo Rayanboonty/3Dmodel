@@ -17,6 +17,7 @@ import net.practicepvp.session.PlayerState;
 import net.practicepvp.session.Session;
 import net.practicepvp.util.Cuboid;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -115,36 +116,52 @@ public final class ArenaListener implements Listener {
         }
     }
 
-    private Boolean mayBuild(Player p, Block b) {
+    /**
+     * May this player change this block? {@code item} is what they place (block or bucket, null when breaking or
+     * filling a bucket). 1.0.19: a kit without build mode can still use its own items (the Trident kit's water bucket,
+     * cobwebs...) inside the arena, and pick up again what was placed in this match; the map itself stays protected.
+     */
+    private Boolean mayBuild(Player p, Block b, Material item, boolean place) {
         Session s = this.plugin.sessions().get(p);
         if (s.state == PlayerState.MATCH) {
             Match m = s.match;
-            if (m != null && m.instance() != null && m.state() == Match.State.FIGHTING && m.kit.build && m.isAlive(p.getUniqueId())) {
+            if (m != null && m.instance() != null && m.state() == Match.State.FIGHTING && m.isAlive(p.getUniqueId())) {
                 Cuboid c = m.instance().bounds();
                 ArenaInstance inst = m.instance();
-                return inst.contains(b.getLocation())
+                boolean area = inst.contains(b.getLocation())
                     && b.getY() <= inst.maxBuildY()
                     && c != null
                     && ArenaGenerator.onFloor(inst.arena.theme, inst.arena.size, inst.arena.bounds, b.getX() - inst.dx, b.getZ() - inst.dz);
+                return area && (m.kit.build || kitItem(m.kit, inst.tracker, b, item, place));
             } else {
                 return false;
             }
         } else if (s.state == PlayerState.BOT) {
-            return this.plugin.bots() == null ? Boolean.FALSE : this.plugin.bots().mayBuild(p, b);
+            return this.plugin.bots() == null ? Boolean.FALSE : this.plugin.bots().mayBuild(p, b, item, place);
         } else if (s.state == PlayerState.FFA) {
             FfaArena a = s.ffa;
             Kit k = a == null ? null : this.plugin.ffa().kitOf(a);
-            return a != null && k != null && k.build && a.contains(b.getLocation()) && ArenaGenerator.onFloor(a.theme, a.size, a.bounds, b.getX(), b.getZ());
+            return a != null && k != null && a.contains(b.getLocation()) && ArenaGenerator.onFloor(a.theme, a.size, a.bounds, b.getX(), b.getZ())
+                && (k.build || kitItem(k, a.tracker, b, item, place));
         } else {
             return null;
         }
+    }
+
+    /** A kit without build mode: its own items may be placed, and only what this session changed may be taken back. */
+    public static boolean kitItem(Kit k, ChangeTracker t, Block b, Material item, boolean place) {
+        if (place) {
+            return item != null && item != Material.AIR && k.countOf(item) > 0;
+        }
+
+        return t != null && t.touched(b);
     }
 
     @EventHandler(
         priority = EventPriority.HIGHEST
     )
     public void onPlace(BlockPlaceEvent e) {
-        Boolean ok = this.mayBuild(e.getPlayer(), e.getBlockPlaced());
+        Boolean ok = this.mayBuild(e.getPlayer(), e.getBlockPlaced(), e.getItemInHand().getType(), true);
         if (ok != null) {
             if (ok) {
                 e.setBuild(true);
@@ -177,7 +194,7 @@ public final class ArenaListener implements Listener {
         priority = EventPriority.HIGHEST
     )
     public void onBreak(BlockBreakEvent e) {
-        Boolean ok = this.mayBuild(e.getPlayer(), e.getBlock());
+        Boolean ok = this.mayBuild(e.getPlayer(), e.getBlock(), null, false);
         if (ok != null) {
             e.setCancelled(!ok);
         }
@@ -199,7 +216,7 @@ public final class ArenaListener implements Listener {
         priority = EventPriority.HIGHEST
     )
     public void onBucketEmpty(PlayerBucketEmptyEvent e) {
-        Boolean ok = this.mayBuild(e.getPlayer(), e.getBlock());
+        Boolean ok = this.mayBuild(e.getPlayer(), e.getBlock(), e.getBucket(), true);
         if (ok != null) {
             e.setCancelled(!ok);
         }
@@ -218,7 +235,7 @@ public final class ArenaListener implements Listener {
         priority = EventPriority.HIGHEST
     )
     public void onBucketFill(PlayerBucketFillEvent e) {
-        Boolean ok = this.mayBuild(e.getPlayer(), e.getBlock());
+        Boolean ok = this.mayBuild(e.getPlayer(), e.getBlock(), null, false);
         if (ok != null) {
             e.setCancelled(!ok);
         }

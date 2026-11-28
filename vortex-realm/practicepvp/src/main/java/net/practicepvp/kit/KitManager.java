@@ -156,6 +156,23 @@ public final class KitManager {
                 }
 
                 this.plugin.getLogger().info("Loaded " + this.kits.size() + " kits.");
+                // 1.0.19: kits with placeable items but no build mode (they still work: their own items can be used)
+                for (Kit k : this.kits.values()) {
+                    if (!k.build) {
+                        java.util.Set<String> items = new java.util.TreeSet<>();
+                        for (org.bukkit.inventory.ItemStack it : k.contents) {
+                            if (it != null && (it.getType().isBlock() && it.getType().isSolid() || it.getType().name().endsWith("_BUCKET")
+                                || it.getType() == org.bukkit.Material.COBWEB)) {
+                                items.add(it.getType().name().toLowerCase(java.util.Locale.ROOT));
+                            }
+                        }
+
+                        if (!items.isEmpty()) {
+                            this.plugin.getLogger().info("Kit " + k.id + " has build mode off but carries " + items
+                                + ": players can use those items in the arena (the map stays protected).");
+                        }
+                    }
+                }
             }
         }
     }

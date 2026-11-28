@@ -912,12 +912,19 @@ public final class BotManager implements Listener, TabExecutor {
 
     /** Building during a bot fight or training: inside the map copy, for building kits and crystal kits. */
     public Boolean mayBuild(Player p, Block b) {
+        return this.mayBuild(p, b, null, true);
+    }
+
+    /** 1.0.19: like a match, a kit without build mode can still use its own items (water bucket...). */
+    public Boolean mayBuild(Player p, Block b, org.bukkit.Material item, boolean place) {
         Fight f = this.fights.get(p.getUniqueId());
         if (f == null) {
             return null;
         } else {
             boolean kitBuilds = f.kit.build || f.kit.playsOn("CRYSTAL");
-            return kitBuilds && f.inst.contains(b.getLocation()) && b.getY() <= f.inst.maxBuildY();
+            boolean area = f.inst.contains(b.getLocation()) && b.getY() <= f.inst.maxBuildY();
+            return area && (kitBuilds || net.practicepvp.listener.ArenaListener.kitItem(f.kit,
+                TrainingWorld.isSlot(f.inst) ? this.training.trackerOf(f.inst) : f.inst.tracker, b, item, place));
         }
     }
 
